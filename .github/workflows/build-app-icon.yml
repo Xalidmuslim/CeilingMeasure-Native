@@ -1,0 +1,37 @@
+name: Build selected app icon
+
+on:
+  push:
+    paths:
+      - "branding/icon_parts/**"
+      - ".github/workflows/build-app-icon.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-icon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct selected icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat branding/icon_parts/part_*.b64 | base64 --decode > branding/app_icon_master_1024.webp
+          echo "a89e22f5c1a198f7977bdde34bc69ffef5c8d92bb42bcf90f21146bb9162475c  branding/app_icon_master_1024.webp" | sha256sum -c -
+          file branding/app_icon_master_1024.webp
+      - name: Commit reconstructed binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add branding/app_icon_master_1024.webp
+          if git diff --cached --quiet; then
+            echo "Icon already up to date."
+            exit 0
+          fi
+          git commit -m "Add selected app icon master"
+          git push
