@@ -1,0 +1,29 @@
+name: Verify golden master
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify exact web app
+        run: python scripts/verify_webapp.py webapp/index.html
+      - name: Verify SHA file
+        working-directory: webapp
+        run: sha256sum -c index.sha256
