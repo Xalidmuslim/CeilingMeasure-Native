@@ -20,7 +20,7 @@ android {
         main {
             // The approved web app is consumed directly from the repository golden master.
             // This prevents a second copy from silently drifting.
-            assets.srcDirs = ["$rootDir/webapp"]
+            assets.srcDirs = ["src/main/assets"]
             res.srcDirs += ["$buildDir/generated/iconRes"]
         }
     }
