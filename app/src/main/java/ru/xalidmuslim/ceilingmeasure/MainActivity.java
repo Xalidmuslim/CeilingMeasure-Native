@@ -68,7 +68,7 @@ public final class MainActivity extends ComponentActivity {
                                         & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                                 if ((flags & Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0) {
                                     getContentResolver().takePersistableUriPermission(
-                                            uri, flags & Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                            uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                                 }
                             } catch (SecurityException ignored) {
                                 // Some providers do not offer persistable grants. The one-shot grant is sufficient.
