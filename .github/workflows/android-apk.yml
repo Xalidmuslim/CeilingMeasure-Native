@@ -73,7 +73,7 @@ jobs:
       - name: Run Android instrumentation smoke tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 30
           arch: x86_64
           profile: pixel_6
           disable-animations: true
