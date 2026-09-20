@@ -1,0 +1,75 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ru.xalidmuslim.ceilingmeasure'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'ru.xalidmuslim.ceilingmeasure'
+        minSdk 29
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    sourceSets {
+        main {
+            // The approved web app is consumed directly from the repository golden master.
+            // This prevents a second copy from silently drifting.
+            assets.srcDirs = ["$rootDir/webapp"]
+            res.srcDirs += ["$buildDir/generated/iconRes"]
+        }
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    testOptions {
+        animationsDisabled = true
+    }
+
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = false
+    }
+
+    packaging {
+        resources {
+            excludes += ['/META-INF/{AL2.0,LGPL2.1}']
+        }
+    }
+}
+
+tasks.register('prepareLauncherIcon', Copy) {
+    from("$rootDir/branding/app_icon_master_1024.webp")
+    into("$buildDir/generated/iconRes/drawable-nodpi")
+    rename { 'app_icon_master.webp' }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('prepareLauncherIcon')
+}
+
+dependencies {
+    implementation 'androidx.activity:activity:1.9.3'
+    implementation 'androidx.webkit:webkit:1.12.1'
+
+    androidTestImplementation 'androidx.test:core:1.6.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:rules:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+}
