@@ -1,0 +1,89 @@
+name: Android APK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Verify golden master
+        run: |
+          python scripts/verify_webapp.py webapp/index.html
+          python scripts/verify_webapp.py app/src/main/assets/index.html
+          test "$(sha256sum webapp/index.html | cut -d' ' -f1)" = "$(sha256sum app/src/main/assets/index.html | cut -d' ' -f1)"
+
+      - name: Lint, unit tests, assemble
+        run: gradle --no-daemon clean lintDebug testDebugUnitTest assembleDebug
+
+      - name: Verify packaged web asset and manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -p "$APK" assets/index.html > /tmp/index-from-apk.html
+          EXPECTED=7fade548ce909eb3bea6998c244fd90feb74b060a066d19c6a6c50c02c3f05d8
+          ACTUAL="$(sha256sum /tmp/index-from-apk.html | cut -d' ' -f1)"
+          echo "APK asset SHA-256: $ACTUAL"
+          test "$ACTUAL" = "$EXPECTED"
+          PERMS="$(apkanalyzer manifest permissions "$APK" || true)"
+          echo "$PERMS"
+          if echo "$PERMS" | grep -q "android.permission.INTERNET"; then
+            echo "Unexpected INTERNET permission"
+            exit 1
+          fi
+
+      - name: Run Android instrumentation smoke tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle --no-daemon connectedDebugAndroidTest
+
+      - name: Re-verify golden asset after tests
+        run: |
+          python scripts/verify_webapp.py app/src/main/assets/index.html
+          test "$(sha256sum app/src/main/assets/index.html | cut -d' ' -f1)" = "7fade548ce909eb3bea6998c244fd90feb74b060a066d19c6a6c50c02c3f05d8"
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
