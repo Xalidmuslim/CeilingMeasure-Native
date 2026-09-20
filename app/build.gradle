@@ -73,3 +73,12 @@ dependencies {
     androidTestImplementation 'androidx.test:rules:1.6.1'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
 }
+
+
+configurations.configureEach {
+    // Older transitive AndroidX test dependencies can still request the pre-1.8
+    // split JDK7/JDK8 stdlib artifacts. Kotlin 1.8+ merged those classes into
+    // kotlin-stdlib, so keeping both creates duplicate classes at APK build time.
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+}
