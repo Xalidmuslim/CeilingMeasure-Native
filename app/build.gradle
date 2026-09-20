@@ -76,9 +76,10 @@ dependencies {
 
 
 configurations.configureEach {
-    // Older transitive AndroidX test dependencies can still request the pre-1.8
-    // split JDK7/JDK8 stdlib artifacts. Kotlin 1.8+ merged those classes into
-    // kotlin-stdlib, so keeping both creates duplicate classes at APK build time.
+    // Keep one modern Kotlin runtime across AndroidX + Unified Test Platform.
+    // Older split JDK7/JDK8 artifacts create duplicate classes; UTP itself needs
+    // EnumEntriesKt, which is present in Kotlin 1.9.x.
     exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
     exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+    resolutionStrategy.force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
 }
