@@ -15,8 +15,9 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
-import android.view.ScaleGestureDetector;
 import android.view.View;
+import android.view.ViewParent;
+import android.widget.ScrollView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -53,7 +54,6 @@ final class CeilingDrawingView extends View {
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint previewPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint guidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final ScaleGestureDetector scaleDetector;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private NativeProjectStore.RoomData room;
@@ -63,9 +63,17 @@ final class CeilingDrawingView extends View {
     private float scale = 1f;
     private float offsetX = 0f;
     private float offsetY = 0f;
-    private float lastCentroidX;
-    private float lastCentroidY;
     private boolean multiTouch;
+    private boolean pinchActive;
+    private float pinchStartDistance;
+    private float pinchStartScale;
+    private float pinchWorldX;
+    private float pinchWorldY;
+
+    private boolean pageScrollCandidate;
+    private boolean pageScrollActive;
+    private float pageScrollStartY;
+    private int pageScrollStartTop;
     private boolean wallSequenceActive;
     private String wallSequenceTapEdgeId;
 
@@ -127,25 +135,7 @@ final class CeilingDrawingView extends View {
         guidePaint.setStyle(Paint.Style.STROKE);
         guidePaint.setPathEffect(new DashPathEffect(new float[]{dp(6), dp(5)}, 0));
 
-        scaleDetector = new ScaleGestureDetector(
-                context,
-                new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-                    @Override
-                    public boolean onScale(ScaleGestureDetector detector) {
-                        if (room == null) return false;
-                        float old = scale;
-                        scale = clamp(scale * detector.getScaleFactor(), .45f, 12f);
-                        float focusX = detector.getFocusX();
-                        float focusY = detector.getFocusY();
-                        if (old != 0f) {
-                            offsetX = focusX - (focusX - offsetX) * (scale / old);
-                            offsetY = focusY - (focusY - offsetY) * (scale / old);
-                        }
-                        syncViewToRoom();
-                        invalidate();
-                        return true;
-                    }
-                });
+
     }
 
     void setRoom(@NonNull NativeProjectStore.RoomData room) {
@@ -514,80 +504,134 @@ final class CeilingDrawingView extends View {
     public boolean onTouchEvent(MotionEvent event) {
         if (room == null) return false;
 
-        scaleDetector.onTouchEvent(event);
+        final int action = event.getActionMasked();
 
-        if (event.getPointerCount() >= 2) {
+        // Web v184 parity: two fingers always own the drawing gesture and
+        // simultaneously pan + zoom around the world point under their centroid.
+        if (action == MotionEvent.ACTION_POINTER_DOWN && event.getPointerCount() == 2) {
             cancelPendingLongPress();
             cancelSingleGestureForMultiTouch();
+            beginPinch(event);
             getParent().requestDisallowInterceptTouchEvent(true);
-            float cx = centroidX(event);
-            float cy = centroidY(event);
-            if (event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
-                lastCentroidX = cx;
-                lastCentroidY = cy;
-                multiTouch = true;
-            } else if (event.getActionMasked() == MotionEvent.ACTION_MOVE
-                    && !scaleDetector.isInProgress()) {
-                offsetX += cx - lastCentroidX;
-                offsetY += cy - lastCentroidY;
-                lastCentroidX = cx;
-                lastCentroidY = cy;
-                syncViewToRoom();
-                invalidate();
-            }
+            return true;
+        }
+        if (event.getPointerCount() >= 2 && action == MotionEvent.ACTION_MOVE) {
+            if (!pinchActive) beginPinch(event);
+            applyPinch(event);
+            getParent().requestDisallowInterceptTouchEvent(true);
+            return true;
+        }
+        if (action == MotionEvent.ACTION_POINTER_UP && multiTouch) {
+            // Do not turn the remaining finger into a drawing gesture. This
+            // matches the web pointer-map contract: the gesture ends only when
+            // the last finger is lifted.
+            pinchActive = false;
+            syncViewToRoom();
+            invalidate();
             return true;
         }
 
         float worldX = screenToWorldX(event.getX());
         float worldY = screenToWorldY(event.getY());
 
-        if (event.getActionMasked() == MotionEvent.ACTION_DOWN
-                && mode == Mode.WALL
-                && event.getX() >= getWidth() * (652f / 760f)) {
-            cancelPendingLongPress();
-            cancelTransientGestures();
-            getParent().requestDisallowInterceptTouchEvent(false);
-            return false;
-        }
-
-        switch (event.getActionMasked()) {
+        switch (action) {
             case MotionEvent.ACTION_DOWN:
-                multiTouch = false;
+                if (multiTouch) return true;
                 downScreenX = event.getX();
                 downScreenY = event.getY();
                 moved = false;
                 longPressFired = false;
                 activeGuide = null;
+                pageScrollActive = false;
+                pageScrollCandidate = false;
 
                 if (mode == Mode.WALL) {
+                    // Closed contour: one-finger vertical movement anywhere in
+                    // the drawing scrolls the page. The dedicated right strip
+                    // is handled by the parent Activity and remains native pan-y.
+                    if (NativeGeometry.isClosed(room)) beginPageScrollCandidate(event);
                     return beginWallGesture(worldX, worldY);
                 }
+
                 if (mode == Mode.POINT) {
-                    getParent().requestDisallowInterceptTouchEvent(true);
-                    NativeProjectStore.PointData point = nearestPoint(worldX, worldY, dp(48) / scale);
-                    draggingPointId = point == null ? null : point.id;
-                    if (point != null) {
-                        checkpoint();
-                        scheduleLongPress("vertex", point.id);
+                    NativeProjectStore.PointData point =
+                            nearestPoint(worldX, worldY, dp(48) / scale);
+                    if (point == null) {
+                        beginPageScrollCandidate(event);
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                        return true;
                     }
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                    draggingPointId = point.id;
+                    checkpoint();
+                    scheduleLongPress("vertex", point.id);
                     return true;
                 }
+
                 if (mode == Mode.DIAGONAL) {
+                    NativeProjectStore.PointData point =
+                            nearestPoint(worldX, worldY, dp(48) / scale);
+                    NativeProjectStore.DiagonalData diagonal =
+                            nearestDiagonal(worldX, worldY, dp(20) / scale);
+                    if (point == null && diagonal == null) {
+                        beginPageScrollCandidate(event);
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                        return true;
+                    }
                     getParent().requestDisallowInterceptTouchEvent(true);
+                    if (point == null && diagonal != null && NativeGeometry.isClosed(room)) {
+                        beginPageScrollCandidate(event);
+                    }
                     return beginDiagonalGesture(worldX, worldY);
                 }
+
                 getParent().requestDisallowInterceptTouchEvent(true);
                 beginLabelGesture(worldX, worldY);
+                if (draggingLabel == null && rotatingLabel == null) {
+                    beginPageScrollCandidate(event);
+                }
                 return true;
 
             case MotionEvent.ACTION_MOVE:
                 if (multiTouch) return true;
-                float distance = (float) Math.hypot(
-                        event.getX() - downScreenX,
-                        event.getY() - downScreenY);
+
+                float dxScreen = event.getX() - downScreenX;
+                float dyScreen = event.getY() - downScreenY;
+                float distance = (float) Math.hypot(dxScreen, dyScreen);
                 if (distance > dp(9)) {
                     moved = true;
                     cancelPendingLongPress();
+                }
+
+                if (pageScrollCandidate && !pageScrollActive) {
+                    float threshold = mode == Mode.WALL ? dp(8) : dp(11);
+                    float dominance = mode == Mode.WALL ? .72f : .78f;
+                    if (Math.abs(dyScreen) > threshold
+                            && Math.abs(dyScreen) >= Math.abs(dxScreen) * dominance) {
+                        pageScrollActive = true;
+                        cancelPendingLongPress();
+                        longPressFired = false;
+                        wallDraft = null;
+                        diagDraft = null;
+                        draggingPointId = null;
+                        rotatingLabel = null;
+                        draggingLabel = null;
+                        activeGuide = null;
+                        magnifierFocus = null;
+                        magnifierKind = null;
+                    }
+                }
+
+                if (pageScrollActive) {
+                    ScrollView scroll = findAncestorScrollView();
+                    if (scroll != null) {
+                        float multiplier = mode == Mode.WALL ? 1.35f : 1f;
+                        int target = Math.round(
+                                pageScrollStartTop
+                                        + (pageScrollStartY - event.getY()) * multiplier);
+                        scroll.scrollTo(scroll.getScrollX(), Math.max(0, target));
+                    }
+                    return true;
                 }
 
                 if (mode == Mode.WALL && wallDraft != null) {
@@ -615,13 +659,26 @@ final class CeilingDrawingView extends View {
             case MotionEvent.ACTION_UP:
                 getParent().requestDisallowInterceptTouchEvent(false);
                 cancelPendingLongPress();
+
                 if (multiTouch) {
                     multiTouch = false;
+                    pinchActive = false;
+                    pageScrollCandidate = false;
+                    pageScrollActive = false;
                     syncViewToRoom();
                     changed();
                     cancelTransientGestures();
                     return true;
                 }
+
+                if (pageScrollActive) {
+                    pageScrollCandidate = false;
+                    pageScrollActive = false;
+                    cancelTransientGestures();
+                    return true;
+                }
+                pageScrollCandidate = false;
+
                 if (longPressFired) {
                     longPressFired = false;
                     cancelTransientGestures();
@@ -638,7 +695,8 @@ final class CeilingDrawingView extends View {
                     finishPointDrag();
                 } else if (mode == Mode.DIAGONAL && diagDraft != null) {
                     finishDiagonalDraft();
-                } else if (mode == Mode.LABEL && (draggingLabel != null || rotatingLabel != null)) {
+                } else if (mode == Mode.LABEL
+                        && (draggingLabel != null || rotatingLabel != null)) {
                     draggingLabel = null;
                     rotatingLabel = null;
                     magnifierFocus = null;
@@ -650,6 +708,10 @@ final class CeilingDrawingView extends View {
             case MotionEvent.ACTION_CANCEL:
                 getParent().requestDisallowInterceptTouchEvent(false);
                 cancelPendingLongPress();
+                multiTouch = false;
+                pinchActive = false;
+                pageScrollCandidate = false;
+                pageScrollActive = false;
                 cancelTransientGestures();
                 return true;
 
@@ -664,6 +726,11 @@ final class CeilingDrawingView extends View {
         boolean closed = NativeGeometry.isClosed(room);
 
         if (closed) {
+            if (nearest != null) {
+                getParent().requestDisallowInterceptTouchEvent(true);
+                scheduleLongPress("vertex", nearest.id);
+                return true;
+            }
             if (edge != null) {
                 getParent().requestDisallowInterceptTouchEvent(true);
                 if (wallSequenceActive) {
@@ -1184,6 +1251,8 @@ final class CeilingDrawingView extends View {
         point90SnapActive = false;
         magnifierFocus = null;
         magnifierKind = null;
+        lastWallCornerSnapId = null;
+        lastDiagonalSnapId = null;
     }
 
     private void cancelTransientGestures() {
@@ -1686,6 +1755,18 @@ final class CeilingDrawingView extends View {
         return Math.round(scale * 100f);
     }
 
+    float getScaleForTest() {
+        return scale;
+    }
+
+    float getPanXForTest() {
+        return offsetX;
+    }
+
+    float getPanYForTest() {
+        return offsetY;
+    }
+
     private void changed() {
         syncViewToRoom();
         invalidate();
@@ -1732,6 +1813,59 @@ final class CeilingDrawingView extends View {
 
     private float screenToWorldY(float y) {
         return (y - offsetY) / scale;
+    }
+
+    private void beginPinch(MotionEvent event) {
+        if (event.getPointerCount() < 2) return;
+        float cx = (event.getX(0) + event.getX(1)) / 2f;
+        float cy = (event.getY(0) + event.getY(1)) / 2f;
+        float distance = (float) Math.hypot(
+                event.getX(1) - event.getX(0),
+                event.getY(1) - event.getY(0));
+        pinchStartDistance = Math.max(distance, 1f);
+        pinchStartScale = scale;
+        pinchWorldX = (cx - offsetX) / scale;
+        pinchWorldY = (cy - offsetY) / scale;
+        pinchActive = true;
+        multiTouch = true;
+        pageScrollCandidate = false;
+        pageScrollActive = false;
+    }
+
+    private void applyPinch(MotionEvent event) {
+        if (!pinchActive || event.getPointerCount() < 2) return;
+        float cx = (event.getX(0) + event.getX(1)) / 2f;
+        float cy = (event.getY(0) + event.getY(1)) / 2f;
+        float distance = (float) Math.hypot(
+                event.getX(1) - event.getX(0),
+                event.getY(1) - event.getY(0));
+        float next = clamp(
+                pinchStartScale * Math.max(distance, 1f) / pinchStartDistance,
+                .45f,
+                12f);
+        scale = next;
+        offsetX = cx - pinchWorldX * scale;
+        offsetY = cy - pinchWorldY * scale;
+        syncViewToRoom();
+        invalidate();
+    }
+
+    private void beginPageScrollCandidate(MotionEvent event) {
+        pageScrollCandidate = true;
+        pageScrollActive = false;
+        pageScrollStartY = event.getY();
+        ScrollView scroll = findAncestorScrollView();
+        pageScrollStartTop = scroll == null ? 0 : scroll.getScrollY();
+    }
+
+    @Nullable
+    private ScrollView findAncestorScrollView() {
+        ViewParent parent = getParent();
+        while (parent != null) {
+            if (parent instanceof ScrollView) return (ScrollView) parent;
+            parent = parent.getParent();
+        }
+        return null;
     }
 
     private float centroidX(MotionEvent event) {

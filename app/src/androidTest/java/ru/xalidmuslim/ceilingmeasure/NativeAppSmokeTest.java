@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.GridLayout;
 import android.view.MotionEvent;
 
 import androidx.test.core.app.ActivityScenario;
@@ -86,6 +87,8 @@ public class NativeAppSmokeTest {
             assertNotNull(root.findViewWithTag("native_nav_more"));
             assertNotNull(root.findViewWithTag("native_nav_undo"));
             assertNotNull(root.findViewWithTag("native_drawing_hint"));
+            assertNotNull(root.findViewWithTag("native_wall_scroll_strip"));
+            assertNotNull(root.findViewWithTag("native_editor_scroll"));
             assertNotNull(root.findViewWithTag("native_top_home"));
             assertNotNull(root.findViewWithTag("native_top_saved"));
             assertNotNull(root.findViewWithTag("native_top_new_order"));
@@ -149,6 +152,67 @@ public class NativeAppSmokeTest {
                 assertNotNull(droot.findViewWithTag("native_diag_use_auto"));
                 assertNotNull(droot.findViewWithTag("native_diag_delete"));
                 diag.dismiss();
+            });
+        }
+    }
+
+    @Test
+    public void wallKeypadMatchesWebEntryRules() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(
+                NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.ACTION_NEW_ORDER);
+
+        try (ActivityScenario<NativeWorkspaceActivity> scenario =
+                     ActivityScenario.launch(intent)) {
+            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
+            scenario.onActivity(ref::set);
+            NativeWorkspaceActivity activity = ref.get();
+            assertNotNull(activity);
+
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+                NativeWallMeasureDialog dialog = new NativeWallMeasureDialog(
+                        activity,
+                        "Стена 1 из 4",
+                        0f,
+                        true,
+                        new NativeWallMeasureDialog.Listener(){
+                            public void onSave(float value){}
+                            public void onDelete(){}
+                            public void onBack(){}
+                            public void onClose(){}
+                        });
+                dialog.show();
+
+                GridLayout keypad = (GridLayout) dialog.findViewById(
+                        android.R.id.content).getRootView()
+                        .findViewWithTag("native_wall_keypad");
+                assertNotNull(keypad);
+                assertEquals(4, keypad.getColumnCount());
+
+                View five = dialog.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_wall_key_5");
+                View eight = dialog.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_wall_key_8");
+                assertNotNull(five);
+                assertNotNull(eight);
+                five.performClick();
+                eight.performClick();
+                assertEquals("58", dialog.rawValueForTest());
+                assertEquals(58f, dialog.currentUnitsOrNull(), .01f);
+
+                View clear = dialog.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_wall_key_Очистить");
+                View decimal = dialog.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_wall_decimal");
+                clear.performClick();
+                decimal.performClick();
+                five.performClick();
+                eight.performClick();
+                assertEquals("0,58", dialog.rawValueForTest());
+                assertEquals(58f, dialog.currentUnitsOrNull(), .01f);
+                dialog.dismiss();
             });
         }
     }

@@ -124,6 +124,7 @@ final class NativeWallMeasureDialog extends Dialog {
         shell.addView(meterHint,mhp);
 
         GridLayout keypad=new GridLayout(getContext());
+        keypad.setTag("native_wall_keypad");
         keypad.setColumnCount(4);
         LinearLayout.LayoutParams kp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -197,6 +198,10 @@ final class NativeWallMeasureDialog extends Dialog {
 
     Float currentUnitsOrNull(){
         return parseUnits(buffer);
+    }
+
+    String rawValueForTest(){
+        return buffer;
     }
 
     private void submit(){

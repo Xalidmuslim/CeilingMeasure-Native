@@ -79,6 +79,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private TextView drawingHint;
     private EditText notesInput;
     private ScrollView editorScroll;
+    private LinearLayout drawingCard;
+    private FrameLayout drawingCanvasWrap;
+    private View wallScrollStrip;
+    private int normalCanvasHeight;
+    private float stripDownY;
+    private int stripScrollTop;
     private final ArrayDeque<String> undoRooms = new ArrayDeque<>();
     private final ArrayDeque<String> redoRooms = new ArrayDeque<>();
     private boolean restoringHistory;
@@ -117,6 +123,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         page.setBackgroundColor(BG);
 
         editorScroll = new ScrollView(this);
+        editorScroll.setTag("native_editor_scroll");
         editorScroll.setFillViewport(true);
         editorScroll.setBackgroundColor(BG);
         editorScroll.setClipToPadding(false);
@@ -174,9 +181,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         roomsCard.addView(roomsScroll,rs);
         renderRooms();
 
-        LinearLayout drawCard = card();
-        drawCard.setTag("native_drawing_card");
-        root.addView(drawCard, marginParams(0,8));
+        drawingCard = card();
+        drawingCard.setTag("native_drawing_card");
+        root.addView(drawingCard, marginParams(0,8));
 
         LinearLayout drawingHead = new LinearLayout(this);
         drawingHead.setOrientation(LinearLayout.HORIZONTAL);
@@ -197,7 +204,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         check.setContentDescription("Открыть проверку замера");
         check.setOnClickListener(v->showMeasurementValidation());
         drawingHead.addView(check,new LinearLayout.LayoutParams(dp(42),dp(38)));
-        drawCard.addView(drawingHead);
+        drawingCard.addView(drawingHead);
 
         LinearLayout modeBar = new LinearLayout(this);
         modeBar.setOrientation(LinearLayout.HORIZONTAL);
@@ -206,7 +213,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         mbp.topMargin=dp(8);
-        drawCard.addView(modeBar,mbp);
+        drawingCard.addView(modeBar,mbp);
 
         wallMode = modeButton("Стена", CeilingDrawingView.Mode.WALL, "native_mode_wall");
         pointMode = modeButton("Точки", CeilingDrawingView.Mode.POINT, "native_mode_points");
@@ -217,21 +224,57 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         modeBar.addView(diagonalMode, weightParams());
         modeBar.addView(labelMode, weightParams());
 
-        FrameLayout canvasWrap = new FrameLayout(this);
-        canvasWrap.setTag("native_canvas_wrap");
+        drawingCanvasWrap = new FrameLayout(this);
+        drawingCanvasWrap.setTag("native_canvas_wrap");
+        int screenWidthDp = Math.round(
+                getResources().getDisplayMetrics().widthPixels
+                        / getResources().getDisplayMetrics().density);
+        normalCanvasHeight = dp(screenWidthDp <= 500 ? 500 : 560);
         LinearLayout.LayoutParams canvasParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(470));
+                normalCanvasHeight);
         canvasParams.topMargin = dp(8);
-        drawCard.addView(canvasWrap, canvasParams);
+        drawingCard.addView(drawingCanvasWrap, canvasParams);
 
         drawingView = new CeilingDrawingView(this);
         drawingView.setTag("native_drawing_view");
         drawingView.setListener(this);
         drawingView.setRoom(activeRoom());
-        canvasWrap.addView(drawingView, new FrameLayout.LayoutParams(
+        drawingCanvasWrap.addView(drawingView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Web v184: the right 74px strip is the only native pan-y entry
+        // while an open contour is being drawn in Wall mode.
+        wallScrollStrip = new View(this);
+        wallScrollStrip.setTag("native_wall_scroll_strip");
+        wallScrollStrip.setBackgroundColor(Color.TRANSPARENT);
+        wallScrollStrip.setOnTouchListener((v,event)->{
+            switch(event.getActionMasked()){
+                case MotionEvent.ACTION_DOWN:
+                    stripDownY=event.getRawY();
+                    stripScrollTop=editorScroll==null?0:editorScroll.getScrollY();
+                    if(editorScroll!=null)editorScroll.requestDisallowInterceptTouchEvent(true);
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    if(editorScroll!=null){
+                        int target=Math.round(stripScrollTop+(stripDownY-event.getRawY()));
+                        editorScroll.scrollTo(editorScroll.getScrollX(),Math.max(0,target));
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    if(editorScroll!=null)editorScroll.requestDisallowInterceptTouchEvent(false);
+                    return true;
+                default:
+                    return true;
+            }
+        });
+        FrameLayout.LayoutParams stripParams = new FrameLayout.LayoutParams(
+                dp(74),
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.END);
+        drawingCanvasWrap.addView(wallScrollStrip, stripParams);
 
         LinearLayout zoom = new LinearLayout(this);
         zoom.setOrientation(LinearLayout.VERTICAL);
@@ -251,7 +294,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 Gravity.END|Gravity.BOTTOM);
         zoomParams.rightMargin=dp(8);
         zoomParams.bottomMargin=dp(8);
-        canvasWrap.addView(zoom,zoomParams);
+        drawingCanvasWrap.addView(zoom,zoomParams);
 
         drawingHint = text("",11,MUTED,Typeface.NORMAL);
         drawingHint.setTag("native_drawing_hint");
@@ -269,7 +312,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 Gravity.START|Gravity.TOP);
         hintParams.leftMargin=dp(8);
         hintParams.topMargin=dp(8);
-        canvasWrap.addView(drawingHint,hintParams);
+        drawingCanvasWrap.addView(drawingHint,hintParams);
 
         LinearLayout status = new LinearLayout(this);
         status.setOrientation(LinearLayout.HORIZONTAL);
@@ -278,7 +321,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         statusParams.topMargin=dp(6);
-        drawCard.addView(status,statusParams);
+        drawingCard.addView(status,statusParams);
         drawingStatus=text("",11,MUTED,Typeface.NORMAL);
         zoomStatus=text("100%",11,TEXT,Typeface.BOLD);
         status.addView(drawingStatus,new LinearLayout.LayoutParams(
@@ -310,7 +353,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             Toast.makeText(this,"Замер завершён",Toast.LENGTH_SHORT).show();
         });
         saveRow.addView(save,new LinearLayout.LayoutParams(dp(170),dp(44)));
-        drawCard.addView(saveRow);
+        drawingCard.addView(saveRow);
 
         LinearLayout estimateCard=card();
         estimateCard.setTag("native_estimate_card");
@@ -400,9 +443,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         updateDrawingChrome();
 
         if (jumpToDrawing) {
-            editorScroll.post(() -> drawCard.requestFocus());
+            editorScroll.post(() -> drawingCard.requestFocus());
             editorScroll.postDelayed(
-                    () -> editorScroll.smoothScrollTo(0, drawCard.getTop()),
+                    () -> editorScroll.smoothScrollTo(0, drawingCard.getTop()),
                     120);
         }
     }
@@ -836,6 +879,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(pointMode!=null)pointMode.setEnabled(!room.geometryLocked);
         if(diagonalMode!=null)diagonalMode.setEnabled(!room.geometryLocked);
         if(labelMode!=null)labelMode.setEnabled(true);
+        if(wallScrollStrip!=null){
+            wallScrollStrip.setVisibility(
+                    drawingView.getMode()==CeilingDrawingView.Mode.WALL
+                            ?View.VISIBLE
+                            :View.GONE);
+        }
     }
 
     private String drawingHintText(NativeProjectStore.RoomData room){
@@ -1105,6 +1154,36 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     }
                 });
         wallDialog.show();
+        enterWallEditorLayout();
+    }
+
+    private void enterWallEditorLayout(){
+        if(wallDialog==null||drawingCanvasWrap==null)return;
+        Window window=wallDialog.getWindow();
+        View decor=window==null?null:window.getDecorView();
+        if(decor==null)return;
+        decor.post(()->{
+            int dockHeight=Math.max(dp(220),decor.getHeight());
+            int viewport=getResources().getDisplayMetrics().heightPixels;
+            int usable=Math.max(dp(300),Math.min(dp(560),viewport-dockHeight-dp(155)));
+            ViewGroup.LayoutParams lp=drawingCanvasWrap.getLayoutParams();
+            if(lp!=null){
+                lp.height=usable;
+                drawingCanvasWrap.setLayoutParams(lp);
+            }
+            if(editorScroll!=null&&drawingCard!=null){
+                editorScroll.post(()->editorScroll.smoothScrollTo(0,drawingCard.getTop()));
+            }
+        });
+    }
+
+    private void restoreDrawingCanvasHeight(){
+        if(drawingCanvasWrap==null)return;
+        ViewGroup.LayoutParams lp=drawingCanvasWrap.getLayoutParams();
+        if(lp!=null){
+            lp.height=normalCanvasHeight>0?normalCanvasHeight:dp(500);
+            drawingCanvasWrap.setLayoutParams(lp);
+        }
     }
 
     private void closeWallDialog(){
@@ -1116,6 +1195,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         wallSequenceMode=false;
         if(drawingView!=null)drawingView.setWallSequenceActive(false);
         if(historyNavView!=null)historyNavView.setVisibility(View.VISIBLE);
+        restoreDrawingCanvasHeight();
         updateDrawingChrome();
     }
 
