@@ -29,10 +29,12 @@ public final class NativeHomeActivity extends ComponentActivity {
     private static final int MUTED = Color.rgb(116, 136, 151);
     private static final int BLUE = Color.rgb(47, 143, 190);
     private static final int LINE = Color.rgb(220, 229, 235);
+    private NativeUiPrefs uiPrefs;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        uiPrefs = NativeUiPrefs.load(this);
         setContentView(createContent());
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -237,9 +239,9 @@ public final class NativeHomeActivity extends ComponentActivity {
     private TextView text(String value, int sp, int color, int style) {
         TextView view = new TextView(this);
         view.setText(value);
-        view.setTextSize(sp);
+        view.setTextSize(uiPrefs.textSize(sp));
         view.setTextColor(color);
-        view.setTypeface(Typeface.create("sans-serif", style));
+        view.setTypeface(uiPrefs.typeface(style == Typeface.BOLD));
         view.setIncludeFontPadding(false);
         return view;
     }

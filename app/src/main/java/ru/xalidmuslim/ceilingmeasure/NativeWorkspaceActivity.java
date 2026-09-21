@@ -15,6 +15,7 @@ import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -68,11 +69,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private final ArrayDeque<String> undoRooms = new ArrayDeque<>();
     private final ArrayDeque<String> redoRooms = new ArrayDeque<>();
     private boolean restoringHistory;
+    private NativeUiPrefs uiPrefs;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         store = new NativeProjectStore(this);
+        uiPrefs = NativeUiPrefs.load(this);
 
         String action = getIntent().getStringExtra(EXTRA_LAUNCH_ACTION);
         if (ACTION_NEW_ORDER.equals(action)) project = store.newProject();
@@ -118,7 +121,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             return insets;
         });
 
-        root.addView(topBar("Замер потолков"));
+        root.addView(editorTopBar());
 
         LinearLayout orderCard = card();
         orderCard.setTag("native_order_card");
@@ -325,6 +328,61 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         }
     }
 
+    private LinearLayout editorTopBar(){
+        LinearLayout bar=new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(0,dp(4),0,dp(8));
+
+        LinearLayout brand=new LinearLayout(this);
+        brand.setOrientation(LinearLayout.VERTICAL);
+        TextView main=text("Натяжные потолки",17,TEXT,Typeface.BOLD);
+        TextView sub=text("замер · расчёт · смета",10,MUTED,Typeface.NORMAL);
+        brand.addView(main);
+        brand.addView(sub);
+        bar.addView(brand,new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f));
+
+        Button home=button("⌂",false);
+        home.setTag("native_top_home");
+        home.setContentDescription("Главная");
+        home.setOnClickListener(v->finish());
+        bar.addView(home,new LinearLayout.LayoutParams(dp(40),dp(40)));
+
+        Button saved=button("▣\nЗамеры",false);
+        saved.setTag("native_top_saved");
+        saved.setTextSize(uiPrefs.textSize(9));
+        saved.setOnClickListener(v->{
+            syncProjectFields();
+            showSavedMeasurements();
+        });
+        bar.addView(saved,new LinearLayout.LayoutParams(dp(58),dp(40)));
+
+        Button fresh=button("+\nЗаказ",true);
+        fresh.setTag("native_top_new_order");
+        fresh.setTextSize(uiPrefs.textSize(9));
+        fresh.setOnClickListener(v->new AlertDialog.Builder(this)
+                .setTitle("Новый заказ?")
+                .setMessage("Текущий замер сохранён автоматически.")
+                .setNegativeButton("Отмена",null)
+                .setPositiveButton("Создать",(d,w)->{
+                    syncProjectFields();
+                    store.saveCurrent(project);
+                    project=store.newProject();
+                    showEditor(false);
+                }).show());
+        bar.addView(fresh,new LinearLayout.LayoutParams(dp(58),dp(40)));
+
+        Button settings=button("☷",false);
+        settings.setTag("native_top_settings");
+        settings.setContentDescription("Настройки");
+        settings.setOnClickListener(v->showNativeSettings());
+        bar.addView(settings,new LinearLayout.LayoutParams(dp(40),dp(40)));
+        return bar;
+    }
+
     private LinearLayout topBar(String title) {
         LinearLayout bar=new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
@@ -381,20 +439,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         add.setTag("native_room_add");
         add.setTextSize(22);
         add.setContentDescription("Добавить комнату");
-        add.setOnClickListener(v->{
-            NativeProjectStore.RoomData r=new NativeProjectStore.RoomData();
-            r.name="Комната "+(project.rooms.size()+1);
-            project.rooms.add(r);
-            project.activeRoom=project.rooms.size()-1;
-            store.saveCurrent(project);
-            renderRooms();
-            undoRooms.clear();
-            redoRooms.clear();
-            if(drawingView!=null)drawingView.setRoom(activeRoom());
-            if(drawingRoomTitle!=null)drawingRoomTitle.setText(activeRoom().name);
-            updateStats();
-            updateDrawingChrome();
-        });
+        add.setOnClickListener(v->showRoomPicker());
         LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(dp(48),dp(48));
         roomRow.addView(add,addParams);
     }
@@ -411,14 +456,60 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         NativeProjectStore.RoomData room=project.rooms.get(index);
         new AlertDialog.Builder(this)
                 .setTitle(room.name)
-                .setItems(new String[]{"Переименовать","Удалить"},(dialog,which)->{
+                .setItems(new String[]{"Переименовать","Дублировать","Удалить"},(dialog,which)->{
                     if(which==0){
                         showRoomRename(index);
+                    }else if(which==1){
+                        duplicateRoom(index);
                     }else{
                         deleteRoom(index);
                     }
                 })
                 .show();
+    }
+
+    private void showRoomPicker(){
+        new NativeRoomPickerDialog(this,this::addRoomOfType).show();
+    }
+
+    private void addRoomOfType(String type){
+        NativeProjectStore.RoomData room=new NativeProjectStore.RoomData();
+        int same=0;
+        for(NativeProjectStore.RoomData existing:project.rooms){
+            if(existing.name!=null&&existing.name.startsWith(type))same++;
+        }
+        room.name="Другое".equals(type)
+                ?"Помещение "+(project.rooms.size()+1)
+                :type+" "+(same+1);
+        project.rooms.add(room);
+        project.activeRoom=project.rooms.size()-1;
+        store.saveCurrent(project);
+        undoRooms.clear();
+        redoRooms.clear();
+        renderRooms();
+        if(drawingView!=null)drawingView.setRoom(activeRoom());
+        updateStats();
+        updateDrawingChrome();
+    }
+
+    private void duplicateRoom(int index){
+        if(index<0||index>=project.rooms.size())return;
+        NativeProjectStore.RoomData source=project.rooms.get(index);
+        NativeProjectStore.RoomData copy=
+                NativeProjectStore.roomFromSnapshot(
+                        NativeProjectStore.snapshotRoom(source));
+        copy.id=NativeProjectStore.newId("room");
+        copy.name=source.name+" копия";
+        project.rooms.add(index+1,copy);
+        project.activeRoom=index+1;
+        store.saveCurrent(project);
+        undoRooms.clear();
+        redoRooms.clear();
+        renderRooms();
+        if(drawingView!=null)drawingView.setRoom(activeRoom());
+        updateStats();
+        updateDrawingChrome();
+        Toast.makeText(this,"Комната дублирована",Toast.LENGTH_SHORT).show();
     }
 
     private void showRoomRename(int index){
@@ -1076,17 +1167,143 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void showNativeSettings(){
+        ScrollView scroll=new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(BG);
+
         LinearLayout content=new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(16),dp(14),dp(16),dp(24));
-        content.setBackgroundColor(BG);
+        content.setPadding(dp(16),dp(14),dp(16),dp(28));
+        scroll.addView(content,new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
         content.addView(topBar("Настройки"));
-        TextView title=text("Нативные настройки",18,TEXT,Typeface.BOLD);
-        content.addView(title,marginParams(0,14));
-        TextView note=text("Интерфейс этой версии уже работает без WebView. Настройки размера текста и оформления перенесу сюда отдельно.",14,MUTED,Typeface.NORMAL);
-        note.setLineSpacing(0,1.2f);
-        content.addView(note);
-        setContentView(content);
+
+        LinearLayout fontCard=card();
+        content.addView(fontCard,marginParams(0,10));
+        fontCard.addView(text("Шрифт",14,TEXT,Typeface.BOLD));
+        LinearLayout fontRow=new LinearLayout(this);
+        fontRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams frp=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(64));
+        frp.topMargin=dp(8);
+        fontCard.addView(fontRow,frp);
+        addUiChoice(fontRow,"Aa\nСистемный",NativeUiPrefs.FONT_SYSTEM,uiPrefs.font,true);
+        addUiChoice(fontRow,"Aa\nС засечками",NativeUiPrefs.FONT_SERIF,uiPrefs.font,true);
+        addUiChoice(fontRow,"Aa\nМоно",NativeUiPrefs.FONT_MONO,uiPrefs.font,true);
+
+        LinearLayout sizeCard=card();
+        content.addView(sizeCard,marginParams(0,10));
+        LinearLayout sizeHead=new LinearLayout(this);
+        sizeHead.setOrientation(LinearLayout.HORIZONTAL);
+        sizeHead.setGravity(Gravity.CENTER_VERTICAL);
+        TextView sizeLabel=text("Размер текста",14,TEXT,Typeface.BOLD);
+        TextView sizeValue=text(Math.round(uiPrefs.scale*100)+"%",13,BLUE,Typeface.BOLD);
+        sizeValue.setTag("native_ui_size_value");
+        sizeHead.addView(sizeLabel,new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f));
+        sizeHead.addView(sizeValue);
+        sizeCard.addView(sizeHead);
+        sizeCard.addView(text(
+                "Меняется плавно во всём приложении",
+                11,
+                MUTED,
+                Typeface.NORMAL),
+                marginParams(0,4));
+
+        SeekBar slider=new SeekBar(this);
+        slider.setTag("native_ui_size_slider");
+        slider.setMax(45);
+        slider.setProgress(Math.round(uiPrefs.scale*100)-85);
+        slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            @Override public void onProgressChanged(SeekBar s,int progress,boolean fromUser){
+                int percent=85+progress;
+                sizeValue.setText(percent+"%");
+                if(fromUser){
+                    uiPrefs=uiPrefs.withScale(percent/100f);
+                    uiPrefs.save(NativeWorkspaceActivity.this);
+                }
+            }
+            @Override public void onStartTrackingTouch(SeekBar s){}
+            @Override public void onStopTrackingTouch(SeekBar s){
+                showNativeSettings();
+            }
+        });
+        sizeCard.addView(slider,marginParams(0,8));
+
+        LinearLayout weightCard=card();
+        content.addView(weightCard,marginParams(0,10));
+        weightCard.addView(text("Жирность",14,TEXT,Typeface.BOLD));
+        weightCard.addView(text(
+                "Меняет базовую жирность, сохраняя разницу между обычным текстом и заголовками",
+                11,
+                MUTED,
+                Typeface.NORMAL),
+                marginParams(0,4));
+        LinearLayout weightRow=new LinearLayout(this);
+        weightRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams wrp=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(58));
+        wrp.topMargin=dp(8);
+        weightCard.addView(weightRow,wrp);
+        addUiChoice(weightRow,"Aa\nОбычная",NativeUiPrefs.WEIGHT_NORMAL,uiPrefs.weight,false);
+        addUiChoice(weightRow,"Aa\nСредняя",NativeUiPrefs.WEIGHT_MEDIUM,uiPrefs.weight,false);
+        addUiChoice(weightRow,"Aa\nЖирная",NativeUiPrefs.WEIGHT_BOLD,uiPrefs.weight,false);
+
+        LinearLayout preview=card();
+        preview.setTag("native_ui_preview");
+        content.addView(preview,marginParams(0,10));
+        preview.addView(text("Предпросмотр",10,MUTED,Typeface.NORMAL));
+        preview.addView(text("Комната 1 · 28,00 м²",16,TEXT,Typeface.BOLD),marginParams(0,4));
+        preview.addView(text(
+                "Калькулятор, смета, кнопки и чертёж меняются сразу.",
+                11,
+                MUTED,
+                Typeface.NORMAL),
+                marginParams(0,3));
+
+        LinearLayout actions=new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        Button reset=button("По умолчанию",false);
+        reset.setTag("native_ui_reset");
+        reset.setOnClickListener(v->{
+            uiPrefs=NativeUiPrefs.defaults();
+            uiPrefs.save(this);
+            showNativeSettings();
+        });
+        Button done=button("Готово",true);
+        done.setTag("native_ui_done");
+        done.setOnClickListener(v->finish());
+        actions.addView(reset,weightParams());
+        actions.addView(done,weightParams());
+        content.addView(actions,marginParams(0,6));
+
+        setContentView(scroll);
+    }
+
+    private void addUiChoice(
+            LinearLayout row,
+            String label,
+            String value,
+            String selected,
+            boolean fontChoice){
+        Button b=button(label,false);
+        boolean active=value.equals(selected);
+        if(active)styleSelected(b);
+        b.setTextSize(uiPrefs.textSize(10));
+        b.setOnClickListener(v->{
+            uiPrefs=fontChoice
+                    ?uiPrefs.withFont(value)
+                    :uiPrefs.withWeight(value);
+            uiPrefs.save(this);
+            showNativeSettings();
+        });
+        row.addView(b,weightParams());
     }
 
     private LinearLayout card(){
@@ -1102,8 +1319,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         Button b=new Button(this);
         b.setText(value);
         b.setAllCaps(false);
-        b.setTextSize(14);
-        b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
+        b.setTextSize(uiPrefs.textSize(14));
+        b.setTypeface(uiPrefs.typeface(true));
         b.setTextColor(primary?Color.WHITE:TEXT);
         b.setGravity(Gravity.CENTER);
         b.setPadding(dp(10),0,dp(10),0);
@@ -1113,8 +1330,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private TextView text(String value,int sp,int color,int style){
         TextView t=new TextView(this);
-        t.setText(value);t.setTextSize(sp);t.setTextColor(color);
-        t.setTypeface(Typeface.create("sans-serif",style));
+        t.setText(value);t.setTextSize(uiPrefs.textSize(sp));t.setTextColor(color);
+        t.setTypeface(uiPrefs.typeface(style==Typeface.BOLD));
         t.setIncludeFontPadding(false);
         return t;
     }

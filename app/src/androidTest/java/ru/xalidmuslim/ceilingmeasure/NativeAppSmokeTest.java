@@ -86,6 +86,10 @@ public class NativeAppSmokeTest {
             assertNotNull(root.findViewWithTag("native_nav_more"));
             assertNotNull(root.findViewWithTag("native_nav_undo"));
             assertNotNull(root.findViewWithTag("native_drawing_hint"));
+            assertNotNull(root.findViewWithTag("native_top_home"));
+            assertNotNull(root.findViewWithTag("native_top_saved"));
+            assertNotNull(root.findViewWithTag("native_top_new_order"));
+            assertNotNull(root.findViewWithTag("native_top_settings"));
             assertFalse(containsWebView(root));
         }
     }
