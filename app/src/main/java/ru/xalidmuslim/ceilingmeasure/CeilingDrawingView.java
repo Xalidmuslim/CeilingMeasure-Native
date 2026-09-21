@@ -72,8 +72,7 @@ final class CeilingDrawingView extends View {
 
     private boolean pageScrollCandidate;
     private boolean pageScrollActive;
-    private float pageScrollStartY;
-    private int pageScrollStartTop;
+    private float pageScrollLastY;
     private boolean wallSequenceActive;
     private String wallSequenceTapEdgeId;
 
@@ -146,7 +145,7 @@ final class CeilingDrawingView extends View {
         scale = clamp(room.viewScale, .45f, 12f);
         offsetX = room.panX;
         offsetY = room.panY;
-        invalidate();
+        postInvalidateOnAnimation();
     }
 
     void setMode(@NonNull Mode mode) {
@@ -154,7 +153,7 @@ final class CeilingDrawingView extends View {
         cancelTransientGestures();
         this.mode = mode;
         if (mode != Mode.LABEL) selectedLabel = null;
-        invalidate();
+        postInvalidateOnAnimation();
     }
 
     Mode getMode() {
@@ -527,7 +526,7 @@ final class CeilingDrawingView extends View {
             // the last finger is lifted.
             pinchActive = false;
             syncViewToRoom();
-            invalidate();
+            postInvalidateOnAnimation();
             return true;
         }
 
@@ -544,6 +543,11 @@ final class CeilingDrawingView extends View {
                 activeGuide = null;
                 pageScrollActive = false;
                 pageScrollCandidate = false;
+
+                // Editing measurements is mode-independent: holding a wall or
+                // its numeric label must open the same editor in Wall, Point,
+                // Diagonal and Numbers modes.
+                scheduleMeasurementLongPressIfHit(worldX, worldY);
 
                 if (mode == Mode.WALL) {
                     // Closed contour: one-finger vertical movement anywhere in
@@ -625,11 +629,15 @@ final class CeilingDrawingView extends View {
                 if (pageScrollActive) {
                     ScrollView scroll = findAncestorScrollView();
                     if (scroll != null) {
-                        float multiplier = mode == Mode.WALL ? 1.35f : 1f;
-                        int target = Math.round(
-                                pageScrollStartTop
-                                        + (pageScrollStartY - event.getY()) * multiplier);
-                        scroll.scrollTo(scroll.getScrollX(), Math.max(0, target));
+                        // Incremental deltas avoid the jump caused by repeatedly
+                        // recalculating from the original ACTION_DOWN position.
+                        float currentY = event.getY();
+                        int delta = Math.round(pageScrollLastY - currentY);
+                        if (delta != 0) {
+                            scroll.scrollBy(0, delta);
+                            scroll.postInvalidateOnAnimation();
+                        }
+                        pageScrollLastY = currentY;
                     }
                     return true;
                 }
@@ -740,8 +748,10 @@ final class CeilingDrawingView extends View {
                 }
                 return true;
             }
-            getParent().requestDisallowInterceptTouchEvent(false);
-            return false;
+            // Keep ownership of the gesture so a vertical move can become a
+            // smooth page scroll even after the contour is closed.
+            getParent().requestDisallowInterceptTouchEvent(true);
+            return true;
         }
 
         getParent().requestDisallowInterceptTouchEvent(true);
@@ -845,7 +855,7 @@ final class CeilingDrawingView extends View {
             selectedLabel = null;
             draggingLabel = null;
             rotatingLabel = null;
-            invalidate();
+            postInvalidateOnAnimation();
             return;
         }
 
@@ -875,7 +885,7 @@ final class CeilingDrawingView extends View {
                 diagonal.labelManual = true;
             }
         }
-        invalidate();
+        postInvalidateOnAnimation();
     }
 
     private void updateWallDraft(float screenX, float screenY) {
@@ -936,7 +946,7 @@ final class CeilingDrawingView extends View {
         }
         magnifierFocus = new PointF(wallDraft.preview.x, wallDraft.preview.y);
         magnifierKind = MagnifierKind.WALL;
-        invalidate();
+        postInvalidateOnAnimation();
     }
 
     private void finishWallDraft() {
@@ -949,12 +959,12 @@ final class CeilingDrawingView extends View {
                 draft.preview.x - draft.start.x,
                 draft.preview.y - draft.start.y);
         if (length <= dp(18) / scale) {
-            invalidate();
+            postInvalidateOnAnimation();
             return;
         }
 
         if (NativeGeometry.isClosed(room)) {
-            invalidate();
+            postInvalidateOnAnimation();
             return;
         }
 
@@ -968,7 +978,7 @@ final class CeilingDrawingView extends View {
             room.points.add(start);
         }
         if (start == null || NativeGeometry.vertexDegree(room, start.id) >= 2) {
-            invalidate();
+            postInvalidateOnAnimation();
             return;
         }
 
@@ -1040,7 +1050,7 @@ final class CeilingDrawingView extends View {
         } else if (!right) {
             point90SnapActive = false;
         }
-        invalidate();
+        postInvalidateOnAnimation();
     }
 
     private void finishPointDrag() {
@@ -1067,7 +1077,7 @@ final class CeilingDrawingView extends View {
         }
         magnifierFocus = new PointF(diagDraft.preview.x, diagDraft.preview.y);
         magnifierKind = MagnifierKind.DIAGONAL;
-        invalidate();
+        postInvalidateOnAnimation();
     }
 
     private void finishDiagonalDraft() {
@@ -1080,11 +1090,11 @@ final class CeilingDrawingView extends View {
                 draft.preview.y,
                 dp(48) / scale);
         if (end == null || end.id.equals(draft.startId)) {
-            invalidate();
+            postInvalidateOnAnimation();
             return;
         }
         if (NativeGeometry.edgeBetween(room, draft.startId, end.id) != null) {
-            invalidate();
+            postInvalidateOnAnimation();
             return;
         }
 
@@ -1120,7 +1130,7 @@ final class CeilingDrawingView extends View {
         }
         magnifierFocus = new PointF(x, y);
         magnifierKind = MagnifierKind.LABEL;
-        invalidate();
+        postInvalidateOnAnimation();
     }
 
     private void updateLabelRotate(float x, float y) {
@@ -1149,7 +1159,7 @@ final class CeilingDrawingView extends View {
         }
         magnifierFocus = new PointF(x, y);
         magnifierKind = MagnifierKind.LABEL;
-        invalidate();
+        postInvalidateOnAnimation();
     }
 
     private void changeSelectedLabelSize(float delta) {
@@ -1205,17 +1215,54 @@ final class CeilingDrawingView extends View {
         return (float) Math.hypot(x1 - x2, y1 - y2);
     }
 
+    private void scheduleMeasurementLongPressIfHit(float x, float y) {
+        LabelHit label = nearestLabel(x, y, dp(42f) / scale);
+        if (label != null) {
+            scheduleLongPress(label.kind == LabelKind.EDGE ? "edge" : "diag", label.id);
+            return;
+        }
+
+        NativeProjectStore.EdgeData edge = nearestEdge(x, y, dp(28f) / scale);
+        NativeProjectStore.DiagonalData diagonal = nearestDiagonal(x, y, dp(20f) / scale);
+        if (edge != null && diagonal != null) {
+            float edgeDistance = distanceToEdge(x, y, edge);
+            float diagonalDistance = distanceToDiagonal(x, y, diagonal);
+            if (edgeDistance <= diagonalDistance) scheduleLongPress("edge", edge.id);
+            else scheduleLongPress("diag", diagonal.id);
+        } else if (edge != null) {
+            scheduleLongPress("edge", edge.id);
+        } else if (diagonal != null) {
+            scheduleLongPress("diag", diagonal.id);
+        }
+    }
+
+    private float distanceToEdge(float x, float y, NativeProjectStore.EdgeData edge) {
+        NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
+        NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
+        if (a == null || b == null) return Float.MAX_VALUE;
+        return distancePointToSegment(x, y, a.x, a.y, b.x, b.y);
+    }
+
+    private float distanceToDiagonal(float x, float y, NativeProjectStore.DiagonalData diagonal) {
+        NativeProjectStore.PointData a = NativeGeometry.pointById(room, diagonal.a);
+        NativeProjectStore.PointData b = NativeGeometry.pointById(room, diagonal.b);
+        if (a == null || b == null) return Float.MAX_VALUE;
+        return distancePointToSegment(x, y, a.x, a.y, b.x, b.y);
+    }
+
     private void scheduleLongPress(String kind, String id) {
         cancelPendingLongPress();
         longPressRunnable = () -> {
             longPressFired = true;
+            pageScrollCandidate = false;
+            pageScrollActive = false;
             wallDraft = null;
             diagDraft = null;
             draggingPointId = null;
             draggingLabel = null;
             magnifierFocus = null;
             magnifierKind = null;
-            invalidate();
+            postInvalidateOnAnimation();
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
             if (listener == null) return;
             if ("vertex".equals(kind)) {
@@ -1720,7 +1767,7 @@ final class CeilingDrawingView extends View {
             offsetY = cy - (cy - offsetY) * (scale / old);
         }
         syncViewToRoom();
-        invalidate();
+        postInvalidateOnAnimation();
         if (listener != null) listener.onChanged();
     }
 
@@ -1747,7 +1794,7 @@ final class CeilingDrawingView extends View {
             offsetY = getHeight() / 2f - ((minY + maxY) / 2f) * scale;
         }
         syncViewToRoom();
-        invalidate();
+        postInvalidateOnAnimation();
         if (listener != null) listener.onChanged();
     }
 
@@ -1769,7 +1816,7 @@ final class CeilingDrawingView extends View {
 
     private void changed() {
         syncViewToRoom();
-        invalidate();
+        postInvalidateOnAnimation();
         if (listener != null) listener.onChanged();
     }
 
@@ -1847,15 +1894,13 @@ final class CeilingDrawingView extends View {
         offsetX = cx - pinchWorldX * scale;
         offsetY = cy - pinchWorldY * scale;
         syncViewToRoom();
-        invalidate();
+        postInvalidateOnAnimation();
     }
 
     private void beginPageScrollCandidate(MotionEvent event) {
         pageScrollCandidate = true;
         pageScrollActive = false;
-        pageScrollStartY = event.getY();
-        ScrollView scroll = findAncestorScrollView();
-        pageScrollStartTop = scroll == null ? 0 : scroll.getScrollY();
+        pageScrollLastY = event.getY();
     }
 
     @Nullable
