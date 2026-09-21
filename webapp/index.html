@@ -5938,7 +5938,7 @@ const fmtM2=rawArea=>Number.isFinite(+rawArea)?(+rawArea/10000).toLocaleString("
 
 const APP_STORAGE_KEY="ceilingMeasureData";
 const APP_SCHEMA_VERSION=165;
-const APP_BUILD_VERSION="181-closed-contour-scroll";
+const APP_BUILD_VERSION="182-readable-default-font";
 const LEGACY_STORAGE_KEYS=[...Array.from({length:111},(_,i)=>`ceilingTouchV${125-i}`)];
 const volatileStorage=new Map();
 let storagePersistent=true;
@@ -6028,19 +6028,28 @@ const UI_FONT_MAP={
 };
 const UI_SIZE_MAP={small:.90,normal:1,large:1.12,xlarge:1.24};
 const UI_WEIGHT_MAP={normal:0,medium:100,bold:200};
-const UI_DEFAULT_PREFS={font:"system",scale:1,weight:"normal"};
+const UI_PREFS_VERSION=2;
+const UI_DEFAULT_PREFS={version:UI_PREFS_VERSION,font:"system",scale:1.12,weight:"normal"};
 function clampUiScale(value){
   const n=Number(value);
-  return Number.isFinite(n)?Math.min(1.30,Math.max(.85,n)):1
+  return Number.isFinite(n)?Math.min(1.30,Math.max(.85,n)):UI_DEFAULT_PREFS.scale
 }
 let uiPrefs=(()=>{
   try{
     const raw=JSON.parse(storageGet(UI_PREFS_KEY)||"null")||{};
     const legacyFont=raw.font==="georgia"?"serif":(raw.font==="arial"?"system":raw.font);
-    const migratedScale=raw.scale!=null
+    let migratedScale=raw.scale!=null
       ?clampUiScale(raw.scale)
-      :clampUiScale(UI_SIZE_MAP[raw.size]||1);
+      :clampUiScale(UI_SIZE_MAP[raw.size]||UI_DEFAULT_PREFS.scale);
+
+    // v182 raises the old 100% default to a phone-friendly 112%.
+    // Preserve explicit custom sizes; migrate only the former default.
+    if((Number(raw.version)||1)<UI_PREFS_VERSION&&Math.abs(migratedScale-1)<.001){
+      migratedScale=UI_DEFAULT_PREFS.scale
+    }
+
     return{
+      version:UI_PREFS_VERSION,
       font:UI_FONT_MAP[legacyFont]?legacyFont:UI_DEFAULT_PREFS.font,
       scale:migratedScale,
       weight:Object.prototype.hasOwnProperty.call(UI_WEIGHT_MAP,raw.weight)?raw.weight:UI_DEFAULT_PREFS.weight
