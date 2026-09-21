@@ -206,6 +206,34 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         drawTools.addView(letters, weightParams());
         drawTools.addView(wallSequence, weightParams());
 
+        LinearLayout geometryTools = new LinearLayout(this);
+        geometryTools.setOrientation(LinearLayout.HORIZONTAL);
+        geometryTools.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams geometryToolsParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        geometryToolsParams.topMargin = dp(6);
+        drawCard.addView(geometryTools, geometryToolsParams);
+
+        Button bySizes = button("По размерам", false);
+        bySizes.setTag("native_tool_auto_geometry");
+        bySizes.setTextSize(10);
+        bySizes.setOnClickListener(v -> applyGeometrySolution(false));
+
+        Button auto90 = button("Авто 90°", false);
+        auto90.setTag("native_tool_auto90");
+        auto90.setTextSize(10);
+        auto90.setOnClickListener(v -> applyGeometrySolution(true));
+
+        Button autoDiags = button("Авто диагонали", false);
+        autoDiags.setTag("native_tool_auto_diagonals");
+        autoDiags.setTextSize(10);
+        autoDiags.setOnClickListener(v -> generateAutoDiagonals());
+
+        geometryTools.addView(bySizes, weightParams());
+        geometryTools.addView(auto90, weightParams());
+        geometryTools.addView(autoDiags, weightParams());
+
         drawingView = new CeilingDrawingView(this);
         drawingView.setTag("native_drawing_view");
         drawingView.setListener(this);
@@ -650,59 +678,87 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         dialog.show();
     }
 
-    private void updateStats(){
-        if(areaValue==null||perimeterValue==null)return;
-        NativeProjectStore.RoomData r=activeRoom();
-        List<NativeProjectStore.EdgeData> edges=NativeGeometry.orderedEdges(r);
+    private void applyGeometrySolution(boolean orthogonal){
+        NativeProjectStore.RoomData room=activeRoom();
+        NativeMeasurementSolver.Result result=orthogonal
+                ?NativeMeasurementSolver.solveOrthogonal(room)
+                :NativeMeasurementSolver.solveFree(room);
 
-        float perimeterUnits=0;
-        int measured=0;
-        for(NativeProjectStore.EdgeData edge:edges){
-            if(edge.value>0){
-                perimeterUnits+=edge.value;
-                measured++;
+        if(!result.ok){
+            Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();
+            return;
+        }
+        if(result.maxError>NativeMeasurementSolver.FIELD_MEASURE_TOL){
+            Toast.makeText(
+                    this,
+                    "Расхождение замеров превышает рабочий допуск",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        drawingView.applySolvedGeometry(result.positions);
+        store.saveCurrent(project);
+        updateStats();
+        Toast.makeText(this,result.message,Toast.LENGTH_SHORT).show();
+    }
+
+    private void generateAutoDiagonals(){
+        NativeProjectStore.RoomData room=activeRoom();
+        if(!NativeGeometry.isClosed(room)){
+            Toast.makeText(this,"Сначала замкни контур",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        for(NativeProjectStore.EdgeData edge:room.edges){
+            if(edge.value<=0f){
+                Toast.makeText(this,"Сначала введи размеры всех стен",Toast.LENGTH_SHORT).show();
+                return;
             }
         }
-        perimeterValue.setText(!edges.isEmpty()&&measured==edges.size()
+
+        int added=NativeMeasurementSolver.generateAutoDiagonals(room);
+        if(added<=0){
+            Toast.makeText(this,"Расчётные диагонали уже добавлены",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        store.saveCurrent(project);
+        drawingView.invalidate();
+        Toast.makeText(this,"Добавлено диагоналей: "+added,Toast.LENGTH_SHORT).show();
+    }
+
+    private void updateStats(){
+        if(areaValue==null||perimeterValue==null)return;
+        NativeProjectStore.RoomData room=activeRoom();
+        List<NativeProjectStore.EdgeData> edges=NativeGeometry.orderedEdges(room);
+
+        float perimeterUnits=0f;
+        boolean allMeasured=!edges.isEmpty();
+        for(NativeProjectStore.EdgeData edge:edges){
+            if(edge.value<=0f){
+                allMeasured=false;
+            }else{
+                perimeterUnits+=edge.value;
+            }
+        }
+
+        perimeterValue.setText(allMeasured
                 ?String.format(Locale.getDefault(),"%.2f м",perimeterUnits/100f)
                 :"—");
 
-        List<String> cycle=NativeGeometry.cycleOrder(r);
-        if(cycle==null||cycle.size()<3||measured==0){
+        if(!allMeasured||!NativeGeometry.isClosed(room)){
             areaValue.setText("—");
             return;
         }
 
-        double pxPerUnitSum=0;
-        int count=0;
-        for(NativeProjectStore.EdgeData edge:edges){
-            if(edge.value<=0)continue;
-            NativeProjectStore.PointData a=NativeGeometry.pointById(r,edge.a);
-            NativeProjectStore.PointData b=NativeGeometry.pointById(r,edge.b);
-            if(a==null||b==null)continue;
-            double px=Math.hypot(b.x-a.x,b.y-a.y);
-            if(px>0){
-                pxPerUnitSum+=px/edge.value;
-                count++;
-            }
-        }
-        if(count==0){
+        Double rawArea=NativeMeasurementSolver.measuredAreaRaw(room);
+        if(rawArea==null){
             areaValue.setText("—");
             return;
         }
 
-        double pxPerUnit=pxPerUnitSum/count;
-        double areaPx=0;
-        for(int i=0;i<cycle.size();i++){
-            NativeProjectStore.PointData a=NativeGeometry.pointById(r,cycle.get(i));
-            NativeProjectStore.PointData b=NativeGeometry.pointById(r,cycle.get((i+1)%cycle.size()));
-            if(a==null||b==null)continue;
-            areaPx+=a.x*b.y-b.x*a.y;
-        }
-        areaPx=Math.abs(areaPx)/2d;
-        double areaUnits=areaPx/(pxPerUnit*pxPerUnit);
-        double areaM2=areaUnits/10000d;
-        areaValue.setText(String.format(Locale.getDefault(),"%.2f м²",areaM2));
+        areaValue.setText(String.format(
+                Locale.getDefault(),
+                "%.2f м²",
+                rawArea/10000d));
     }
 
     private void showSavedMeasurements(){

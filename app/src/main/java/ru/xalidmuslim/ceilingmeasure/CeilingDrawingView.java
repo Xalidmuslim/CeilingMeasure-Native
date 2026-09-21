@@ -159,6 +159,51 @@ final class CeilingDrawingView extends View {
         this.listener = listener;
     }
 
+    void applySolvedGeometry(@NonNull Map<String, PointF> positions) {
+        if (room == null || positions.isEmpty()) return;
+
+        float minX = Float.MAX_VALUE;
+        float maxX = -Float.MAX_VALUE;
+        float minY = Float.MAX_VALUE;
+        float maxY = -Float.MAX_VALUE;
+        for (PointF p : positions.values()) {
+            minX = Math.min(minX, p.x);
+            maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y);
+            maxY = Math.max(maxY, p.y);
+        }
+
+        float contentWidth = Math.max(1f, maxX - minX);
+        float contentHeight = Math.max(1f, maxY - minY);
+        float viewWidth = Math.max(dp(280), getWidth());
+        float viewHeight = Math.max(dp(360), getHeight());
+        float fit = Math.min(
+                (viewWidth - dp(80)) / contentWidth,
+                (viewHeight - dp(100)) / contentHeight);
+        fit = Math.max(.05f, fit);
+
+        float centerX = (minX + maxX) / 2f;
+        float centerY = (minY + maxY) / 2f;
+        float targetX = viewWidth / 2f;
+        float targetY = viewHeight / 2f;
+
+        for (NativeProjectStore.PointData point : room.points) {
+            PointF solved = positions.get(point.id);
+            if (solved == null) continue;
+            point.x = targetX + (solved.x - centerX) * fit;
+            point.y = targetY + (solved.y - centerY) * fit;
+        }
+
+        scale = 1f;
+        offsetX = 0f;
+        offsetY = 0f;
+        room.viewScale = 1f;
+        room.panX = 0f;
+        room.panY = 0f;
+        cancelTransientGestures();
+        changed();
+    }
+
     boolean hasClosedContour() {
         return room != null && NativeGeometry.isClosed(room);
     }
@@ -307,19 +352,39 @@ final class CeilingDrawingView extends View {
 
     private void drawLabels(Canvas canvas) {
         for (NativeProjectStore.EdgeData edge : room.edges) {
+            if (edge.value <= 0f && !room.showAutoLetters) continue;
             PointF pos = edgeLabelBase(edge);
             if (pos == null) continue;
-            String value = edge.value > 0 ? formatValue(edge.value) : edgeOrdinal(edge);
+
+            String value;
+            if (room.showAutoLetters) {
+                String label = edgeLetterLabel(edge);
+                value = edge.value > 0f
+                        ? label + " · " + formatValue(edge.value)
+                        : label;
+            } else {
+                value = formatValue(edge.value);
+            }
             drawTextBadge(canvas, value, pos.x + edge.labelDx, pos.y + edge.labelDy);
         }
 
         for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
-            if (diagonal.value <= 0) continue;
+            if (diagonal.value <= 0f && !room.showAutoLetters) continue;
             PointF pos = diagonalLabelBase(diagonal);
             if (pos == null) continue;
+
+            String value;
+            if (room.showAutoLetters) {
+                String label = pointLetterLabel(diagonal.a) + pointLetterLabel(diagonal.b);
+                value = diagonal.value > 0f
+                        ? label + " · " + formatValue(diagonal.value)
+                        : label;
+            } else {
+                value = formatValue(diagonal.value);
+            }
             drawTextBadge(
                     canvas,
-                    formatValue(diagonal.value),
+                    value,
                     pos.x + diagonal.labelDx,
                     pos.y + diagonal.labelDy);
         }
@@ -1116,6 +1181,18 @@ final class CeilingDrawingView extends View {
             if (hit) inside = !inside;
         }
         return inside;
+    }
+
+    private String pointLetterLabel(String pointId) {
+        NativeProjectStore.PointData point = NativeGeometry.pointById(room, pointId);
+        if (point != null && "A".equals(point.customLabel)) return "A";
+        int index = NativeGeometry.pointIndex(room, pointId);
+        if (index >= 0 && index < 26) return String.valueOf((char) ('A' + index));
+        return index >= 0 ? String.valueOf(index + 1) : "";
+    }
+
+    private String edgeLetterLabel(NativeProjectStore.EdgeData edge) {
+        return pointLetterLabel(edge.a) + pointLetterLabel(edge.b);
     }
 
     private String edgeOrdinal(NativeProjectStore.EdgeData edge) {

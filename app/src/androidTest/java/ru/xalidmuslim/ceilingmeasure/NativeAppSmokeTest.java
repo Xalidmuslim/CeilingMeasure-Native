@@ -83,6 +83,9 @@ public class NativeAppSmokeTest {
             assertNotNull(root.findViewWithTag("native_tool_point90"));
             assertNotNull(root.findViewWithTag("native_tool_letters"));
             assertNotNull(root.findViewWithTag("native_tool_wall_sequence"));
+            assertNotNull(root.findViewWithTag("native_tool_auto_geometry"));
+            assertNotNull(root.findViewWithTag("native_tool_auto90"));
+            assertNotNull(root.findViewWithTag("native_tool_auto_diagonals"));
             assertFalse(containsWebView(root));
         }
     }
@@ -341,6 +344,68 @@ public class NativeAppSmokeTest {
                 assertFalse(view.isMagnifierVisibleForTest());
             });
         }
+    }
+
+    @Test
+    public void exactSquareUsesEnteredMeasurementsForTwentyFiveSquareMetres() {
+        NativeProjectStore.RoomData room = measuredSquare(500f);
+        Double raw = NativeMeasurementSolver.exactRectAreaRaw(room);
+        assertNotNull(raw);
+        assertEquals(250000d, raw, .01d);
+        assertEquals(25d, raw / 10000d, .0001d);
+    }
+
+    @Test
+    public void freeAndOrthogonalSolversRespectMeasuredSquare() {
+        NativeProjectStore.RoomData room = measuredSquare(500f);
+
+        NativeMeasurementSolver.Result free =
+                NativeMeasurementSolver.solveFree(room);
+        assertTrue(free.ok);
+        assertTrue(free.maxError <= NativeMeasurementSolver.FIELD_MEASURE_TOL);
+
+        NativeMeasurementSolver.Result orthogonal =
+                NativeMeasurementSolver.solveOrthogonal(room);
+        assertTrue(orthogonal.ok);
+        assertTrue(orthogonal.maxError <= NativeMeasurementSolver.FIELD_MEASURE_TOL);
+    }
+
+    @Test
+    public void autoDiagonalsUseExistingCornersOnly() {
+        NativeProjectStore.RoomData room = measuredSquare(500f);
+        int beforePoints = room.points.size();
+        int added = NativeMeasurementSolver.generateAutoDiagonals(room);
+        assertEquals(1, added);
+        assertEquals(beforePoints, room.points.size());
+        assertEquals(1, room.diagonals.size());
+        assertNotNull(NativeGeometry.pointById(room, room.diagonals.get(0).a));
+        assertNotNull(NativeGeometry.pointById(room, room.diagonals.get(0).b));
+    }
+
+    private static NativeProjectStore.RoomData measuredSquare(float size) {
+        NativeProjectStore.RoomData room = new NativeProjectStore.RoomData();
+        NativeProjectStore.PointData a = new NativeProjectStore.PointData(100f, 100f);
+        NativeProjectStore.PointData b = new NativeProjectStore.PointData(300f, 100f);
+        NativeProjectStore.PointData c = new NativeProjectStore.PointData(300f, 300f);
+        NativeProjectStore.PointData d = new NativeProjectStore.PointData(100f, 300f);
+        room.points.add(a);
+        room.points.add(b);
+        room.points.add(c);
+        room.points.add(d);
+
+        NativeProjectStore.EdgeData ab = new NativeProjectStore.EdgeData(a.id, b.id);
+        NativeProjectStore.EdgeData bc = new NativeProjectStore.EdgeData(b.id, c.id);
+        NativeProjectStore.EdgeData cd = new NativeProjectStore.EdgeData(c.id, d.id);
+        NativeProjectStore.EdgeData da = new NativeProjectStore.EdgeData(d.id, a.id);
+        ab.value = size;
+        bc.value = size;
+        cd.value = size;
+        da.value = size;
+        room.edges.add(ab);
+        room.edges.add(bc);
+        room.edges.add(cd);
+        room.edges.add(da);
+        return room;
     }
 
     private static void drag(
