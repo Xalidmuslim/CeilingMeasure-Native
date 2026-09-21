@@ -54,6 +54,8 @@ jobs:
           grep -q 'class CeilingDrawingView' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
           grep -q 'class NativeNumberPadDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeNumberPadDialog.java
           grep -q 'native_number_pad_' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeNumberPadDialog.java
+          grep -q 'class NativeTextPadDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeTextPadDialog.java
+          grep -q 'native_text_pad_' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeTextPadDialog.java
           grep -q 'addRow(keypad, ",", "0", "⌫")' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeNumberPadDialog.java
 
       - name: Lint, unit tests, assemble

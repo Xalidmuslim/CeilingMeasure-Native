@@ -232,8 +232,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         for(int i=0;i<project.rooms.size();i++){
             final int index=i;
             NativeProjectStore.RoomData r=project.rooms.get(i);
-            Button b=button(r.name,false);
-            b.setMinWidth(dp(92));
+            Button b=button(roomButtonLabel(r.name,index),false);
+            b.setTag("native_room_"+index);
+            b.setTextSize(11);
+            b.setSingleLine(true);
+            b.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            b.setMinWidth(0);
+            b.setPadding(dp(5),0,dp(5),0);
             if(i==project.activeRoom) styleSelected(b);
             b.setOnClickListener(v->{
                 project.activeRoom=index;
@@ -242,13 +247,18 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 if(drawingView!=null)drawingView.setRoom(activeRoom());
                 updateStats();
             });
-            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(42));
-            p.rightMargin=dp(6);
+            b.setOnLongClickListener(v->{
+                showRoomActions(index);
+                return true;
+            });
+            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(dp(58),dp(48));
+            p.rightMargin=dp(5);
             roomRow.addView(b,p);
         }
         Button add=button("+",false);
+        add.setTag("native_room_add");
         add.setTextSize(22);
+        add.setContentDescription("Добавить комнату");
         add.setOnClickListener(v->{
             NativeProjectStore.RoomData r=new NativeProjectStore.RoomData();
             r.name="Комната "+(project.rooms.size()+1);
@@ -256,10 +266,73 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             project.activeRoom=project.rooms.size()-1;
             store.saveCurrent(project);
             renderRooms();
-            drawingView.setRoom(activeRoom());
+            if(drawingView!=null)drawingView.setRoom(activeRoom());
             updateStats();
         });
-        roomRow.addView(add,new LinearLayout.LayoutParams(dp(48),dp(42)));
+        LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(dp(48),dp(48));
+        roomRow.addView(add,addParams);
+    }
+
+    private String roomButtonLabel(String name,int index){
+        String value=name==null?"":name.trim();
+        if(value.isEmpty())return String.valueOf(index+1);
+        if(value.matches("(?i)комната\\s*\\d+"))return String.valueOf(index+1);
+        return value;
+    }
+
+    private void showRoomActions(int index){
+        if(index<0||index>=project.rooms.size())return;
+        NativeProjectStore.RoomData room=project.rooms.get(index);
+        new AlertDialog.Builder(this)
+                .setTitle(room.name)
+                .setItems(new String[]{"Переименовать","Удалить"},(dialog,which)->{
+                    if(which==0){
+                        showRoomRename(index);
+                    }else{
+                        deleteRoom(index);
+                    }
+                })
+                .show();
+    }
+
+    private void showRoomRename(int index){
+        if(index<0||index>=project.rooms.size())return;
+        NativeProjectStore.RoomData room=project.rooms.get(index);
+        NativeTextPadDialog dialog=new NativeTextPadDialog(
+                this,
+                "Переименовать комнату",
+                room.name,
+                value->{
+                    room.name=value;
+                    store.saveCurrent(project);
+                    renderRooms();
+                });
+        dialog.show();
+    }
+
+    private void deleteRoom(int index){
+        if(index<0||index>=project.rooms.size())return;
+        if(project.rooms.size()<=1){
+            Toast.makeText(this,"Нельзя удалить единственную комнату",Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String roomName=project.rooms.get(index).name;
+        new AlertDialog.Builder(this)
+                .setTitle("Удалить комнату?")
+                .setMessage(roomName+" и её чертёж будут удалены.")
+                .setNegativeButton("Отмена",null)
+                .setPositiveButton("Удалить",(dialog,which)->{
+                    project.rooms.remove(index);
+                    if(project.activeRoom>index)project.activeRoom--;
+                    if(project.activeRoom>=project.rooms.size())project.activeRoom=project.rooms.size()-1;
+                    project.activeRoom=Math.max(0,project.activeRoom);
+                    store.saveCurrent(project);
+                    renderRooms();
+                    if(drawingView!=null)drawingView.setRoom(activeRoom());
+                    updateStats();
+                })
+                .show();
     }
 
     private Button modeButton(String text, CeilingDrawingView.Mode mode, String tag){

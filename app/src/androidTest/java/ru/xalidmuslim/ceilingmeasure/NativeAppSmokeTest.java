@@ -125,6 +125,55 @@ public class NativeAppSmokeTest {
     }
 
     @Test
+    public void nativeRoomControlsUseCompactButtonsAndCustomTextPad() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(
+                NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.ACTION_NEW_ORDER);
+
+        try (ActivityScenario<NativeWorkspaceActivity> scenario =
+                     ActivityScenario.launch(intent)) {
+            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
+            scenario.onActivity(ref::set);
+            NativeWorkspaceActivity activity = ref.get();
+            assertNotNull(activity);
+
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+                View root = activity.getWindow().getDecorView();
+                View room = root.findViewWithTag("native_room_0");
+                View add = root.findViewWithTag("native_room_add");
+                assertNotNull(room);
+                assertNotNull(add);
+                assertTrue(room.isLongClickable());
+                assertTrue(room.getLayoutParams().width <= activity.getResources()
+                        .getDisplayMetrics().density * 60f);
+
+                NativeTextPadDialog dialog = new NativeTextPadDialog(
+                        activity,
+                        "Переименовать комнату",
+                        "Комната 1",
+                        value -> {});
+                dialog.show();
+
+                View keyA = dialog.findViewById(android.R.id.content)
+                        .getRootView()
+                        .findViewWithTag("native_text_pad_key_А");
+                View space = dialog.findViewById(android.R.id.content)
+                        .getRootView()
+                        .findViewWithTag("native_text_pad_space");
+                View done = dialog.findViewById(android.R.id.content)
+                        .getRootView()
+                        .findViewWithTag("native_text_pad_done");
+                assertNotNull(keyA);
+                assertNotNull(space);
+                assertNotNull(done);
+                dialog.dismiss();
+            });
+        }
+    }
+
+    @Test
     public void nativeProjectStorePersistsCurrentProject() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         context.getSharedPreferences("native_ceiling_projects", Context.MODE_PRIVATE)
