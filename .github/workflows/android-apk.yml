@@ -77,7 +77,14 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: gradle --no-daemon connectedDebugAndroidTest
+          script: |
+            set -euo pipefail
+            gradle --no-daemon assembleDebugAndroidTest
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r ru.xalidmuslim.ceilingmeasure.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/instrumentation.txt
+            grep -q "OK (3 tests)" /tmp/instrumentation.txt
+            ! grep -q "FAILURES!!!" /tmp/instrumentation.txt
 
       - name: Re-verify golden asset after tests
         run: |
