@@ -39,7 +39,7 @@ public final class NativeProjectStoreTest {
     }
 
     @Test
-    public void selectedNonFirstOrderIsRuntimeOnlyAndRelaunchSelectsFirstOrder() {
+    public void selectedNonFirstOrderIsRuntimeOnlyAndRelaunchSelectsFirstOrder() throws Exception {
         MemorySharedPreferences prefs = new MemorySharedPreferences();
         NativeProjectStore store = new NativeProjectStore(prefs);
 
