@@ -5938,7 +5938,7 @@ const fmtM2=rawArea=>Number.isFinite(+rawArea)?(+rawArea/10000).toLocaleString("
 
 const APP_STORAGE_KEY="ceilingMeasureData";
 const APP_SCHEMA_VERSION=165;
-const APP_BUILD_VERSION="179-apk-ready";
+const APP_BUILD_VERSION="180-android-back";
 const LEGACY_STORAGE_KEYS=[...Array.from({length:111},(_,i)=>`ceilingTouchV${125-i}`)];
 const volatileStorage=new Map();
 let storagePersistent=true;
@@ -7545,6 +7545,44 @@ function globalBackAction(){
   if($("#internalCalcSheet")?.classList.contains("open")){closeInternalCalcSummary();return}
   undoDo()
 }
+
+function ceilingHandleAndroidBack(){
+  if(wallSequenceMode&&wallEditId){goPreviousWallInSequence();return true}
+  if(drawingFocusMode){setDrawingFocus(false);return true}
+
+  const actions=[
+    ["miniConfirm",hideConfirm],
+    ["calcKeypad",closeCalcKeypad],
+    ["drawToolsMenu",closeDrawToolsMenu],
+    ["roomPicker",closeRoomPicker],
+    ["roomActionSheet",closeRoomActions],
+    ["savedActionSheet",closeSavedAction],
+    ["savedMeasurements",closeSavedMeasurements],
+    ["vertexMenu",closeVertexMenu],
+    ["wallSheet",closeWall],
+    ["diagSheet",closeDiag],
+    ["uiSettingsSheet",closeUiSettings],
+    ["clientOtherMaterialSheet",closeClientOtherMaterialSheet],
+    ["clientMaterialSheet",closeClientMaterialSheet],
+    ["clientMaterialRoomSheet",closeClientMaterialRoomChooser],
+    ["roomSketchPreviewSheet",closeRoomSketchPreview],
+    ["clientPricePresetSheet",closeClientPricePreset],
+    ["pricePresetSheet",closePricePreset],
+    ["clientMergeOrdersSheet",closeClientMergeOrders],
+    ["internalCalcSheet",closeInternalCalcSummary],
+    ["clientEstimateSheet",closeClientEstimate]
+  ];
+
+  for(const [id,close] of actions){
+    const el=$("#"+id);
+    if(el?.classList.contains("open")){
+      close();
+      return true
+    }
+  }
+  return false
+}
+window.ceilingHandleAndroidBack=ceilingHandleAndroidBack;
 function push(){
   const r=curRoom();if(!r)return;
   undo.push(clone(r));
