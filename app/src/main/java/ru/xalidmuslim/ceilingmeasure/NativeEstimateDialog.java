@@ -28,6 +28,7 @@ final class NativeEstimateDialog extends Dialog {
 
     interface Listener {
         void onChanged();
+        default void onClientPdfRequested(@NonNull List<NativeProjectStore.ProjectData> projects) {}
     }
 
     private static final int TEXT=Color.rgb(35,56,72);
@@ -152,6 +153,26 @@ final class NativeEstimateDialog extends Dialog {
             }
         }
 
+        if(mode==Mode.CLIENT){
+            LinearLayout bottom=new LinearLayout(getContext());
+            bottom.setOrientation(LinearLayout.HORIZONTAL);
+            Button add=button("+ Дополнительный материал",false);
+            add.setTag("native_client_add_material");
+            add.setOnClickListener(v->openGlobalMaterialPicker(projects));
+            Button pdf=button("Скачать PDF",true);
+            pdf.setTag("native_client_pdf");
+            pdf.setOnClickListener(v->listener.onClientPdfRequested(
+                    new ArrayList<>(estimateProjects())));
+            bottom.addView(add,new LinearLayout.LayoutParams(0,dp(46),1f));
+            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(46),1f);
+            pp.leftMargin=dp(6);
+            bottom.addView(pdf,pp);
+            content.addView(bottom,top(10));
+            content.addView(text(
+                    "PDF формируется прямо на устройстве и сохраняется готовым файлом. Интернет и окно печати не нужны.",
+                    10,MUTED,false),top(7));
+        }
+
         setContentView(scroll);
     }
 
@@ -187,16 +208,13 @@ final class NativeEstimateDialog extends Dialog {
 
         for(NativeEstimateEngine.Line line:cost.lines)addLine(card,owner,room,line);
 
-        Button add=button(
-                mode==Mode.CLIENT?"+ Дополнительный материал":"+ Другой материал",
-                false);
-        add.setTag((mode==Mode.CLIENT?"native_client_add_material_":"native_internal_add_material_")+room.id);
-        add.setOnClickListener(v->{
-            if(mode==Mode.CLIENT)openMaterialPicker(owner,room);
-            else openAdhocMaterial(owner,room,false);
-        });
-        card.addView(add,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(42)));
+        if(mode==Mode.INTERNAL){
+            Button add=button("+ Другой материал",false);
+            add.setTag("native_internal_add_material_"+room.id);
+            add.setOnClickListener(v->openAdhocMaterial(owner,room,false));
+            card.addView(add,new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,dp(42)));
+        }
 
         TextView state=text(
                 cost.complete?"Расчёт готов.":"Расчёт неполный: не все обязательные размеры введены.",
@@ -320,6 +338,38 @@ final class NativeEstimateDialog extends Dialog {
             room.hiddenInternalKeys.add(line.key);
         }
         changed(owner);
+    }
+
+    private void openGlobalMaterialPicker(
+            List<NativeProjectStore.ProjectData> projects){
+        ArrayList<NativeProjectStore.ProjectData> owners=new ArrayList<>();
+        ArrayList<NativeProjectStore.RoomData> rooms=new ArrayList<>();
+        ArrayList<String> labels=new ArrayList<>();
+        boolean multi=projects.size()>1;
+
+        for(NativeProjectStore.ProjectData owner:projects){
+            for(NativeProjectStore.RoomData room:owner.rooms){
+                owners.add(owner);
+                rooms.add(room);
+                NativeEstimateEngine.Metrics metrics=NativeEstimateEngine.metrics(room);
+                String prefix=multi?projectLabel(owner)+" · ":"";
+                labels.add(
+                        prefix+room.name+" · "
+                                +qty(metrics.areaM2)+" м² · "
+                                +qty(metrics.perimeterM)+" м");
+            }
+        }
+        if(rooms.isEmpty())return;
+        if(rooms.size()==1){
+            openMaterialPicker(owners.get(0),rooms.get(0));
+            return;
+        }
+
+        new AlertDialog.Builder(getContext())
+                .setTitle("В какую комнату добавить?")
+                .setItems(labels.toArray(new String[0]),(d,which)->
+                        openMaterialPicker(owners.get(which),rooms.get(which)))
+                .show();
     }
 
     private void openMaterialPicker(

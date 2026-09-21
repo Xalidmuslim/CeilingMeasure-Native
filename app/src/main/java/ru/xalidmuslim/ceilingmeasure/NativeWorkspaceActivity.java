@@ -49,6 +49,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     public static final String ACTION_SETTINGS = "settings";
     private static final int REQUEST_EXPORT_BACKUP = 7201;
     private static final int REQUEST_IMPORT_BACKUP = 7202;
+    private static final int REQUEST_EXPORT_CLIENT_PDF = 7203;
 
     private static final int BG = Color.rgb(244,247,249);
     private static final int PANEL = Color.WHITE;
@@ -82,6 +83,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private final ArrayDeque<String> redoRooms = new ArrayDeque<>();
     private boolean restoringHistory;
     private NativeUiPrefs uiPrefs;
+    private byte[] pendingClientPdf;
+    private String pendingClientPdfName;
     private View historyNavView;
     private boolean wallSequenceMode;
     private String wallEditId;
@@ -1369,9 +1372,16 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 store,
                 project,
                 mode,
-                ()->{
-                    store.saveCurrent(project);
-                    updateStats();
+                new NativeEstimateDialog.Listener(){
+                    @Override public void onChanged(){
+                        store.saveCurrent(project);
+                        updateStats();
+                    }
+
+                    @Override public void onClientPdfRequested(
+                            List<NativeProjectStore.ProjectData> projects){
+                        beginClientPdfExport(projects);
+                    }
                 }).show();
     }
 
@@ -1409,6 +1419,26 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 Locale.getDefault(),
                 "%.2f м²",
                 rawArea/10000d));
+    }
+
+    private void beginClientPdfExport(
+            List<NativeProjectStore.ProjectData> projects){
+        NativeClientEstimatePdf.Result pdf=NativeClientEstimatePdf.build(projects);
+        if(pdf.pricedLines<=0){
+            Toast.makeText(this,"Сначала укажи клиентские цены",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if(pdf.bytes.length==0){
+            Toast.makeText(this,"Не удалось создать PDF на этом устройстве",Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        pendingClientPdf=pdf.bytes;
+        pendingClientPdfName=pdf.fileName;
+        Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.setType("application/pdf");
+        intent.putExtra(Intent.EXTRA_TITLE,pdf.fileName);
+        startActivityForResult(intent,REQUEST_EXPORT_CLIENT_PDF);
     }
 
     private void showSavedMeasurements(){
@@ -1620,6 +1650,22 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         super.onActivityResult(requestCode,resultCode,data);
         if(resultCode!=Activity.RESULT_OK||data==null||data.getData()==null)return;
         Uri uri=data.getData();
+
+        if(requestCode==REQUEST_EXPORT_CLIENT_PDF){
+            byte[] bytes=pendingClientPdf;
+            pendingClientPdf=null;
+            pendingClientPdfName=null;
+            if(bytes==null||bytes.length==0)return;
+            try(OutputStream out=getContentResolver().openOutputStream(uri)){
+                if(out==null)throw new IllegalStateException("stream");
+                out.write(bytes);
+                out.flush();
+                Toast.makeText(this,"PDF сохранён",Toast.LENGTH_SHORT).show();
+            }catch(Exception e){
+                Toast.makeText(this,"Не удалось сохранить PDF",Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
 
         if(requestCode==REQUEST_EXPORT_BACKUP){
             try(OutputStream out=getContentResolver().openOutputStream(uri)){

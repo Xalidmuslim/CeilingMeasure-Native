@@ -509,6 +509,31 @@ public class NativeAppSmokeTest {
     }
 
     @Test
+    public void clientEstimatePdfBuildsOfflineLikeWebV184() {
+        NativeProjectStore.ProjectData project = new NativeProjectStore.ProjectData();
+        project.name = "Квартира 189";
+        project.phone = "+7 900 000-00-00";
+        project.address = "Тестовый адрес";
+        NativeProjectStore.RoomData room = measuredSquare(500f);
+        room.name = "Комната";
+        room.notes = "Скрытый карниз";
+        room.clientPricing.put("canvas", 500f);
+        project.rooms.add(room);
+
+        NativeClientEstimatePdf.Result pdf =
+                NativeClientEstimatePdf.build(java.util.Collections.singletonList(project));
+
+        assertTrue(pdf.pricedLines > 0);
+        assertTrue(pdf.bytes.length > 1000);
+        assertEquals('%', (char) pdf.bytes[0]);
+        assertEquals('P', (char) pdf.bytes[1]);
+        assertEquals('D', (char) pdf.bytes[2]);
+        assertEquals('F', (char) pdf.bytes[3]);
+        assertTrue(pdf.fileName.startsWith("smeta_"));
+        assertTrue(pdf.fileName.endsWith(".pdf"));
+    }
+
+    @Test
     public void estimateEngineMatchesWebStandardMaterialRules() {
         NativeProjectStore.RoomData room = measuredSquare(500f);
         room.pricing.put("canvas", 100f);
