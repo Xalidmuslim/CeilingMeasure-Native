@@ -60,6 +60,8 @@ jobs:
           grep -q 'extendStraightWall' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeGeometry.java
           grep -q 'drawMagnifierOverlay' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
           grep -q 'onVertexLongPressed' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
+          grep -q 'class NativeEstimateEngine' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeEstimateEngine.java
+          grep -q 'class NativeEstimateDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeEstimateDialog.java
           grep -q 'class NativeMeasurementSolver' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMeasurementSolver.java
           grep -q 'exactRectAreaRaw' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMeasurementSolver.java
           grep -q 'solveOrthogonal' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMeasurementSolver.java

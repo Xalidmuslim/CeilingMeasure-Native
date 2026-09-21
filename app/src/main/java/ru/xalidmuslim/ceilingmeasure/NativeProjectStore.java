@@ -11,6 +11,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.List;
 import java.util.UUID;
 
@@ -89,9 +93,16 @@ final class NativeProjectStore {
     static final class RoomData {
         String id = newId("room");
         String name = "Комната 1";
+        String notes = "";
         final ArrayList<PointData> points = new ArrayList<>();
         final ArrayList<EdgeData> edges = new ArrayList<>();
         final ArrayList<DiagonalData> diagonals = new ArrayList<>();
+        final HashMap<String, Float> pricing = new HashMap<>();
+        final HashMap<String, Float> clientPricing = new HashMap<>();
+        final HashMap<String, Float> extraQty = new HashMap<>();
+        final HashMap<String, Float> clientEstimateQty = new HashMap<>();
+        final HashSet<String> clientEstimateOverride = new HashSet<>();
+        final HashSet<String> hiddenInternalKeys = new HashSet<>();
         boolean point90Magnet = true;
         boolean wallAngleMagnet = true;
         boolean showAutoLetters = false;
@@ -100,6 +111,40 @@ final class NativeProjectStore {
         float viewScale = 1f;
         float panX = 0f;
         float panY = 0f;
+
+        RoomData() {
+            ensureRoomEstimateDefaults(this);
+        }
+    }
+
+    static final String[] INTERNAL_PRICE_KEYS = new String[]{
+            "canvas","baguette","insert","light","corner","cornice","dowel","lightline","pipe"
+    };
+    static final String[] CLIENT_PRICE_KEYS = new String[]{
+            "canvas","insert","light","cornice","corner","pipe","lightline","shadow","porcelain"
+    };
+    static final String[] EXTRA_QTY_KEYS = new String[]{
+            "light","corner","cornice","lightline","pipe"
+    };
+    static final String[] CLIENT_QTY_KEYS = new String[]{
+            "insert","light","cornice","corner","pipe","lightline","shadow","porcelain"
+    };
+
+    static void ensureRoomEstimateDefaults(@NonNull RoomData room) {
+        for (String key : INTERNAL_PRICE_KEYS) {
+            if (!room.pricing.containsKey(key)) room.pricing.put(key, 0f);
+        }
+        room.clientPricing.putIfAbsent("baguette", 0f);
+        room.clientPricing.putIfAbsent("dowel", 0f);
+        for (String key : CLIENT_PRICE_KEYS) {
+            if (!room.clientPricing.containsKey(key)) room.clientPricing.put(key, 0f);
+        }
+        for (String key : EXTRA_QTY_KEYS) {
+            if (!room.extraQty.containsKey(key)) room.extraQty.put(key, 0f);
+        }
+        for (String key : CLIENT_QTY_KEYS) {
+            if (!room.clientEstimateQty.containsKey(key)) room.clientEstimateQty.put(key, 0f);
+        }
     }
 
     static final class ProjectData {
@@ -256,6 +301,13 @@ final class NativeProjectStore {
                         nr.put("geometryVersion", 3);
                         nr.put("id", wr.optString("id", newId("room")));
                         nr.put("name", wr.optString("name", "Комната " + (j + 1)));
+                        nr.put("notes", wr.optString("notes", ""));
+                        nr.put("pricing", wr.optJSONObject("pricing") == null ? new JSONObject() : wr.optJSONObject("pricing"));
+                        nr.put("clientPricing", wr.optJSONObject("clientPricing") == null ? new JSONObject() : wr.optJSONObject("clientPricing"));
+                        nr.put("extraQty", wr.optJSONObject("extraQty") == null ? new JSONObject() : wr.optJSONObject("extraQty"));
+                        nr.put("clientEstimateQty", wr.optJSONObject("clientEstimateQty") == null ? new JSONObject() : wr.optJSONObject("clientEstimateQty"));
+                        nr.put("clientEstimateOverride", wr.optJSONObject("clientEstimateOverride") == null ? new JSONObject() : wr.optJSONObject("clientEstimateOverride"));
+                        nr.put("hiddenInternalKeys", wr.optJSONArray("hiddenInternalKeys") == null ? new JSONArray() : wr.optJSONArray("hiddenInternalKeys"));
                         nr.put("point90Magnet", wr.optBoolean("point90Magnet", true));
                         nr.put("wallAngleMagnet", true);
                         nr.put("showAutoLetters", wr.optBoolean("showAutoLetters", false));
@@ -374,6 +426,13 @@ final class NativeProjectStore {
         o.put("geometryVersion", 3);
         o.put("id", r.id);
         o.put("name", r.name);
+        o.put("notes", r.notes);
+        o.put("pricing", floatMapToJson(r.pricing));
+        o.put("clientPricing", floatMapToJson(r.clientPricing));
+        o.put("extraQty", floatMapToJson(r.extraQty));
+        o.put("clientEstimateQty", floatMapToJson(r.clientEstimateQty));
+        o.put("clientEstimateOverride", stringSetToJson(r.clientEstimateOverride));
+        o.put("hiddenInternalKeys", stringSetToJson(r.hiddenInternalKeys));
         o.put("point90Magnet", r.point90Magnet);
         o.put("wallAngleMagnet", r.wallAngleMagnet);
         o.put("showAutoLetters", r.showAutoLetters);
@@ -453,6 +512,14 @@ final class NativeProjectStore {
         RoomData r = new RoomData();
         r.id = o.optString("id", r.id);
         r.name = o.optString("name", r.name);
+        r.notes = o.optString("notes", "");
+        readFloatMap(o.optJSONObject("pricing"), r.pricing);
+        readFloatMap(o.optJSONObject("clientPricing"), r.clientPricing);
+        readFloatMap(o.optJSONObject("extraQty"), r.extraQty);
+        readFloatMap(o.optJSONObject("clientEstimateQty"), r.clientEstimateQty);
+        readStringSet(o.opt("clientEstimateOverride"), r.clientEstimateOverride);
+        readStringSet(o.opt("hiddenInternalKeys"), r.hiddenInternalKeys);
+        ensureRoomEstimateDefaults(r);
         r.point90Magnet = o.optBoolean("point90Magnet", true);
         r.wallAngleMagnet = o.optBoolean("wallAngleMagnet", true);
         r.showAutoLetters = o.optBoolean("showAutoLetters", false);
@@ -607,6 +674,53 @@ final class NativeProjectStore {
         if (r == null || id == null) return null;
         for (PointData p : r.points) if (id.equals(p.id)) return p;
         return null;
+    }
+
+    private static JSONObject floatMapToJson(Map<String, Float> map) {
+        JSONObject o = new JSONObject();
+        if (map == null) return o;
+        for (Map.Entry<String, Float> entry : map.entrySet()) {
+            try {
+                o.put(entry.getKey(), Math.max(0f, entry.getValue() == null ? 0f : entry.getValue()));
+            } catch (JSONException ignored) {
+            }
+        }
+        return o;
+    }
+
+    private static JSONArray stringSetToJson(Set<String> set) {
+        JSONArray a = new JSONArray();
+        if (set != null) for (String value : set) a.put(value);
+        return a;
+    }
+
+    private static void readFloatMap(JSONObject o, Map<String, Float> out) {
+        if (o == null || out == null) return;
+        java.util.Iterator<String> keys = o.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            out.put(key, Math.max(0f, (float) o.optDouble(key, 0d)));
+        }
+    }
+
+    private static void readStringSet(Object raw, Set<String> out) {
+        if (raw == null || raw == JSONObject.NULL || out == null) return;
+        if (raw instanceof JSONArray) {
+            JSONArray a = (JSONArray) raw;
+            for (int i = 0; i < a.length(); i++) {
+                String value = a.optString(i, "");
+                if (!value.isEmpty()) out.add(value);
+            }
+            return;
+        }
+        if (raw instanceof JSONObject) {
+            JSONObject o = (JSONObject) raw;
+            java.util.Iterator<String> keys = o.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (o.optBoolean(key, false)) out.add(key);
+            }
+        }
     }
 
     static float normalizeAngle(float value) {

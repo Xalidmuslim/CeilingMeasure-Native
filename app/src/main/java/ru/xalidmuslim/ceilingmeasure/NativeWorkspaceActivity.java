@@ -76,6 +76,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private TextView drawingStatus;
     private TextView zoomStatus;
     private TextView drawingHint;
+    private EditText notesInput;
     private ScrollView editorScroll;
     private final ArrayDeque<String> undoRooms = new ArrayDeque<>();
     private final ArrayDeque<String> redoRooms = new ArrayDeque<>();
@@ -311,10 +312,20 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout estimateCard=card();
         estimateCard.setTag("native_estimate_card");
         root.addView(estimateCard,marginParams(0,8));
-        TextView estimateEyebrow=text("Смета",11,MUTED,Typeface.BOLD);
-        TextView estimateTitle=text("Для клиента",18,TEXT,Typeface.BOLD);
-        estimateCard.addView(estimateEyebrow);
-        estimateCard.addView(estimateTitle);
+
+        LinearLayout estimateHead=new LinearLayout(this);
+        estimateHead.setOrientation(LinearLayout.HORIZONTAL);
+        estimateHead.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout estimateTitleBox=new LinearLayout(this);
+        estimateTitleBox.setOrientation(LinearLayout.VERTICAL);
+        estimateTitleBox.addView(text("Смета",11,MUTED,Typeface.BOLD));
+        estimateTitleBox.addView(text("Для клиента",18,TEXT,Typeface.BOLD));
+        estimateHead.addView(estimateTitleBox,new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f));
+        estimateHead.addView(text(activeRoom().name,11,MUTED,Typeface.NORMAL));
+        estimateCard.addView(estimateHead);
 
         LinearLayout stats = new LinearLayout(this);
         stats.setOrientation(LinearLayout.HORIZONTAL);
@@ -326,6 +337,55 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         estimateCard.addView(stats,sp);
         areaValue = stat(stats,"Площадь");
         perimeterValue = stat(stats,"Периметр");
+
+        TextView validation=text("",11,MUTED,Typeface.NORMAL);
+        validation.setTag("native_validation_card");
+        validation.setPadding(dp(10),dp(8),dp(10),dp(8));
+        validation.setBackground(rounded(Color.rgb(248,250,251),LINE,10,1));
+        validation.setOnClickListener(v->showMeasurementValidation());
+        estimateCard.addView(validation,marginParams(0,8));
+        NativeMeasurementValidator.Result vr=NativeMeasurementValidator.validate(activeRoom());
+        validation.setText(vr.ok()
+                ?(vr.warnings.isEmpty()?"Проверка пройдена":"Проверка: "+vr.warnings.size()+" замеч.")
+                :"Есть ошибки: "+vr.errors.size());
+
+        Button clientEstimate=button("Смета для клиента",true);
+        clientEstimate.setTag("native_open_client_estimate");
+        clientEstimate.setOnClickListener(v->openEstimate(NativeEstimateDialog.Mode.CLIENT));
+        estimateCard.addView(clientEstimate,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(44)));
+
+        Button internalEstimate=button("Закупочный расчёт для себя",false);
+        internalEstimate.setTag("native_open_internal_estimate");
+        internalEstimate.setOnClickListener(v->openEstimate(NativeEstimateDialog.Mode.INTERNAL));
+        LinearLayout.LayoutParams internalParams=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(44));
+        internalParams.topMargin=dp(6);
+        estimateCard.addView(internalEstimate,internalParams);
+
+        TextView notesLabel=text("Заметка",11,TEXT,Typeface.BOLD);
+        estimateCard.addView(notesLabel,marginParams(0,9));
+        notesInput=new EditText(this);
+        notesInput.setTag("native_room_notes");
+        notesInput.setText(activeRoom().notes);
+        notesInput.setHint("Короткая заметка по комнате");
+        notesInput.setTextSize(uiPrefs.textSize(12));
+        notesInput.setTextColor(TEXT);
+        notesInput.setHintTextColor(MUTED);
+        notesInput.setTypeface(uiPrefs.typeface(false));
+        notesInput.setGravity(Gravity.TOP|Gravity.START);
+        notesInput.setMinHeight(dp(64));
+        notesInput.setPadding(dp(10),dp(8),dp(10),dp(8));
+        notesInput.setBackground(rounded(Color.WHITE,LINE,10,1));
+        notesInput.setOnFocusChangeListener((v,has)->{
+            if(!has){
+                activeRoom().notes=notesInput.getText().toString();
+                store.saveCurrent(project);
+            }
+        });
+        estimateCard.addView(notesInput,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
         historyNavView=createHistoryNav();
         page.addView(historyNavView, historyNavParams());
@@ -1298,6 +1358,20 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 .setMessage(result.message())
                 .setPositiveButton("Готово", null)
                 .show();
+    }
+
+    private void openEstimate(NativeEstimateDialog.Mode mode){
+        syncProjectFields();
+        if(notesInput!=null)activeRoom().notes=notesInput.getText().toString();
+        store.saveCurrent(project);
+        new NativeEstimateDialog(
+                this,
+                project,
+                mode,
+                ()->{
+                    store.saveCurrent(project);
+                    updateStats();
+                }).show();
     }
 
     private void updateStats(){

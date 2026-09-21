@@ -90,6 +90,9 @@ public class NativeAppSmokeTest {
             assertNotNull(root.findViewWithTag("native_top_saved"));
             assertNotNull(root.findViewWithTag("native_top_new_order"));
             assertNotNull(root.findViewWithTag("native_top_settings"));
+            assertNotNull(root.findViewWithTag("native_open_client_estimate"));
+            assertNotNull(root.findViewWithTag("native_open_internal_estimate"));
+            assertNotNull(root.findViewWithTag("native_room_notes"));
             assertFalse(containsWebView(root));
         }
     }
@@ -448,6 +451,61 @@ public class NativeAppSmokeTest {
         assertFalse(restored.wallAngleMagnet);
         assertFalse(restored.point90Magnet);
         assertTrue(NativeGeometry.isClosed(restored));
+    }
+
+    @Test
+    public void estimateEngineMatchesWebStandardMaterialRules() {
+        NativeProjectStore.RoomData room = measuredSquare(500f);
+        room.pricing.put("canvas", 100f);
+        room.pricing.put("baguette", 50f);
+        room.pricing.put("dowel", 2f);
+        room.clientPricing.put("canvas", 500f);
+        room.clientPricing.put("insert", 100f);
+        room.extraQty.put("light", 4f);
+        room.clientPricing.put("light", 300f);
+
+        NativeEstimateEngine.RoomCost internal =
+                NativeEstimateEngine.internalCost(room);
+        assertEquals(25d, internal.metrics.areaM2, .001d);
+        assertEquals(20d, internal.metrics.perimeterM, .001d);
+        assertEquals(120, internal.dowelQty);
+        assertEquals(3740d, internal.total, .001d);
+
+        NativeEstimateEngine.RoomCost client =
+                NativeEstimateEngine.clientCost(room);
+        assertEquals(15700d, client.total, .001d);
+
+        room.hiddenInternalKeys.add("dowel");
+        NativeEstimateEngine.RoomCost hidden =
+                NativeEstimateEngine.internalCost(room);
+        assertEquals(3500d, hidden.total, .001d);
+    }
+
+    @Test
+    public void estimateFieldsPersistWithRoom() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        context.getSharedPreferences("native_ceiling_projects", Context.MODE_PRIVATE)
+                .edit().clear().commit();
+        NativeProjectStore store = new NativeProjectStore(context);
+        NativeProjectStore.ProjectData project = store.newProject();
+        NativeProjectStore.RoomData room = project.rooms.get(0);
+        room.notes = "Скрытый карниз";
+        room.pricing.put("canvas", 215f);
+        room.clientPricing.put("canvas", 550f);
+        room.extraQty.put("light", 7f);
+        room.clientEstimateQty.put("shadow", 12f);
+        room.clientEstimateOverride.add("shadow");
+        room.hiddenInternalKeys.add("insert");
+        store.saveCurrent(project);
+
+        NativeProjectStore.RoomData restored =
+                new NativeProjectStore(context).loadCurrent().rooms.get(0);
+        assertEquals("Скрытый карниз", restored.notes);
+        assertEquals(215f, NativeEstimateEngine.value(restored.pricing,"canvas"), .01f);
+        assertEquals(550f, NativeEstimateEngine.value(restored.clientPricing,"canvas"), .01f);
+        assertEquals(7f, NativeEstimateEngine.value(restored.extraQty,"light"), .01f);
+        assertTrue(restored.clientEstimateOverride.contains("shadow"));
+        assertTrue(restored.hiddenInternalKeys.contains("insert"));
     }
 
     @Test
