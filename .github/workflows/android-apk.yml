@@ -64,7 +64,7 @@ jobs:
           grep -q 'exactRectAreaRaw' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMeasurementSolver.java
           grep -q 'solveOrthogonal' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMeasurementSolver.java
           grep -q 'class NativeLabelEngine' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeLabelEngine.java
-          grep -q 'pickWall' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeLabelEngine.java
+          grep -q 'placeWall' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeLabelEngine.java
           grep -q 'class NativeMeasurementValidator' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMeasurementValidator.java
           grep -q 'drawLabelSelection' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
           grep -q 'class NativeNumberPadDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeNumberPadDialog.java
