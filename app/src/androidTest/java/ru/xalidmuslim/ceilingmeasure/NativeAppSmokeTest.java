@@ -721,7 +721,7 @@ public class NativeAppSmokeTest {
     }
 
     @Test
-    public void labelPosePersistsAngleSizeAndManualOffset() {
+    public void labelPosePersistsAbsoluteWorldCoordinatesAngleAndSize() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         context.getSharedPreferences("native_ceiling_projects", Context.MODE_PRIVATE)
                 .edit().clear().commit();
@@ -736,8 +736,10 @@ public class NativeAppSmokeTest {
         room.edges.addAll(square.edges);
 
         NativeProjectStore.EdgeData edge = room.edges.get(0);
-        edge.labelDx = 17f;
-        edge.labelDy = -9f;
+        edge.labelX = 117f;
+        edge.labelY = 91f;
+        edge.labelDx = 0f;
+        edge.labelDy = 0f;
         edge.labelAngle = 37f;
         edge.labelSize = 1.4f;
         edge.labelManual = true;
@@ -745,8 +747,12 @@ public class NativeAppSmokeTest {
 
         NativeProjectStore.EdgeData restored =
                 new NativeProjectStore(context).loadCurrent().rooms.get(0).edges.get(0);
-        assertEquals(17f, restored.labelDx, .01f);
-        assertEquals(-9f, restored.labelDy, .01f);
+        assertNotNull(restored.labelX);
+        assertNotNull(restored.labelY);
+        assertEquals(117f, restored.labelX, .01f);
+        assertEquals(91f, restored.labelY, .01f);
+        assertEquals(0f, restored.labelDx, .01f);
+        assertEquals(0f, restored.labelDy, .01f);
         assertEquals(37f, restored.labelAngle, .01f);
         assertEquals(1.4f, restored.labelSize, .01f);
         assertTrue(restored.labelManual);
