@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.os.Handler;
@@ -1157,7 +1158,9 @@ final class CeilingDrawingView extends View {
         border.setStrokeWidth(dp(1));
 
         canvas.save();
-        canvas.clipRoundRect(box, dp(8), dp(8));
+        Path clip = new Path();
+        clip.addRoundRect(box, dp(8), dp(8), Path.Direction.CW);
+        canvas.clipPath(clip);
         canvas.drawRoundRect(box, dp(8), dp(8), bg);
 
         float lensScale = clamp(scale * 2.8f, 2f, 7.1f);
