@@ -85,8 +85,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private FrameLayout drawingCanvasWrap;
     private View wallScrollStrip;
     private int normalCanvasHeight;
-    private float stripDownY;
-    private int stripScrollTop;
+    private float stripLastY;
     private final ArrayDeque<String> undoRooms = new ArrayDeque<>();
     private final ArrayDeque<String> redoRooms = new ArrayDeque<>();
     private boolean restoringHistory;
@@ -129,6 +128,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         editorScroll.setFillViewport(true);
         editorScroll.setBackgroundColor(BG);
         editorScroll.setClipToPadding(false);
+        editorScroll.setSmoothScrollingEnabled(true);
+        editorScroll.setVerticalScrollBarEnabled(false);
 
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -221,10 +222,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         pointMode = modeButton("Точки", CeilingDrawingView.Mode.POINT, "native_mode_points");
         diagonalMode = modeButton("Диагональ", CeilingDrawingView.Mode.DIAGONAL, "native_mode_diagonal");
         labelMode = modeButton("Цифры", CeilingDrawingView.Mode.LABEL, "native_mode_labels");
-        modeBar.addView(wallMode, weightParams());
-        modeBar.addView(pointMode, weightParams());
-        modeBar.addView(diagonalMode, weightParams());
-        modeBar.addView(labelMode, weightParams());
+        modeBar.addView(wallMode, compactModeParams());
+        modeBar.addView(pointMode, compactModeParams());
+        modeBar.addView(diagonalMode, compactModeParams());
+        modeBar.addView(labelMode, compactModeParams());
 
         drawingCanvasWrap = new FrameLayout(this);
         drawingCanvasWrap.setTag("native_canvas_wrap");
@@ -254,14 +255,18 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         wallScrollStrip.setOnTouchListener((v,event)->{
             switch(event.getActionMasked()){
                 case MotionEvent.ACTION_DOWN:
-                    stripDownY=event.getRawY();
-                    stripScrollTop=editorScroll==null?0:editorScroll.getScrollY();
+                    stripLastY=event.getRawY();
                     if(editorScroll!=null)editorScroll.requestDisallowInterceptTouchEvent(true);
                     return true;
                 case MotionEvent.ACTION_MOVE:
                     if(editorScroll!=null){
-                        int target=Math.round(stripScrollTop+(stripDownY-event.getRawY()));
-                        editorScroll.scrollTo(editorScroll.getScrollX(),Math.max(0,target));
+                        float currentY=event.getRawY();
+                        int delta=Math.round(stripLastY-currentY);
+                        if(delta!=0){
+                            editorScroll.scrollBy(0,delta);
+                            editorScroll.postInvalidateOnAnimation();
+                        }
+                        stripLastY=currentY;
                     }
                     return true;
                 case MotionEvent.ACTION_UP:
@@ -679,9 +684,21 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private Button modeButton(String text, CeilingDrawingView.Mode mode, String tag){
         Button b=button(text,false);
         b.setTag(tag);
-        b.setTextSize(12);
-        b.setOnClickListener(v->setMode(mode));
+        b.setTextSize(11);
+        b.setPadding(dp(6),0,dp(6),0);
+        b.setOnClickListener(v->{
+            v.animate().scaleX(.985f).scaleY(.985f).setDuration(70).withEndAction(() ->
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(110).start()).start();
+            setMode(mode);
+        });
         return b;
+    }
+
+    private LinearLayout.LayoutParams compactModeParams(){
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(40),1f);
+        p.leftMargin=dp(2);
+        p.rightMargin=dp(2);
+        return p;
     }
 
     private void setMode(CeilingDrawingView.Mode mode){
@@ -690,10 +707,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             Toast.makeText(this,"Геометрия зафиксирована",Toast.LENGTH_SHORT).show();
             return;
         }
-        if(mode==CeilingDrawingView.Mode.WALL&&NativeGeometry.isClosed(room)){
-            Toast.makeText(this,"Контур уже замкнут",Toast.LENGTH_SHORT).show();
-            return;
-        }
+        // A closed contour blocks creation of extra walls inside the drawing
+        // view, but Wall mode itself remains available for editing dimensions.
         if(mode==CeilingDrawingView.Mode.WALL)room.showAutoLetters=false;
         drawingView.setMode(mode);
         styleMode(wallMode,mode==CeilingDrawingView.Mode.WALL);
@@ -709,35 +724,35 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         nav.setTag("native_history_nav");
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
-        nav.setPadding(dp(5),dp(4),dp(5),dp(4));
-        nav.setElevation(dp(10));
-        nav.setBackground(rounded(Color.WHITE,LINE,18,1));
+        nav.setPadding(dp(4),dp(3),dp(4),dp(3));
+        nav.setElevation(dp(8));
+        nav.setBackground(rounded(Color.WHITE,LINE,16,1));
 
         Button redo=button("↷\nВперёд",false);
         redo.setTag("native_nav_redo");
-        redo.setTextSize(10);
+        redo.setTextSize(9.5f);
         redo.setOnClickListener(v->redoRoom());
 
         Button more=button("⋯\nЕще",false);
         more.setTag("native_nav_more");
-        more.setTextSize(10);
+        more.setTextSize(9.5f);
         more.setOnClickListener(v->openDrawTools());
 
         Button undo=button("↶\nНазад",false);
         undo.setTag("native_nav_undo");
-        undo.setTextSize(10);
+        undo.setTextSize(9.5f);
         undo.setOnClickListener(v->undoRoom());
 
-        nav.addView(redo,new LinearLayout.LayoutParams(dp(78),dp(52)));
-        nav.addView(more,new LinearLayout.LayoutParams(dp(78),dp(52)));
-        nav.addView(undo,new LinearLayout.LayoutParams(dp(78),dp(52)));
+        nav.addView(redo,new LinearLayout.LayoutParams(dp(70),dp(46)));
+        nav.addView(undo,new LinearLayout.LayoutParams(dp(70),dp(46)));
+        nav.addView(more,new LinearLayout.LayoutParams(dp(70),dp(46)));
         return nav;
     }
 
     private FrameLayout.LayoutParams historyNavParams(){
         FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(
-                dp(246),
-                dp(62),
+                dp(222),
+                dp(56),
                 Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);
         p.bottomMargin=dp(10);
         return p;
@@ -877,7 +892,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 if(p!=null){p.width=dp(230);drawingHint.setLayoutParams(p);}
             }
         }
-        if(wallMode!=null)wallMode.setEnabled(!room.geometryLocked&&!NativeGeometry.isClosed(room));
+        if(wallMode!=null)wallMode.setEnabled(!room.geometryLocked);
         if(pointMode!=null)pointMode.setEnabled(!room.geometryLocked);
         if(diagonalMode!=null)diagonalMode.setEnabled(!room.geometryLocked);
         if(labelMode!=null)labelMode.setEnabled(true);
@@ -895,7 +910,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             return "Цифры размеров\nПеретащи цифру куда нужно. Вращай пальцем за круг или верхний маркер. Размер меняй кнопками − / +; процент по центру сбрасывает к 100%.";
         }
         if(NativeGeometry.isClosed(room)){
-            return "Контур замкнут — новые стены заблокированы. Лишние линии после замыкания не создаются. Два пальца двигают и масштабируют чертёж.";
+            return "Контур замкнут. В режиме «Стена» можно зажать стену или цифру и изменить размер; новые стены не создаются. Два пальца двигают и масштабируют чертёж.";
         }
         if(mode==CeilingDrawingView.Mode.DIAGONAL){
             return "Диагональ пальцем\nНажми на один угол, веди пальцем и отпусти на другом.";
@@ -1931,8 +1946,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private LinearLayout card(){
         LinearLayout l=new LinearLayout(this);
         l.setOrientation(LinearLayout.VERTICAL);
-        l.setPadding(dp(12),dp(12),dp(12),dp(12));
-        l.setBackground(rounded(PANEL,LINE,16,1));
+        l.setPadding(dp(10),dp(10),dp(10),dp(10));
+        l.setBackground(rounded(PANEL,LINE,14,1));
         l.setElevation(dp(2));
         return l;
     }
