@@ -411,33 +411,133 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         return project.rooms.get(project.activeRoom);
     }
 
+    NativeProjectStore.RoomData getActiveRoomForTest(){
+        return activeRoom();
+    }
+
     @Override public void onChanged(){
         store.saveCurrent(project);
         updateStats();
     }
 
-    @Override public void onWallLabelTapped(int edgeIndex,float currentValue){
-        showNumberDialog("Размер стены",currentValue,value->{
-            NativeProjectStore.RoomData r=activeRoom();
-            NativeProjectStore.normalizeArrays(r);
-            if(edgeIndex>=0&&edgeIndex<r.wallValues.size()){
-                r.wallValues.set(edgeIndex,value);
-                store.saveCurrent(project);
-                drawingView.invalidate();
-                updateStats();
+    @Override public void onWallLongPressed(String edgeId,float currentValue){
+        editWall(edgeId,currentValue,false);
+    }
+
+    @Override public void onDiagonalCreated(String diagonalId,float currentValue){
+        editDiagonal(diagonalId,currentValue);
+    }
+
+    @Override public void onDiagonalLongPressed(String diagonalId,float currentValue){
+        NativeProjectStore.RoomData r=activeRoom();
+        NativeProjectStore.DiagonalData diagonal=findDiagonal(r,diagonalId);
+        if(diagonal==null)return;
+
+        String value=currentValue>0?format(currentValue):"без размера";
+        new AlertDialog.Builder(this)
+                .setTitle("Диагональ · "+value)
+                .setItems(new String[]{"Изменить размер","Удалить"},(dialog,which)->{
+                    if(which==0){
+                        editDiagonal(diagonalId,currentValue);
+                    }else{
+                        NativeProjectStore.DiagonalData current=findDiagonal(r,diagonalId);
+                        if(current!=null){
+                            r.diagonals.remove(current);
+                            store.saveCurrent(project);
+                            drawingView.invalidate();
+                            Toast.makeText(this,"Диагональ удалена",Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                })
+                .show();
+    }
+
+    @Override public void onContourClosed(){
+        store.saveCurrent(project);
+        updateStats();
+        drawingView.postDelayed(this::startWallSequence,120);
+    }
+
+    private void editWall(String edgeId,float currentValue,boolean sequence){
+        NativeProjectStore.RoomData r=activeRoom();
+        NativeProjectStore.EdgeData edge=findEdge(r,edgeId);
+        if(edge==null)return;
+
+        List<NativeProjectStore.EdgeData> ordered=NativeGeometry.orderedEdges(r);
+        int index=ordered.indexOf(edge);
+        String title=sequence&&index>=0
+                ?"Стена "+(index+1)+" из "+ordered.size()
+                :"Размер стены";
+
+        showNumberDialog(title,currentValue,value->{
+            NativeProjectStore.EdgeData current=findEdge(r,edgeId);
+            if(current==null)return;
+            current.value=value;
+            store.saveCurrent(project);
+            drawingView.invalidate();
+            updateStats();
+
+            if(sequence){
+                NativeProjectStore.EdgeData next=firstUnmeasuredWallAfter(r,edgeId);
+                if(next!=null){
+                    drawingView.postDelayed(
+                            ()->editWall(next.id,next.value,true),
+                            100);
+                }
             }
         });
     }
 
-    @Override public void onDiagonalTapped(int diagonalIndex,float currentValue){
+    private void editDiagonal(String diagonalId,float currentValue){
+        NativeProjectStore.RoomData r=activeRoom();
+        NativeProjectStore.DiagonalData diagonal=findDiagonal(r,diagonalId);
+        if(diagonal==null)return;
         showNumberDialog("Диагональ",currentValue,value->{
-            NativeProjectStore.RoomData r=activeRoom();
-            if(diagonalIndex>=0&&diagonalIndex<r.diagonals.size()){
-                r.diagonals.get(diagonalIndex).value=value;
-                store.saveCurrent(project);
-                drawingView.invalidate();
-            }
+            NativeProjectStore.DiagonalData current=findDiagonal(r,diagonalId);
+            if(current==null)return;
+            current.value=value;
+            store.saveCurrent(project);
+            drawingView.invalidate();
         });
+    }
+
+    private void startWallSequence(){
+        NativeProjectStore.RoomData r=activeRoom();
+        if(!NativeGeometry.isClosed(r))return;
+        for(NativeProjectStore.EdgeData edge:NativeGeometry.orderedEdges(r)){
+            if(edge.value<=0){
+                editWall(edge.id,edge.value,true);
+                return;
+            }
+        }
+    }
+
+    private NativeProjectStore.EdgeData firstUnmeasuredWallAfter(
+            NativeProjectStore.RoomData room,
+            String currentId){
+        List<NativeProjectStore.EdgeData> ordered=NativeGeometry.orderedEdges(room);
+        if(ordered.isEmpty())return null;
+        int current=-1;
+        for(int i=0;i<ordered.size();i++){
+            if(ordered.get(i).id.equals(currentId)){current=i;break;}
+        }
+        for(int step=1;step<=ordered.size();step++){
+            NativeProjectStore.EdgeData edge=ordered.get((Math.max(0,current)+step)%ordered.size());
+            if(edge.value<=0)return edge;
+        }
+        return null;
+    }
+
+    private NativeProjectStore.EdgeData findEdge(NativeProjectStore.RoomData room,String id){
+        for(NativeProjectStore.EdgeData edge:room.edges)if(edge.id.equals(id))return edge;
+        return null;
+    }
+
+    private NativeProjectStore.DiagonalData findDiagonal(NativeProjectStore.RoomData room,String id){
+        for(NativeProjectStore.DiagonalData diagonal:room.diagonals){
+            if(diagonal.id.equals(id))return diagonal;
+        }
+        return null;
     }
 
     private interface FloatConsumer{void accept(float value);}
@@ -451,59 +551,53 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         dialog.show();
     }
 
-    @Override public void onDiagonalLongPressed(int diagonalIndex,float currentValue){
-        NativeProjectStore.RoomData r=activeRoom();
-        if(diagonalIndex<0||diagonalIndex>=r.diagonals.size())return;
-
-        String value=currentValue>0?format(currentValue):"без размера";
-        new AlertDialog.Builder(this)
-                .setTitle("Диагональ · "+value)
-                .setItems(new String[]{"Изменить размер","Удалить"},(dialog,which)->{
-                    if(which==0){
-                        onDiagonalTapped(diagonalIndex,currentValue);
-                    }else{
-                        if(diagonalIndex>=0&&diagonalIndex<r.diagonals.size()){
-                            r.diagonals.remove(diagonalIndex);
-                            store.saveCurrent(project);
-                            drawingView.invalidate();
-                            Toast.makeText(this,"Диагональ удалена",Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                })
-                .show();
-    }
-
     private void updateStats(){
         if(areaValue==null||perimeterValue==null)return;
         NativeProjectStore.RoomData r=activeRoom();
-        NativeProjectStore.normalizeArrays(r);
+        List<NativeProjectStore.EdgeData> edges=NativeGeometry.orderedEdges(r);
+
         float perimeterUnits=0;
         int measured=0;
-        for(float v:r.wallValues){if(v>0){perimeterUnits+=v;measured++;}}
-        perimeterValue.setText(measured==r.wallValues.size()&&measured>0
-                ?String.format(Locale.getDefault(),"%.2f м",perimeterUnits/100f):"—");
+        for(NativeProjectStore.EdgeData edge:edges){
+            if(edge.value>0){
+                perimeterUnits+=edge.value;
+                measured++;
+            }
+        }
+        perimeterValue.setText(!edges.isEmpty()&&measured==edges.size()
+                ?String.format(Locale.getDefault(),"%.2f м",perimeterUnits/100f)
+                :"—");
 
-        if(!r.closed||r.points.size()<3||measured==0){
+        List<String> cycle=NativeGeometry.cycleOrder(r);
+        if(cycle==null||cycle.size()<3||measured==0){
             areaValue.setText("—");
             return;
         }
+
         double pxPerUnitSum=0;
         int count=0;
-        int edges=r.points.size();
-        for(int i=0;i<edges&&i<r.wallValues.size();i++){
-            float units=r.wallValues.get(i);
-            if(units<=0)continue;
-            NativeProjectStore.PointData a=r.points.get(i);
-            NativeProjectStore.PointData b=r.points.get((i+1)%edges);
+        for(NativeProjectStore.EdgeData edge:edges){
+            if(edge.value<=0)continue;
+            NativeProjectStore.PointData a=NativeGeometry.pointById(r,edge.a);
+            NativeProjectStore.PointData b=NativeGeometry.pointById(r,edge.b);
+            if(a==null||b==null)continue;
             double px=Math.hypot(b.x-a.x,b.y-a.y);
-            if(px>0){pxPerUnitSum+=px/units;count++;}
+            if(px>0){
+                pxPerUnitSum+=px/edge.value;
+                count++;
+            }
         }
-        if(count==0){areaValue.setText("—");return;}
+        if(count==0){
+            areaValue.setText("—");
+            return;
+        }
+
         double pxPerUnit=pxPerUnitSum/count;
         double areaPx=0;
-        for(int i=0;i<edges;i++){
-            NativeProjectStore.PointData a=r.points.get(i);
-            NativeProjectStore.PointData b=r.points.get((i+1)%edges);
+        for(int i=0;i<cycle.size();i++){
+            NativeProjectStore.PointData a=NativeGeometry.pointById(r,cycle.get(i));
+            NativeProjectStore.PointData b=NativeGeometry.pointById(r,cycle.get((i+1)%cycle.size()));
+            if(a==null||b==null)continue;
             areaPx+=a.x*b.y-b.x*a.y;
         }
         areaPx=Math.abs(areaPx)/2d;

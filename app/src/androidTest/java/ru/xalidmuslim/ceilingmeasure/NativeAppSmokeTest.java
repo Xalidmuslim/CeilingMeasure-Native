@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.MotionEvent;
 
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -174,7 +175,56 @@ public class NativeAppSmokeTest {
     }
 
     @Test
-    public void nativeProjectStorePersistsCurrentProject() {
+    public void nativeDrawingUsesWebStyleWallGestureRules() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(
+                NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.ACTION_NEW_ORDER);
+
+        try (ActivityScenario<NativeWorkspaceActivity> scenario =
+                     ActivityScenario.launch(intent)) {
+            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
+            scenario.onActivity(ref::set);
+            NativeWorkspaceActivity activity = ref.get();
+            assertNotNull(activity);
+
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+                CeilingDrawingView view = (CeilingDrawingView) activity.getWindow()
+                        .getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                assertNotNull(view);
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+
+                long now = android.os.SystemClock.uptimeMillis();
+                dispatch(view, now, MotionEvent.ACTION_DOWN, 100, 100);
+                dispatch(view, now + 40, MotionEvent.ACTION_UP, 100, 100);
+                assertEquals(0, room.points.size());
+                assertEquals(0, room.edges.size());
+
+                drag(view, now + 100, 100, 100, 260, 100);
+                assertEquals(2, room.points.size());
+                assertEquals(1, room.edges.size());
+
+                drag(view, now + 300, 260, 100, 260, 250);
+                assertEquals(3, room.points.size());
+                assertEquals(2, room.edges.size());
+
+                // Blank space cannot start a disconnected wall after drawing begins.
+                drag(view, now + 500, 400, 300, 520, 300);
+                assertEquals(2, room.edges.size());
+
+                drag(view, now + 700, 260, 250, 100, 250);
+                drag(view, now + 900, 100, 250, 100, 100);
+
+                assertEquals(4, room.edges.size());
+                assertTrue(NativeGeometry.isClosed(room));
+            });
+        }
+    }
+
+    @Test
+    public void nativeProjectStorePersistsGraphGeometry() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         context.getSharedPreferences("native_ceiling_projects", Context.MODE_PRIVATE)
                 .edit().clear().commit();
@@ -185,28 +235,76 @@ public class NativeAppSmokeTest {
         project.phone = "+7 900 000-00-00";
         project.address = "Тестовый адрес";
         NativeProjectStore.RoomData room = project.rooms.get(0);
-        room.points.add(new NativeProjectStore.PointData(50f, 50f));
-        room.points.add(new NativeProjectStore.PointData(250f, 50f));
-        room.points.add(new NativeProjectStore.PointData(250f, 250f));
-        room.points.add(new NativeProjectStore.PointData(50f, 250f));
-        room.closed = true;
-        NativeProjectStore.normalizeArrays(room);
-        room.wallValues.set(0, 500f);
-        room.wallValues.set(1, 500f);
-        room.wallValues.set(2, 500f);
-        room.wallValues.set(3, 500f);
+
+        NativeProjectStore.PointData a = new NativeProjectStore.PointData(50f, 50f);
+        NativeProjectStore.PointData b = new NativeProjectStore.PointData(250f, 50f);
+        NativeProjectStore.PointData c = new NativeProjectStore.PointData(250f, 250f);
+        NativeProjectStore.PointData d = new NativeProjectStore.PointData(50f, 250f);
+        room.points.add(a);
+        room.points.add(b);
+        room.points.add(c);
+        room.points.add(d);
+
+        NativeProjectStore.EdgeData ab = new NativeProjectStore.EdgeData(a.id, b.id);
+        NativeProjectStore.EdgeData bc = new NativeProjectStore.EdgeData(b.id, c.id);
+        NativeProjectStore.EdgeData cd = new NativeProjectStore.EdgeData(c.id, d.id);
+        NativeProjectStore.EdgeData da = new NativeProjectStore.EdgeData(d.id, a.id);
+        ab.value = 500f;
+        bc.value = 500f;
+        cd.value = 500f;
+        da.value = 500f;
+        room.edges.add(ab);
+        room.edges.add(bc);
+        room.edges.add(cd);
+        room.edges.add(da);
+
+        NativeProjectStore.DiagonalData ac = new NativeProjectStore.DiagonalData(a.id, c.id);
+        ac.value = 707f;
+        room.diagonals.add(ac);
         first.saveCurrent(project);
 
         NativeProjectStore second = new NativeProjectStore(context);
         NativeProjectStore.ProjectData restored = second.loadCurrent();
+        NativeProjectStore.RoomData restoredRoom = restored.rooms.get(0);
+
         assertEquals("Тестовый объект", restored.name);
         assertEquals("+7 900 000-00-00", restored.phone);
         assertEquals("Тестовый адрес", restored.address);
-        assertEquals(1, restored.rooms.size());
-        assertTrue(restored.rooms.get(0).closed);
-        assertEquals(4, restored.rooms.get(0).points.size());
-        assertEquals(4, restored.rooms.get(0).wallValues.size());
-        assertEquals(500f, restored.rooms.get(0).wallValues.get(0), 0.01f);
+        assertEquals(4, restoredRoom.points.size());
+        assertEquals(4, restoredRoom.edges.size());
+        assertEquals(1, restoredRoom.diagonals.size());
+        assertTrue(NativeGeometry.isClosed(restoredRoom));
+        assertEquals(500f, restoredRoom.edges.get(0).value, 0.01f);
+        assertEquals(707f, restoredRoom.diagonals.get(0).value, 0.01f);
+    }
+
+    private static void drag(
+            CeilingDrawingView view,
+            long downTime,
+            float x1,
+            float y1,
+            float x2,
+            float y2) {
+        dispatch(view, downTime, MotionEvent.ACTION_DOWN, x1, y1);
+        dispatch(view, downTime + 35, MotionEvent.ACTION_MOVE, x2, y2);
+        dispatch(view, downTime + 70, MotionEvent.ACTION_UP, x2, y2);
+    }
+
+    private static void dispatch(
+            CeilingDrawingView view,
+            long downTime,
+            int action,
+            float x,
+            float y) {
+        MotionEvent event = MotionEvent.obtain(
+                downTime,
+                android.os.SystemClock.uptimeMillis(),
+                action,
+                x,
+                y,
+                0);
+        view.dispatchTouchEvent(event);
+        event.recycle();
     }
 
     private static boolean containsWebView(View view) {

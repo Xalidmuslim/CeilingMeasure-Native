@@ -52,6 +52,10 @@ jobs:
           grep -q 'android:name=".NativeHomeActivity"' app/src/main/AndroidManifest.xml
           grep -q 'android:name=".NativeWorkspaceActivity"' app/src/main/AndroidManifest.xml
           grep -q 'class CeilingDrawingView' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
+          grep -q 'class NativeGeometry' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeGeometry.java
+          grep -q 'class EdgeData' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeProjectStore.java
+          grep -q 'cycleOrder' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeGeometry.java
+          grep -q 'WallDraft' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
           grep -q 'class NativeNumberPadDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeNumberPadDialog.java
           grep -q 'native_number_pad_' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeNumberPadDialog.java
           grep -q 'class NativeTextPadDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeTextPadDialog.java

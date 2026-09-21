@@ -3,10 +3,14 @@ package ru.xalidmuslim.ceilingmeasure;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.RectF;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
@@ -15,28 +19,35 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 final class CeilingDrawingView extends View {
     enum Mode { WALL, POINT, DIAGONAL, LABEL }
 
     interface Listener {
         void onChanged();
-        void onWallLabelTapped(int edgeIndex, float currentValue);
-        void onDiagonalTapped(int diagonalIndex, float currentValue);
-        void onDiagonalLongPressed(int diagonalIndex, float currentValue);
+        void onWallLongPressed(@NonNull String edgeId, float currentValue);
+        void onDiagonalCreated(@NonNull String diagonalId, float currentValue);
+        void onDiagonalLongPressed(@NonNull String diagonalId, float currentValue);
+        void onContourClosed();
     }
 
-    private static final int BLUE = Color.rgb(47, 143, 190);
-    private static final int TEXT = Color.rgb(42, 61, 76);
+    private static final int BLUE = Color.rgb(43, 136, 191);
+    private static final int TEXT = Color.rgb(32, 48, 60);
     private static final int GRID = Color.rgb(232, 238, 243);
-    private static final int RED = Color.rgb(205, 75, 75);
+    private static final int RED = Color.rgb(217, 74, 74);
+    private static final int GREEN = Color.rgb(47, 154, 105);
+    private static final long LONG_PRESS_MS = 330L;
 
     private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint hitPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint previewPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint guidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final ScaleGestureDetector scaleDetector;
+    private final Handler handler = new Handler(Looper.getMainLooper());
 
     private NativeProjectStore.RoomData room;
     private Mode mode = Mode.WALL;
@@ -47,26 +58,34 @@ final class CeilingDrawingView extends View {
     private float offsetY = 0f;
     private float lastCentroidX;
     private float lastCentroidY;
-    private int draggingPoint = -1;
-    private int diagonalStart = -1;
-    private int draggingLabel = -1;
-    private float downX;
-    private float downY;
-    private long downAtMs;
-    private int downDiagonal = -1;
+    private boolean multiTouch;
+
+    private float downScreenX;
+    private float downScreenY;
     private boolean moved;
+    private boolean longPressFired;
+    private Runnable longPressRunnable;
+
+    private WallDraft wallDraft;
+    private String draggingPointId;
+    private DiagDraft diagDraft;
+    private LabelHit draggingLabel;
+    private float labelBaseX;
+    private float labelBaseY;
+    private Guide activeGuide;
+    private boolean point90SnapActive;
 
     CeilingDrawingView(@NonNull Context context) {
         super(context);
         setBackgroundColor(Color.rgb(252, 253, 254));
         setFocusable(true);
+
         linePaint.setColor(TEXT);
         linePaint.setStrokeWidth(dp(2.2f));
         linePaint.setStyle(Paint.Style.STROKE);
         linePaint.setStrokeCap(Paint.Cap.ROUND);
         linePaint.setStrokeJoin(Paint.Join.ROUND);
 
-        pointPaint.setColor(BLUE);
         pointPaint.setStyle(Paint.Style.FILL);
 
         gridPaint.setColor(GRID);
@@ -75,61 +94,78 @@ final class CeilingDrawingView extends View {
         textPaint.setColor(TEXT);
         textPaint.setTextSize(sp(13));
         textPaint.setTextAlign(Paint.Align.CENTER);
-        textPaint.setTypeface(android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD));
+        textPaint.setTypeface(android.graphics.Typeface.create(
+                "sans-serif",
+                android.graphics.Typeface.BOLD));
 
-        hitPaint.setColor(Color.argb(30, 47, 143, 190));
-        hitPaint.setStyle(Paint.Style.FILL);
+        previewPaint.setColor(BLUE);
+        previewPaint.setStrokeWidth(dp(2.6f));
+        previewPaint.setStyle(Paint.Style.STROKE);
+        previewPaint.setStrokeCap(Paint.Cap.ROUND);
 
-        scaleDetector = new ScaleGestureDetector(context, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            @Override public boolean onScale(ScaleGestureDetector detector) {
-                float old = scale;
-                scale = clamp(scale * detector.getScaleFactor(), .55f, 3.5f);
-                float focusX = detector.getFocusX();
-                float focusY = detector.getFocusY();
-                if (old != 0f) {
-                    offsetX = focusX - (focusX - offsetX) * (scale / old);
-                    offsetY = focusY - (focusY - offsetY) * (scale / old);
-                }
-                invalidate();
-                return true;
-            }
-        });
+        guidePaint.setColor(RED);
+        guidePaint.setStrokeWidth(dp(1.4f));
+        guidePaint.setStyle(Paint.Style.STROKE);
+        guidePaint.setPathEffect(new DashPathEffect(new float[]{dp(6), dp(5)}, 0));
+
+        scaleDetector = new ScaleGestureDetector(
+                context,
+                new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    @Override
+                    public boolean onScale(ScaleGestureDetector detector) {
+                        if (room == null) return false;
+                        float old = scale;
+                        scale = clamp(scale * detector.getScaleFactor(), .45f, 12f);
+                        float focusX = detector.getFocusX();
+                        float focusY = detector.getFocusY();
+                        if (old != 0f) {
+                            offsetX = focusX - (focusX - offsetX) * (scale / old);
+                            offsetY = focusY - (focusY - offsetY) * (scale / old);
+                        }
+                        syncViewToRoom();
+                        invalidate();
+                        return true;
+                    }
+                });
     }
 
     void setRoom(@NonNull NativeProjectStore.RoomData room) {
+        cancelLongPress();
+        cancelTransientGestures();
         this.room = room;
-        NativeProjectStore.normalizeArrays(room);
-        draggingPoint = -1;
-        draggingLabel = -1;
-        diagonalStart = -1;
+        NativeGeometry.sanitize(room);
+        scale = clamp(room.viewScale, .45f, 12f);
+        offsetX = room.panX;
+        offsetY = room.panY;
         invalidate();
     }
 
     void setMode(@NonNull Mode mode) {
+        cancelLongPress();
+        cancelTransientGestures();
         this.mode = mode;
-        draggingPoint = -1;
-        draggingLabel = -1;
-        diagonalStart = -1;
         invalidate();
     }
 
-    Mode getMode() { return mode; }
+    Mode getMode() {
+        return mode;
+    }
 
-    void setListener(@Nullable Listener listener) { this.listener = listener; }
+    void setListener(@Nullable Listener listener) {
+        this.listener = listener;
+    }
 
-    boolean hasClosedContour() { return room != null && room.closed; }
+    boolean hasClosedContour() {
+        return room != null && NativeGeometry.isClosed(room);
+    }
 
     void clearDrawing() {
         if (room == null) return;
+        cancelLongPress();
+        cancelTransientGestures();
         room.points.clear();
-        room.wallValues.clear();
-        room.labelDx.clear();
-        room.labelDy.clear();
+        room.edges.clear();
         room.diagonals.clear();
-        room.closed = false;
-        draggingPoint = -1;
-        draggingLabel = -1;
-        diagonalStart = -1;
         changed();
     }
 
@@ -145,6 +181,7 @@ final class CeilingDrawingView extends View {
 
         drawEdges(canvas);
         drawDiagonals(canvas);
+        drawWallDraft(canvas);
         drawPoints(canvas);
         drawLabels(canvas);
 
@@ -153,169 +190,242 @@ final class CeilingDrawingView extends View {
 
     private void drawGrid(Canvas canvas) {
         float step = dp(28);
-        for (float x = 0; x < getWidth(); x += step) canvas.drawLine(x, 0, x, getHeight(), gridPaint);
-        for (float y = 0; y < getHeight(); y += step) canvas.drawLine(0, y, getWidth(), y, gridPaint);
+        float startX = offsetX % step;
+        float startY = offsetY % step;
+        for (float x = startX; x < getWidth(); x += step) {
+            canvas.drawLine(x, 0, x, getHeight(), gridPaint);
+        }
+        for (float y = startY; y < getHeight(); y += step) {
+            canvas.drawLine(0, y, getWidth(), y, gridPaint);
+        }
     }
 
     private void drawEdges(Canvas canvas) {
-        if (room.points.size() < 2) return;
-        Path path = new Path();
-        NativeProjectStore.PointData first = room.points.get(0);
-        path.moveTo(first.x, first.y);
-        for (int i = 1; i < room.points.size(); i++) {
-            NativeProjectStore.PointData p = room.points.get(i);
-            path.lineTo(p.x, p.y);
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
+            if (a == null || b == null) continue;
+            canvas.drawLine(a.x, a.y, b.x, b.y, linePaint);
         }
-        if (room.closed) path.close();
-        canvas.drawPath(path, linePaint);
     }
 
     private void drawDiagonals(Canvas canvas) {
-        Paint p = new Paint(linePaint);
-        p.setColor(Color.rgb(112, 130, 144));
-        p.setStrokeWidth(dp(1.5f) / scale);
-        p.setPathEffect(new android.graphics.DashPathEffect(new float[]{dp(7)/scale, dp(5)/scale}, 0));
-        for (int i = 0; i < room.diagonals.size(); i++) {
-            NativeProjectStore.DiagonalData d = room.diagonals.get(i);
-            if (!validPoint(d.a) || !validPoint(d.b)) continue;
-            NativeProjectStore.PointData a = room.points.get(d.a);
-            NativeProjectStore.PointData b = room.points.get(d.b);
-            canvas.drawLine(a.x, a.y, b.x, b.y, p);
-            if (d.value > 0) {
-                float mx=(a.x+b.x)/2f, my=(a.y+b.y)/2f;
-                drawTextBadge(canvas, formatValue(d.value), mx, my);
-            }
+        Paint paint = new Paint(linePaint);
+        paint.setColor(Color.rgb(112, 130, 144));
+        paint.setStrokeWidth(dp(1.5f) / scale);
+        paint.setPathEffect(new DashPathEffect(
+                new float[]{dp(7) / scale, dp(5) / scale},
+                0));
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, diagonal.a);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, diagonal.b);
+            if (a == null || b == null) continue;
+            canvas.drawLine(a.x, a.y, b.x, b.y, paint);
+        }
+
+        if (diagDraft != null) {
+            Paint preview = new Paint(paint);
+            preview.setColor(BLUE);
+            preview.setPathEffect(null);
+            canvas.drawLine(
+                    diagDraft.start.x,
+                    diagDraft.start.y,
+                    diagDraft.preview.x,
+                    diagDraft.preview.y,
+                    preview);
+        }
+    }
+
+    private void drawWallDraft(Canvas canvas) {
+        if (wallDraft == null) return;
+        canvas.drawLine(
+                wallDraft.start.x,
+                wallDraft.start.y,
+                wallDraft.preview.x,
+                wallDraft.preview.y,
+                previewPaint);
+
+        if (activeGuide != null) {
+            float half = 1000f / Math.max(.45f, scale);
+            float nx = -activeGuide.uy;
+            float ny = activeGuide.ux;
+            canvas.drawLine(
+                    activeGuide.projected.x - nx * half,
+                    activeGuide.projected.y - ny * half,
+                    activeGuide.projected.x + nx * half,
+                    activeGuide.projected.y + ny * half,
+                    guidePaint);
         }
     }
 
     private void drawPoints(Canvas canvas) {
-        float r = dp(5.5f) / scale;
-        for (int i = 0; i < room.points.size(); i++) {
-            NativeProjectStore.PointData p = room.points.get(i);
-            pointPaint.setColor(i == diagonalStart ? RED : BLUE);
-            canvas.drawCircle(p.x, p.y, r, pointPaint);
+        float radius = dp(5.2f) / scale;
+        for (NativeProjectStore.PointData point : room.points) {
+            boolean diagStart = diagDraft != null && diagDraft.startId.equals(point.id);
+            boolean moving = point.id.equals(draggingPointId);
+            pointPaint.setColor(diagStart ? RED : (moving ? GREEN : BLUE));
+            canvas.drawCircle(point.x, point.y, radius, pointPaint);
         }
     }
 
     private void drawLabels(Canvas canvas) {
-        int edges = edgeCount();
-        for (int i = 0; i < edges; i++) {
-            PointF mid = edgeMid(i);
-            if (mid == null) continue;
-            float dx = i < room.labelDx.size() ? room.labelDx.get(i) : 0;
-            float dy = i < room.labelDy.size() ? room.labelDy.get(i) : 0;
-            float value = i < room.wallValues.size() ? room.wallValues.get(i) : 0;
-            String text = value > 0 ? formatValue(value) : String.valueOf(i + 1);
-            drawTextBadge(canvas, text, mid.x + dx, mid.y + dy);
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            PointF pos = edgeLabelBase(edge);
+            if (pos == null) continue;
+            String value = edge.value > 0 ? formatValue(edge.value) : edgeOrdinal(edge);
+            drawTextBadge(canvas, value, pos.x + edge.labelDx, pos.y + edge.labelDy);
+        }
+
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            if (diagonal.value <= 0) continue;
+            PointF pos = diagonalLabelBase(diagonal);
+            if (pos == null) continue;
+            drawTextBadge(
+                    canvas,
+                    formatValue(diagonal.value),
+                    pos.x + diagonal.labelDx,
+                    pos.y + diagonal.labelDy);
         }
     }
 
-    private void drawTextBadge(Canvas canvas, String text, float x, float y) {
+    private void drawTextBadge(Canvas canvas, String value, float x, float y) {
         Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
         bg.setColor(Color.WHITE);
-        float padX = dp(7)/scale, padY = dp(4)/scale;
-        float textWidth = textPaint.measureText(text) / scale;
-        float h = dp(21)/scale;
-        RectF rect = new RectF(x - textWidth/2 - padX, y - h/2, x + textWidth/2 + padX, y + h/2);
-        canvas.drawRoundRect(rect, dp(7)/scale, dp(7)/scale, bg);
+
         Paint tp = new Paint(textPaint);
-        tp.setTextSize(textPaint.getTextSize()/scale);
+        tp.setTextSize(textPaint.getTextSize() / scale);
+        float padX = dp(7) / scale;
+        float h = dp(22) / scale;
+        float textWidth = tp.measureText(value);
+        RectF rect = new RectF(
+                x - textWidth / 2f - padX,
+                y - h / 2f,
+                x + textWidth / 2f + padX,
+                y + h / 2f);
+        canvas.drawRoundRect(rect, dp(7) / scale, dp(7) / scale, bg);
+
         Paint.FontMetrics fm = tp.getFontMetrics();
-        float baseline = y - (fm.ascent + fm.descent)/2f;
-        canvas.drawText(text, x, baseline, tp);
+        float baseline = y - (fm.ascent + fm.descent) / 2f;
+        canvas.drawText(value, x, baseline, tp);
     }
 
     @Override
-    public boolean onTouchEvent(MotionEvent e) {
-        scaleDetector.onTouchEvent(e);
+    public boolean onTouchEvent(MotionEvent event) {
+        if (room == null) return false;
 
-        if (e.getPointerCount() >= 2) {
+        scaleDetector.onTouchEvent(event);
+
+        if (event.getPointerCount() >= 2) {
+            cancelLongPress();
+            cancelSingleGestureForMultiTouch();
             getParent().requestDisallowInterceptTouchEvent(true);
-            float cx = centroidX(e), cy = centroidY(e);
-            if (e.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
+            float cx = centroidX(event);
+            float cy = centroidY(event);
+            if (event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
                 lastCentroidX = cx;
                 lastCentroidY = cy;
-            } else if (e.getActionMasked() == MotionEvent.ACTION_MOVE && !scaleDetector.isInProgress()) {
+                multiTouch = true;
+            } else if (event.getActionMasked() == MotionEvent.ACTION_MOVE
+                    && !scaleDetector.isInProgress()) {
                 offsetX += cx - lastCentroidX;
                 offsetY += cy - lastCentroidY;
                 lastCentroidX = cx;
                 lastCentroidY = cy;
+                syncViewToRoom();
                 invalidate();
             }
             return true;
         }
 
-        float x = screenToWorldX(e.getX());
-        float y = screenToWorldY(e.getY());
+        float worldX = screenToWorldX(event.getX());
+        float worldY = screenToWorldY(event.getY());
 
-        switch (e.getActionMasked()) {
+        switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                downX = e.getX();
-                downY = e.getY();
-                downAtMs = android.os.SystemClock.uptimeMillis();
+                multiTouch = false;
+                downScreenX = event.getX();
+                downScreenY = event.getY();
                 moved = false;
-                draggingPoint = mode == Mode.POINT ? nearestPoint(x, y, dp(24)/scale) : -1;
-                draggingLabel = mode == Mode.LABEL ? nearestLabel(x, y, dp(30)/scale) : -1;
-                downDiagonal = mode == Mode.DIAGONAL ? nearestDiagonal(x, y, dp(20)/scale) : -1;
-                getParent().requestDisallowInterceptTouchEvent(!(mode == Mode.WALL && room != null && room.closed));
+                longPressFired = false;
+                activeGuide = null;
+
+                if (mode == Mode.WALL) {
+                    return beginWallGesture(worldX, worldY);
+                }
+                if (mode == Mode.POINT) {
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                    NativeProjectStore.PointData point = nearestPoint(worldX, worldY, dp(48) / scale);
+                    draggingPointId = point == null ? null : point.id;
+                    return true;
+                }
+                if (mode == Mode.DIAGONAL) {
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                    return beginDiagonalGesture(worldX, worldY);
+                }
+                getParent().requestDisallowInterceptTouchEvent(true);
+                beginLabelGesture(worldX, worldY);
                 return true;
 
             case MotionEvent.ACTION_MOVE:
-                moved |= Math.hypot(e.getX() - downX, e.getY() - downY) > dp(7);
-                if (mode == Mode.POINT && draggingPoint >= 0 && validPoint(draggingPoint)) {
-                    NativeProjectStore.PointData p = room.points.get(draggingPoint);
-                    p.x = x;
-                    p.y = y;
-                    invalidate();
-                    if (listener != null) listener.onChanged();
+                if (multiTouch) return true;
+                float distance = (float) Math.hypot(
+                        event.getX() - downScreenX,
+                        event.getY() - downScreenY);
+                if (distance > dp(9)) {
+                    moved = true;
+                    cancelLongPress();
+                }
+
+                if (mode == Mode.WALL && wallDraft != null) {
+                    updateWallDraft(event.getX(), event.getY());
                     return true;
                 }
-                if (mode == Mode.LABEL && draggingLabel >= 0) {
-                    PointF mid = edgeMid(draggingLabel);
-                    if (mid != null) {
-                        ensureLabelArrays();
-                        room.labelDx.set(draggingLabel, x - mid.x);
-                        room.labelDy.set(draggingLabel, y - mid.y);
-                        invalidate();
-                        if (listener != null) listener.onChanged();
-                    }
+                if (mode == Mode.POINT && draggingPointId != null) {
+                    updatePointDrag(worldX, worldY);
+                    return true;
+                }
+                if (mode == Mode.DIAGONAL && diagDraft != null) {
+                    updateDiagonalDraft(worldX, worldY);
+                    return true;
+                }
+                if (mode == Mode.LABEL && draggingLabel != null) {
+                    updateLabelDrag(worldX, worldY);
                     return true;
                 }
                 return true;
 
             case MotionEvent.ACTION_UP:
                 getParent().requestDisallowInterceptTouchEvent(false);
-                if (moved) {
-                    draggingPoint = -1;
-                    draggingLabel = -1;
-                    downDiagonal = -1;
+                cancelLongPress();
+                if (multiTouch) {
+                    multiTouch = false;
+                    syncViewToRoom();
+                    changed();
+                    cancelTransientGestures();
                     return true;
                 }
-                if (mode == Mode.DIAGONAL
-                        && downDiagonal >= 0
-                        && android.os.SystemClock.uptimeMillis() - downAtMs >= 520L) {
-                    if (listener != null && downDiagonal < room.diagonals.size()) {
-                        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
-                        listener.onDiagonalLongPressed(
-                                downDiagonal,
-                                room.diagonals.get(downDiagonal).value);
-                    }
-                    draggingPoint = -1;
-                    draggingLabel = -1;
-                    downDiagonal = -1;
+                if (longPressFired) {
+                    longPressFired = false;
+                    cancelTransientGestures();
                     return true;
                 }
-                handleTap(x, y);
-                draggingPoint = -1;
-                draggingLabel = -1;
-                downDiagonal = -1;
+
+                if (mode == Mode.WALL && wallDraft != null) {
+                    finishWallDraft();
+                } else if (mode == Mode.POINT && draggingPointId != null) {
+                    finishPointDrag();
+                } else if (mode == Mode.DIAGONAL && diagDraft != null) {
+                    finishDiagonalDraft();
+                } else if (mode == Mode.LABEL && draggingLabel != null) {
+                    draggingLabel = null;
+                    changed();
+                }
                 return true;
 
             case MotionEvent.ACTION_CANCEL:
                 getParent().requestDisallowInterceptTouchEvent(false);
-                draggingPoint = -1;
-                draggingLabel = -1;
-                downDiagonal = -1;
+                cancelLongPress();
+                cancelTransientGestures();
                 return true;
 
             default:
@@ -323,136 +433,818 @@ final class CeilingDrawingView extends View {
         }
     }
 
-    private void handleTap(float x, float y) {
-        if (room == null) return;
-        if (mode == Mode.WALL) {
-            if (room.closed) return;
-            int nearFirst = room.points.size() >= 3 ? nearestSpecificPoint(0, x, y, dp(26)/scale) : -1;
-            if (nearFirst == 0) {
-                room.closed = true;
-                NativeProjectStore.normalizeArrays(room);
-                performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM);
-                changed();
-                return;
+    private boolean beginWallGesture(float x, float y) {
+        NativeProjectStore.PointData nearest = nearestPoint(x, y, dp(48) / scale);
+        NativeProjectStore.EdgeData edge = nearestEdge(x, y, dp(30) / scale);
+        boolean closed = NativeGeometry.isClosed(room);
+
+        if (closed) {
+            if (edge != null) {
+                getParent().requestDisallowInterceptTouchEvent(true);
+                scheduleLongPress("edge", edge.id);
+                return true;
             }
-            room.points.add(new NativeProjectStore.PointData(x, y));
-            NativeProjectStore.normalizeArrays(room);
+            getParent().requestDisallowInterceptTouchEvent(false);
+            return false;
+        }
+
+        getParent().requestDisallowInterceptTouchEvent(true);
+
+        if (nearest != null) {
+            if (NativeGeometry.vertexDegree(room, nearest.id) >= 2) return true;
+            wallDraft = new WallDraft(
+                    nearest.id,
+                    new PointF(nearest.x, nearest.y),
+                    new PointF(nearest.x, nearest.y),
+                    new PointF(downScreenX, downScreenY),
+                    false);
+            return true;
+        }
+
+        if (edge != null) {
+            scheduleLongPress("edge", edge.id);
+            return true;
+        }
+
+        if (room.edges.isEmpty()) {
+            PointF start = new PointF(roundGrid(x), roundGrid(y));
+            wallDraft = new WallDraft(
+                    NativeProjectStore.newId("p"),
+                    start,
+                    new PointF(start.x, start.y),
+                    new PointF(downScreenX, downScreenY),
+                    true);
+        }
+        return true;
+    }
+
+    private boolean beginDiagonalGesture(float x, float y) {
+        NativeProjectStore.DiagonalData existing = nearestDiagonal(x, y, dp(20) / scale);
+        NativeProjectStore.PointData point = nearestPoint(x, y, dp(48) / scale);
+
+        if (point != null) {
+            diagDraft = new DiagDraft(
+                    point.id,
+                    new PointF(point.x, point.y),
+                    new PointF(point.x, point.y));
+            return true;
+        }
+        if (existing != null) scheduleLongPress("diag", existing.id);
+        return true;
+    }
+
+    private void beginLabelGesture(float x, float y) {
+        draggingLabel = nearestLabel(x, y, dp(36) / scale);
+        if (draggingLabel == null) return;
+        PointF base = draggingLabel.kind == LabelKind.EDGE
+                ? edgeLabelBase(edgeById(draggingLabel.id))
+                : diagonalLabelBase(diagonalById(draggingLabel.id));
+        if (base == null) {
+            draggingLabel = null;
+            return;
+        }
+        labelBaseX = base.x;
+        labelBaseY = base.y;
+    }
+
+    private void updateWallDraft(float screenX, float screenY) {
+        float dx = (screenX - wallDraft.fingerStart.x) / scale;
+        float dy = (screenY - wallDraft.fingerStart.y) / scale;
+        PointF finish = new PointF(
+                wallDraft.start.x + dx,
+                wallDraft.start.y + dy);
+
+        finish = snapAngle(wallDraft.start, finish);
+        finish.x = roundPrecisionGrid(finish.x);
+        finish.y = roundPrecisionGrid(finish.y);
+
+        NativeProjectStore.PointData near = nearestPoint(
+                finish.x,
+                finish.y,
+                dp(22) / scale);
+        boolean cornerSnap = near != null
+                && !near.id.equals(wallDraft.startId)
+                && NativeGeometry.vertexDegree(room, near.id) < 2;
+
+        if (!cornerSnap) {
+            NativeProjectStore.PointData along = nearestOpenPointAlongSegment(
+                    wallDraft.start,
+                    finish,
+                    dp(22) / scale);
+            if (along != null) {
+                near = along;
+                cornerSnap = true;
+            }
+        }
+
+        if (cornerSnap && near != null) {
+            wallDraft.preview.set(near.x, near.y);
+            activeGuide = null;
+        } else {
+            Guide guide = wallStopGuide(finish);
+            if (guide != null) {
+                float screenDistance = (float) Math.hypot(
+                        finish.x - guide.projected.x,
+                        finish.y - guide.projected.y) * Math.max(.45f, scale);
+                if (screenDistance <= dp(26)) {
+                    finish.set(guide.projected.x, guide.projected.y);
+                    if (activeGuide == null) {
+                        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+                    }
+                    activeGuide = guide;
+                } else {
+                    activeGuide = guide;
+                }
+            } else {
+                activeGuide = null;
+            }
+            wallDraft.preview.set(finish.x, finish.y);
+        }
+        invalidate();
+    }
+
+    private void finishWallDraft() {
+        WallDraft draft = wallDraft;
+        wallDraft = null;
+        activeGuide = null;
+        if (draft == null) return;
+
+        float length = (float) Math.hypot(
+                draft.preview.x - draft.start.x,
+                draft.preview.y - draft.start.y);
+        if (length <= dp(18) / scale) {
+            invalidate();
+            return;
+        }
+
+        if (NativeGeometry.isClosed(room)) {
+            invalidate();
+            return;
+        }
+
+        NativeProjectStore.PointData start = NativeGeometry.pointById(room, draft.startId);
+        if (draft.newStart) {
+            start = new NativeProjectStore.PointData(
+                    draft.startId,
+                    draft.start.x,
+                    draft.start.y);
+            room.points.add(start);
+        }
+        if (start == null || NativeGeometry.vertexDegree(room, start.id) >= 2) {
+            invalidate();
+            return;
+        }
+
+        NativeProjectStore.PointData target = nearestPoint(
+                draft.preview.x,
+                draft.preview.y,
+                dp(36) / scale);
+        if (target != null
+                && (target.id.equals(start.id) || NativeGeometry.vertexDegree(room, target.id) >= 2)) {
+            target = null;
+        }
+
+        if (target == null) {
+            target = new NativeProjectStore.PointData(
+                    draft.preview.x,
+                    draft.preview.y);
+            room.points.add(target);
+        }
+
+        if (!target.id.equals(start.id)
+                && NativeGeometry.edgeBetween(room, start.id, target.id) == null) {
+            room.edges.add(new NativeProjectStore.EdgeData(start.id, target.id));
+        }
+
+        boolean closed = NativeGeometry.repairNearlyClosedContour(
+                room,
+                dp(24) / Math.max(.45f, scale));
+        if (!closed) closed = NativeGeometry.isClosed(room);
+
+        changed();
+        if (closed && listener != null) listener.onContourClosed();
+    }
+
+    private void updatePointDrag(float x, float y) {
+        NativeProjectStore.PointData point = NativeGeometry.pointById(room, draggingPointId);
+        if (point == null) return;
+
+        point.x = roundGrid(x);
+        point.y = roundGrid(y);
+
+        PointF snap = nearest90Candidate(point);
+        if (snap != null && room.point90Magnet) {
+            point.x = snap.x;
+            point.y = snap.y;
+        }
+
+        boolean right = isRightAngle(point);
+        if (right && !point90SnapActive) {
+            point90SnapActive = true;
+            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+        } else if (!right) {
+            point90SnapActive = false;
+        }
+        invalidate();
+    }
+
+    private void finishPointDrag() {
+        draggingPointId = null;
+        point90SnapActive = false;
+        NativeGeometry.repairNearlyClosedContour(
+                room,
+                dp(24) / Math.max(.45f, scale));
+        changed();
+    }
+
+    private void updateDiagonalDraft(float x, float y) {
+        if (diagDraft == null) return;
+        NativeProjectStore.PointData near = nearestPoint(x, y, dp(48) / scale);
+        if (near != null && !near.id.equals(diagDraft.startId)) {
+            diagDraft.preview.set(near.x, near.y);
+        } else {
+            diagDraft.preview.set(x, y);
+        }
+        invalidate();
+    }
+
+    private void finishDiagonalDraft() {
+        DiagDraft draft = diagDraft;
+        diagDraft = null;
+        if (draft == null) return;
+
+        NativeProjectStore.PointData end = nearestPoint(
+                draft.preview.x,
+                draft.preview.y,
+                dp(48) / scale);
+        if (end == null || end.id.equals(draft.startId)) {
+            invalidate();
+            return;
+        }
+        if (NativeGeometry.edgeBetween(room, draft.startId, end.id) != null) {
+            invalidate();
+            return;
+        }
+
+        NativeProjectStore.DiagonalData diagonal =
+                NativeGeometry.diagonalBetween(room, draft.startId, end.id);
+        if (diagonal == null) {
+            diagonal = new NativeProjectStore.DiagonalData(draft.startId, end.id);
+            room.diagonals.add(diagonal);
             changed();
-            return;
         }
+        if (listener != null) listener.onDiagonalCreated(diagonal.id, diagonal.value);
+    }
 
-        if (mode == Mode.DIAGONAL) {
-            int p = nearestPoint(x, y, dp(28)/scale);
-            if (p < 0) {
-                int d = nearestDiagonal(x, y, dp(18)/scale);
-                if (d >= 0 && listener != null) {
-                    listener.onDiagonalTapped(d, room.diagonals.get(d).value);
+    private void updateLabelDrag(float x, float y) {
+        if (draggingLabel == null) return;
+        if (draggingLabel.kind == LabelKind.EDGE) {
+            NativeProjectStore.EdgeData edge = edgeById(draggingLabel.id);
+            if (edge != null) {
+                edge.labelDx = x - labelBaseX;
+                edge.labelDy = y - labelBaseY;
+            }
+        } else {
+            NativeProjectStore.DiagonalData diagonal = diagonalById(draggingLabel.id);
+            if (diagonal != null) {
+                diagonal.labelDx = x - labelBaseX;
+                diagonal.labelDy = y - labelBaseY;
+            }
+        }
+        invalidate();
+    }
+
+    private void scheduleLongPress(String kind, String id) {
+        cancelLongPress();
+        longPressRunnable = () -> {
+            longPressFired = true;
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            if (listener == null) return;
+            if ("edge".equals(kind)) {
+                NativeProjectStore.EdgeData edge = edgeById(id);
+                if (edge != null) listener.onWallLongPressed(edge.id, edge.value);
+            } else {
+                NativeProjectStore.DiagonalData diagonal = diagonalById(id);
+                if (diagonal != null) {
+                    listener.onDiagonalLongPressed(diagonal.id, diagonal.value);
                 }
-                return;
             }
-            if (diagonalStart < 0) {
-                diagonalStart = p;
-                invalidate();
-            } else if (p != diagonalStart) {
-                if (!diagonalExists(diagonalStart, p)) {
-                    room.diagonals.add(new NativeProjectStore.DiagonalData(diagonalStart, p, 0));
-                    performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM);
-                    changed();
-                }
-                diagonalStart = -1;
-                invalidate();
-            }
-            return;
-        }
-
-        if (mode == Mode.LABEL) {
-            int label = nearestLabel(x, y, dp(34)/scale);
-            if (label >= 0 && listener != null) {
-                ensureLabelArrays();
-                listener.onWallLabelTapped(label, room.wallValues.get(label));
-            }
-        }
+        };
+        handler.postDelayed(longPressRunnable, LONG_PRESS_MS);
     }
 
-    private int edgeCount() {
-        if (room == null) return 0;
-        return room.closed ? room.points.size() : Math.max(0, room.points.size() - 1);
+    private void cancelLongPress() {
+        if (longPressRunnable != null) handler.removeCallbacks(longPressRunnable);
+        longPressRunnable = null;
     }
 
-    private PointF edgeMid(int edge) {
-        if (room == null || edge < 0 || edge >= edgeCount()) return null;
-        int a = edge;
-        int b = (edge + 1) % room.points.size();
-        NativeProjectStore.PointData p1 = room.points.get(a);
-        NativeProjectStore.PointData p2 = room.points.get(b);
-        return new PointF((p1.x+p2.x)/2f, (p1.y+p2.y)/2f);
+    private void cancelSingleGestureForMultiTouch() {
+        wallDraft = null;
+        draggingPointId = null;
+        diagDraft = null;
+        draggingLabel = null;
+        activeGuide = null;
+        point90SnapActive = false;
     }
 
-    private int nearestLabel(float x, float y, float radius) {
-        int best=-1; float bd=Float.MAX_VALUE;
-        for(int i=0;i<edgeCount();i++){
-            PointF mid=edgeMid(i); if(mid==null)continue;
-            float dx=i<room.labelDx.size()?room.labelDx.get(i):0;
-            float dy=i<room.labelDy.size()?room.labelDy.get(i):0;
-            float d=(float)Math.hypot(x-(mid.x+dx),y-(mid.y+dy));
-            if(d<radius&&d<bd){bd=d;best=i;}
+    private void cancelTransientGestures() {
+        cancelSingleGestureForMultiTouch();
+        longPressFired = false;
+        moved = false;
+    }
+
+    @Nullable
+    private NativeProjectStore.PointData nearestPoint(float x, float y, float radius) {
+        NativeProjectStore.PointData best = null;
+        float bestDistance = radius;
+        for (NativeProjectStore.PointData point : room.points) {
+            float distance = (float) Math.hypot(x - point.x, y - point.y);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = point;
+            }
         }
         return best;
     }
 
-    private int nearestPoint(float x, float y, float radius) {
-        int best=-1; float bd=Float.MAX_VALUE;
-        for(int i=0;i<room.points.size();i++){
-            NativeProjectStore.PointData p=room.points.get(i);
-            float d=(float)Math.hypot(x-p.x,y-p.y);
-            if(d<radius&&d<bd){bd=d;best=i;}
+    @Nullable
+    private NativeProjectStore.EdgeData nearestEdge(float x, float y, float radius) {
+        NativeProjectStore.EdgeData best = null;
+        float bestDistance = radius;
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
+            if (a == null || b == null) continue;
+            float distance = distancePointToSegment(x, y, a.x, a.y, b.x, b.y);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = edge;
+            }
         }
         return best;
     }
 
-    private int nearestSpecificPoint(int index,float x,float y,float radius){
-        if(!validPoint(index))return -1;
-        NativeProjectStore.PointData p=room.points.get(index);
-        return Math.hypot(x-p.x,y-p.y)<=radius?index:-1;
-    }
-
-    private int nearestDiagonal(float x,float y,float radius){
-        int best=-1; float bd=Float.MAX_VALUE;
-        for(int i=0;i<room.diagonals.size();i++){
-            NativeProjectStore.DiagonalData d=room.diagonals.get(i);
-            if(!validPoint(d.a)||!validPoint(d.b))continue;
-            NativeProjectStore.PointData a=room.points.get(d.a),b=room.points.get(d.b);
-            float dist=distancePointToSegment(x,y,a.x,a.y,b.x,b.y);
-            if(dist<radius&&dist<bd){bd=dist;best=i;}
+    @Nullable
+    private NativeProjectStore.DiagonalData nearestDiagonal(float x, float y, float radius) {
+        NativeProjectStore.DiagonalData best = null;
+        float bestDistance = radius;
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, diagonal.a);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, diagonal.b);
+            if (a == null || b == null) continue;
+            float distance = distancePointToSegment(x, y, a.x, a.y, b.x, b.y);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = diagonal;
+            }
         }
         return best;
     }
 
-    private boolean diagonalExists(int a,int b){
-        for(NativeProjectStore.DiagonalData d:room.diagonals){
-            if((d.a==a&&d.b==b)||(d.a==b&&d.b==a))return true;
+    @Nullable
+    private LabelHit nearestLabel(float x, float y, float radius) {
+        LabelHit best = null;
+        float bestDistance = radius;
+
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            PointF base = edgeLabelBase(edge);
+            if (base == null) continue;
+            float lx = base.x + edge.labelDx;
+            float ly = base.y + edge.labelDy;
+            float distance = (float) Math.hypot(x - lx, y - ly);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = new LabelHit(LabelKind.EDGE, edge.id);
+            }
         }
-        return false;
+
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            if (diagonal.value <= 0) continue;
+            PointF base = diagonalLabelBase(diagonal);
+            if (base == null) continue;
+            float lx = base.x + diagonal.labelDx;
+            float ly = base.y + diagonal.labelDy;
+            float distance = (float) Math.hypot(x - lx, y - ly);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = new LabelHit(LabelKind.DIAGONAL, diagonal.id);
+            }
+        }
+        return best;
     }
 
-    private void ensureLabelArrays(){ NativeProjectStore.normalizeArrays(room); }
-    private boolean validPoint(int i){return room!=null&&i>=0&&i<room.points.size();}
-    private void changed(){invalidate();if(listener!=null)listener.onChanged();}
-    private float screenToWorldX(float x){return (x-offsetX)/scale;}
-    private float screenToWorldY(float y){return (y-offsetY)/scale;}
-    private float centroidX(MotionEvent e){float s=0;for(int i=0;i<e.getPointerCount();i++)s+=e.getX(i);return s/e.getPointerCount();}
-    private float centroidY(MotionEvent e){float s=0;for(int i=0;i<e.getPointerCount();i++)s+=e.getY(i);return s/e.getPointerCount();}
-    private float clamp(float v,float min,float max){return Math.max(min,Math.min(max,v));}
-    private float dp(float v){return v*getResources().getDisplayMetrics().density;}
-    private float sp(float v){return v*getResources().getDisplayMetrics().scaledDensity;}
-    private String formatValue(float v){return Math.abs(v-Math.round(v))<.01f?String.valueOf(Math.round(v)):String.format(java.util.Locale.US,"%.1f",v);}
+    @Nullable
+    private NativeProjectStore.PointData nearestOpenPointAlongSegment(
+            PointF start,
+            PointF end,
+            float maxDistance) {
+        NativeProjectStore.PointData best = null;
+        float bestT = Float.MAX_VALUE;
+        for (NativeProjectStore.PointData point : room.points) {
+            if (point.id.equals(wallDraft.startId)
+                    || NativeGeometry.vertexDegree(room, point.id) >= 2) continue;
+            Projection projection = projection(point.x, point.y, start.x, start.y, end.x, end.y);
+            if (projection == null) continue;
+            if (projection.t <= .10f || projection.t > 1f || projection.distance > maxDistance) continue;
+            if (projection.t < bestT) {
+                bestT = projection.t;
+                best = point;
+            }
+        }
+        return best;
+    }
 
-    private static float distancePointToSegment(float px,float py,float ax,float ay,float bx,float by){
-        float dx=bx-ax,dy=by-ay;
-        if(dx==0&&dy==0)return (float)Math.hypot(px-ax,py-ay);
-        float t=((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy);
-        t=Math.max(0,Math.min(1,t));
-        float cx=ax+t*dx,cy=ay+t*dy;
-        return (float)Math.hypot(px-cx,py-cy);
+    @Nullable
+    private Guide wallStopGuide(PointF finish) {
+        if (wallDraft == null) return null;
+        PointF start = wallDraft.start;
+        float vx = finish.x - start.x;
+        float vy = finish.y - start.y;
+        float len = (float) Math.hypot(vx, vy);
+        if (len < 2f) return null;
+
+        float ux = vx / len;
+        float uy = vy / len;
+        float nx = -uy;
+        float ny = ux;
+        Guide best = null;
+
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            if (edge.a.equals(wallDraft.startId) || edge.b.equals(wallDraft.startId)) continue;
+            NativeProjectStore.PointData p1 = NativeGeometry.pointById(room, edge.a);
+            NativeProjectStore.PointData p2 = NativeGeometry.pointById(room, edge.b);
+            if (p1 == null || p2 == null) continue;
+            float ex = p2.x - p1.x;
+            float ey = p2.y - p1.y;
+            float el = (float) Math.hypot(ex, ey);
+            if (el < 2) continue;
+            float parallel = Math.abs((ex * ux + ey * uy) / el);
+            if (parallel < .93f) continue;
+            best = chooseGuide(best, p1, start, len, ux, uy, nx, ny, 0f);
+            best = chooseGuide(best, p2, start, len, ux, uy, nx, ny, 0f);
+        }
+
+        for (NativeProjectStore.PointData point : room.points) {
+            if (point.id.equals(wallDraft.startId)) continue;
+            if (NativeGeometry.edgeBetween(room, wallDraft.startId, point.id) != null) continue;
+            best = chooseGuide(best, point, start, len, ux, uy, nx, ny, 10f);
+        }
+        return best;
+    }
+
+    @Nullable
+    private Guide chooseGuide(
+            @Nullable Guide current,
+            NativeProjectStore.PointData candidate,
+            PointF start,
+            float currentLength,
+            float ux,
+            float uy,
+            float nx,
+            float ny,
+            float typePenalty) {
+        float stopProjection = (candidate.x - start.x) * ux + (candidate.y - start.y) * uy;
+        if (stopProjection <= 1f) return current;
+
+        PointF projected = new PointF(
+                start.x + ux * stopProjection,
+                start.y + uy * stopProjection);
+        float offset = Math.abs((candidate.x - start.x) * nx + (candidate.y - start.y) * ny);
+        float distanceToCurrent = Math.abs(stopProjection - currentLength);
+        float score = offset * 2.2f + distanceToCurrent + typePenalty;
+        if (current == null || score < current.score) {
+            return new Guide(projected, ux, uy, score);
+        }
+        return current;
+    }
+
+    @Nullable
+    private PointF nearest90Candidate(NativeProjectStore.PointData moving) {
+        List<NativeProjectStore.EdgeData> edges = NativeGeometry.edgesAt(room, moving.id);
+        if (edges.size() != 2) return null;
+
+        NativeProjectStore.PointData a = otherPoint(edges.get(0), moving.id);
+        NativeProjectStore.PointData b = otherPoint(edges.get(1), moving.id);
+        if (a == null || b == null) return null;
+
+        PointF[] candidates = new PointF[]{
+                new PointF(a.x, b.y),
+                new PointF(b.x, a.y)
+        };
+        PointF best = null;
+        float bestDistance = Float.MAX_VALUE;
+        for (PointF candidate : candidates) {
+            float distance = (float) Math.hypot(
+                    moving.x - candidate.x,
+                    moving.y - candidate.y);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = candidate;
+            }
+        }
+        return bestDistance <= dp(30) / Math.max(.45f, scale) ? best : null;
+    }
+
+    private boolean isRightAngle(NativeProjectStore.PointData moving) {
+        List<NativeProjectStore.EdgeData> edges = NativeGeometry.edgesAt(room, moving.id);
+        if (edges.size() != 2) return false;
+        NativeProjectStore.PointData a = otherPoint(edges.get(0), moving.id);
+        NativeProjectStore.PointData b = otherPoint(edges.get(1), moving.id);
+        if (a == null || b == null) return false;
+
+        float ax = a.x - moving.x;
+        float ay = a.y - moving.y;
+        float bx = b.x - moving.x;
+        float by = b.y - moving.y;
+        float la = (float) Math.hypot(ax, ay);
+        float lb = (float) Math.hypot(bx, by);
+        if (la < 1 || lb < 1) return false;
+
+        float dot = (ax * bx + ay * by) / (la * lb);
+        dot = clamp(dot, -1f, 1f);
+        float angle = (float) (Math.acos(dot) * 180d / Math.PI);
+        return Math.abs(angle - 90f) <= .6f;
+    }
+
+    @Nullable
+    private NativeProjectStore.PointData otherPoint(
+            NativeProjectStore.EdgeData edge,
+            String pointId) {
+        String otherId = edge.a.equals(pointId) ? edge.b : edge.a;
+        return NativeGeometry.pointById(room, otherId);
+    }
+
+    @Nullable
+    private PointF edgeLabelBase(@Nullable NativeProjectStore.EdgeData edge) {
+        if (edge == null) return null;
+        NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
+        NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
+        if (a == null || b == null) return null;
+
+        float dx = b.x - a.x;
+        float dy = b.y - a.y;
+        float length = (float) Math.hypot(dx, dy);
+        if (length < 1) return new PointF(a.x, a.y);
+
+        float nx = -dy / length;
+        float ny = dx / length;
+        float mx = (a.x + b.x) / 2f;
+        float my = (a.y + b.y) / 2f;
+        float offset = dp(24) / scale;
+
+        PointF first = new PointF(mx + nx * offset, my + ny * offset);
+        PointF second = new PointF(mx - nx * offset, my - ny * offset);
+        List<String> cycle = NativeGeometry.cycleOrder(room);
+        if (cycle != null) {
+            boolean firstInside = pointInPolygon(first, cycle);
+            boolean secondInside = pointInPolygon(second, cycle);
+            if (firstInside != secondInside) return firstInside ? second : first;
+        }
+
+        PointF center = drawingCenter();
+        float d1 = sq(first.x - center.x) + sq(first.y - center.y);
+        float d2 = sq(second.x - center.x) + sq(second.y - center.y);
+        return d1 >= d2 ? first : second;
+    }
+
+    @Nullable
+    private PointF diagonalLabelBase(@Nullable NativeProjectStore.DiagonalData diagonal) {
+        if (diagonal == null) return null;
+        NativeProjectStore.PointData a = NativeGeometry.pointById(room, diagonal.a);
+        NativeProjectStore.PointData b = NativeGeometry.pointById(room, diagonal.b);
+        if (a == null || b == null) return null;
+        return new PointF((a.x + b.x) / 2f, (a.y + b.y) / 2f);
+    }
+
+    private PointF drawingCenter() {
+        if (room.points.isEmpty()) return new PointF(0, 0);
+        float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE;
+        float minY = Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+        for (NativeProjectStore.PointData p : room.points) {
+            minX = Math.min(minX, p.x);
+            maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y);
+            maxY = Math.max(maxY, p.y);
+        }
+        return new PointF((minX + maxX) / 2f, (minY + maxY) / 2f);
+    }
+
+    private boolean pointInPolygon(PointF point, List<String> order) {
+        boolean inside = false;
+        for (int i = 0, j = order.size() - 1; i < order.size(); j = i++) {
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, order.get(i));
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, order.get(j));
+            if (a == null || b == null) continue;
+            boolean hit = ((a.y > point.y) != (b.y > point.y))
+                    && point.x < (b.x - a.x) * (point.y - a.y)
+                    / ((b.y - a.y) == 0 ? 1e-9f : (b.y - a.y)) + a.x;
+            if (hit) inside = !inside;
+        }
+        return inside;
+    }
+
+    private String edgeOrdinal(NativeProjectStore.EdgeData edge) {
+        List<NativeProjectStore.EdgeData> ordered = NativeGeometry.orderedEdges(room);
+        for (int i = 0; i < ordered.size(); i++) {
+            if (ordered.get(i).id.equals(edge.id)) return String.valueOf(i + 1);
+        }
+        return "";
+    }
+
+    @Nullable
+    private NativeProjectStore.EdgeData edgeById(String id) {
+        for (NativeProjectStore.EdgeData edge : room.edges) if (edge.id.equals(id)) return edge;
+        return null;
+    }
+
+    @Nullable
+    private NativeProjectStore.DiagonalData diagonalById(String id) {
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            if (diagonal.id.equals(id)) return diagonal;
+        }
+        return null;
+    }
+
+    private void changed() {
+        syncViewToRoom();
+        invalidate();
+        if (listener != null) listener.onChanged();
+    }
+
+    private void syncViewToRoom() {
+        if (room == null) return;
+        room.viewScale = scale;
+        room.panX = offsetX;
+        room.panY = offsetY;
+    }
+
+    private float roundGrid(float value) {
+        float step = scale >= 8f ? 2f : (scale >= 4f ? 5f : 10f);
+        return Math.round(value / step) * step;
+    }
+
+    private float roundPrecisionGrid(float value) {
+        float step = scale >= 8f ? .5f : (scale >= 4f ? 1f : 2f);
+        return Math.round(value / step) * step;
+    }
+
+    private PointF snapAngle(PointF start, PointF point) {
+        float dx = point.x - start.x;
+        float dy = point.y - start.y;
+        float distance = (float) Math.hypot(dx, dy);
+        if (distance < 1f) return point;
+        double step = Math.PI / 4d;
+        double angle = Math.atan2(dy, dx);
+        double near = Math.round(angle / step) * step;
+        double diff = Math.abs(angle - near);
+        if (diff < .24d) {
+            return new PointF(
+                    start.x + (float) Math.cos(near) * distance,
+                    start.y + (float) Math.sin(near) * distance);
+        }
+        return point;
+    }
+
+    private float screenToWorldX(float x) {
+        return (x - offsetX) / scale;
+    }
+
+    private float screenToWorldY(float y) {
+        return (y - offsetY) / scale;
+    }
+
+    private float centroidX(MotionEvent event) {
+        float sum = 0;
+        for (int i = 0; i < event.getPointerCount(); i++) sum += event.getX(i);
+        return sum / event.getPointerCount();
+    }
+
+    private float centroidY(MotionEvent event) {
+        float sum = 0;
+        for (int i = 0; i < event.getPointerCount(); i++) sum += event.getY(i);
+        return sum / event.getPointerCount();
+    }
+
+    private String formatValue(float value) {
+        return Math.abs(value - Math.round(value)) < .01f
+                ? String.valueOf(Math.round(value))
+                : String.format(Locale.US, "%.1f", value);
+    }
+
+    private float dp(float value) {
+        return value * getResources().getDisplayMetrics().density;
+    }
+
+    private float sp(float value) {
+        return value * getResources().getDisplayMetrics().scaledDensity;
+    }
+
+    private float clamp(float value, float min, float max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private float sq(float value) {
+        return value * value;
+    }
+
+    private static float distancePointToSegment(
+            float px,
+            float py,
+            float ax,
+            float ay,
+            float bx,
+            float by) {
+        Projection projection = projection(px, py, ax, ay, bx, by);
+        return projection == null ? Float.MAX_VALUE : projection.distance;
+    }
+
+    @Nullable
+    private static Projection projection(
+            float px,
+            float py,
+            float ax,
+            float ay,
+            float bx,
+            float by) {
+        float dx = bx - ax;
+        float dy = by - ay;
+        float length2 = dx * dx + dy * dy;
+        if (length2 < 1e-9f) return null;
+        float t = ((px - ax) * dx + (py - ay) * dy) / length2;
+        float clamped = Math.max(0f, Math.min(1f, t));
+        float cx = ax + clamped * dx;
+        float cy = ay + clamped * dy;
+        return new Projection(
+                t,
+                (float) Math.hypot(px - cx, py - cy));
+    }
+
+    private static final class Projection {
+        final float t;
+        final float distance;
+
+        Projection(float t, float distance) {
+            this.t = t;
+            this.distance = distance;
+        }
+    }
+
+    private static final class WallDraft {
+        final String startId;
+        final PointF start;
+        final PointF preview;
+        final PointF fingerStart;
+        final boolean newStart;
+
+        WallDraft(
+                String startId,
+                PointF start,
+                PointF preview,
+                PointF fingerStart,
+                boolean newStart) {
+            this.startId = startId;
+            this.start = start;
+            this.preview = preview;
+            this.fingerStart = fingerStart;
+            this.newStart = newStart;
+        }
+    }
+
+    private static final class DiagDraft {
+        final String startId;
+        final PointF start;
+        final PointF preview;
+
+        DiagDraft(String startId, PointF start, PointF preview) {
+            this.startId = startId;
+            this.start = start;
+            this.preview = preview;
+        }
+    }
+
+    private static final class Guide {
+        final PointF projected;
+        final float ux;
+        final float uy;
+        final float score;
+
+        Guide(PointF projected, float ux, float uy, float score) {
+            this.projected = projected;
+            this.ux = ux;
+            this.uy = uy;
+            this.score = score;
+        }
+    }
+
+    private enum LabelKind { EDGE, DIAGONAL }
+
+    private static final class LabelHit {
+        final LabelKind kind;
+        final String id;
+
+        LabelHit(LabelKind kind, String id) {
+            this.kind = kind;
+            this.id = id;
+        }
     }
 }
