@@ -1,0 +1,157 @@
+ASTRA MAX — PHASE 1 COMPLETION / VERIFICATION ONLY
+НЕ НАЧИНАТЬ PHASE 2
+
+ТЕКУЩЕЕ СОСТОЯНИЕ
+Phase 1 implementation commits:
+- 6e934a6ec50f79c12ca330766bb837ee07052881
+- 3c23e1075460e37b1eae7b7b8debbc913b993d03
+
+После второго commit GitHub Actions run Android APK 35651846222 уже завершён SUCCESS:
+- golden verifier PASS
+- native-only gate PASS
+- lint/unit/assemble PASS
+- APK verification PASS
+- artifact upload PASS
+- Android instrumentation smoke PASS
+- post-test native-source gate PASS
+
+Не повторяй старое утверждение «CI ещё выполняется». Сначала обнови main и проверь фактический текущий run.
+
+ЦЕЛЬ
+Закрыть ТОЛЬКО оставшиеся обязательные пункты Phase 1:
+1. устранить/доказать labelPose absolute-coordinate compatibility;
+2. обновить только Phase-1 строки NATIVE_MIGRATION_MATRIX.md реальными Native reference/Test evidence/PASS;
+3. прогнать финальный CI;
+4. остановиться.
+
+GOLDEN MASTER
+webapp/index.html
+SHA-256:
+354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388
+
+Golden master НЕ менять.
+
+КРИТИЧЕСКАЯ ПРОВЕРКА LABELPOSE
+
+Phase 0 source audit подтверждает:
+web v184 labelPose semantics:
+- labelPose.manual=true + finite x/y => x/y являются ABSOLUTE world coordinates label center.
+- web rendering:
+  wall: x = pose.manual ? pose.x : autoPlacement.x
+  wall: y = pose.manual ? pose.y : autoPlacement.y
+  diagonal: same semantics.
+Source: webapp/index.html around labelPose(), wall label rendering and diagonal label rendering.
+
+Текущий native code на HEAD необходимо перепроверить:
+NativeProjectStore.readLabelPose currently сохраняет:
+- labelX = pose.x
+- labelY = pose.y
+- одновременно labelDx = labelX
+- labelDy = labelY
+
+NativeLabelEngine currently renders:
+- x = auto.x + edge.labelDx
+- y = auto.y + edge.labelDy
+(and equivalent for diagonal)
+
+Если это состояние кода сохранилось, импортированный web pose x=120.5/y=75.25 НЕ является визуально совместимым: absolute coordinate ошибочно используется как offset.
+
+Это НЕ считать «просто будущей Phase 8 проблемой». Это Phase-1 backup/data compatibility issue: web backup должен после import сохранять точный semantic meaning persisted labelPose.
+
+ТРЕБОВАНИЕ К ИСПРАВЛЕНИЮ
+Сделай минимальную compatibility-реализацию без redesign drawing engine.
+
+Допустимы только изменения, прямо необходимые для корректного смысла persisted labelPose.
+
+Source-of-truth behavior:
+- если manual=true и finite persisted labelPose.x/y существуют, native resolved label center должен быть ровно x/y в world coordinates, независимо от auto placement;
+- если manual pose отсутствует, текущий auto-placement behavior не менять;
+- angle normalize и size clamp оставить по audited contract;
+- export после import без пользовательского редактирования обязан вернуть те же semantic x/y;
+- edge и diagonal должны вести себя одинаково;
+- unknown-compatible fields labelPose должны сохраняться.
+
+Не выбирай решение, которое зависит от конкретного viewport, density или текущего zoom при десериализации.
+Нельзя при чтении backup вычислять offset от auto placement, если для этого требуется UI/device state.
+
+Предпочтительное минимальное направление:
+- хранить persisted absolute labelX/labelY как absolute truth;
+- label placement layer при manual absolute pose использует exact labelX/labelY вместо auto+offset;
+- существующий offset path остаётся для старого native runtime state только там, где absolute pose реально отсутствует.
+
+Если для корректного изменения уже импортированной manual label при drag требуется минимальный compatibility hook в drawing layer, допускается изменить ТОЛЬКО label-coordinate update path. Не менять hit thresholds, gesture timing, rotate UI, size UI или visual placement algorithm.
+
+ОБЯЗАТЕЛЬНЫЕ UNIT TESTS LABELPOSE
+Добавь deterministic tests минимум:
+1. imported wall manual pose x/y resolves to exact absolute world x/y, а не auto+x/y;
+2. imported diagonal manual pose — то же;
+3. auto wall without manual pose сохраняет существующий auto placement;
+4. import → serialize без edit сохраняет exact x/y/angle/size/manual;
+5. если compatibility adapter конвертирует runtime representation, повторный save/reload не дрейфует;
+6. два разных auto-placement contexts не должны менять imported absolute x/y;
+7. unknown field внутри labelPose, если current codec сохраняет unknown-compatible fields, не теряется.
+
+Не ослаблять существующие 32 Phase-1 unit tests.
+
+MATRIX
+После зелёных тестов обнови NATIVE_MIGRATION_MATRIX.md.
+
+Разрешено переводить в PASS ТОЛЬКО строки, относящиеся к Phase 1:
+- data schema/persistence;
+- order/room persisted fields;
+- migrations;
+- backup import/export;
+- UI prefs persistence;
+- persisted labelPose data compatibility;
+- active order/room relaunch semantics.
+
+НЕ переводить в PASS:
+- визуальный UI;
+- drawing gestures;
+- snapping;
+- magnifier;
+- general label drag/rotation/resize UX;
+- estimate UI;
+- PDF visual parity;
+- Phase 2+ functionality.
+
+Для каждой Phase-1 PASS строки:
+- Native reference = точный class/method;
+- Test evidence = точный test method / fixture / CI run;
+- никаких абстрактных «verified».
+
+Удали/обнови устаревшие narrative sections matrix, которые всё ещё перечисляют reconciled пять source/spec mismatches как current failures, если rows уже AUDITED по v184. Не возвращай их в FAIL.
+
+FINAL CI
+На финальном HEAD обязательно:
+- scripts/verify_webapp.py webapp/index.html PASS;
+- SHA exact;
+- lintDebug PASS;
+- testDebugUnitTest PASS;
+- assembleDebug PASS;
+- native APK verification PASS;
+- instrumentation smoke PASS;
+- никаких изменений webapp/index.html;
+- никаких WebView/HTML runtime additions.
+
+Если CI падает — исправляй только Phase-1 scope и перезапускай.
+
+FINISH REPORT
+Только после полного green run выдай:
+1. final commit SHA;
+2. final workflow run ID/link;
+3. exact unit-test count;
+4. exact fixture count;
+5. labelPose fix explanation + test names;
+6. list Phase-1 matrix rows moved to PASS;
+7. PASS/FAIL/UNVERIFIED counts only for Phase-1 scope;
+8. golden SHA after final commit;
+9. changed files;
+10. remaining Phase-2+ risks;
+11. exact line: PHASE 1 COMPLETE
+12. exact line: PHASE 2 NOT STARTED
+
+Если labelPose semantic mismatch не исправлен/не доказан или matrix не обновлена, итог:
+PHASE 1 INCOMPLETE
+
+НЕ НАЧИНАЙ PHASE 2.
