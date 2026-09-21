@@ -6235,12 +6235,12 @@ function effectiveDefaultClientPricing(){
 }
 
 function ensureDefaultPricing(){
-  db.defaultPricing||={};
+  db.defaultPricing=db.defaultPricing||{};
   for(const key of PRICE_KEYS)db.defaultPricing[key]=Math.max(0,+db.defaultPricing[key]||0);
   return db.defaultPricing
 }
 function ensureDefaultClientPricing(){
-  db.defaultClientPricing||={};
+  db.defaultClientPricing=db.defaultClientPricing||{};
   for(const key of CLIENT_PRICE_KEYS)db.defaultClientPricing[key]=Math.max(0,+db.defaultClientPricing[key]||0);
   return db.defaultClientPricing
 }
@@ -6404,8 +6404,8 @@ function makeRoom(name){
 function pointId(){return"p_"+uid()} function edgeId(){return"e_"+uid()} function diagId(){return"d_"+uid()}
 function normRoom(r){
   flattenLegacyDrawings(r);
-  r.view||={scale:1,panX:0,panY:0};r.view.scale=clamp(+r.view.scale||1,.45,12);r.view.panX=+r.view.panX||0;r.view.panY=+r.view.panY||0;
-  r.notes||="";
+  r.view=r.view||{scale:1,panX:0,panY:0};r.view.scale=clamp(+r.view.scale||1,.45,12);r.view.panX=+r.view.panX||0;r.view.panY=+r.view.panY||0;
+  r.notes=r.notes||"";
   // v98: Objects removed. Preserve calculator quantities as manual values,
   // but discard all legacy objects and automatic-layout metadata.
   delete r.objects;
@@ -6457,7 +6457,7 @@ function normRoom(r){
     r.points=oldPts;r.edges=edges;r.diagList=diagList;
     delete r.walls;delete r.diags;delete r.closed;
   }else{
-    r.points||=[];r.edges||=[];r.diagList||=[];
+    r.points=r.points||[];r.edges=r.edges||[];r.diagList=r.diagList||[];
     r.points.forEach(p=>{if(!p.id)p.id=pointId()});
   }
   return r
@@ -6709,7 +6709,7 @@ function save(){
 function ensurePricing(o){
   // Legacy order-level prices from v54-v58. Used only for migration.
   if(!o)return{canvas:0,baguette:0,insert:0};
-  o.pricing||={};
+  o.pricing=o.pricing||{};
   o.pricing.canvas=Math.max(0,+o.pricing.canvas||0);
   o.pricing.baguette=Math.max(0,+o.pricing.baguette||0);
   o.pricing.insert=Math.max(0,+o.pricing.insert||0);
@@ -6720,7 +6720,7 @@ function ensureRoomPricing(r){
     canvas:0,baguette:0,insert:0,
     light:0,corner:0,cornice:0,dowel:0,lightline:0,pipe:0
   };
-  r.pricing||={};
+  r.pricing=r.pricing||{};
   const keys=PRICE_KEYS;
   for(const key of keys)r.pricing[key]=Math.max(0,+r.pricing[key]||0);
   return r.pricing
@@ -6747,7 +6747,7 @@ function ensureClientPricing(r){
 }
 function ensureRoomExtras(r){
   if(!r)return{light:0,corner:0,cornice:0,lightline:0,pipe:0};
-  r.extraQty||={};
+  r.extraQty=r.extraQty||{};
   r.extraQty.light=Math.max(0,+r.extraQty.light||0);
   r.extraQty.corner=Math.max(0,+r.extraQty.corner||0);
   r.extraQty.cornice=Math.max(0,+r.extraQty.cornice||0);
@@ -8742,8 +8742,8 @@ function bindClientEstimatePriceInputs(){
       const key=btn.dataset.clientLineRemove;
       if(!key||key==="canvas")return;
 
-      room.clientEstimateQty||={};
-      room.clientEstimateOverride||={};
+      room.clientEstimateQty=room.clientEstimateQty||{};
+      room.clientEstimateOverride=room.clientEstimateOverride||{};
       room.clientEstimateQty[key]=0;
       room.clientEstimateOverride[key]=true;
 
@@ -9005,8 +9005,8 @@ function addClientEstimateMaterial(key){
   if(!rooms.length||!CLIENT_ESTIMATE_MATERIALS.some(x=>x.key===key))return;
 
   for(const r of rooms){
-    r.clientEstimateQty||={};
-    r.clientEstimateOverride||={};
+    r.clientEstimateQty=r.clientEstimateQty||{};
+    r.clientEstimateOverride=r.clientEstimateOverride||{};
 
     // Вставка всегда считается автоматически по реальному периметру именно этой комнаты.
     if(key==="insert"){
@@ -9054,7 +9054,7 @@ function addClientPresetMaterialToEstimate(presetId){
 
   let firstItem=null;
   for(const r of rooms){
-    r.clientCustomItems||=[];
+    r.clientCustomItems=r.clientCustomItems||[];
     let item=r.clientCustomItems.find(x=>x.sourcePresetId===presetId);
     if(!item){
       item={id:uid(),sourcePresetId:preset.id,name:preset.name,unit:preset.unit,qty:1,price:preset.price};
@@ -9260,7 +9260,7 @@ function addClientOtherMaterial(){
   if(otherMaterialContext==="clientRoom"&&clientMaterialTargetAllRooms){
     const rooms=clientMaterialTargetRooms();
     for(const room of rooms){
-      room.clientCustomItems||=[];
+      room.clientCustomItems=room.clientCustomItems||[];
       room.clientCustomItems.push({id:uid(),sourcePresetId:null,name,unit,qty:1,price:0})
     }
     save();closeClientOtherMaterialSheet();refreshClientEstimate();
@@ -9268,7 +9268,7 @@ function addClientOtherMaterial(){
     return
   }
 
-  r.clientCustomItems||=[];
+  r.clientCustomItems=r.clientCustomItems||[];
   const item={id:uid(),sourcePresetId:null,name,unit,qty:1,price:0};
   r.clientCustomItems.push(item);
   save();closeClientOtherMaterialSheet();refreshClientEstimate();
@@ -9954,8 +9954,8 @@ function applyCalcPadValue(){
   }else if(calcEditKind==="clientQty"){
     const target=findOrderRoom(calcEditOrderId,calcEditRoomId);
     if(target){
-      target.clientEstimateQty||={};
-      target.clientEstimateOverride||={};
+      target.clientEstimateQty=target.clientEstimateQty||{};
+      target.clientEstimateOverride=target.clientEstimateOverride||{};
       target.clientEstimateQty[calcEditKey]=number;
       target.clientEstimateOverride[calcEditKey]=true
     }
