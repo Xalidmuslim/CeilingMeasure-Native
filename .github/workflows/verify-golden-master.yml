@@ -15,6 +15,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify restored web golden master
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_webapp.py webapp/index.html
+          echo "354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388  webapp/index.html" | sha256sum -c -
+
       - name: Verify native-only architecture
         shell: bash
         run: |
