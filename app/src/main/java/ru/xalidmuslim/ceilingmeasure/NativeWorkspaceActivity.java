@@ -1,0 +1,528 @@
+package ru.xalidmuslim.ceilingmeasure;
+
+import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Bundle;
+import android.text.InputType;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.HorizontalScrollView;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.activity.ComponentActivity;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+
+import java.text.DateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+
+public final class NativeWorkspaceActivity extends ComponentActivity implements CeilingDrawingView.Listener {
+    public static final String EXTRA_LAUNCH_ACTION = "native_launch_action";
+    public static final String ACTION_NEW_ORDER = "new_order";
+    public static final String ACTION_SAVED_MEASUREMENTS = "saved_measurements";
+    public static final String ACTION_DRAWING = "drawing";
+    public static final String ACTION_SETTINGS = "settings";
+
+    private static final int BG = Color.rgb(244,247,249);
+    private static final int PANEL = Color.WHITE;
+    private static final int TEXT = Color.rgb(35,56,72);
+    private static final int MUTED = Color.rgb(116,136,151);
+    private static final int BLUE = Color.rgb(47,143,190);
+    private static final int LINE = Color.rgb(220,229,235);
+    private static final int DANGER = Color.rgb(190,72,79);
+
+    private NativeProjectStore store;
+    private NativeProjectStore.ProjectData project;
+    private LinearLayout root;
+    private LinearLayout roomRow;
+    private CeilingDrawingView drawingView;
+    private TextView areaValue;
+    private TextView perimeterValue;
+    private Button wallMode;
+    private Button pointMode;
+    private Button diagonalMode;
+    private Button labelMode;
+    private EditText nameInput;
+    private EditText phoneInput;
+    private EditText addressInput;
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        store = new NativeProjectStore(this);
+
+        String action = getIntent().getStringExtra(EXTRA_LAUNCH_ACTION);
+        if (ACTION_NEW_ORDER.equals(action)) project = store.newProject();
+        else project = store.loadCurrent();
+
+        if (ACTION_SAVED_MEASUREMENTS.equals(action)) {
+            showSavedMeasurements();
+        } else if (ACTION_SETTINGS.equals(action)) {
+            showNativeSettings();
+        } else {
+            showEditor(ACTION_DRAWING.equals(action));
+        }
+    }
+
+    private void showEditor(boolean jumpToDrawing) {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(BG);
+        scroll.setClipToPadding(false);
+
+        root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(12), dp(10), dp(12), dp(24));
+        scroll.addView(root, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        ViewCompat.setOnApplyWindowInsetsListener(scroll, (view, insets) -> {
+            Insets safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+            return insets;
+        });
+
+        root.addView(topBar("Замер потолков"));
+
+        LinearLayout orderCard = card();
+        orderCard.setTag("native_order_card");
+        root.addView(orderCard, marginParams(0,8));
+
+        nameInput = field(orderCard, "Имя / объект", project.name, InputType.TYPE_CLASS_TEXT);
+        phoneInput = field(orderCard, "Телефон", project.phone, InputType.TYPE_CLASS_PHONE);
+        addressInput = field(orderCard, "Адрес", project.address, InputType.TYPE_CLASS_TEXT);
+
+        View.OnFocusChangeListener saver=(v,has)->{if(!has)syncProjectFields();};
+        nameInput.setOnFocusChangeListener(saver);
+        phoneInput.setOnFocusChangeListener(saver);
+        addressInput.setOnFocusChangeListener(saver);
+
+        LinearLayout roomsCard = card();
+        root.addView(roomsCard, marginParams(0,8));
+        TextView roomsTitle = text("Комнаты",17,TEXT,Typeface.BOLD);
+        roomsCard.addView(roomsTitle);
+
+        HorizontalScrollView roomsScroll = new HorizontalScrollView(this);
+        roomsScroll.setHorizontalScrollBarEnabled(false);
+        roomRow = new LinearLayout(this);
+        roomRow.setOrientation(LinearLayout.HORIZONTAL);
+        roomsScroll.addView(roomRow, new HorizontalScrollView.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams rs = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rs.topMargin=dp(8);
+        roomsCard.addView(roomsScroll,rs);
+        renderRooms();
+
+        LinearLayout drawCard = card();
+        drawCard.setTag("native_drawing_card");
+        root.addView(drawCard, marginParams(0,8));
+        TextView drawingTitle = text("Чертёж",18,TEXT,Typeface.BOLD);
+        drawCard.addView(drawingTitle);
+
+        LinearLayout modeBar = new LinearLayout(this);
+        modeBar.setOrientation(LinearLayout.HORIZONTAL);
+        modeBar.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams mbp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        mbp.topMargin=dp(8);
+        drawCard.addView(modeBar,mbp);
+
+        wallMode = modeButton("Стена", CeilingDrawingView.Mode.WALL, "native_mode_wall");
+        pointMode = modeButton("Точки", CeilingDrawingView.Mode.POINT, "native_mode_points");
+        diagonalMode = modeButton("Диагональ", CeilingDrawingView.Mode.DIAGONAL, "native_mode_diagonal");
+        labelMode = modeButton("Цифры", CeilingDrawingView.Mode.LABEL, "native_mode_labels");
+        modeBar.addView(wallMode, weightParams());
+        modeBar.addView(pointMode, weightParams());
+        modeBar.addView(diagonalMode, weightParams());
+        modeBar.addView(labelMode, weightParams());
+
+        drawingView = new CeilingDrawingView(this);
+        drawingView.setTag("native_drawing_view");
+        drawingView.setListener(this);
+        drawingView.setRoom(activeRoom());
+        LinearLayout.LayoutParams dpv = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(470));
+        dpv.topMargin=dp(8);
+        drawCard.addView(drawingView,dpv);
+
+        LinearLayout stats = new LinearLayout(this);
+        stats.setOrientation(LinearLayout.HORIZONTAL);
+        stats.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        sp.topMargin=dp(8);
+        drawCard.addView(stats,sp);
+        areaValue = stat(stats,"Площадь");
+        perimeterValue = stat(stats,"Периметр");
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        ap.topMargin=dp(8);
+        drawCard.addView(actions,ap);
+
+        Button clear=button("Очистить",false);
+        clear.setTextColor(DANGER);
+        clear.setOnClickListener(v->new AlertDialog.Builder(this)
+                .setTitle("Очистить чертёж?")
+                .setMessage("Все стены и диагонали этой комнаты будут удалены.")
+                .setNegativeButton("Отмена",null)
+                .setPositiveButton("Очистить",(d,w)->drawingView.clearDrawing())
+                .show());
+        Button save=button("✓ Завершить замер",true);
+        save.setTag("native_save_measurement");
+        save.setOnClickListener(v->{
+            syncProjectFields();
+            store.saveSnapshot(project);
+            Toast.makeText(this,"Замер сохранён",Toast.LENGTH_SHORT).show();
+        });
+        actions.addView(clear,weightParams());
+        actions.addView(save,weightParams());
+
+        setContentView(scroll);
+        ViewCompat.requestApplyInsets(scroll);
+        setMode(CeilingDrawingView.Mode.WALL);
+        updateStats();
+
+        if (jumpToDrawing) {
+            scroll.post(() -> drawCard.requestFocus());
+            scroll.postDelayed(() -> scroll.smoothScrollTo(0, drawCard.getTop()), 120);
+        }
+    }
+
+    private LinearLayout topBar(String title) {
+        LinearLayout bar=new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(0,dp(4),0,dp(8));
+
+        Button back=button("‹",false);
+        back.setTextSize(28);
+        back.setContentDescription("Назад");
+        back.setOnClickListener(v->finish());
+        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(48),dp(44));
+        bar.addView(back,bp);
+
+        TextView t=text(title,20,TEXT,Typeface.BOLD);
+        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
+        tp.leftMargin=dp(8);
+        bar.addView(t,tp);
+        return bar;
+    }
+
+    private void renderRooms() {
+        roomRow.removeAllViews();
+        for(int i=0;i<project.rooms.size();i++){
+            final int index=i;
+            NativeProjectStore.RoomData r=project.rooms.get(i);
+            Button b=button(r.name,false);
+            b.setMinWidth(dp(92));
+            if(i==project.activeRoom) styleSelected(b);
+            b.setOnClickListener(v->{
+                project.activeRoom=index;
+                store.saveCurrent(project);
+                renderRooms();
+                if(drawingView!=null)drawingView.setRoom(activeRoom());
+                updateStats();
+            });
+            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(42));
+            p.rightMargin=dp(6);
+            roomRow.addView(b,p);
+        }
+        Button add=button("+",false);
+        add.setTextSize(22);
+        add.setOnClickListener(v->{
+            NativeProjectStore.RoomData r=new NativeProjectStore.RoomData();
+            r.name="Комната "+(project.rooms.size()+1);
+            project.rooms.add(r);
+            project.activeRoom=project.rooms.size()-1;
+            store.saveCurrent(project);
+            renderRooms();
+            drawingView.setRoom(activeRoom());
+            updateStats();
+        });
+        roomRow.addView(add,new LinearLayout.LayoutParams(dp(48),dp(42)));
+    }
+
+    private Button modeButton(String text, CeilingDrawingView.Mode mode, String tag){
+        Button b=button(text,false);
+        b.setTag(tag);
+        b.setTextSize(12);
+        b.setOnClickListener(v->setMode(mode));
+        return b;
+    }
+
+    private void setMode(CeilingDrawingView.Mode mode){
+        drawingView.setMode(mode);
+        styleMode(wallMode,mode==CeilingDrawingView.Mode.WALL);
+        styleMode(pointMode,mode==CeilingDrawingView.Mode.POINT);
+        styleMode(diagonalMode,mode==CeilingDrawingView.Mode.DIAGONAL);
+        styleMode(labelMode,mode==CeilingDrawingView.Mode.LABEL);
+    }
+
+    private void styleMode(Button b,boolean active){
+        GradientDrawable d=rounded(active?BLUE:Color.rgb(248,250,251),active?BLUE:LINE,10,1);
+        b.setBackground(d);
+        b.setTextColor(active?Color.WHITE:TEXT);
+    }
+
+    private void styleSelected(Button b){
+        b.setBackground(rounded(Color.rgb(233,246,252),BLUE,10,1));
+        b.setTextColor(BLUE);
+    }
+
+    private EditText field(LinearLayout parent,String label,String value,int inputType){
+        TextView l=text(label,12,MUTED,Typeface.NORMAL);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin=dp(7);
+        parent.addView(l,lp);
+
+        EditText e=new EditText(this);
+        e.setText(value);
+        e.setTextSize(16);
+        e.setTextColor(TEXT);
+        e.setSingleLine(true);
+        e.setInputType(inputType);
+        e.setPadding(dp(12),0,dp(12),0);
+        e.setBackground(rounded(Color.rgb(249,251,252),LINE,11,1));
+        parent.addView(e,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48)));
+        return e;
+    }
+
+    private TextView stat(LinearLayout parent,String label){
+        LinearLayout box=new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        box.setPadding(dp(10),dp(8),dp(10),dp(8));
+        box.setBackground(rounded(Color.rgb(248,250,252),LINE,12,1));
+        TextView l=text(label,11,MUTED,Typeface.NORMAL);
+        TextView v=text("—",18,TEXT,Typeface.BOLD);
+        box.addView(l);
+        box.addView(v);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
+        p.leftMargin=dp(4);p.rightMargin=dp(4);
+        parent.addView(box,p);
+        return v;
+    }
+
+    private void syncProjectFields(){
+        if(nameInput!=null)project.name=nameInput.getText().toString().trim();
+        if(phoneInput!=null)project.phone=phoneInput.getText().toString().trim();
+        if(addressInput!=null)project.address=addressInput.getText().toString().trim();
+        store.saveCurrent(project);
+    }
+
+    private NativeProjectStore.RoomData activeRoom(){
+        if(project.rooms.isEmpty())project.rooms.add(new NativeProjectStore.RoomData());
+        project.activeRoom=Math.max(0,Math.min(project.activeRoom,project.rooms.size()-1));
+        return project.rooms.get(project.activeRoom);
+    }
+
+    @Override public void onChanged(){
+        store.saveCurrent(project);
+        updateStats();
+    }
+
+    @Override public void onWallLabelTapped(int edgeIndex,float currentValue){
+        showNumberDialog("Размер стены",currentValue,value->{
+            NativeProjectStore.RoomData r=activeRoom();
+            NativeProjectStore.normalizeArrays(r);
+            if(edgeIndex>=0&&edgeIndex<r.wallValues.size()){
+                r.wallValues.set(edgeIndex,value);
+                store.saveCurrent(project);
+                drawingView.invalidate();
+                updateStats();
+            }
+        });
+    }
+
+    @Override public void onDiagonalTapped(int diagonalIndex,float currentValue){
+        showNumberDialog("Диагональ",currentValue,value->{
+            NativeProjectStore.RoomData r=activeRoom();
+            if(diagonalIndex>=0&&diagonalIndex<r.diagonals.size()){
+                r.diagonals.get(diagonalIndex).value=value;
+                store.saveCurrent(project);
+                drawingView.invalidate();
+            }
+        });
+    }
+
+    private interface FloatConsumer{void accept(float value);}
+
+    private void showNumberDialog(String title,float current,FloatConsumer consumer){
+        EditText input=new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        input.setText(current>0?format(current):"");
+        input.setSelectAllOnFocus(true);
+        input.setTextSize(22);
+        input.setPadding(dp(14),dp(10),dp(14),dp(10));
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage("Введите размер")
+                .setView(input)
+                .setNegativeButton("Отмена",null)
+                .setPositiveButton("Готово",(d,w)->{
+                    try{consumer.accept(Float.parseFloat(input.getText().toString().replace(',','.')));}
+                    catch(Exception e){Toast.makeText(this,"Введите число",Toast.LENGTH_SHORT).show();}
+                }).show();
+    }
+
+    private void updateStats(){
+        if(areaValue==null||perimeterValue==null)return;
+        NativeProjectStore.RoomData r=activeRoom();
+        NativeProjectStore.normalizeArrays(r);
+        float perimeterUnits=0;
+        int measured=0;
+        for(float v:r.wallValues){if(v>0){perimeterUnits+=v;measured++;}}
+        perimeterValue.setText(measured==r.wallValues.size()&&measured>0
+                ?String.format(Locale.getDefault(),"%.2f м",perimeterUnits/100f):"—");
+
+        if(!r.closed||r.points.size()<3||measured==0){
+            areaValue.setText("—");
+            return;
+        }
+        double pxPerUnitSum=0;
+        int count=0;
+        int edges=r.points.size();
+        for(int i=0;i<edges&&i<r.wallValues.size();i++){
+            float units=r.wallValues.get(i);
+            if(units<=0)continue;
+            NativeProjectStore.PointData a=r.points.get(i);
+            NativeProjectStore.PointData b=r.points.get((i+1)%edges);
+            double px=Math.hypot(b.x-a.x,b.y-a.y);
+            if(px>0){pxPerUnitSum+=px/units;count++;}
+        }
+        if(count==0){areaValue.setText("—");return;}
+        double pxPerUnit=pxPerUnitSum/count;
+        double areaPx=0;
+        for(int i=0;i<edges;i++){
+            NativeProjectStore.PointData a=r.points.get(i);
+            NativeProjectStore.PointData b=r.points.get((i+1)%edges);
+            areaPx+=a.x*b.y-b.x*a.y;
+        }
+        areaPx=Math.abs(areaPx)/2d;
+        double areaUnits=areaPx/(pxPerUnit*pxPerUnit);
+        double areaM2=areaUnits/10000d;
+        areaValue.setText(String.format(Locale.getDefault(),"%.2f м²",areaM2));
+    }
+
+    private void showSavedMeasurements(){
+        ScrollView scroll=new ScrollView(this);
+        scroll.setBackgroundColor(BG);
+        LinearLayout content=new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(12),dp(10),dp(12),dp(24));
+        scroll.addView(content);
+        content.addView(topBar("Замеры"));
+        List<NativeProjectStore.ProjectData> saved=store.loadSaved();
+        if(saved.isEmpty()){
+            TextView empty=text("Сохранённых замеров пока нет",15,MUTED,Typeface.NORMAL);
+            empty.setGravity(Gravity.CENTER);
+            content.addView(empty,marginParams(0,24));
+        }else{
+            DateFormat df=DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT);
+            for(NativeProjectStore.ProjectData p:saved){
+                Button b=button((p.name.isEmpty()?"Без имени":p.name)+"\n"+df.format(new Date(p.updatedAt)),false);
+                b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
+                b.setMinHeight(dp(68));
+                b.setOnClickListener(v->{
+                    project=p;
+                    store.saveCurrent(project);
+                    showEditor(false);
+                });
+                content.addView(b,marginParams(0,8));
+            }
+        }
+        setContentView(scroll);
+    }
+
+    private void showNativeSettings(){
+        LinearLayout content=new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(16),dp(14),dp(16),dp(24));
+        content.setBackgroundColor(BG);
+        content.addView(topBar("Настройки"));
+        TextView title=text("Нативные настройки",18,TEXT,Typeface.BOLD);
+        content.addView(title,marginParams(0,14));
+        TextView note=text("Интерфейс этой версии уже работает без WebView. Настройки размера текста и оформления перенесу сюда отдельно.",14,MUTED,Typeface.NORMAL);
+        note.setLineSpacing(0,1.2f);
+        content.addView(note);
+        setContentView(content);
+    }
+
+    private LinearLayout card(){
+        LinearLayout l=new LinearLayout(this);
+        l.setOrientation(LinearLayout.VERTICAL);
+        l.setPadding(dp(12),dp(12),dp(12),dp(12));
+        l.setBackground(rounded(PANEL,LINE,16,1));
+        l.setElevation(dp(2));
+        return l;
+    }
+
+    private Button button(String value,boolean primary){
+        Button b=new Button(this);
+        b.setText(value);
+        b.setAllCaps(false);
+        b.setTextSize(14);
+        b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
+        b.setTextColor(primary?Color.WHITE:TEXT);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(10),0,dp(10),0);
+        b.setBackground(rounded(primary?BLUE:Color.WHITE,primary?BLUE:LINE,11,1));
+        return b;
+    }
+
+    private TextView text(String value,int sp,int color,int style){
+        TextView t=new TextView(this);
+        t.setText(value);t.setTextSize(sp);t.setTextColor(color);
+        t.setTypeface(Typeface.create("sans-serif",style));
+        t.setIncludeFontPadding(false);
+        return t;
+    }
+
+    private LinearLayout.LayoutParams marginParams(int left,int top){
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
+        p.leftMargin=dp(left);p.topMargin=dp(top);
+        return p;
+    }
+
+    private LinearLayout.LayoutParams weightParams(){
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(44),1f);
+        p.leftMargin=dp(3);p.rightMargin=dp(3);
+        return p;
+    }
+
+    private GradientDrawable rounded(int fill,int stroke,int radius,int width){
+        GradientDrawable d=new GradientDrawable();
+        d.setColor(fill);d.setCornerRadius(dp(radius));
+        if(width>0)d.setStroke(dp(width),stroke);
+        return d;
+    }
+
+    private String format(float v){
+        return Math.abs(v-Math.round(v))<.01f?String.valueOf(Math.round(v)):String.format(Locale.US,"%.1f",v);
+    }
+
+    private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
+}

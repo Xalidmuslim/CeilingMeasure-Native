@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.ContentResolver;
+import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.MediaStore;
@@ -27,6 +28,32 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @RunWith(AndroidJUnit4.class)
 public class MainActivitySmokeTest {
+
+    @Test
+    public void nativeWorkspaceLoadsWithoutWebView() {
+        Intent intent = new Intent(
+                InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.ACTION_NEW_ORDER);
+
+        try (ActivityScenario<NativeWorkspaceActivity> scenario = ActivityScenario.launch(intent)) {
+            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
+            scenario.onActivity(ref::set);
+            NativeWorkspaceActivity activity = ref.get();
+            assertNotNull(activity);
+
+            View root = activity.getWindow().getDecorView();
+            assertNotNull(root.findViewWithTag("native_order_card"));
+            assertNotNull(root.findViewWithTag("native_drawing_card"));
+            assertNotNull(root.findViewWithTag("native_drawing_view"));
+            assertNotNull(root.findViewWithTag("native_mode_wall"));
+            assertNotNull(root.findViewWithTag("native_mode_points"));
+            assertNotNull(root.findViewWithTag("native_mode_diagonal"));
+            assertNotNull(root.findViewWithTag("native_mode_labels"));
+            assertNotNull(root.findViewWithTag("native_save_measurement"));
+        }
+    }
 
     private static MainActivity activity(ActivityScenario<MainActivity> scenario) {
         AtomicReference<MainActivity> ref = new AtomicReference<>();

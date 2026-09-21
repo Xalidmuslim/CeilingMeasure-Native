@@ -102,7 +102,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         settings.setClickable(true);
         settings.setFocusable(true);
         settings.setBackground(roundedRipple(Color.WHITE, LINE, dp(14), false));
-        settings.setOnClickListener(v -> openWorkspace(MainActivity.ACTION_SETTINGS));
+        settings.setOnClickListener(v -> openWorkspace(NativeWorkspaceActivity.ACTION_SETTINGS));
         head.addView(settings, sizeParams(44, 44));
 
         LinearLayout.LayoutParams actionsMargin = new LinearLayout.LayoutParams(
@@ -120,7 +120,7 @@ public final class NativeHomeActivity extends ComponentActivity {
                 "Создать новый замер",
                 true,
                 "native_home_new",
-                v -> openWorkspace(MainActivity.ACTION_NEW_ORDER));
+                v -> openWorkspace(NativeWorkspaceActivity.ACTION_NEW_ORDER));
         actions.addView(newOrder, cardParams(0));
 
         View saved = actionCard(
@@ -129,7 +129,7 @@ public final class NativeHomeActivity extends ComponentActivity {
                 "Открыть сохранённые заказы",
                 false,
                 "native_home_saved",
-                v -> openWorkspace(MainActivity.ACTION_SAVED_MEASUREMENTS));
+                v -> openWorkspace(NativeWorkspaceActivity.ACTION_SAVED_MEASUREMENTS));
         actions.addView(saved, cardParams(10));
 
         View drawing = actionCard(
@@ -138,20 +138,8 @@ public final class NativeHomeActivity extends ComponentActivity {
                 "Продолжить текущий чертёж",
                 false,
                 "native_home_drawing",
-                v -> openWorkspace(MainActivity.ACTION_DRAWING));
+                v -> openWorkspace(NativeWorkspaceActivity.ACTION_DRAWING));
         actions.addView(drawing, cardParams(10));
-
-        TextView stage = text(
-                "Нативный главный экран · перенос рабочего модуля выполняется поэтапно",
-                11,
-                MUTED,
-                Typeface.NORMAL);
-        stage.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams stageParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        stageParams.topMargin = dp(22);
-        shell.addView(stage, stageParams);
 
         ViewCompat.requestApplyInsets(scroll);
         return scroll;
@@ -254,9 +242,8 @@ public final class NativeHomeActivity extends ComponentActivity {
     }
 
     private void openWorkspace(String action) {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.putExtra(MainActivity.EXTRA_FROM_NATIVE_HOME, true);
-        intent.putExtra(MainActivity.EXTRA_LAUNCH_ACTION, action);
+        Intent intent = new Intent(this, NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, action);
         startActivity(intent);
     }
 
