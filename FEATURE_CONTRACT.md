@@ -1,3 +1,5 @@
+> **LEGACY WRAPPER CONTRACT.** Этот файл сохраняет требования промежуточной WebView-APK и функциональный минимум. Для новой полноценной нативной миграции архитектурный приоритет имеют `NATIVE_PARITY_SPEC.md`, `NATIVE_MIGRATION_MATRIX.md` и `ASTRA_MAX_NATIVE_MIGRATION_COMMAND.txt`. Все перечисленные ниже функции по-прежнему обязательны для native parity, но требование WRAP/WebView не относится к финальной нативной версии.
+
 # Golden-master contract: «Замер потолков»
 
 ## Non-negotiable architecture
