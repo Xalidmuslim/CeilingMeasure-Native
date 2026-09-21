@@ -5,7 +5,8 @@
 ## Golden master
 
 - `webapp/index.html` — неизменяемый эталон поведения, UI, жестов, формул и данных.
-- SHA-256: `7fade548ce909eb3bea6998c244fd90feb74b060a066d19c6a6c50c02c3f05d8`
+- APP_BUILD_VERSION: `184-gesture-fix`
+- SHA-256: `354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388`
 - Эталон используется для аудита, сравнения и регрессии.
 - Финальная native-версия не должна использовать WebView/HTML/JS как рабочий UI.
 
