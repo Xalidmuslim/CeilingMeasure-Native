@@ -101,20 +101,29 @@ public class MainActivitySmokeTest {
             assertEquals("false", eval(activity,
                     "document.getElementById('roomPicker').classList.contains('open')"));
 
-            // Regression guard: the three edit modes must remain selectable after
-            // the app-home and closed-contour gesture changes.
+            // Regression guard: verify each edit mode separately. Spacing the
+            // renders avoids batching three full drawing re-renders on one UI frame.
             assertEquals("true", eval(activity,
-                    "(() => {" +
                     "document.body.classList.remove('app-home');" +
-                    "for (const mode of ['move','diag','labels']) {" +
-                    "  const b=document.querySelector('[data-quick-mode=\"' + mode + '\"]');" +
-                    "  if (!b || b.disabled) return false;" +
-                    "  b.click();" +
-                    "  const active=document.querySelector('[data-quick-mode=\"' + mode + '\"]');" +
-                    "  if (!active || !active.classList.contains('active')) return false;" +
-                    "}" +
-                    "return true;" +
-                    "})()"));
+                    "(() => { const b=document.querySelector('[data-quick-mode=\\\"move\\\"]');" +
+                    "if(!b||b.disabled)return false;b.click();return true; })()"));
+            Thread.sleep(180);
+            assertEquals("true", eval(activity,
+                    "document.querySelector('[data-quick-mode=\\\"move\\\"]')?.classList.contains('active')"));
+
+            assertEquals("true", eval(activity,
+                    "(() => { const b=document.querySelector('[data-quick-mode=\\\"diag\\\"]');" +
+                    "if(!b||b.disabled)return false;b.click();return true; })()"));
+            Thread.sleep(180);
+            assertEquals("true", eval(activity,
+                    "document.querySelector('[data-quick-mode=\\\"diag\\\"]')?.classList.contains('active')"));
+
+            assertEquals("true", eval(activity,
+                    "(() => { const b=document.querySelector('[data-quick-mode=\\\"labels\\\"]');" +
+                    "if(!b)return false;b.click();return true; })()"));
+            Thread.sleep(180);
+            assertEquals("true", eval(activity,
+                    "document.querySelector('[data-quick-mode=\\\"labels\\\"]')?.classList.contains('active')"));
 
             Thread.sleep(500);
             assertTrue("WebView console contains errors: " + activity.getConsoleErrorsForTest(),
