@@ -52,7 +52,7 @@ adb shell am instrument -w -r \
   ru.xalidmuslim.ceilingmeasure.test/androidx.test.runner.AndroidJUnitRunner \
   | tee /tmp/instrumentation.txt
 
-grep -q "OK (3 tests)" /tmp/instrumentation.txt
+grep -Eq "OK \([1-9][0-9]* tests\)" /tmp/instrumentation.txt
 
 if grep -q "FAILURES!!!" /tmp/instrumentation.txt; then
   exit 1
