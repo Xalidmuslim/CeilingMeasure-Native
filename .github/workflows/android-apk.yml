@@ -62,6 +62,9 @@ jobs:
           grep -q 'onVertexLongPressed' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
           grep -q 'class NativeEstimateEngine' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeEstimateEngine.java
           grep -q 'class NativeEstimateDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeEstimateDialog.java
+          grep -q 'class NativePricePresetDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativePricePresetDialog.java
+          grep -q 'class NativeMaterialEditorDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMaterialEditorDialog.java
+          grep -q 'combinedEstimateOrderIds' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeProjectStore.java
           grep -q 'class NativeMeasurementSolver' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMeasurementSolver.java
           grep -q 'exactRectAreaRaw' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMeasurementSolver.java
           grep -q 'solveOrthogonal' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMeasurementSolver.java

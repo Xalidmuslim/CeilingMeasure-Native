@@ -454,6 +454,61 @@ public class NativeAppSmokeTest {
     }
 
     @Test
+    public void defaultPriceListsAndCustomMaterialsFollowNewRooms() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        context.getSharedPreferences("native_ceiling_projects", Context.MODE_PRIVATE)
+                .edit().clear().commit();
+
+        NativeProjectStore store = new NativeProjectStore(context);
+        store.saveDefaultPrice(false,"canvas",222f);
+        store.saveDefaultPrice(true,"canvas",555f);
+
+        NativeProjectStore.MaterialData purchase = new NativeProjectStore.MaterialData();
+        purchase.id = "preset_purchase";
+        purchase.name = "Клей";
+        purchase.unit = "шт";
+        purchase.price = 90f;
+        store.upsertDefaultCustom(false,purchase);
+
+        NativeProjectStore.MaterialData client = new NativeProjectStore.MaterialData();
+        client.id = "preset_client";
+        client.name = "Монтаж";
+        client.unit = "м";
+        client.price = 130f;
+        store.upsertDefaultCustom(true,client);
+
+        NativeProjectStore.RoomData room = store.createRoom("Комната 2");
+        assertEquals(222f,NativeEstimateEngine.value(room.pricing,"canvas"),.01f);
+        assertEquals(555f,NativeEstimateEngine.value(room.clientPricing,"canvas"),.01f);
+        assertEquals(1,room.customItems.size());
+        assertEquals("Клей",room.customItems.get(0).name);
+        assertEquals(1,room.clientCustomItems.size());
+        assertEquals("Монтаж",room.clientCustomItems.get(0).name);
+    }
+
+    @Test
+    public void customMaterialsAndMergedOrderSelectionPersist() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        context.getSharedPreferences("native_ceiling_projects", Context.MODE_PRIVATE)
+                .edit().clear().commit();
+
+        NativeProjectStore store = new NativeProjectStore(context);
+        NativeProjectStore.ProjectData project = store.newProject();
+        project.combinedEstimateOrderIds.add("project_other");
+        NativeProjectStore.MaterialData item = new NativeProjectStore.MaterialData();
+        item.name = "Допматериал";
+        item.qty = 3f;
+        item.price = 100f;
+        project.rooms.get(0).clientCustomItems.add(item);
+        store.saveCurrent(project);
+
+        NativeProjectStore.ProjectData restored = new NativeProjectStore(context).loadCurrent();
+        assertTrue(restored.combinedEstimateOrderIds.contains("project_other"));
+        assertEquals(1,restored.rooms.get(0).clientCustomItems.size());
+        assertEquals("Допматериал",restored.rooms.get(0).clientCustomItems.get(0).name);
+    }
+
+    @Test
     public void estimateEngineMatchesWebStandardMaterialRules() {
         NativeProjectStore.RoomData room = measuredSquare(500f);
         room.pricing.put("canvas", 100f);

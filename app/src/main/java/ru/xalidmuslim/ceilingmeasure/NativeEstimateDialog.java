@@ -18,6 +18,9 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 
 final class NativeEstimateDialog extends Dialog {
@@ -34,6 +37,7 @@ final class NativeEstimateDialog extends Dialog {
     private static final int BG=Color.rgb(246,248,250);
     private static final int DANGER=Color.rgb(190,72,79);
 
+    private final NativeProjectStore store;
     private final NativeProjectStore.ProjectData project;
     private final Mode mode;
     private final Listener listener;
@@ -41,10 +45,12 @@ final class NativeEstimateDialog extends Dialog {
 
     NativeEstimateDialog(
             @NonNull Context context,
+            @NonNull NativeProjectStore store,
             @NonNull NativeProjectStore.ProjectData project,
             @NonNull Mode mode,
             @NonNull Listener listener) {
         super(context);
+        this.store=store;
         this.project=project;
         this.mode=mode;
         this.listener=listener;
@@ -97,28 +103,62 @@ final class NativeEstimateDialog extends Dialog {
         head.addView(close,new LinearLayout.LayoutParams(dp(88),dp(42)));
         content.addView(head);
 
-        NativeEstimateEngine.ProjectCost pc =
-                NativeEstimateEngine.projectCost(project,mode==Mode.CLIENT);
+        List<NativeProjectStore.ProjectData> projects=estimateProjects();
+
+        LinearLayout toolbar=new LinearLayout(getContext());
+        toolbar.setOrientation(LinearLayout.HORIZONTAL);
+        if(mode==Mode.CLIENT){
+            Button prices=button("Прайс клиента",false);
+            prices.setTag("native_client_price_preset");
+            prices.setOnClickListener(v->openPricePreset(true,projects));
+            Button merge=button(
+                    projects.size()>1?"Объединено заказов: "+projects.size():"Объединить заказы",
+                    false);
+            merge.setTag("native_merge_orders");
+            merge.setOnClickListener(v->openMergeOrders());
+            toolbar.addView(prices,new LinearLayout.LayoutParams(0,dp(44),1f));
+            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(0,dp(44),1f);
+            mp.leftMargin=dp(6);
+            toolbar.addView(merge,mp);
+        }else{
+            Button prices=button("Закупочный прайс",false);
+            prices.setTag("native_purchase_price_preset");
+            prices.setOnClickListener(v->openPricePreset(false,projects));
+            toolbar.addView(prices,new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,dp(44)));
+        }
+        content.addView(toolbar,top(6));
+
+        NativeEstimateEngine.ProjectCost total=combinedCost(projects);
+        int rooms=0;
+        for(NativeProjectStore.ProjectData p:projects)rooms+=p.rooms.size();
+
         LinearLayout summary=card();
         summary.setTag(mode==Mode.CLIENT?"native_client_summary":"native_internal_summary");
         summary.addView(text(
                 mode==Mode.CLIENT?"Итого к оплате":"Итого за все комнаты",
                 11,MUTED,false));
-        summary.addView(text(money(pc.total)+" ₽",24,TEXT,true),top(3));
+        summary.addView(text(money(total.total)+" ₽",24,TEXT,true),top(3));
         summary.addView(text(
-                project.rooms.size()+" помещ. · "+qty(pc.areaM2)+" м² · "+qty(pc.perimeterM)+" м",
+                rooms+" помещ. · "+qty(total.areaM2)+" м² · "+qty(total.perimeterM)+" м",
                 11,MUTED,false),
                 top(3));
         content.addView(summary,top(8));
 
-        for(NativeProjectStore.RoomData room:project.rooms){
-            addRoom(room);
+        boolean multi=mode==Mode.CLIENT&&projects.size()>1;
+        for(NativeProjectStore.ProjectData owner:projects){
+            for(NativeProjectStore.RoomData room:owner.rooms){
+                addRoom(owner,room,multi);
+            }
         }
 
         setContentView(scroll);
     }
 
-    private void addRoom(NativeProjectStore.RoomData room){
+    private void addRoom(
+            NativeProjectStore.ProjectData owner,
+            NativeProjectStore.RoomData room,
+            boolean multi){
         NativeEstimateEngine.RoomCost cost=mode==Mode.CLIENT
                 ?NativeEstimateEngine.clientCost(room)
                 :NativeEstimateEngine.internalCost(room);
@@ -132,7 +172,10 @@ final class NativeEstimateDialog extends Dialog {
         head.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout left=new LinearLayout(getContext());
         left.setOrientation(LinearLayout.VERTICAL);
-        left.addView(text(room.name,15,TEXT,true));
+        String roomName=multi
+                ?projectLabel(owner)+" · "+room.name
+                :room.name;
+        left.addView(text(roomName,15,TEXT,true));
         left.addView(text(
                 (cost.metrics.areaM2>0?qty(cost.metrics.areaM2)+" м²":"Площадь —")
                         +" · "
@@ -142,15 +185,18 @@ final class NativeEstimateDialog extends Dialog {
         head.addView(text(money(cost.total)+" ₽",14,TEXT,true));
         card.addView(head);
 
-        for(NativeEstimateEngine.Line line:cost.lines)addLine(card,room,line);
+        for(NativeEstimateEngine.Line line:cost.lines)addLine(card,owner,room,line);
 
-        if(mode==Mode.CLIENT){
-            Button add=button("+ Дополнительный материал",false);
-            add.setTag("native_client_add_material_"+room.id);
-            add.setOnClickListener(v->openMaterialPicker(room));
-            card.addView(add,new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,dp(42)));
-        }
+        Button add=button(
+                mode==Mode.CLIENT?"+ Дополнительный материал":"+ Другой материал",
+                false);
+        add.setTag((mode==Mode.CLIENT?"native_client_add_material_":"native_internal_add_material_")+room.id);
+        add.setOnClickListener(v->{
+            if(mode==Mode.CLIENT)openMaterialPicker(owner,room);
+            else openAdhocMaterial(owner,room,false);
+        });
+        card.addView(add,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(42)));
 
         TextView state=text(
                 cost.complete?"Расчёт готов.":"Расчёт неполный: не все обязательные размеры введены.",
@@ -158,10 +204,15 @@ final class NativeEstimateDialog extends Dialog {
                 cost.complete?Color.rgb(58,132,94):MUTED,
                 false);
         card.addView(state,top(6));
+
+        if(room.notes!=null&&!room.notes.trim().isEmpty()){
+            card.addView(text("Примечание: "+room.notes.trim(),10,MUTED,false),top(5));
+        }
     }
 
     private void addLine(
             LinearLayout parent,
+            NativeProjectStore.ProjectData owner,
             NativeProjectStore.RoomData room,
             NativeEstimateEngine.Line line){
         LinearLayout row=new LinearLayout(getContext());
@@ -177,17 +228,17 @@ final class NativeEstimateDialog extends Dialog {
 
         Button qtyButton=button(qty(line.qty),false);
         qtyButton.setTextSize(11);
-        qtyButton.setEnabled(line.qtyEditable || (mode==Mode.INTERNAL && isInternalExtra(line.key)));
+        qtyButton.setEnabled(line.custom||line.qtyEditable||(mode==Mode.INTERNAL&&isInternalExtra(line.key)));
         qtyButton.setAlpha(qtyButton.isEnabled()?1f:.55f);
         if(qtyButton.isEnabled()){
-            qtyButton.setOnClickListener(v->editQty(room,line));
+            qtyButton.setOnClickListener(v->editQty(owner,room,line));
         }
         row.addView(qtyButton,new LinearLayout.LayoutParams(dp(68),dp(38)));
 
         Button price=button(money(line.price),false);
         price.setTextSize(11);
         price.setTag("native_estimate_price_"+line.key+"_"+room.id);
-        price.setOnClickListener(v->editPrice(room,line));
+        price.setOnClickListener(v->editPrice(owner,room,line));
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(dp(76),dp(38));
         pp.leftMargin=dp(4);
         row.addView(price,pp);
@@ -201,55 +252,66 @@ final class NativeEstimateDialog extends Dialog {
         if(line.removable){
             Button remove=button("×",false);
             remove.setTextColor(DANGER);
-            remove.setOnClickListener(v->removeLine(room,line));
+            remove.setOnClickListener(v->removeLine(owner,room,line));
             LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(38),dp(38));
             rp.leftMargin=dp(3);
             row.addView(remove,rp);
         }
-
         parent.addView(row);
     }
 
     private void editPrice(
+            NativeProjectStore.ProjectData owner,
             NativeProjectStore.RoomData room,
             NativeEstimateEngine.Line line){
-        float current=mode==Mode.CLIENT
-                ?NativeEstimateEngine.value(room.clientPricing,line.key)
-                :NativeEstimateEngine.value(room.pricing,line.key);
+        float current=(float)line.price;
         new NativeNumberPadDialog(
                 getContext(),
                 line.name+" · цена",
                 current,
                 value->{
-                    if(mode==Mode.CLIENT)room.clientPricing.put(line.key,Math.max(0f,value));
-                    else room.pricing.put(line.key,Math.max(0f,value));
-                    changed();
+                    if(line.custom){
+                        NativeProjectStore.MaterialData item=findCustom(room,line.customId,mode==Mode.CLIENT);
+                        if(item!=null)item.price=Math.max(0f,value);
+                    }else if(mode==Mode.CLIENT){
+                        room.clientPricing.put(line.key,Math.max(0f,value));
+                    }else{
+                        room.pricing.put(line.key,Math.max(0f,value));
+                    }
+                    changed(owner);
                 }).show();
     }
 
     private void editQty(
+            NativeProjectStore.ProjectData owner,
             NativeProjectStore.RoomData room,
             NativeEstimateEngine.Line line){
-        float current=(float)line.qty;
         new NativeNumberPadDialog(
                 getContext(),
                 line.name+" · количество",
-                current,
+                (float)line.qty,
                 value->{
-                    if(mode==Mode.CLIENT){
+                    if(line.custom){
+                        NativeProjectStore.MaterialData item=findCustom(room,line.customId,mode==Mode.CLIENT);
+                        if(item!=null)item.qty=Math.max(0f,value);
+                    }else if(mode==Mode.CLIENT){
                         room.clientEstimateQty.put(line.key,Math.max(0f,value));
                         room.clientEstimateOverride.add(line.key);
                     }else{
                         room.extraQty.put(line.key,Math.max(0f,value));
                     }
-                    changed();
+                    changed(owner);
                 }).show();
     }
 
     private void removeLine(
+            NativeProjectStore.ProjectData owner,
             NativeProjectStore.RoomData room,
             NativeEstimateEngine.Line line){
-        if(mode==Mode.CLIENT){
+        if(line.custom){
+            (mode==Mode.CLIENT?room.clientCustomItems:room.customItems)
+                    .removeIf(item->line.customId.equals(item.id));
+        }else if(mode==Mode.CLIENT){
             if("canvas".equals(line.key))return;
             room.clientEstimateQty.put(line.key,0f);
             room.clientEstimateOverride.add(line.key);
@@ -257,41 +319,226 @@ final class NativeEstimateDialog extends Dialog {
             if("canvas".equals(line.key)||"baguette".equals(line.key))return;
             room.hiddenInternalKeys.add(line.key);
         }
-        changed();
+        changed(owner);
     }
 
-    private void openMaterialPicker(NativeProjectStore.RoomData room){
-        String[] names=new String[]{
-                "Вставка","Светильники","Карниз","Углы","Трубы",
-                "Световые линии","Теневой профиль","Керамогранит"
-        };
-        String[] keys=new String[]{
-                "insert","light","cornice","corner","pipe",
-                "lightline","shadow","porcelain"
-        };
+    private void openMaterialPicker(
+            NativeProjectStore.ProjectData owner,
+            NativeProjectStore.RoomData room){
+        ArrayList<String> labels=new ArrayList<>();
+        ArrayList<String> keys=new ArrayList<>();
+        for(NativeProjectStore.MaterialData preset:store.loadDefaultCustom(true)){
+            labels.add(preset.name+" · "+preset.unit+" · "+money(preset.price)+" ₽");
+            keys.add("preset:"+preset.id);
+        }
+        for(NativeEstimateEngine.Meta meta:NativeEstimateEngine.CLIENT_META){
+            if("canvas".equals(meta.key))continue;
+            labels.add(meta.name+" · "+meta.unit);
+            keys.add(meta.key);
+        }
+        labels.add("Другое · своё название и единица");
+        keys.add("other");
+
         new AlertDialog.Builder(getContext())
                 .setTitle("Дополнительный материал")
-                .setItems(names,(d,which)->{
-                    String key=keys[which];
-                    double value="insert".equals(key)
+                .setItems(labels.toArray(new String[0]),(d,which)->{
+                    String key=keys.get(which);
+                    if("other".equals(key)){
+                        openAdhocMaterial(owner,room,true);
+                        return;
+                    }
+                    if(key.startsWith("preset:")){
+                        String presetId=key.substring("preset:".length());
+                        NativeProjectStore.MaterialData preset=null;
+                        for(NativeProjectStore.MaterialData p:store.loadDefaultCustom(true)){
+                            if(p.id.equals(presetId)){preset=p;break;}
+                        }
+                        if(preset==null)return;
+                        NativeProjectStore.MaterialData item=null;
+                        for(NativeProjectStore.MaterialData old:room.clientCustomItems){
+                            if(presetId.equals(old.sourceId)){item=old;break;}
+                        }
+                        if(item==null){
+                            item=preset.copy();
+                            item.id=NativeProjectStore.newId("mat");
+                            item.sourceId=preset.id;
+                            item.qty=1f;
+                            room.clientCustomItems.add(item);
+                        }else if(item.qty<=0f)item.qty=1f;
+                        changed(owner);
+                        editCustomQty(owner,room,item,true);
+                        return;
+                    }
+
+                    double amount="insert".equals(key)
                             ?NativeEstimateEngine.metrics(room).perimeterM
                             :NativeEstimateEngine.clientDefaultQty(room,key);
-                    room.clientEstimateQty.put(key,(float)Math.max(0d,value));
+                    room.clientEstimateQty.put(key,(float)Math.max(0d,amount));
                     room.clientEstimateOverride.add(key);
-                    changed();
+                    changed(owner);
                     if(!"insert".equals(key)){
                         NativeEstimateEngine.Meta meta=NativeEstimateEngine.clientMeta(key);
                         new NativeNumberPadDialog(
                                 getContext(),
                                 meta.name+" · количество",
-                                (float)value,
+                                (float)amount,
                                 qty->{
                                     room.clientEstimateQty.put(key,Math.max(0f,qty));
                                     room.clientEstimateOverride.add(key);
-                                    changed();
+                                    changed(owner);
                                 }).show();
                     }
                 }).show();
+    }
+
+    private void openAdhocMaterial(
+            NativeProjectStore.ProjectData owner,
+            NativeProjectStore.RoomData room,
+            boolean clientMaterial){
+        NativeProjectStore.MaterialData item=new NativeProjectStore.MaterialData();
+        item.id=NativeProjectStore.newId("mat");
+        item.name="Материал";
+        item.unit="шт";
+        item.qty=1f;
+        item.price=0f;
+        new NativeMaterialEditorDialog(
+                getContext(),
+                clientMaterial?"Другой материал":"Другой закупочный материал",
+                item,
+                true,
+                material->{
+                    material.sourceId=null;
+                    (clientMaterial?room.clientCustomItems:room.customItems).add(material);
+                    changed(owner);
+                }).show();
+    }
+
+    private void editCustomQty(
+            NativeProjectStore.ProjectData owner,
+            NativeProjectStore.RoomData room,
+            NativeProjectStore.MaterialData item,
+            boolean clientMaterial){
+        new NativeNumberPadDialog(
+                getContext(),
+                item.name+" · количество",
+                item.qty,
+                value->{
+                    item.qty=Math.max(0f,value);
+                    changed(owner);
+                }).show();
+    }
+
+    private NativeProjectStore.MaterialData findCustom(
+            NativeProjectStore.RoomData room,
+            String id,
+            boolean clientMaterial){
+        if(id==null)return null;
+        for(NativeProjectStore.MaterialData item:
+                (clientMaterial?room.clientCustomItems:room.customItems)){
+            if(id.equals(item.id))return item;
+        }
+        return null;
+    }
+
+    private void openPricePreset(
+            boolean client,
+            List<NativeProjectStore.ProjectData> projects){
+        new NativePricePresetDialog(
+                getContext(),
+                store,
+                project,
+                projects,
+                client,
+                ()->{
+                    listener.onChanged();
+                    render();
+                }).show();
+    }
+
+    private void openMergeOrders(){
+        List<NativeProjectStore.ProjectData> saved=store.loadSaved();
+        ArrayList<NativeProjectStore.ProjectData> choices=new ArrayList<>();
+        for(NativeProjectStore.ProjectData p:saved){
+            if(!p.id.equals(project.id))choices.add(p);
+        }
+        if(choices.isEmpty()){
+            new AlertDialog.Builder(getContext())
+                    .setTitle("Объединить заказы")
+                    .setMessage("Других сохранённых заказов пока нет.")
+                    .setPositiveButton("Готово",null)
+                    .show();
+            return;
+        }
+
+        String[] labels=new String[choices.size()];
+        boolean[] checked=new boolean[choices.size()];
+        HashSet<String> selected=new HashSet<>(project.combinedEstimateOrderIds);
+        for(int i=0;i<choices.size();i++){
+            NativeProjectStore.ProjectData p=choices.get(i);
+            labels[i]=projectLabel(p)+" · "+p.rooms.size()+" помещ.";
+            checked[i]=selected.contains(p.id);
+        }
+
+        new AlertDialog.Builder(getContext())
+                .setTitle("Объединить заказы")
+                .setMultiChoiceItems(labels,checked,(d,which,isChecked)->{
+                    String id=choices.get(which).id;
+                    if(isChecked)selected.add(id);else selected.remove(id);
+                })
+                .setNegativeButton("Отмена",null)
+                .setPositiveButton("Объединить",(d,w)->{
+                    project.combinedEstimateOrderIds.clear();
+                    project.combinedEstimateOrderIds.addAll(selected);
+                    store.saveCurrent(project);
+                    listener.onChanged();
+                    render();
+                }).show();
+    }
+
+    private List<NativeProjectStore.ProjectData> estimateProjects(){
+        ArrayList<NativeProjectStore.ProjectData> out=new ArrayList<>();
+        out.add(project);
+        if(mode!=Mode.CLIENT)return out;
+        List<NativeProjectStore.ProjectData> saved=store.loadSaved();
+        for(String id:project.combinedEstimateOrderIds){
+            if(id.equals(project.id))continue;
+            for(NativeProjectStore.ProjectData candidate:saved){
+                if(id.equals(candidate.id)){
+                    out.add(candidate);
+                    break;
+                }
+            }
+        }
+        return out;
+    }
+
+    private NativeEstimateEngine.ProjectCost combinedCost(
+            List<NativeProjectStore.ProjectData> projects){
+        double area=0d,perimeter=0d,total=0d;
+        boolean complete=true;
+        for(NativeProjectStore.ProjectData p:projects){
+            NativeEstimateEngine.ProjectCost pc=
+                    NativeEstimateEngine.projectCost(p,mode==Mode.CLIENT);
+            area+=pc.areaM2;
+            perimeter+=pc.perimeterM;
+            total+=pc.total;
+            if(!pc.complete)complete=false;
+        }
+        return new NativeEstimateEngine.ProjectCost(area,perimeter,total,complete);
+    }
+
+    private void changed(NativeProjectStore.ProjectData owner){
+        if(owner.id.equals(project.id))store.saveCurrent(owner);
+        else store.updateSavedProject(owner);
+        listener.onChanged();
+        render();
+    }
+
+    private String projectLabel(NativeProjectStore.ProjectData p){
+        String name=p.name==null?"":p.name.trim();
+        if(!name.isEmpty())return name;
+        String address=p.address==null?"":p.address.trim();
+        return address.isEmpty()?"Без имени":address;
     }
 
     private boolean isInternalExtra(String key){
@@ -300,11 +547,6 @@ final class NativeEstimateDialog extends Dialog {
                 ||"cornice".equals(key)
                 ||"lightline".equals(key)
                 ||"pipe".equals(key);
-    }
-
-    private void changed(){
-        listener.onChanged();
-        render();
     }
 
     private LinearLayout card(){
@@ -346,14 +588,6 @@ final class NativeEstimateDialog extends Dialog {
         return p;
     }
 
-    private GradientDrawable rounded(int fill,int stroke,int radius,int width){
-        GradientDrawable d=new GradientDrawable();
-        d.setColor(fill);
-        d.setCornerRadius(dp(radius));
-        if(width>0)d.setStroke(dp(width),stroke);
-        return d;
-    }
-
     private String qty(double value){
         return String.format(Locale.getDefault(),"%.2f",value)
                 .replaceAll("0+$","")
@@ -364,6 +598,14 @@ final class NativeEstimateDialog extends Dialog {
         return String.format(Locale.getDefault(),"%.2f",value)
                 .replaceAll("0+$","")
                 .replaceAll("[,.]$","");
+    }
+
+    private GradientDrawable rounded(int fill,int stroke,int radius,int width){
+        GradientDrawable d=new GradientDrawable();
+        d.setColor(fill);
+        d.setCornerRadius(dp(radius));
+        if(width>0)d.setStroke(dp(width),stroke);
+        return d;
     }
 
     private int dp(int v){

@@ -549,14 +549,14 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void addRoomOfType(String type){
-        NativeProjectStore.RoomData room=new NativeProjectStore.RoomData();
         int same=0;
         for(NativeProjectStore.RoomData existing:project.rooms){
             if(existing.name!=null&&existing.name.startsWith(type))same++;
         }
-        room.name="Другое".equals(type)
+        String roomName="Другое".equals(type)
                 ?"Помещение "+(project.rooms.size()+1)
                 :type+" "+(same+1);
+        NativeProjectStore.RoomData room=store.createRoom(roomName);
         project.rooms.add(room);
         project.activeRoom=project.rooms.size()-1;
         store.saveCurrent(project);
@@ -1366,6 +1366,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         store.saveCurrent(project);
         new NativeEstimateDialog(
                 this,
+                store,
                 project,
                 mode,
                 ()->{
