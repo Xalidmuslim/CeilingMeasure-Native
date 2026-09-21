@@ -130,7 +130,7 @@ final class CeilingDrawingView extends View {
     }
 
     void setRoom(@NonNull NativeProjectStore.RoomData room) {
-        cancelLongPress();
+        cancelPendingLongPress();
         cancelTransientGestures();
         this.room = room;
         NativeGeometry.sanitize(room);
@@ -141,7 +141,7 @@ final class CeilingDrawingView extends View {
     }
 
     void setMode(@NonNull Mode mode) {
-        cancelLongPress();
+        cancelPendingLongPress();
         cancelTransientGestures();
         this.mode = mode;
         invalidate();
@@ -161,7 +161,7 @@ final class CeilingDrawingView extends View {
 
     void clearDrawing() {
         if (room == null) return;
-        cancelLongPress();
+        cancelPendingLongPress();
         cancelTransientGestures();
         room.points.clear();
         room.edges.clear();
@@ -316,7 +316,7 @@ final class CeilingDrawingView extends View {
         scaleDetector.onTouchEvent(event);
 
         if (event.getPointerCount() >= 2) {
-            cancelLongPress();
+            cancelPendingLongPress();
             cancelSingleGestureForMultiTouch();
             getParent().requestDisallowInterceptTouchEvent(true);
             float cx = centroidX(event);
@@ -373,7 +373,7 @@ final class CeilingDrawingView extends View {
                         event.getY() - downScreenY);
                 if (distance > dp(9)) {
                     moved = true;
-                    cancelLongPress();
+                    cancelPendingLongPress();
                 }
 
                 if (mode == Mode.WALL && wallDraft != null) {
@@ -396,7 +396,7 @@ final class CeilingDrawingView extends View {
 
             case MotionEvent.ACTION_UP:
                 getParent().requestDisallowInterceptTouchEvent(false);
-                cancelLongPress();
+                cancelPendingLongPress();
                 if (multiTouch) {
                     multiTouch = false;
                     syncViewToRoom();
@@ -424,7 +424,7 @@ final class CeilingDrawingView extends View {
 
             case MotionEvent.ACTION_CANCEL:
                 getParent().requestDisallowInterceptTouchEvent(false);
-                cancelLongPress();
+                cancelPendingLongPress();
                 cancelTransientGestures();
                 return true;
 
@@ -715,7 +715,7 @@ final class CeilingDrawingView extends View {
     }
 
     private void scheduleLongPress(String kind, String id) {
-        cancelLongPress();
+        cancelPendingLongPress();
         longPressRunnable = () -> {
             longPressFired = true;
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
@@ -733,7 +733,7 @@ final class CeilingDrawingView extends View {
         handler.postDelayed(longPressRunnable, LONG_PRESS_MS);
     }
 
-    private void cancelLongPress() {
+    private void cancelPendingLongPress() {
         if (longPressRunnable != null) handler.removeCallbacks(longPressRunnable);
         longPressRunnable = null;
     }
