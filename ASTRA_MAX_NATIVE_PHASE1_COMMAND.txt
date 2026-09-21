@@ -1,0 +1,228 @@
+ASTRA MAX — НАТИВНАЯ МИГРАЦИЯ «ЗАМЕР ПОТОЛКОВ»
+PHASE 1: DATA MODEL / PERSISTENCE / BACKUP COMPATIBILITY ONLY
+
+PHASE 0 ПРИНЯТ КАК БАЗА
+Phase 0 audit завершён commit:
+617ccc0092b42f9095b839eeff71ec0d7cd70d4b
+
+После аудита пять stale baseline-требований были исправлены в документации так, чтобы source of truth = v184:
+- active order id не persistится;
+- active room id не persistится;
+- Wall quick-control после closure блокируется;
+- scroll contract различается до/после closure;
+- night mode в v184 отсутствует.
+
+Перед началом обнови main и используй актуальные:
+- NATIVE_PARITY_SPEC.md
+- NATIVE_MIGRATION_MATRIX.md
+- docs/NATIVE_DATA_SCHEMA.md
+- docs/NATIVE_FUNCTION_MAP.md
+- docs/NATIVE_FORMULA_MAP.md
+- docs/NATIVE_FILE_IO_MAP.md
+- docs/NATIVE_MIGRATION_RISKS.md
+- webapp/index.html
+
+GOLDEN MASTER
+webapp/index.html
+SHA-256:
+354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388
+
+Сначала:
+1. git pull/обнови main;
+2. вычисли SHA самостоятельно;
+3. запусти scripts/verify_webapp.py webapp/index.html;
+4. если SHA или verifier не совпадают — STOP;
+5. не изменяй webapp/index.html.
+
+ЦЕЛЬ PHASE 1
+Создать/исправить только нативный слой данных, persistence, migrations и backup compatibility так, чтобы он точно воспроизводил audited v184 data contract.
+
+НЕ ЦЕЛЬ PHASE 1
+На этом этапе НЕ заниматься:
+- визуальным redesign;
+- home/workspace layout parity;
+- drawing rendering;
+- wall/point/diagonal gestures;
+- snapping;
+- magnifier;
+- label drag/rotation/size;
+- PDF visual parity;
+- estimate UI;
+- animations;
+- haptics;
+- navigation redesign.
+
+Если существующий native-код затрагивает эти области, не считать его корректным и не расширять его без необходимости для Phase 1.
+
+АРХИТЕКТУРНОЕ ПРАВИЛО
+Существующий native-код в репозитории — НЕ доказательство parity. Он создан до полного Phase 0 audit.
+На Phase 1:
+- сначала сравни существующий data/persistence код с docs/NATIVE_DATA_SCHEMA.md;
+- сохраняй только то, что совпадает;
+- исправляй несовпадающее минимально;
+- не делай массовый rewrite остальных слоёв.
+
+ОБЯЗАТЕЛЬНЫЙ DATA CONTRACT
+Используй docs/NATIVE_DATA_SCHEMA.md как основной map, а webapp/index.html как конечный source of truth.
+
+Нужно точно воспроизвести:
+- DB schemaVersion = 165;
+- root DB fields;
+- orders;
+- rooms;
+- points;
+- edges;
+- diagonals;
+- labelPose;
+- room view;
+- pricing maps;
+- client pricing;
+- client estimate qty/override;
+- custom materials;
+- default custom materials;
+- uiCollapse;
+- UI prefs storage version 2;
+- font / scale / weight;
+- отсутствие persisted active order id;
+- отсутствие persisted active room id;
+- runtime selection first order / first room after full relaunch.
+
+Не добавлять night mode. Не сохранять ui-dark как native parity feature.
+
+MIGRATIONS
+Реализовать и протестировать audited migration semantics:
+1. legacy storage-key selection precedence;
+2. v14/v13 numeric cm → project units ×10;
+3. older mm storage path без ошибочного ×10;
+4. legacy drawings → room root;
+5. legacy geometry → point IDs + edges + diagList;
+6. pricing v59 order → rooms;
+7. auto letters v64;
+8. room names v66: Другая → Другое, включая suffix;
+9. hints v73;
+10. objects v98 cleanup while preserving manual calculator qty;
+11. default client pricing v146;
+12. internal expanded v157;
+13. UI prefs v182/version 2 behavior, including old 100% → 112% and font aliases.
+
+Не придумывать новые миграции для «чистоты».
+
+BACKUP COMPATIBILITY
+Native backup codec обязан:
+- экспортировать совместимый JSON;
+- импортировать web backup;
+- принимать wrapper {db: ...};
+- принимать raw DB object;
+- минимум проверять наличие orders array так, как golden source;
+- не ломать schemaVersion 165;
+- сохранять full order/room/geometry/pricing/settings data;
+- удалять legacy order.number и order.savedName при canonical persist/export, если именно это делает golden source;
+- не терять unknown-compatible fields без причины.
+
+Создай deterministic fixture files в tests/fixtures или аналогичном test-only каталоге:
+- current v184 DB;
+- wrapper {db: ...};
+- raw DB;
+- legacy v14/v13;
+- old mm variant;
+- legacy drawings;
+- legacy geometry;
+- pricing v59;
+- UI prefs old/default alias cases;
+- invalid JSON;
+- object without orders array.
+
+PERSISTENCE SEMANTICS
+Обязательные тесты:
+- create order/room → persist → full process/store reload → data restored;
+- selected non-first order → full relaunch → first order selected;
+- selected non-first room → full relaunch → first room selected;
+- view.scale/panX/panY persist per room;
+- labelPose persists exactly: manual,x,y,angle,size;
+- geometryLocked / validationExpanded / extrasExpanded / showAutoLetters / point90Magnet / hintCollapsed persist;
+- defaultPricing/defaultClientPricing/default metadata persist;
+- custom items persist;
+- hidden keys persist;
+- savedAt semantics persist;
+- combinedEstimateOrderIds persist;
+- UI prefs font/scale/weight persist;
+- no persisted night-mode field is introduced.
+
+TEST PHILOSOPHY
+Нельзя тестировать только «объект сериализуется».
+Нужны golden-compatible deep comparisons.
+
+Для каждого fixture:
+source JSON → native parse/migrate → native serialize/export → compare canonical semantic result с ожидаемым v184 contract.
+
+Если порядок JSON keys отличается — это допустимо.
+Если значения, defaults, arrays, ids, field presence или migration meaning отличаются — FAIL.
+
+MATRIX
+В NATIVE_MIGRATION_MATRIX.md:
+- заполняй Native reference только для Phase 1 data/persistence/backup rows;
+- AUDITED → IMPLEMENTING → PASS только при реальном тест evidence;
+- строки UI/drawing/gesture/PDF не переводить в PASS;
+- если найдено новое data-поведение, добавь отдельную строку;
+- не маскируй FAIL как PASS.
+
+CI / BUILD
+Phase 1 должна оставить проект собираемым.
+Обязательно:
+- golden verifier PASS;
+- unit tests data/migrations/backup PASS;
+- lintDebug PASS;
+- testDebugUnitTest PASS;
+- assembleDebug PASS;
+- существующие smoke tests не удалять и не ослаблять;
+- если старый native smoke test конфликтует с новым точным data contract, исправляй тест по source of truth, а не source под тест.
+
+НЕ ТРОГАТЬ
+- webapp/index.html;
+- golden SHA;
+- визуальные размеры/цвета;
+- drawing behavior;
+- gesture thresholds;
+- formula constants, кроме data-level representation where directly required;
+- launcher icon;
+- unrelated native components.
+
+DELIVERABLES PHASE 1
+Обнови/создай:
+- native data model/store/codec code;
+- migration adapters;
+- backup codec;
+- deterministic fixtures;
+- unit tests;
+- NATIVE_MIGRATION_MATRIX.md;
+- при необходимости docs/NATIVE_DATA_SCHEMA.md только если обнаружен source-backed omission, с точной ссылкой.
+
+КРИТЕРИЙ PASS PHASE 1
+Phase 1 завершена только если:
+1. golden master SHA/verifier PASS;
+2. data schema native mapping покрыта;
+3. audited migrations реализованы;
+4. web backup import compatibility доказана tests;
+5. native export compatible with v184 contract;
+6. runtime active-order/room behavior соответствует v184;
+7. UI prefs без night mode соответствуют v184;
+8. unit/lint/build зелёные;
+9. matrix evidence заполнено;
+10. UI/drawing/gesture/PDF phases не начаты.
+
+ФИНАЛЬНЫЙ ОТЧЁТ
+После Phase 1 остановись и выдай:
+- commit SHA;
+- workflow/test run;
+- changed files;
+- exact list PASS/FAIL/UNVERIFIED for Phase 1 rows;
+- count unit tests;
+- list fixtures;
+- proof web backup imports;
+- proof export round-trip;
+- proof active order/room relaunch semantics;
+- golden SHA after changes;
+- remaining risks;
+- явную строку: PHASE 2 NOT STARTED.
+
+НЕ НАЧИНАЙ PHASE 2.
