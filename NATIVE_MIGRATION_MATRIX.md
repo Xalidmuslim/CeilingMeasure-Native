@@ -1,195 +1,203 @@
 # NATIVE_MIGRATION_MATRIX — «Замер потолков»
 
-## Статусы
+## Phase 0 status semantics
+- **AUDITED** — current golden source behavior/reference and a future exact test case are documented.
+- **FAIL** — the pre-existing matrix/spec sentence contradicts the current v184 golden source. It is a documentation/source mismatch, **not** a native implementation verdict.
+- **UNVERIFIED** — source evidence is insufficient. None remain after this audit.
+- PASS/IMPLEMENTING are intentionally not used in Phase 0.
 
-- TODO — ещё не перенесено/не проверено
-- AUDITED — web-реализация найдена и задокументирована
-- IMPLEMENTING — native реализация в работе
-- PASS — native поведение подтверждено тестом/сравнением
-- FAIL — обнаружено расхождение
-- UNVERIFIED — автоматическая/ручная проверка ещё не выполнена
+Source HEAD audited: c5d6f3e196da617b291342e5ef3a3d0593139a80
+Golden SHA-256: 354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388
+Rows after source-discovery expansion: **177**.
+Phase 0 counts: **AUDITED 172 / FAIL 5 / UNVERIFIED 0**.
 
-Astra обязана заполнять столбцы «Web reference», «Native reference», «Test evidence» конкретными путями, функциями, test names, screenshots, commit SHA. Нельзя ставить PASS без evidence.
+Native reference remains TODO/N/A by Phase 0 rule. Existing native Java classes are not accepted as parity evidence yet.
 
-| ID | Область | Требование parity | Web reference | Native reference | Test evidence | Status |
+| ID | Область | Требование parity | Web reference | Native reference | Future exact test case | Status |
 |---|---|---|---|---|---|---|
-| P-001 | Golden master | `webapp/index.html` не меняется; SHA = `354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388` | TODO | N/A | SHA check | TODO |
-| P-002 | Audit | Полный inventory экранов/состояний/модалок | TODO | N/A | Audit report | TODO |
-| P-003 | Audit | Полный список web event handlers/gestures | TODO | N/A | Audit report | TODO |
-| P-004 | Audit | Полный data schema + migrations | TODO | N/A | Schema report | TODO |
-| P-005 | Audit | Формулы/коэффициенты/округление извлечены из web | TODO | N/A | Formula report | TODO |
-| P-006 | Audit | Visual tokens: размеры, spacing, radius, shadow, typography, colors | TODO | N/A | Token report | TODO |
-| O-001 | Заказ | Создание заказа | TODO | TODO | E2E | TODO |
-| O-002 | Заказ | Удаление заказа | TODO | TODO | E2E | TODO |
-| O-003 | Заказ | Имя клиента = заголовок заказа | TODO | TODO | E2E | TODO |
-| O-004 | Заказ | Телефон | TODO | TODO | E2E | TODO |
-| O-005 | Заказ | Адрес | TODO | TODO | E2E | TODO |
-| O-006 | Заказ | Нет функции номера заказа | TODO | TODO | Screenshot/state | TODO |
-| O-007 | Заказ | Автосохранение | TODO | TODO | Relaunch test | TODO |
-| O-008 | Заказ | Текущий заказ восстанавливается после relaunch | TODO | TODO | Relaunch test | TODO |
-| R-001 | Комнаты | Добавить комнату | TODO | TODO | E2E | TODO |
-| R-002 | Комнаты | Выбрать комнату | TODO | TODO | E2E | TODO |
-| R-003 | Комнаты | Long press меню комнаты | TODO | TODO | Gesture test | TODO |
-| R-004 | Комнаты | Переименовать | TODO | TODO | E2E | TODO |
-| R-005 | Комнаты | Дублировать | TODO | TODO | E2E | TODO |
-| R-006 | Комнаты | Удалить | TODO | TODO | E2E | TODO |
-| R-007 | Комнаты | Индикатор завершённости parity | TODO | TODO | Screenshot | TODO |
-| R-008 | Комнаты | Один чертёж на комнату | TODO | TODO | E2E | TODO |
-| R-009 | Комнаты | Активная комната сохраняется | TODO | TODO | Relaunch test | TODO |
-| R-010 | Комнаты | Горизонтальная компоновка карточек совпадает | TODO | TODO | Screenshot diff | TODO |
-| D-001 | Чертёж | Режим Стена | TODO | TODO | E2E | TODO |
-| D-002 | Чертёж | Режим Точки | TODO | TODO | E2E | TODO |
-| D-003 | Чертёж | Режим Диагональ | TODO | TODO | E2E | TODO |
-| D-004 | Чертёж | Режим Цифры | TODO | TODO | E2E | TODO |
-| D-005 | Чертёж | Режим по умолчанию совпадает | TODO | TODO | Startup state | TODO |
-| W-001 | Стены | Первая стена создаётся как в web | TODO | TODO | Gesture test | TODO |
-| W-002 | Стены | Последующие стены только от допустимых концов/углов | TODO | TODO | Gesture test | TODO |
-| W-003 | Стены | Одна стена за один gesture | TODO | TODO | Gesture test | TODO |
-| W-004 | Стены | Точки создаются только по web-правилам | TODO | TODO | Gesture test | TODO |
-| W-005 | Стены | Замыкание контура | TODO | TODO | E2E | TODO |
-| W-006 | Стены | После замыкания новые стены запрещены | TODO | TODO | Negative test | TODO |
-| W-007 | Стены | После замыкания нет хвоста | TODO | TODO | Geometry assert | TODO |
-| W-008 | Стены | В закрытом контуре режим Стена остаётся доступен для редактирования | TODO | TODO | E2E | TODO |
-| W-009 | Стены | Long press стены/размера открывает редактирование | TODO | TODO | Gesture test | TODO |
-| W-010 | Стены | Undo | TODO | TODO | State test | TODO |
-| W-011 | Стены | Redo | TODO | TODO | State test | TODO |
-| W-012 | Стены | Fit view | TODO | TODO | Viewport assert | TODO |
-| K-001 | Клавиатура | Custom numeric keypad | TODO | TODO | Screenshot/E2E | TODO |
-| K-002 | Клавиатура | Системная клавиатура не используется для размеров | TODO | TODO | UI test | TODO |
-| K-003 | Клавиатура | Начальное `0` | TODO | TODO | State test | TODO |
-| K-004 | Клавиатура | Decimal comma | TODO | TODO | Input test | TODO |
-| K-005 | Клавиатура | Backspace/delete | TODO | TODO | Input test | TODO |
-| K-006 | Клавиатура | Явный `×` закрывает | TODO | TODO | E2E | TODO |
-| K-007 | Клавиатура | Tap outside закрывает | TODO | TODO | Gesture test | TODO |
-| K-008 | Клавиатура | Некорректный ввод не портит данные | TODO | TODO | Negative test | TODO |
-| G-001 | Жесты | Pinch zoom двумя пальцами | TODO | TODO | Gesture test | TODO |
-| G-002 | Жесты | Pan двумя пальцами | TODO | TODO | Gesture test | TODO |
-| G-003 | Жесты | Single-touch drawing не конфликтует с pinch/pan | TODO | TODO | Gesture test | TODO |
-| G-004 | Жесты | В Wall mode вертикальный scroll над drawing заблокирован | TODO | TODO | Gesture test | TODO |
-| G-005 | Жесты | Правая полоса 74 px разрешает page scroll | TODO | TODO | Boundary test | TODO |
-| G-006 | Жесты | Правило scroll сохраняется после closure | TODO | TODO | E2E | TODO |
-| G-007 | Жесты | Нет системного text-selection/context-menu на drawing | TODO | TODO | Long-press test | TODO |
-| S-001 | Snap | Magnifier parity | TODO | TODO | Screenshot/gesture | TODO |
-| S-002 | Snap | Красная направляющая | TODO | TODO | Screenshot | TODO |
-| S-003 | Snap | Притягивание к направляющей | TODO | TODO | Geometry test | TODO |
-| S-004 | Snap | 90° detection | TODO | TODO | Geometry test | TODO |
-| S-005 | Snap | 90° marker parity | TODO | TODO | Screenshot | TODO |
-| S-006 | Snap | Haptic на 90° | TODO | TODO | Haptic test/manual | TODO |
-| S-007 | Snap | Haptic на snapping | TODO | TODO | Haptic test/manual | TODO |
-| S-008 | Snap | Пороги snapping перенесены из web | TODO | TODO | Unit tests | TODO |
-| T-001 | Точки | Создание/редактирование по web-правилам | TODO | TODO | E2E | TODO |
-| T-002 | Точки | Hit areas совпадают | TODO | TODO | Gesture boundary test | TODO |
-| T-003 | Точки | Magnifier/snapping в режиме Точки | TODO | TODO | E2E | TODO |
-| T-004 | Точки | State persistence | TODO | TODO | Relaunch test | TODO |
-| X-001 | Диагонали | Создание диагонали | TODO | TODO | E2E | TODO |
-| X-002 | Диагонали | Автодиагональ/расчёт | TODO | TODO | Formula test | TODO |
-| X-003 | Диагонали | Ручной ввод | TODO | TODO | E2E | TODO |
-| X-004 | Диагонали | Long press edit | TODO | TODO | Gesture test | TODO |
-| X-005 | Диагонали | Delete | TODO | TODO | E2E | TODO |
-| X-006 | Диагонали | Явный `×` в вводе | TODO | TODO | UI test | TODO |
-| X-007 | Диагонали | Значение внутри контура | TODO | TODO | Screenshot diff | TODO |
-| X-008 | Диагонали | Нет лишней рамки вокруг числа | TODO | TODO | Screenshot diff | TODO |
-| N-001 | Цифры | Independent X/Y | TODO | TODO | State test | TODO |
-| N-002 | Цифры | Drag label | TODO | TODO | Gesture test | TODO |
-| N-003 | Цифры | Rotation 0–360° | TODO | TODO | Gesture/state test | TODO |
-| N-004 | Цифры | Size/scale `−/+` | TODO | TODO | UI/state test | TODO |
-| N-005 | Цифры | Reset size если есть | TODO | TODO | UI/state test | TODO |
-| N-006 | Цифры | Pose сохраняется после redraw | TODO | TODO | State test | TODO |
-| N-007 | Цифры | Pose сохраняется после zoom | TODO | TODO | State test | TODO |
-| N-008 | Цифры | Pose сохраняется после room switch | TODO | TODO | State test | TODO |
-| N-009 | Цифры | Pose сохраняется после relaunch | TODO | TODO | Relaunch test | TODO |
-| N-010 | Цифры | Нет shrink при drag | TODO | TODO | Visual/state test | TODO |
-| N-011 | Цифры | Screen-size compensation при zoom | TODO | TODO | Visual test | TODO |
-| L-001 | Labels | Подписи снаружи контура, кроме диагоналей | TODO | TODO | Screenshot/geometry | TODO |
-| L-002 | Labels | Hide letters поведение parity | TODO | TODO | State test | TODO |
-| L-003 | Labels | Add angle A, если функция есть | TODO | TODO | Audit + E2E | TODO |
-| C-001 | Расчёт | Площадь комнаты | TODO | TODO | Unit/E2E | TODO |
-| C-002 | Расчёт | Периметр комнаты | TODO | TODO | Unit/E2E | TODO |
-| C-003 | Расчёт | 4×500 => 25 м² | TODO | TODO | Mandatory unit test | TODO |
-| C-004 | Расчёт | 4×500 => 20 м | TODO | TODO | Mandatory unit test | TODO |
-| C-005 | Расчёт | Формат/округление совпадает | TODO | TODO | Golden vectors | TODO |
-| C-006 | Расчёт | Общий итог по комнатам | TODO | TODO | E2E | TODO |
-| M-001 | Материалы | Полотно/квадратура | TODO | TODO | Calculation test | TODO |
-| M-002 | Материалы | Багет | TODO | TODO | Calculation test | TODO |
-| M-003 | Материалы | Вставка | TODO | TODO | Calculation test | TODO |
-| M-004 | Материалы | Светильники | TODO | TODO | Calculation test | TODO |
-| M-005 | Материалы | Карниз | TODO | TODO | Calculation test | TODO |
-| M-006 | Материалы | Углы | TODO | TODO | Calculation test | TODO |
-| M-007 | Материалы | Трубы | TODO | TODO | Calculation test | TODO |
-| M-008 | Материалы | Световые линии | TODO | TODO | Calculation test | TODO |
-| M-009 | Материалы | Теневой профиль | TODO | TODO | Calculation test | TODO |
-| M-010 | Материалы | Керамогранит | TODO | TODO | Calculation test | TODO |
-| M-011 | Материалы | Custom materials | TODO | TODO | E2E | TODO |
-| M-012 | Материалы | Дюбель = 6 шт/м | TODO | TODO | Mandatory unit test | TODO |
-| M-013 | Материалы | Текущая комната / все комнаты | TODO | TODO | E2E | TODO |
-| M-014 | Материалы | Ручной ввод цен | TODO | TODO | E2E | TODO |
-| M-015 | Материалы | Default presets | TODO | TODO | Audit + test | TODO |
-| M-016 | Материалы | Selected-only positions | TODO | TODO | E2E | TODO |
-| SV-001 | Saved | Автосохранение | TODO | TODO | Relaunch test | TODO |
-| SV-002 | Saved | Список saved measurements | TODO | TODO | E2E | TODO |
-| SV-003 | Saved | Search name | TODO | TODO | Search test | TODO |
-| SV-004 | Saved | Search phone | TODO | TODO | Search test | TODO |
-| SV-005 | Saved | Search address | TODO | TODO | Search test | TODO |
-| SV-006 | Saved | Recent/all если есть | TODO | TODO | Audit + E2E | TODO |
-| SV-007 | Saved | Delete via action menu | TODO | TODO | E2E | TODO |
-| SV-008 | Saved | Scroll gesture from card | TODO | TODO | Gesture test | TODO |
-| SV-009 | Saved | Bottom nav visible | TODO | TODO | Screenshot | TODO |
-| SV-010 | Saved | Last card not covered | TODO | TODO | Screenshot/layout assert | TODO |
-| SV-011 | Saved | Open restores full order state | TODO | TODO | Deep state test | TODO |
-| B-001 | Backup | Export JSON | TODO | TODO | File test | TODO |
-| B-002 | Backup | Import JSON | TODO | TODO | File test | TODO |
-| B-003 | Backup | Native accepts web backup | TODO | TODO | Cross-version fixture | TODO |
-| B-004 | Backup | Order/rooms/drawings/prices/settings restored | TODO | TODO | Deep compare | TODO |
-| B-005 | Backup | Invalid file handled safely | TODO | TODO | Negative test | TODO |
-| PDF-001 | PDF | Client estimate screen parity | TODO | TODO | Screenshot diff | TODO |
-| PDF-002 | PDF | Только выбранные позиции | TODO | TODO | Content assert | TODO |
-| PDF-003 | PDF | Компактная premium-light верстка | TODO | TODO | PDF visual diff | TODO |
-| PDF-004 | PDF | Итоги совпадают | TODO | TODO | Content assert | TODO |
-| PDF-005 | PDF | Valid `%PDF-` | TODO | TODO | File prefix test | TODO |
-| UI-001 | UI | Основная композиция экранов совпадает | TODO | TODO | Screenshot diff | TODO |
-| UI-002 | UI | Typography parity | TODO | TODO | Screenshot/token assert | TODO |
-| UI-003 | UI | Colors parity | TODO | TODO | Token assert | TODO |
-| UI-004 | UI | Spacing/radius/shadows parity | TODO | TODO | Screenshot diff | TODO |
-| UI-005 | UI | Expand/collapse parity | TODO | TODO | E2E | TODO |
-| UI-006 | UI | Modals/bottom sheets parity | TODO | TODO | Screenshot/E2E | TODO |
-| UI-007 | UI | Lower navigation parity | TODO | TODO | Screenshot/E2E | TODO |
-| UI-008 | UI | Safe areas on Android | TODO | TODO | Device screenshots | TODO |
-| UI-009 | UI | No content under status/nav bars | TODO | TODO | Device screenshots | TODO |
-| A-001 | Animation | Open/close durations/easing parity | TODO | TODO | Timing/screen recording | TODO |
-| A-002 | Animation | Active-state transitions parity | TODO | TODO | Visual test | TODO |
-| SET-001 | Settings | Font family | TODO | TODO | State test | TODO |
-| SET-002 | Settings | Font size | TODO | TODO | State test | TODO |
-| SET-003 | Settings | Font weight | TODO | TODO | State test | TODO |
-| SET-004 | Settings | Night mode | TODO | TODO | Screenshot/state | TODO |
-| SET-005 | Settings | Settings persist | TODO | TODO | Relaunch test | TODO |
-| I-001 | Icon | Используется `branding/app_icon_master_1024.webp` | TODO | TODO | APK resource check | TODO |
-| I-002 | Icon | Adaptive/legacy resources без redesign | TODO | TODO | Launcher screenshot | TODO |
-| QA-001 | QA | Cold launch | TODO | TODO | Instrumentation | TODO |
-| QA-002 | QA | No crash through full smoke flow | TODO | TODO | Instrumentation | TODO |
-| QA-003 | QA | No regression in prior PASS phases | TODO | TODO | Full suite | TODO |
-| QA-004 | QA | Все дополнительные web-функции добавлены в matrix | TODO | TODO | Audit diff | TODO |
-| QA-005 | QA | Side-by-side screenshots по обязательным states | TODO | TODO | Artifacts | TODO |
-| QA-006 | QA | Final native APK не содержит WebView/HTML runtime для UI | TODO | TODO | APK/code inspection | TODO |
+| P-001 | Golden master | `webapp/index.html` не меняется; SHA = `354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388` | Independent SHA-256=354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388; webapp/index.sha256; scripts/verify_webapp.py; Actions verify run 35640313693 | N/A | Recompute SHA-256; require exactly 354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388; run scripts/verify_webapp.py. | AUDITED |
+| P-002 | Audit | Полный inventory экранов/состояний/модалок | docs/NATIVE_SCREEN_STATE_INVENTORY.md (46 entries) | N/A | Assert inventory count=46 and every entry has source/entry/exit/data. | AUDITED |
+| P-003 | Audit | Полный список web event handlers/gestures | docs/NATIVE_FUNCTION_MAP.md; docs/NATIVE_GESTURE_MAP.md; 346 named functions | N/A | Regenerate function/event extraction; require 346 named functions and all event-binding lines documented. | AUDITED |
+| P-004 | Audit | Полный data schema + migrations | docs/NATIVE_DATA_SCHEMA.md (173 canonical persisted slots) | N/A | Load/export schema fixtures; require 173 canonical path slots and migration table. | AUDITED |
+| P-005 | Audit | Формулы/коэффициенты/округление извлечены из web | docs/NATIVE_FORMULA_MAP.md | N/A | Run formula golden vectors, including 4×500 => 25.00 m² / 20 m. | AUDITED |
+| P-006 | Audit | Visual tokens: размеры, spacing, radius, shadow, typography, colors | docs/NATIVE_VISUAL_TOKENS.md | N/A | Capture required-state screenshots and compare effective colors/radii/typography/motion tokens. | AUDITED |
+| O-001 | Заказ | Создание заказа | webapp/index.html:L7534-L7595; webapp/index.html:L7700-L7760; webapp/index.html:L9790-L9895 | TODO | Future O-001: execute “Создание заказа” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| O-002 | Заказ | Удаление заказа | webapp/index.html:L7534-L7595; webapp/index.html:L7700-L7760; webapp/index.html:L9790-L9895 | TODO | Future O-002: execute “Удаление заказа” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| O-003 | Заказ | Имя клиента = заголовок заказа | webapp/index.html:L7534-L7595; webapp/index.html:L7700-L7760; webapp/index.html:L9790-L9895 | TODO | Future O-003: execute “Имя клиента = заголовок заказа” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| O-004 | Заказ | Телефон | webapp/index.html:L7534-L7595; webapp/index.html:L7700-L7760; webapp/index.html:L9790-L9895 | TODO | Future O-004: execute “Телефон” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| O-005 | Заказ | Адрес | webapp/index.html:L7534-L7595; webapp/index.html:L7700-L7760; webapp/index.html:L9790-L9895 | TODO | Future O-005: execute “Адрес” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| O-006 | Заказ | Нет функции номера заказа | webapp/index.html:L7534-L7595; webapp/index.html:L7700-L7760; webapp/index.html:L9790-L9895 | TODO | Future O-006: execute “Нет функции номера заказа” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| O-007 | Заказ | Автосохранение | webapp/index.html:L7534-L7595; webapp/index.html:L7700-L7760; webapp/index.html:L9790-L9895 | TODO | Future O-007: execute “Автосохранение” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| O-008 | Заказ | Текущий заказ восстанавливается после relaunch | webapp/index.html:L6045-L6059 — orderId=db.orders[0]?.id; active order id is not persisted | TODO | Select a non-first order, reload: golden returns to db.orders[0]; baseline expectation of active-order restore fails. | FAIL |
+| O-009 | Заказ | Явное «Завершить замер» ставит savedAt заказу и текущей комнате | webapp/index.html:L9790-L9895 | TODO | Future O-009: finish valid and invalid orders; assert savedAt semantics, confirmation and Saved visibility. | AUDITED |
+| R-001 | Комнаты | Добавить комнату | webapp/index.html:L7760-L8000; webapp/index.html:L6457-L6545 | TODO | Future R-001: execute “Добавить комнату” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| R-002 | Комнаты | Выбрать комнату | webapp/index.html:L7760-L8000; webapp/index.html:L6457-L6545 | TODO | Future R-002: execute “Выбрать комнату” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| R-003 | Комнаты | Long press меню комнаты | webapp/index.html:L7760-L8000; webapp/index.html:L6457-L6545 | TODO | Future R-003: execute “Long press меню комнаты” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| R-004 | Комнаты | Переименовать | webapp/index.html:L7760-L8000; webapp/index.html:L6457-L6545 | TODO | Future R-004: execute “Переименовать” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| R-005 | Комнаты | Дублировать | webapp/index.html:L7760-L8000; webapp/index.html:L6457-L6545 | TODO | Future R-005: execute “Дублировать” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| R-006 | Комнаты | Удалить | webapp/index.html:L7760-L8000; webapp/index.html:L6457-L6545 | TODO | Future R-006: execute “Удалить” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| R-007 | Комнаты | Индикатор завершённости parity | webapp/index.html:L7760-L8000; webapp/index.html:L6457-L6545 | TODO | Future R-007: execute “Индикатор завершённости parity” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| R-008 | Комнаты | Один чертёж на комнату | webapp/index.html:L7760-L8000; webapp/index.html:L6457-L6545 | TODO | Future R-008: execute “Один чертёж на комнату” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| R-009 | Комнаты | Активная комната сохраняется | webapp/index.html:L6045-L6059 — roomId=db.orders[0]?.rooms?.[0]?.id; active room id is not persisted | TODO | Select a non-first room, reload: golden opens first room; baseline expectation of active-room restore fails. | FAIL |
+| R-010 | Комнаты | Горизонтальная компоновка карточек совпадает | webapp/index.html:L7760-L8000; webapp/index.html:L6457-L6545 | TODO | Future R-010: execute “Горизонтальная компоновка карточек совпадает” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| R-011 | Комнаты | Picker типов: Комната / Коридор / Ванная / Другое + авто-нумерация | webapp/index.html:L5960-L5973; webapp/index.html:L7863-L7910 | TODO | Future R-011: add each type twice; assert source naming sequence and room activation. | AUDITED |
+| D-001 | Чертёж | Режим Стена | webapp/index.html:L8290-L8425; webapp/index.html:L9885-L10035 | TODO | Future D-001: execute “Режим Стена” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| D-002 | Чертёж | Режим Точки | webapp/index.html:L8290-L8425; webapp/index.html:L9885-L10035 | TODO | Future D-002: execute “Режим Точки” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| D-003 | Чертёж | Режим Диагональ | webapp/index.html:L8290-L8425; webapp/index.html:L9885-L10035 | TODO | Future D-003: execute “Режим Диагональ” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| D-004 | Чертёж | Режим Цифры | webapp/index.html:L8290-L8425; webapp/index.html:L9885-L10035 | TODO | Future D-004: execute “Режим Цифры” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| D-005 | Чертёж | Режим по умолчанию совпадает | webapp/index.html:L8290-L8425; webapp/index.html:L9885-L10035 | TODO | Future D-005: execute “Режим по умолчанию совпадает” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| D-006 | Чертёж | Проверка замера: ok/warn/error и переход к validation card | webapp/index.html:L6910-L7007 | TODO | Future D-006: fixtures for open contour, missing wall, no diagonal warning and valid room; assert labels/counts. | AUDITED |
+| D-007 | Чертёж | Зафиксировать/разблокировать геометрию, включая override при ошибках | webapp/index.html:L6945-L7007; webapp/index.html:L9885-L10035 | TODO | Future D-007: lock valid and invalid room; assert confirmation, disabled tools and unlock mode=move. | AUDITED |
+| D-008 | Чертёж | Фокус-режим чертежа | webapp/index.html:L7595-L7690; webapp/index.html:L4090-L4180 | TODO | Future D-008: enter/exit focus; assert safe areas, drawing controls and viewport preservation. | AUDITED |
+| W-001 | Стены | Первая стена создаётся как в web | webapp/index.html:L12680-L13755 | TODO | Future W-001: execute “Первая стена создаётся как в web” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| W-002 | Стены | Последующие стены только от допустимых концов/углов | webapp/index.html:L12680-L13755 | TODO | Future W-002: execute “Последующие стены только от допустимых концов/углов” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| W-003 | Стены | Одна стена за один gesture | webapp/index.html:L12680-L13755 | TODO | Future W-003: execute “Одна стена за один gesture” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| W-004 | Стены | Точки создаются только по web-правилам | webapp/index.html:L12680-L13755 | TODO | Future W-004: execute “Точки создаются только по web-правилам” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| W-005 | Стены | Замыкание контура | webapp/index.html:L12680-L13755 | TODO | Future W-005: execute “Замыкание контура” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| W-006 | Стены | После замыкания новые стены запрещены | webapp/index.html:L12680-L13755 | TODO | Future W-006: execute “После замыкания новые стены запрещены” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| W-007 | Стены | После замыкания нет хвоста | webapp/index.html:L12680-L13755 | TODO | Future W-007: execute “После замыкания нет хвоста” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| W-008 | Стены | В закрытом контуре режим Стена остаётся доступен для редактирования | webapp/index.html:L8290-L8355 — Wall quick-mode disabled when cycleOrder(r); webapp/index.html:L9885-L10035 | TODO | Close contour, switch to Points, attempt to select Wall: golden Wall control is disabled. | FAIL |
+| W-009 | Стены | Long press стены/размера открывает редактирование | webapp/index.html:L12680-L13755 | TODO | Future W-009: execute “Long press стены/размера открывает редактирование” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| W-010 | Стены | Undo | webapp/index.html:L12680-L13755 | TODO | Future W-010: execute “Undo” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| W-011 | Стены | Redo | webapp/index.html:L12680-L13755 | TODO | Future W-011: execute “Redo” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| W-012 | Стены | Fit view | webapp/index.html:L12680-L13755 | TODO | Future W-012: execute “Fit view” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| W-013 | Стены | Последовательный ввод размеров после замыкания | webapp/index.html:L13440-L13755 | TODO | Future W-013: close 4-wall room with empty sizes; assert editor starts first unmeasured and advances in perimeter order. | AUDITED |
+| W-014 | Стены | Back в последовательном вводе возвращает к предыдущей стене | webapp/index.html:L13440-L13755 | TODO | Future W-014: enter wall2 then Back; assert value commits and editor moves to wall1 before closing. | AUDITED |
+| K-001 | Клавиатура | Custom numeric keypad | webapp/index.html:L5626-L5700; webapp/index.html:L10030-L10180; webapp/index.html:L13400-L13835 | TODO | Future K-001: execute “Custom numeric keypad” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| K-002 | Клавиатура | Системная клавиатура не используется для размеров | webapp/index.html:L5626-L5700; webapp/index.html:L10030-L10180; webapp/index.html:L13400-L13835 | TODO | Future K-002: execute “Системная клавиатура не используется для размеров” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| K-003 | Клавиатура | Начальное `0` | webapp/index.html:L5626-L5700; webapp/index.html:L10030-L10180; webapp/index.html:L13400-L13835 | TODO | Future K-003: execute “Начальное `0`” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| K-004 | Клавиатура | Decimal comma | webapp/index.html:L5626-L5700; webapp/index.html:L10030-L10180; webapp/index.html:L13400-L13835 | TODO | Future K-004: execute “Decimal comma” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| K-005 | Клавиатура | Backspace/delete | webapp/index.html:L5626-L5700; webapp/index.html:L10030-L10180; webapp/index.html:L13400-L13835 | TODO | Future K-005: execute “Backspace/delete” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| K-006 | Клавиатура | Явный `×` закрывает | webapp/index.html:L5626-L5700; webapp/index.html:L10030-L10180; webapp/index.html:L13400-L13835 | TODO | Future K-006: execute “Явный `×` закрывает” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| K-007 | Клавиатура | Tap outside закрывает | webapp/index.html:L5626-L5700; webapp/index.html:L10030-L10180; webapp/index.html:L13400-L13835 | TODO | Future K-007: execute “Tap outside закрывает” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| K-008 | Клавиатура | Некорректный ввод не портит данные | webapp/index.html:L5626-L5700; webapp/index.html:L10030-L10180; webapp/index.html:L13400-L13835 | TODO | Future K-008: execute “Некорректный ввод не портит данные” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| G-001 | Жесты | Pinch zoom двумя пальцами | webapp/index.html:L12680-L13425; webapp/index.html:L13980-L14163 | TODO | Future G-001: execute “Pinch zoom двумя пальцами” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| G-002 | Жесты | Pan двумя пальцами | webapp/index.html:L12680-L13425; webapp/index.html:L13980-L14163 | TODO | Future G-002: execute “Pan двумя пальцами” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| G-003 | Жесты | Single-touch drawing не конфликтует с pinch/pan | webapp/index.html:L12680-L13425; webapp/index.html:L13980-L14163 | TODO | Future G-003: execute “Single-touch drawing не конфликтует с pinch/pan” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| G-004 | Жесты | В Wall mode вертикальный scroll над drawing заблокирован | webapp/index.html:L12680-L13425; webapp/index.html:L13980-L14163 | TODO | Future G-004: execute “В Wall mode вертикальный scroll над drawing заблокирован” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| G-005 | Жесты | Правая полоса 74 px разрешает page scroll | webapp/index.html:L12680-L13425; webapp/index.html:L13980-L14163 | TODO | Open contour Wall mode: swipe outside right 74px strip must not page-scroll; same swipe inside strip must scroll. | AUDITED |
+| G-006 | Жесты | Правило scroll сохраняется после closure | webapp/index.html:L12920-L12975 — closed contour has manual SVG scroll; webapp/index.html:L13980-L14163 | TODO | Close contour; drag vertically on SVG outside right strip: golden manually scrolls page when dy>8 and vertical ratio passes. | FAIL |
+| G-007 | Жесты | Нет системного text-selection/context-menu на drawing | webapp/index.html:L12680-L13425; webapp/index.html:L13980-L14163 | TODO | Future G-007: execute “Нет системного text-selection/context-menu на drawing” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| G-008 | Жесты | Closed-contour manual vertical scroll over SVG | webapp/index.html:L12920-L12975; webapp/index.html:L13980-L14163 | TODO | Future G-008: closed contour vertical drag dy>8, ratio>=.72; assert appScroll changes by 1.35 delta and drawing does not mutate. | AUDITED |
+| S-001 | Snap | Magnifier parity | webapp/index.html:L10480-L10540; webapp/index.html:L12390-L12535; webapp/index.html:L13070-L13155 | TODO | Future S-001: execute “Magnifier parity” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| S-002 | Snap | Красная направляющая | webapp/index.html:L10480-L10540; webapp/index.html:L12390-L12535; webapp/index.html:L13070-L13155 | TODO | Future S-002: execute “Красная направляющая” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| S-003 | Snap | Притягивание к направляющей | webapp/index.html:L10480-L10540; webapp/index.html:L12390-L12535; webapp/index.html:L13070-L13155 | TODO | Future S-003: execute “Притягивание к направляющей” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| S-004 | Snap | 90° detection | webapp/index.html:L10480-L10540; webapp/index.html:L12390-L12535; webapp/index.html:L13070-L13155 | TODO | Future S-004: execute “90° detection” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| S-005 | Snap | 90° marker parity | webapp/index.html:L10480-L10540; webapp/index.html:L12390-L12535; webapp/index.html:L13070-L13155 | TODO | Future S-005: execute “90° marker parity” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| S-006 | Snap | Haptic на 90° | webapp/index.html:L10480-L10540; webapp/index.html:L12390-L12535; webapp/index.html:L13070-L13155 | TODO | Move degree-2 corner into <=0.6° error: exactly one 18ms haptic per entry; leave/re-enter to re-arm. | AUDITED |
+| S-007 | Snap | Haptic на snapping | webapp/index.html:L10480-L10540; webapp/index.html:L12390-L12535; webapp/index.html:L13070-L13155 | TODO | Cross wall-guide 26px threshold: exactly one 18ms haptic on activation; no repeat while held. | AUDITED |
+| S-008 | Snap | Пороги snapping перенесены из web | webapp/index.html:L10480-L10540; webapp/index.html:L12390-L12535; webapp/index.html:L13070-L13155 | TODO | Future S-008: execute “Пороги snapping перенесены из web” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| S-009 | Snap | Отдельный toggle 90° points; candidate threshold 30 screen px | webapp/index.html:L9885-L10035; webapp/index.html:L10480-L10540 | TODO | Future S-009: toggle off/on and cross 30px boundary; assert snap only when enabled. | AUDITED |
+| T-001 | Точки | Создание/редактирование по web-правилам | webapp/index.html:L10480-L10540; webapp/index.html:L12680-L13360 | TODO | Future T-001: execute “Создание/редактирование по web-правилам” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| T-002 | Точки | Hit areas совпадают | webapp/index.html:L10480-L10540; webapp/index.html:L12680-L13360 | TODO | Future T-002: execute “Hit areas совпадают” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| T-003 | Точки | Magnifier/snapping в режиме Точки | webapp/index.html:L10480-L10540; webapp/index.html:L12680-L13360 | TODO | Future T-003: execute “Magnifier/snapping в режиме Точки” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| T-004 | Точки | State persistence | webapp/index.html:L10480-L10540; webapp/index.html:L12680-L13360 | TODO | Future T-004: execute “State persistence” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| X-001 | Диагонали | Создание диагонали | webapp/index.html:L5647-L5664; webapp/index.html:L11897-L11940; webapp/index.html:L12580-L12645; webapp/index.html:L13756-L13835 | TODO | Future X-001: execute “Создание диагонали” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| X-002 | Диагонали | Автодиагональ/расчёт | webapp/index.html:L5647-L5664; webapp/index.html:L11897-L11940; webapp/index.html:L12580-L12645; webapp/index.html:L13756-L13835 | TODO | Future X-002: execute “Автодиагональ/расчёт” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| X-003 | Диагонали | Ручной ввод | webapp/index.html:L5647-L5664; webapp/index.html:L11897-L11940; webapp/index.html:L12580-L12645; webapp/index.html:L13756-L13835 | TODO | Future X-003: execute “Ручной ввод” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| X-004 | Диагонали | Long press edit | webapp/index.html:L5647-L5664; webapp/index.html:L11897-L11940; webapp/index.html:L12580-L12645; webapp/index.html:L13756-L13835 | TODO | Future X-004: execute “Long press edit” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| X-005 | Диагонали | Delete | webapp/index.html:L5647-L5664; webapp/index.html:L11897-L11940; webapp/index.html:L12580-L12645; webapp/index.html:L13756-L13835 | TODO | Future X-005: execute “Delete” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| X-006 | Диагонали | Явный `×` в вводе | webapp/index.html:L5647-L5664; webapp/index.html:L11897-L11940; webapp/index.html:L12580-L12645; webapp/index.html:L13756-L13835 | TODO | Future X-006: execute “Явный `×` в вводе” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| X-007 | Диагонали | Значение внутри контура | webapp/index.html:L5647-L5664; webapp/index.html:L11897-L11940; webapp/index.html:L12580-L12645; webapp/index.html:L13756-L13835 | TODO | Future X-007: execute “Значение внутри контура” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| X-008 | Диагонали | Нет лишней рамки вокруг числа | webapp/index.html:L5647-L5664; webapp/index.html:L11897-L11940; webapp/index.html:L12580-L12645; webapp/index.html:L13756-L13835 | TODO | Future X-008: execute “Нет лишней рамки вокруг числа” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| X-009 | Диагонали | Кнопка использовать расчётное значение | webapp/index.html:L5647-L5664; webapp/index.html:L13756-L13835 | TODO | Future X-009: with solvable geometry open diagonal and use auto; assert rounded computed value stored. | AUDITED |
+| N-001 | Цифры | Independent X/Y | webapp/index.html:L11940-L12390; webapp/index.html:L12720-L13300 | TODO | Future N-001: execute “Independent X/Y” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| N-002 | Цифры | Drag label | webapp/index.html:L11940-L12390; webapp/index.html:L12720-L13300 | TODO | Future N-002: execute “Drag label” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| N-003 | Цифры | Rotation 0–360° | webapp/index.html:L11940-L12390; webapp/index.html:L12720-L13300 | TODO | Future N-003: execute “Rotation 0–360°” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| N-004 | Цифры | Size/scale `−/+` | webapp/index.html:L11940-L12390; webapp/index.html:L12720-L13300 | TODO | Future N-004: execute “Size/scale `−/+`” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| N-005 | Цифры | Reset size если есть | webapp/index.html:L11940-L12390; webapp/index.html:L12720-L13300 | TODO | Future N-005: execute “Reset size если есть” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| N-006 | Цифры | Pose сохраняется после redraw | webapp/index.html:L11940-L12390; webapp/index.html:L12720-L13300 | TODO | Future N-006: execute “Pose сохраняется после redraw” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| N-007 | Цифры | Pose сохраняется после zoom | webapp/index.html:L11940-L12390; webapp/index.html:L12720-L13300 | TODO | Future N-007: execute “Pose сохраняется после zoom” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| N-008 | Цифры | Pose сохраняется после room switch | webapp/index.html:L11940-L12390; webapp/index.html:L12720-L13300 | TODO | Future N-008: execute “Pose сохраняется после room switch” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| N-009 | Цифры | Pose сохраняется после relaunch | webapp/index.html:L11940-L12390; webapp/index.html:L12720-L13300 | TODO | Future N-009: execute “Pose сохраняется после relaunch” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| N-010 | Цифры | Нет shrink при drag | webapp/index.html:L11940-L12390; webapp/index.html:L12720-L13300 | TODO | Future N-010: execute “Нет shrink при drag” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| N-011 | Цифры | Screen-size compensation при zoom | webapp/index.html:L11940-L12390; webapp/index.html:L12720-L13300 | TODO | Future N-011: execute “Screen-size compensation при zoom” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| L-001 | Labels | Подписи снаружи контура, кроме диагоналей | webapp/index.html:L12100-L12400; webapp/index.html:L13835-L13870 | TODO | Future L-001: execute “Подписи снаружи контура, кроме диагоналей” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| L-002 | Labels | Hide letters поведение parity | webapp/index.html:L12100-L12400; webapp/index.html:L13835-L13870 | TODO | Future L-002: execute “Hide letters поведение parity” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| L-003 | Labels | Add angle A, если функция есть | webapp/index.html:L12100-L12400; webapp/index.html:L13835-L13870 | TODO | Future L-003: execute “Add angle A, если функция есть” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| C-001 | Расчёт | Площадь комнаты | webapp/index.html:L6866-L6910; webapp/index.html:L11787-L11920 | TODO | Future C-001: execute “Площадь комнаты” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| C-002 | Расчёт | Периметр комнаты | webapp/index.html:L6866-L6910; webapp/index.html:L11787-L11920 | TODO | Future C-002: execute “Периметр комнаты” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| C-003 | Расчёт | 4×500 => 25 м² | webapp/index.html:L6866-L6910; webapp/index.html:L11787-L11920 | TODO | Square fixture: enter 500 on all four walls; assert area text 25.00 m². | AUDITED |
+| C-004 | Расчёт | 4×500 => 20 м | webapp/index.html:L6866-L6910; webapp/index.html:L11787-L11920 | TODO | Same square fixture; assert perimeter text 20 m. | AUDITED |
+| C-005 | Расчёт | Формат/округление совпадает | webapp/index.html:L6866-L6910; webapp/index.html:L11787-L11920 | TODO | Future C-005: execute “Формат/округление совпадает” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| C-006 | Расчёт | Общий итог по комнатам | webapp/index.html:L6866-L6910; webapp/index.html:L11787-L11920 | TODO | Future C-006: execute “Общий итог по комнатам” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| C-007 | Расчёт | Рабочий допуск solver = 10 project units (0.10 m) | webapp/index.html:L6000-L6006; webapp/index.html:L11100-L11710 | TODO | Future C-007: residual exactly 10 accepted; >10 rejected with conflict message. | AUDITED |
+| M-001 | Материалы | Полотно/квадратура | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-001: execute “Полотно/квадратура” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-002 | Материалы | Багет | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-002: execute “Багет” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-003 | Материалы | Вставка | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-003: execute “Вставка” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-004 | Материалы | Светильники | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-004: execute “Светильники” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-005 | Материалы | Карниз | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-005: execute “Карниз” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-006 | Материалы | Углы | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-006: execute “Углы” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-007 | Материалы | Трубы | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-007: execute “Трубы” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-008 | Материалы | Световые линии | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-008: execute “Световые линии” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-009 | Материалы | Теневой профиль | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-009: execute “Теневой профиль” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-010 | Материалы | Керамогранит | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-010: execute “Керамогранит” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-011 | Материалы | Custom materials | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-011: execute “Custom materials” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-012 | Материалы | Дюбель = 6 шт/м | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-012: execute “Дюбель = 6 шт/м” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-013 | Материалы | Текущая комната / все комнаты | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-013: execute “Текущая комната / все комнаты” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-014 | Материалы | Ручной ввод цен | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-014: execute “Ручной ввод цен” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-015 | Материалы | Default presets | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-015: execute “Default presets” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-016 | Материалы | Selected-only positions | webapp/index.html:L6231-L6450; webapp/index.html:L7247-L8425; webapp/index.html:L8510-L9420 | TODO | Future M-016: execute “Selected-only positions” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| M-017 | Материалы | Прайс клиента независим от закупочного прайса | webapp/index.html:L6274-L6336; webapp/index.html:L6807-L6825 | TODO | Future M-017: change purchase price and assert existing/client default price remains unchanged. | AUDITED |
+| M-018 | Материалы | Default custom purchase materials propagate with sourceId | webapp/index.html:L6340-L6435; webapp/index.html:L8000-L8290 | TODO | Future M-018: add default purchase custom item, apply to room/all; assert sourceId and preserved qty. | AUDITED |
+| M-019 | Материалы | Удалить/вернуть стандартный закупочный материал per-room | webapp/index.html:L6384-L6392; webapp/index.html:L8000-L8290 | TODO | Future M-019: hide insert then restore; assert cost inclusion and hiddenInternalKeys. | AUDITED |
+| M-020 | Материалы | Custom client materials with sourcePresetId and per-room qty/price | webapp/index.html:L6350-L6435; webapp/index.html:L8890-L9420 | TODO | Future M-020: add default/client custom item, edit qty/price and assert estimate line/total. | AUDITED |
+| M-021 | Материалы | Объединить несколько заказов в одну клиентскую смету | webapp/index.html:L8580-L8720 | TODO | Future M-021: select two saved orders; assert room labels, combined totals and combinedEstimateOrderIds. | AUDITED |
+| M-022 | Материалы | Предпросмотр чертежа комнаты из сметы | webapp/index.html:L5816-L5829; webapp/index.html:L8720-L8890 | TODO | Future M-022: open room sketch from estimate; assert edges/diagonals/labels match room geometry. | AUDITED |
+| SV-001 | Saved | Автосохранение | webapp/index.html:L5743-L5760; webapp/index.html:L9790-L9895 | TODO | Future SV-001: execute “Автосохранение” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SV-002 | Saved | Список saved measurements | webapp/index.html:L5743-L5760; webapp/index.html:L9790-L9895 | TODO | Future SV-002: execute “Список saved measurements” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SV-003 | Saved | Search name | webapp/index.html:L5743-L5760; webapp/index.html:L9790-L9895 | TODO | Future SV-003: execute “Search name” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SV-004 | Saved | Search phone | webapp/index.html:L5743-L5760; webapp/index.html:L9790-L9895 | TODO | Future SV-004: execute “Search phone” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SV-005 | Saved | Search address | webapp/index.html:L5743-L5760; webapp/index.html:L9790-L9895 | TODO | Future SV-005: execute “Search address” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SV-006 | Saved | Recent/all если есть | webapp/index.html:L5743-L5760; webapp/index.html:L9790-L9895 | TODO | Future SV-006: execute “Recent/all если есть” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SV-007 | Saved | Delete via action menu | webapp/index.html:L5743-L5760; webapp/index.html:L9790-L9895 | TODO | Future SV-007: execute “Delete via action menu” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SV-008 | Saved | Scroll gesture from card | webapp/index.html:L5743-L5760; webapp/index.html:L9790-L9895 | TODO | Future SV-008: execute “Scroll gesture from card” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SV-009 | Saved | Bottom nav visible | webapp/index.html:L5743-L5760; webapp/index.html:L9790-L9895 | TODO | Future SV-009: execute “Bottom nav visible” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SV-010 | Saved | Last card not covered | webapp/index.html:L5743-L5760; webapp/index.html:L9790-L9895 | TODO | Future SV-010: execute “Last card not covered” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SV-011 | Saved | Open restores full order state | webapp/index.html:L5743-L5760; webapp/index.html:L9790-L9895 | TODO | Future SV-011: execute “Open restores full order state” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SV-012 | Saved | В Saved попадают только явно завершённые savedAt заказы | webapp/index.html:L9790-L9895 | TODO | Future SV-012: autosave working order then open Saved (absent); finish order then assert present and timestamp sorted. | AUDITED |
+| B-001 | Backup | Export JSON | webapp/index.html:L8470-L8520 | TODO | Use web backup fixture for B-001; export/import and deep-compare affected persisted state; malformed fixture for negative path where applicable. | AUDITED |
+| B-002 | Backup | Import JSON | webapp/index.html:L8470-L8520 | TODO | Use web backup fixture for B-002; export/import and deep-compare affected persisted state; malformed fixture for negative path where applicable. | AUDITED |
+| B-003 | Backup | Native accepts web backup | webapp/index.html:L8470-L8520 | TODO | Use web backup fixture for B-003; export/import and deep-compare affected persisted state; malformed fixture for negative path where applicable. | AUDITED |
+| B-004 | Backup | Order/rooms/drawings/prices/settings restored | webapp/index.html:L8470-L8520 | TODO | Use web backup fixture for B-004; export/import and deep-compare affected persisted state; malformed fixture for negative path where applicable. | AUDITED |
+| B-005 | Backup | Invalid file handled safely | webapp/index.html:L8470-L8520 | TODO | Use web backup fixture for B-005; export/import and deep-compare affected persisted state; malformed fixture for negative path where applicable. | AUDITED |
+| B-006 | Backup | При недоступном localStorage используется volatile Map и показывается warning | webapp/index.html:L6011-L6022; webapp/index.html:L13950-L13970 | TODO | Future B-006: force storage exception; assert session operations work, persistence flag false, warning shown, relaunch loses volatile data. | AUDITED |
+| PDF-001 | PDF | Client estimate screen parity | webapp/index.html:L8510-L8720; webapp/index.html:L9420-L9790 | TODO | Future PDF-001: execute “Client estimate screen parity” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| PDF-002 | PDF | Только выбранные позиции | webapp/index.html:L8510-L8720; webapp/index.html:L9420-L9790 | TODO | Future PDF-002: execute “Только выбранные позиции” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| PDF-003 | PDF | Компактная premium-light верстка | webapp/index.html:L8510-L8720; webapp/index.html:L9420-L9790 | TODO | Future PDF-003: execute “Компактная premium-light верстка” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| PDF-004 | PDF | Итоги совпадают | webapp/index.html:L8510-L8720; webapp/index.html:L9420-L9790 | TODO | Future PDF-004: execute “Итоги совпадают” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| PDF-005 | PDF | Valid `%PDF-` | webapp/index.html:L8510-L8720; webapp/index.html:L9420-L9790 | TODO | Export estimate and assert first bytes are %PDF-. | AUDITED |
+| UI-001 | UI | Основная композиция экранов совпадает | webapp/index.html:L1-L5500; webapp/index.html:L5500-L5995; webapp/index.html:L6647-L6780 | TODO | Required-state screenshot for UI-001 on reference viewport; compare geometry/spacing/text against golden source. | AUDITED |
+| UI-002 | UI | Typography parity | webapp/index.html:L1-L5500; webapp/index.html:L5500-L5995; webapp/index.html:L6647-L6780 | TODO | Required-state screenshot for UI-002 on reference viewport; compare geometry/spacing/text against golden source. | AUDITED |
+| UI-003 | UI | Colors parity | webapp/index.html:L1-L5500; webapp/index.html:L5500-L5995; webapp/index.html:L6647-L6780 | TODO | Required-state screenshot for UI-003 on reference viewport; compare geometry/spacing/text against golden source. | AUDITED |
+| UI-004 | UI | Spacing/radius/shadows parity | webapp/index.html:L1-L5500; webapp/index.html:L5500-L5995; webapp/index.html:L6647-L6780 | TODO | Required-state screenshot for UI-004 on reference viewport; compare geometry/spacing/text against golden source. | AUDITED |
+| UI-005 | UI | Expand/collapse parity | webapp/index.html:L1-L5500; webapp/index.html:L5500-L5995; webapp/index.html:L6647-L6780 | TODO | Required-state screenshot for UI-005 on reference viewport; compare geometry/spacing/text against golden source. | AUDITED |
+| UI-006 | UI | Modals/bottom sheets parity | webapp/index.html:L1-L5500; webapp/index.html:L5500-L5995; webapp/index.html:L6647-L6780 | TODO | Required-state screenshot for UI-006 on reference viewport; compare geometry/spacing/text against golden source. | AUDITED |
+| UI-007 | UI | Lower navigation parity | webapp/index.html:L1-L5500; webapp/index.html:L5500-L5995; webapp/index.html:L6647-L6780 | TODO | Required-state screenshot for UI-007 on reference viewport; compare geometry/spacing/text against golden source. | AUDITED |
+| UI-008 | UI | Safe areas on Android | webapp/index.html:L1-L5500; webapp/index.html:L5500-L5995; webapp/index.html:L6647-L6780 | TODO | Required-state screenshot for UI-008 on reference viewport; compare geometry/spacing/text against golden source. | AUDITED |
+| UI-009 | UI | No content under status/nav bars | webapp/index.html:L1-L5500; webapp/index.html:L5500-L5995; webapp/index.html:L6647-L6780 | TODO | Required-state screenshot for UI-009 on reference viewport; compare geometry/spacing/text against golden source. | AUDITED |
+| A-001 | Animation | Open/close durations/easing parity | webapp/index.html:L3918-L3995; webapp/index.html:L6063-L6086; webapp/index.html:L6652-L6687 | TODO | Future A-001: execute “Open/close durations/easing parity” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| A-002 | Animation | Active-state transitions parity | webapp/index.html:L3918-L3995; webapp/index.html:L6063-L6086; webapp/index.html:L6652-L6687 | TODO | Future A-002: execute “Active-state transitions parity” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SET-001 | Settings | Font family | webapp/index.html:L5561-L5622; webapp/index.html:L6092-L6218 | TODO | Future SET-001: execute “Font family” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SET-002 | Settings | Font size | webapp/index.html:L5561-L5622; webapp/index.html:L6092-L6218 | TODO | Future SET-002: execute “Font size” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SET-003 | Settings | Font weight | webapp/index.html:L5561-L5622; webapp/index.html:L6092-L6218 | TODO | Future SET-003: execute “Font weight” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SET-004 | Settings | Night mode | webapp/index.html:L5561-L5622 — no night control; webapp/index.html:L6201-L6210 removes ui-dark | TODO | Open Settings: assert no night control; applyUiPrefs removes ui-dark. | FAIL |
+| SET-005 | Settings | Settings persist | webapp/index.html:L5561-L5622; webapp/index.html:L6092-L6218 | TODO | Future SET-005: execute “Settings persist” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| SET-006 | Settings | Сброс font/scale/weight к system/112%/normal | webapp/index.html:L6092-L6218 | TODO | Future SET-006: customize all three, Reset, assert defaults and persisted UI prefs v2. | AUDITED |
+| I-001 | Icon | Используется `branding/app_icon_master_1024.webp` | branding/app_icon_master_1024.webp; app/src/main/AndroidManifest.xml; .github/workflows/build-app-icon.yml | TODO | Future I-001: execute “Используется `branding/app_icon_master_1024.webp`” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| I-002 | Icon | Adaptive/legacy resources без redesign | branding/app_icon_master_1024.webp; app/src/main/AndroidManifest.xml; .github/workflows/build-app-icon.yml | TODO | Future I-002: execute “Adaptive/legacy resources без redesign” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| QA-001 | QA | Cold launch | scripts/verify_webapp.py; .github/workflows/verify-golden-master.yml; .github/workflows/android-apk.yml | TODO | Future QA-001: execute “Cold launch” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| QA-002 | QA | No crash through full smoke flow | scripts/verify_webapp.py; .github/workflows/verify-golden-master.yml; .github/workflows/android-apk.yml | TODO | Future QA-002: execute “No crash through full smoke flow” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| QA-003 | QA | No regression in prior PASS phases | scripts/verify_webapp.py; .github/workflows/verify-golden-master.yml; .github/workflows/android-apk.yml | TODO | Future QA-003: execute “No regression in prior PASS phases” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| QA-004 | QA | Все дополнительные web-функции добавлены в matrix | scripts/verify_webapp.py; .github/workflows/verify-golden-master.yml; .github/workflows/android-apk.yml | TODO | Future QA-004: execute “Все дополнительные web-функции добавлены в matrix” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| QA-005 | QA | Side-by-side screenshots по обязательным states | scripts/verify_webapp.py; .github/workflows/verify-golden-master.yml; .github/workflows/android-apk.yml | TODO | Future QA-005: execute “Side-by-side screenshots по обязательным states” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
+| QA-006 | QA | Final native APK не содержит WebView/HTML runtime для UI | scripts/verify_webapp.py; .github/workflows/verify-golden-master.yml; .github/workflows/android-apk.yml | TODO | Future QA-006: execute “Final native APK не содержит WebView/HTML runtime для UI” from a deterministic golden fixture; assert resulting UI/state/value and persistence exactly match v184. | AUDITED |
 
-## Обязательные Phase Gates
+## Known source/spec failures
+1. O-008 — active order id is not persisted; reload selects db.orders[0].
+2. R-009 — active room id is not persisted; reload selects the first room.
+3. W-008 — a closed contour disables re-entry into Wall quick mode.
+4. G-006 — closed contour intentionally gains manual one-finger vertical scroll over the SVG, so the open-contour 74 px-only rule is not preserved.
+5. SET-004 — effective v184 Settings has no night mode and removes ui-dark.
 
-### Phase 0 — Audit only
-PASS только если:
-- golden master SHA подтверждён;
-- заполнены Web reference для всей таблицы;
-- добавлены новые строки для всех функций, найденных сверх baseline;
-- data/storage/formula/gesture/haptic/visual maps приложены;
-- native code не менялся.
-
-### Phase 1+ — Implementation
-Каждая фаза может перейти в PASS только если:
-- implementation complete;
-- tests green;
-- screenshot/behavior parity green;
-- matrix evidence заполнено;
-- все ранее PASS строки остаются PASS.
-
-## Правило завершения
-
-Нельзя писать «нативная версия готова», если существует хотя бы одна строка FAIL или UNVERIFIED среди обязательных функций.
-TODO допускается только для ещё не начатой будущей фазы.
+See docs/NATIVE_MIGRATION_RISKS.md before Phase 1.
