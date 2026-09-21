@@ -5938,7 +5938,7 @@ const fmtM2=rawArea=>Number.isFinite(+rawArea)?(+rawArea/10000).toLocaleString("
 
 const APP_STORAGE_KEY="ceilingMeasureData";
 const APP_SCHEMA_VERSION=165;
-const APP_BUILD_VERSION="180-android-back";
+const APP_BUILD_VERSION="181-closed-contour-scroll";
 const LEGACY_STORAGE_KEYS=[...Array.from({length:111},(_,i)=>`ceilingTouchV${125-i}`)];
 const volatileStorage=new Map();
 let storagePersistent=true;
@@ -8236,7 +8236,7 @@ function renderRoom(){
 
     <div class="editor">
       <div class="canvas-wrap">
-        <svg id="drawSvg" class="${mode==="draw"?"wall-draw-mode":""}" viewBox="0 0 760 560">${svgScene(r)}</svg>
+        <svg id="drawSvg" class="${mode==="draw"?(cycleOrder(r)?"wall-draw-mode closed-contour-scroll":"wall-draw-mode"):""}" viewBox="0 0 760 560">${svgScene(r)}</svg>
         ${mode==="draw"?`<div class="wall-scroll-strip no-print" aria-label="Зона прокрутки страницы"></div>`:""}
         <div class="draw-magnifier no-print" id="drawMagnifier" aria-hidden="true">
           <svg id="drawMagnifierSvg" viewBox="0 0 180 108" aria-hidden="true"></svg>
@@ -12623,12 +12623,10 @@ function bindSvg(){
     const drawGuard=!!svgData(e.target,"data-draw-guard",svg);
     const wallScrollZone=!!svgData(e.target,"data-wall-scroll-zone",svg);
     const directInteractive=!!(directVid||directEidRaw||directDidRaw||labelId||rotateId||sizeId);
-    // v171: in Wall mode page scrolling is allowed ONLY from the dedicated
-    // strip on the far right. Blank canvas everywhere else stays drawing territory.
-    // v172: Wall-mode page scrolling is handled only by the HTML .wall-scroll-strip
-    // layered over the far-right side of the canvas. The SVG never delegates
-    // a one-finger gesture to native page scrolling.
-    const nativePageScroll=false;
+    // Open contour: preserve the current drawing contract exactly.
+    // Closed contour in Wall mode: one-finger vertical swipes anywhere on the
+    // drawing belong to the page, so the user can scroll up/down naturally.
+    const nativePageScroll=closedAtDown&&mode==="draw";
 
     if(!nativePageScroll){
       e.preventDefault();
@@ -13918,6 +13916,17 @@ html body .canvas-wrap > #drawSvg.wall-draw-mode *{
   touch-action:none!important;
   -ms-touch-action:none!important;
 }
+/* Once the contour is closed, the whole drawing becomes a vertical page-scroll
+   surface in Wall mode. Taps still work; a vertical move is handed to the browser. */
+html body .canvas-wrap > #drawSvg.wall-draw-mode.closed-contour-scroll{
+  touch-action:pan-y!important;
+  overscroll-behavior-y:auto!important;
+  -ms-touch-action:pan-y!important;
+}
+html body .canvas-wrap > #drawSvg.wall-draw-mode.closed-contour-scroll *{
+  touch-action:pan-y!important;
+  -ms-touch-action:pan-y!important;
+}
 html body .canvas-wrap > .wall-scroll-strip{
   position:absolute!important;
   top:0!important;
@@ -13956,9 +13965,10 @@ html body .canvas-wrap > .draw-magnifier{
 
   const isWallSvg=t=>!!t?.closest?.('#drawSvg.wall-draw-mode');
   const isRightStrip=t=>!!t?.closest?.('.wall-scroll-strip');
+  const isClosedContourScroll=t=>!!t?.closest?.('#drawSvg.closed-contour-scroll');
 
   function lockFromTarget(target,id){
-    if(!isWallSvg(target) || isRightStrip(target))return false;
+    if(!isWallSvg(target) || isRightStrip(target) || isClosedContourScroll(target))return false;
     locked=true;
     pointerId=id ?? null;
     lockedTop=scroller.scrollTop;
@@ -13985,7 +13995,7 @@ html body .canvas-wrap > .draw-magnifier{
 
   // Direct touch cancellation is a second layer for Android/WebView variants.
   document.addEventListener('touchstart',e=>{
-    if(isWallSvg(e.target) && !isRightStrip(e.target)){
+    if(isWallSvg(e.target) && !isRightStrip(e.target) && !isClosedContourScroll(e.target)){
       locked=true;
       lockedTop=scroller.scrollTop;
     }else{
