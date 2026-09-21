@@ -13,8 +13,10 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -22,6 +24,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 public final class NativeHomeActivity extends ComponentActivity {
     private static final int BG = Color.rgb(244, 247, 249);
+    private long lastBackAtMs = 0L;
     private static final int TEXT = Color.rgb(35, 56, 72);
     private static final int MUTED = Color.rgb(116, 136, 151);
     private static final int BLUE = Color.rgb(47, 143, 190);
@@ -31,6 +34,25 @@ public final class NativeHomeActivity extends ComponentActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(createContent());
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                long now = android.os.SystemClock.elapsedRealtime();
+                if (now - lastBackAtMs <= 1500L) {
+                    lastBackAtMs = 0L;
+                    moveTaskToBack(true);
+                    return;
+                }
+
+                lastBackAtMs = now;
+                Toast.makeText(
+                        NativeHomeActivity.this,
+                        "Ещё раз назад — свернуть приложение",
+                        Toast.LENGTH_SHORT
+                ).show();
+            }
+        });
     }
 
     private View createContent() {
