@@ -185,7 +185,7 @@ final class NativeLabelEngine {
                     y,
                     width,
                     height,
-                    20f,
+                    15.5f,
                     NativeProjectStore.normalizeAngle(diagonal.labelAngle),
                     size));
         }
@@ -287,12 +287,12 @@ final class NativeLabelEngine {
         }
 
         float screenLengthDp = length * scale / Math.max(.1f, worldPerDp * scale);
-        float fontDp = screenLengthDp < 28f ? 19f : (screenLengthDp < 55f ? 21f : 24f);
+        float fontDp = screenLengthDp < 28f ? 14.5f : (screenLengthDp < 55f ? 16f : 17.5f);
         int chars = Math.max(1, text.length());
-        float width = Math.max(26f * worldPerDp, chars * fontDp * .62f * worldPerDp + 8f * worldPerDp);
-        float height = (fontDp + 12f) * worldPerDp;
+        float width = Math.max(22f * worldPerDp, chars * fontDp * .60f * worldPerDp + 7f * worldPerDp);
+        float height = (fontDp + 9f) * worldPerDp;
 
-        float baseOffsetDp = screenLengthDp < 28f ? 48f : (screenLengthDp < 55f ? 40f : 30f);
+        float baseOffsetDp = screenLengthDp < 28f ? 40f : (screenLengthDp < 55f ? 34f : 27f);
         float[] outwardDp = new float[]{
                 baseOffsetDp,
                 baseOffsetDp + 12f,
@@ -358,8 +358,8 @@ final class NativeLabelEngine {
         float nx = -dy / length;
         float ny = dx / length;
 
-        float width = Math.max(88f * worldPerDp, text.length() * 14.5f * worldPerDp);
-        float height = 38f * worldPerDp;
+        float width = Math.max(70f * worldPerDp, text.length() * 11.4f * worldPerDp);
+        float height = 30f * worldPerDp;
         Float fan = fanPreferredT(room, diagonal);
         float preferred = fan != null
                 ? fan
@@ -411,7 +411,7 @@ final class NativeLabelEngine {
                 penalty += (Math.abs(side) - 1f) * 4f;
 
                 if (best == null || penalty < best.penalty) {
-                    best = new WallCandidate(x, y, box, 20f, penalty);
+                    best = new WallCandidate(x, y, box, 15.5f, penalty);
                 }
                 if (penalty < .01f) return best;
             }
