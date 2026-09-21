@@ -108,6 +108,7 @@ final class NativeProjectStore {
         String phone = "";
         String address = "";
         long updatedAt = System.currentTimeMillis();
+        long savedAt = 0L;
         int activeRoom = 0;
         final ArrayList<RoomData> rooms = new ArrayList<>();
     }
@@ -154,6 +155,7 @@ final class NativeProjectStore {
     }
 
     void saveSnapshot(@NonNull ProjectData project) {
+        project.savedAt = System.currentTimeMillis();
         List<ProjectData> saved = loadSaved();
         ArrayList<ProjectData> next = new ArrayList<>();
         next.add(cloneProject(project));
@@ -165,6 +167,179 @@ final class NativeProjectStore {
         for (ProjectData p : next) arr.put(projectToJson(p));
         prefs.edit().putString(KEY_SAVED, arr.toString()).apply();
         saveCurrent(project);
+    }
+
+    void deleteSaved(@NonNull String id) {
+        List<ProjectData> saved = loadSaved();
+        JSONArray arr = new JSONArray();
+        for (ProjectData p : saved) {
+            if (!id.equals(p.id)) arr.put(projectToJson(p));
+        }
+        prefs.edit().putString(KEY_SAVED, arr.toString()).apply();
+    }
+
+    String exportBackup() {
+        JSONObject payload = new JSONObject();
+        try {
+            payload.put("app", "ceilingMeasure");
+            payload.put("version", 184);
+            payload.put("exportedAt", System.currentTimeMillis());
+
+            String current = prefs.getString(KEY_CURRENT, null);
+            payload.put("current", current == null ? JSONObject.NULL : new JSONObject(current));
+
+            JSONArray saved = new JSONArray(prefs.getString(KEY_SAVED, "[]"));
+            payload.put("saved", saved);
+        } catch (Exception ignored) {
+        }
+        return payload.toString();
+    }
+
+    boolean importBackup(String raw) {
+        try {
+            JSONObject payload = new JSONObject(raw);
+            JSONArray saved = payload.optJSONArray("saved");
+            JSONObject current = payload.optJSONObject("current");
+
+            // Native backup format.
+            if (saved != null) {
+                for (int i = 0; i < saved.length(); i++) {
+                    projectFromJson(saved.getJSONObject(i));
+                }
+                SharedPreferences.Editor editor = prefs.edit()
+                        .putString(KEY_SAVED, saved.toString());
+                if (current != null) {
+                    projectFromJson(current);
+                    editor.putString(KEY_CURRENT, current.toString());
+                } else if (saved.length() > 0) {
+                    editor.putString(KEY_CURRENT, saved.getJSONObject(0).toString());
+                }
+                editor.apply();
+                return true;
+            }
+
+            // Accept the web backup envelope when its orders already use a
+            // compatible graph format. Unsupported room fields are ignored.
+            JSONObject db = payload.optJSONObject("db");
+            if (db == null) db = payload;
+            JSONArray orders = db.optJSONArray("orders");
+            if (orders == null) return false;
+
+            JSONArray converted = new JSONArray();
+            for (int i = 0; i < orders.length(); i++) {
+                JSONObject web = orders.getJSONObject(i);
+                JSONObject nativeProject = new JSONObject();
+                nativeProject.put("geometryVersion", 3);
+                nativeProject.put("id", web.optString("id", newId("project")));
+                nativeProject.put("name", web.optString("name", ""));
+                nativeProject.put("phone", web.optString("phone", ""));
+                nativeProject.put("address", web.optString("address", ""));
+                nativeProject.put("updatedAt", System.currentTimeMillis());
+
+                long savedAt = System.currentTimeMillis();
+                String savedText = web.optString("savedAt", "");
+                if (!savedText.isEmpty()) {
+                    try {
+                        savedAt = java.time.Instant.parse(savedText).toEpochMilli();
+                    } catch (Exception ignored) {
+                    }
+                }
+                nativeProject.put("savedAt", savedAt);
+                nativeProject.put("activeRoom", 0);
+
+                JSONArray rooms = web.optJSONArray("rooms");
+                JSONArray nativeRooms = new JSONArray();
+                if (rooms != null) {
+                    for (int j = 0; j < rooms.length(); j++) {
+                        JSONObject wr = rooms.getJSONObject(j);
+                        JSONObject nr = new JSONObject();
+                        nr.put("geometryVersion", 3);
+                        nr.put("id", wr.optString("id", newId("room")));
+                        nr.put("name", wr.optString("name", "Комната " + (j + 1)));
+                        nr.put("point90Magnet", wr.optBoolean("point90Magnet", true));
+                        nr.put("wallAngleMagnet", true);
+                        nr.put("showAutoLetters", wr.optBoolean("showAutoLetters", false));
+                        nr.put("geometryLocked", wr.optBoolean("geometryLocked", false));
+                        nr.put("hintCollapsed", wr.optBoolean("hintCollapsed", true));
+
+                        JSONObject view = wr.optJSONObject("view");
+                        nr.put("viewScale", view == null ? 1d : view.optDouble("scale", 1d));
+                        nr.put("panX", view == null ? 0d : view.optDouble("panX", 0d));
+                        nr.put("panY", view == null ? 0d : view.optDouble("panY", 0d));
+
+                        JSONArray points = wr.optJSONArray("points");
+                        nr.put("points", points == null ? new JSONArray() : points);
+
+                        JSONArray edges = new JSONArray();
+                        JSONArray webEdges = wr.optJSONArray("edges");
+                        if (webEdges != null) {
+                            for (int k = 0; k < webEdges.length(); k++) {
+                                JSONObject we = webEdges.getJSONObject(k);
+                                JSONObject ne = new JSONObject();
+                                ne.put("id", we.optString("id", newId("e")));
+                                ne.put("a", we.optString("a", ""));
+                                ne.put("b", we.optString("b", ""));
+                                ne.put("value", parseWebMeasurement(we.opt("mm")));
+                                JSONObject lp = we.optJSONObject("labelPose");
+                                if (lp != null) {
+                                    ne.put("labelAngle", lp.optDouble("angle", 0));
+                                    ne.put("labelSize", lp.optDouble("size", 1));
+                                    ne.put("labelManual", lp.optBoolean("manual", false));
+                                }
+                                edges.put(ne);
+                            }
+                        }
+                        nr.put("edges", edges);
+
+                        JSONArray diagonals = new JSONArray();
+                        JSONArray webDiags = wr.optJSONArray("diagList");
+                        if (webDiags != null) {
+                            for (int k = 0; k < webDiags.length(); k++) {
+                                JSONObject wd = webDiags.getJSONObject(k);
+                                JSONObject nd = new JSONObject();
+                                nd.put("id", wd.optString("id", newId("d")));
+                                nd.put("a", wd.optString("a", ""));
+                                nd.put("b", wd.optString("b", ""));
+                                nd.put("value", parseWebMeasurement(wd.opt("mm")));
+                                JSONObject lp = wd.optJSONObject("labelPose");
+                                if (lp != null) {
+                                    nd.put("labelAngle", lp.optDouble("angle", 0));
+                                    nd.put("labelSize", lp.optDouble("size", 1));
+                                    nd.put("labelManual", lp.optBoolean("manual", false));
+                                }
+                                diagonals.put(nd);
+                            }
+                        }
+                        nr.put("diagonals", diagonals);
+                        nativeRooms.put(nr);
+                    }
+                }
+                nativeProject.put("rooms", nativeRooms);
+                projectFromJson(nativeProject);
+                converted.put(nativeProject);
+            }
+
+            SharedPreferences.Editor editor = prefs.edit()
+                    .putString(KEY_SAVED, converted.toString());
+            if (converted.length() > 0) {
+                editor.putString(KEY_CURRENT, converted.getJSONObject(0).toString());
+            }
+            editor.apply();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static float parseWebMeasurement(Object value) {
+        if (value == null || value == JSONObject.NULL) return 0f;
+        try {
+            String raw = String.valueOf(value).trim().replace(',', '.');
+            if (raw.isEmpty()) return 0f;
+            return Math.max(0f, Float.parseFloat(raw));
+        } catch (Exception ignored) {
+            return 0f;
+        }
     }
 
     private ProjectData cloneProject(ProjectData p) {
@@ -184,6 +359,7 @@ final class NativeProjectStore {
             o.put("phone", p.phone);
             o.put("address", p.address);
             o.put("updatedAt", p.updatedAt);
+            o.put("savedAt", p.savedAt);
             o.put("activeRoom", p.activeRoom);
             JSONArray rooms = new JSONArray();
             for (RoomData r : p.rooms) rooms.put(roomToJson(r));
@@ -261,6 +437,7 @@ final class NativeProjectStore {
         p.phone = o.optString("phone", "");
         p.address = o.optString("address", "");
         p.updatedAt = o.optLong("updatedAt", System.currentTimeMillis());
+        p.savedAt = o.optLong("savedAt", p.updatedAt);
         p.activeRoom = o.optInt("activeRoom", 0);
         p.rooms.clear();
         JSONArray rooms = o.optJSONArray("rooms");

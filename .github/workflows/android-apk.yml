@@ -73,6 +73,8 @@ jobs:
           grep -q 'native_history_nav' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeWorkspaceActivity.java
           grep -q 'class NativeRoomPickerDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeRoomPickerDialog.java
           grep -q 'class NativeUiPrefs' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeUiPrefs.java
+          grep -q 'exportBackup' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeProjectStore.java
+          grep -q 'native_saved_search' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeWorkspaceActivity.java
           grep -q 'class NativeWallMeasureDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeWallMeasureDialog.java
           grep -q 'class NativeDiagonalMeasureDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeDiagonalMeasureDialog.java
           grep -q 'autoDiagonalValue' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMeasurementSolver.java

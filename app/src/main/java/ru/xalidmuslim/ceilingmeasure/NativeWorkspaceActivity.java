@@ -1,6 +1,10 @@
 package ru.xalidmuslim.ceilingmeasure;
 
 import android.content.Intent;
+import android.text.TextWatcher;
+import android.text.Editable;
+import android.net.Uri;
+import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -26,6 +30,11 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.text.DateFormat;
 import java.util.ArrayDeque;
 import java.util.Date;
@@ -38,6 +47,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     public static final String ACTION_SAVED_MEASUREMENTS = "saved_measurements";
     public static final String ACTION_DRAWING = "drawing";
     public static final String ACTION_SETTINGS = "settings";
+    private static final int REQUEST_EXPORT_BACKUP = 7201;
+    private static final int REQUEST_IMPORT_BACKUP = 7202;
 
     private static final int BG = Color.rgb(244,247,249);
     private static final int PANEL = Color.WHITE;
@@ -1327,32 +1338,251 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void showSavedMeasurements(){
         ScrollView scroll=new ScrollView(this);
+        scroll.setFillViewport(true);
         scroll.setBackgroundColor(BG);
+
         LinearLayout content=new LinearLayout(this);
+        content.setTag("native_saved_panel");
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(12),dp(10),dp(12),dp(24));
-        scroll.addView(content);
-        content.addView(topBar("Замеры"));
-        List<NativeProjectStore.ProjectData> saved=store.loadSaved();
-        if(saved.isEmpty()){
-            TextView empty=text("Сохранённых замеров пока нет",15,MUTED,Typeface.NORMAL);
+        scroll.addView(content,new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        content.addView(topBar("Сохранённые замеры"));
+
+        EditText search=new EditText(this);
+        search.setTag("native_saved_search");
+        search.setHint("Имя, телефон или адрес");
+        search.setSingleLine(true);
+        search.setTextSize(uiPrefs.textSize(13));
+        search.setTypeface(uiPrefs.typeface(false));
+        search.setTextColor(TEXT);
+        search.setHintTextColor(MUTED);
+        search.setBackground(rounded(Color.WHITE,LINE,11,1));
+        search.setPadding(dp(12),0,dp(12),0);
+        content.addView(search,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(46)));
+
+        LinearLayout filters=new LinearLayout(this);
+        filters.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(42));
+        fp.topMargin=dp(8);
+        content.addView(filters,fp);
+
+        Button recent=button("Последние",true);
+        recent.setTag("native_saved_recent");
+        Button all=button("Все",false);
+        all.setTag("native_saved_all");
+        filters.addView(recent,weightParams());
+        filters.addView(all,weightParams());
+
+        LinearLayout backup=new LinearLayout(this);
+        backup.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(44));
+        bp.topMargin=dp(8);
+        content.addView(backup,bp);
+
+        Button export=button("Экспорт всех замеров",false);
+        export.setTag("native_backup_export");
+        export.setTextSize(uiPrefs.textSize(10));
+        export.setOnClickListener(v->beginBackupExport());
+        Button restore=button("Восстановить из файла",false);
+        restore.setTag("native_backup_import");
+        restore.setTextSize(uiPrefs.textSize(10));
+        restore.setOnClickListener(v->beginBackupImport());
+        backup.addView(export,weightParams());
+        backup.addView(restore,weightParams());
+
+        LinearLayout list=new LinearLayout(this);
+        list.setTag("native_saved_list");
+        list.setOrientation(LinearLayout.VERTICAL);
+        content.addView(list,marginParams(0,8));
+
+        final boolean[] recentMode={true};
+        Runnable render=()->renderSavedList(list,search.getText().toString(),recentMode[0]);
+
+        recent.setOnClickListener(v->{
+            recentMode[0]=true;
+            styleMode(recent,true);
+            styleMode(all,false);
+            render.run();
+        });
+        all.setOnClickListener(v->{
+            recentMode[0]=false;
+            styleMode(recent,false);
+            styleMode(all,true);
+            render.run();
+        });
+
+        search.addTextChangedListener(new TextWatcher(){
+            @Override public void beforeTextChanged(CharSequence s,int start,int count,int after){}
+            @Override public void onTextChanged(CharSequence s,int start,int before,int count){render.run();}
+            @Override public void afterTextChanged(Editable e){}
+        });
+
+        render.run();
+        setContentView(scroll);
+    }
+
+    private void renderSavedList(
+            LinearLayout list,
+            String query,
+            boolean recentMode){
+        list.removeAllViews();
+        String q=query==null?"":query.trim().toLowerCase(Locale.ROOT);
+        List<NativeProjectStore.ProjectData> saved=new java.util.ArrayList<>(store.loadSaved());
+        saved.sort((a,b)->Long.compare(b.savedAt,b.savedAt==a.savedAt?b.updatedAt:a.savedAt));
+        // Correct deterministic descending save order.
+        saved.sort((a,b)->Long.compare(
+                b.savedAt>0?b.savedAt:b.updatedAt,
+                a.savedAt>0?a.savedAt:a.updatedAt));
+
+        java.util.ArrayList<NativeProjectStore.ProjectData> visible=new java.util.ArrayList<>();
+        for(NativeProjectStore.ProjectData p:saved){
+            StringBuilder hay=new StringBuilder()
+                    .append(p.name).append(' ')
+                    .append(p.phone).append(' ')
+                    .append(p.address);
+            for(NativeProjectStore.RoomData room:p.rooms)hay.append(' ').append(room.name);
+            if(!q.isEmpty()&&!hay.toString().toLowerCase(Locale.ROOT).contains(q))continue;
+            visible.add(p);
+            if(q.isEmpty()&&recentMode&&visible.size()>=12)break;
+        }
+
+        if(visible.isEmpty()){
+            TextView empty=text(
+                    q.isEmpty()
+                            ?"Сохранённых замеров пока нет.\nЗаверши замер кнопкой «Завершить замер»."
+                            :"Ничего не найдено.",
+                    13,
+                    MUTED,
+                    Typeface.NORMAL);
             empty.setGravity(Gravity.CENTER);
-            content.addView(empty,marginParams(0,24));
-        }else{
-            DateFormat df=DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT);
-            for(NativeProjectStore.ProjectData p:saved){
-                Button b=button((p.name.isEmpty()?"Без имени":p.name)+"\n"+df.format(new Date(p.updatedAt)),false);
-                b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
-                b.setMinHeight(dp(68));
-                b.setOnClickListener(v->{
-                    project=p;
-                    store.saveCurrent(project);
-                    showEditor(false);
-                });
-                content.addView(b,marginParams(0,8));
+            empty.setPadding(dp(10),dp(28),dp(10),dp(28));
+            list.addView(empty);
+            return;
+        }
+
+        SimpleDateFormat df=new SimpleDateFormat("dd.MM HH:mm",Locale.getDefault());
+        for(NativeProjectStore.ProjectData p:visible){
+            LinearLayout row=card();
+            row.setTag("native_saved_item_"+p.id);
+            row.setClickable(true);
+            row.setOnClickListener(v->{
+                project=p;
+                store.saveCurrent(project);
+                showEditor(false);
+            });
+            row.setOnLongClickListener(v->{
+                showSavedAction(p);
+                return true;
+            });
+
+            TextView title=text(
+                    p.name==null||p.name.trim().isEmpty()?"Без имени":p.name.trim(),
+                    15,TEXT,Typeface.BOLD);
+            row.addView(title);
+
+            String address=p.address==null||p.address.trim().isEmpty()
+                    ?"Адрес не указан"
+                    :p.address.trim();
+            row.addView(text(
+                    address+" · комнат: "+p.rooms.size(),
+                    11,MUTED,Typeface.NORMAL),
+                    marginParams(0,3));
+
+            long when=p.savedAt>0?p.savedAt:p.updatedAt;
+            row.addView(text(
+                    "Завершено: "+df.format(new Date(when)),
+                    11,MUTED,Typeface.NORMAL),
+                    marginParams(0,2));
+
+            list.addView(row,marginParams(0,7));
+        }
+    }
+
+    private void showSavedAction(NativeProjectStore.ProjectData saved){
+        new AlertDialog.Builder(this)
+                .setTitle("Замер")
+                .setMessage(saved.name==null||saved.name.isEmpty()?"Заказчик":saved.name)
+                .setNegativeButton("Закрыть",null)
+                .setPositiveButton("Удалить",(d,w)->new AlertDialog.Builder(this)
+                        .setTitle("Удалить замер?")
+                        .setMessage("Будут удалены этот заказ, его комнаты и чертежи.")
+                        .setNegativeButton("Отмена",null)
+                        .setPositiveButton("Удалить",(dd,ww)->{
+                            store.deleteSaved(saved.id);
+                            if(project!=null&&saved.id.equals(project.id)){
+                                project=store.newProject();
+                            }
+                            showSavedMeasurements();
+                        }).show())
+                .show();
+    }
+
+    private void beginBackupExport(){
+        Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE,
+                "zamery_backup_"+
+                        new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date())+
+                        ".json");
+        startActivityForResult(intent,REQUEST_EXPORT_BACKUP);
+    }
+
+    private void beginBackupImport(){
+        Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.setType("application/json");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        startActivityForResult(intent,REQUEST_IMPORT_BACKUP);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode,int resultCode,@Nullable Intent data){
+        super.onActivityResult(requestCode,resultCode,data);
+        if(resultCode!=Activity.RESULT_OK||data==null||data.getData()==null)return;
+        Uri uri=data.getData();
+
+        if(requestCode==REQUEST_EXPORT_BACKUP){
+            try(OutputStream out=getContentResolver().openOutputStream(uri)){
+                if(out==null)throw new IllegalStateException("stream");
+                out.write(store.exportBackup().getBytes(StandardCharsets.UTF_8));
+                out.flush();
+                Toast.makeText(this,"Резервная копия создана",Toast.LENGTH_SHORT).show();
+            }catch(Exception e){
+                Toast.makeText(this,"Не удалось сохранить файл",Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
+
+        if(requestCode==REQUEST_IMPORT_BACKUP){
+            try(InputStream in=getContentResolver().openInputStream(uri);
+                ByteArrayOutputStream out=new ByteArrayOutputStream()){
+                if(in==null)throw new IllegalStateException("stream");
+                byte[] buffer=new byte[8192];
+                int n;
+                while((n=in.read(buffer))>0)out.write(buffer,0,n);
+                String raw=out.toString(StandardCharsets.UTF_8.name());
+                new AlertDialog.Builder(this)
+                        .setTitle("Восстановить замеры?")
+                        .setMessage("Текущие данные приложения будут заменены данными из выбранной резервной копии.")
+                        .setNegativeButton("Отмена",null)
+                        .setPositiveButton("Восстановить",(d,w)->{
+                            if(store.importBackup(raw)){
+                                project=store.loadCurrent();
+                                showSavedMeasurements();
+                                Toast.makeText(this,"Резервная копия восстановлена",Toast.LENGTH_SHORT).show();
+                            }else{
+                                Toast.makeText(this,"Не удалось прочитать резервную копию",Toast.LENGTH_SHORT).show();
+                            }
+                        }).show();
+            }catch(Exception e){
+                Toast.makeText(this,"Не удалось прочитать резервную копию",Toast.LENGTH_SHORT).show();
             }
         }
-        setContentView(scroll);
     }
 
     private void showNativeSettings(){

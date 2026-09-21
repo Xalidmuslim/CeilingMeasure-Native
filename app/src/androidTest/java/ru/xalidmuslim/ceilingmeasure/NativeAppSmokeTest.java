@@ -407,6 +407,31 @@ public class NativeAppSmokeTest {
     }
 
     @Test
+    public void savedBackupRoundTripPreservesCompletedMeasurements() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        context.getSharedPreferences("native_ceiling_projects", Context.MODE_PRIVATE)
+                .edit().clear().commit();
+
+        NativeProjectStore store = new NativeProjectStore(context);
+        NativeProjectStore.ProjectData project = store.newProject();
+        project.name = "Квартира 189";
+        project.address = "Тестовый адрес";
+        store.saveSnapshot(project);
+
+        String backup = store.exportBackup();
+        assertTrue(backup.contains("Квартира 189"));
+
+        context.getSharedPreferences("native_ceiling_projects", Context.MODE_PRIVATE)
+                .edit().clear().commit();
+        NativeProjectStore restoredStore = new NativeProjectStore(context);
+        assertTrue(restoredStore.importBackup(backup));
+        List<NativeProjectStore.ProjectData> saved = restoredStore.loadSaved();
+        assertEquals(1, saved.size());
+        assertEquals("Квартира 189", saved.get(0).name);
+        assertTrue(saved.get(0).savedAt > 0);
+    }
+
+    @Test
     public void roomSnapshotPreservesWebParityFlags() {
         NativeProjectStore.RoomData room = measuredSquare(500f);
         room.geometryLocked = true;
