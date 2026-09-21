@@ -22,6 +22,12 @@ final class NativeProjectStore {
     private static final String PREFS = "native_ceiling_projects";
     private static final String KEY_CURRENT = "current_project";
     private static final String KEY_SAVED = "saved_projects";
+    private static final String KEY_DEFAULT_PURCHASE = "default_purchase_pricing";
+    private static final String KEY_DEFAULT_CLIENT = "default_client_pricing";
+    private static final String KEY_DEFAULT_PURCHASE_CUSTOM = "default_purchase_custom";
+    private static final String KEY_DEFAULT_CLIENT_CUSTOM = "default_client_custom";
+    private static final String KEY_HIDDEN_DEFAULT_PURCHASE = "hidden_default_purchase";
+    private static final String KEY_HIDDEN_DEFAULT_CLIENT = "hidden_default_client";
 
     static String newId(String prefix) {
         return prefix + "_" + UUID.randomUUID().toString();
@@ -90,6 +96,26 @@ final class NativeProjectStore {
         }
     }
 
+    static final class MaterialData {
+        String id = newId("mat");
+        String sourceId;
+        String name = "Материал";
+        String unit = "шт";
+        float qty;
+        float price;
+
+        MaterialData copy() {
+            MaterialData m = new MaterialData();
+            m.id = id;
+            m.sourceId = sourceId;
+            m.name = name;
+            m.unit = unit;
+            m.qty = qty;
+            m.price = price;
+            return m;
+        }
+    }
+
     static final class RoomData {
         String id = newId("room");
         String name = "Комната 1";
@@ -103,6 +129,8 @@ final class NativeProjectStore {
         final HashMap<String, Float> clientEstimateQty = new HashMap<>();
         final HashSet<String> clientEstimateOverride = new HashSet<>();
         final HashSet<String> hiddenInternalKeys = new HashSet<>();
+        final ArrayList<MaterialData> customItems = new ArrayList<>();
+        final ArrayList<MaterialData> clientCustomItems = new ArrayList<>();
         boolean point90Magnet = true;
         boolean wallAngleMagnet = true;
         boolean showAutoLetters = false;
@@ -155,6 +183,7 @@ final class NativeProjectStore {
         long updatedAt = System.currentTimeMillis();
         long savedAt = 0L;
         int activeRoom = 0;
+        final ArrayList<String> combinedEstimateOrderIds = new ArrayList<>();
         final ArrayList<RoomData> rooms = new ArrayList<>();
     }
 
@@ -166,9 +195,33 @@ final class NativeProjectStore {
 
     ProjectData newProject() {
         ProjectData p = new ProjectData();
-        p.rooms.add(new RoomData());
+        p.rooms.add(createRoom("Комната 1"));
         saveCurrent(p);
         return p;
+    }
+
+    RoomData createRoom(@NonNull String name) {
+        RoomData room = new RoomData();
+        room.name = name;
+        applyDefaultsToRoom(room, false);
+        applyDefaultsToRoom(room, true);
+        room.customItems.clear();
+        for (MaterialData preset : loadDefaultCustom(false)) {
+            MaterialData item = preset.copy();
+            item.id = newId("mat");
+            item.sourceId = preset.id;
+            item.qty = 0f;
+            room.customItems.add(item);
+        }
+        room.clientCustomItems.clear();
+        for (MaterialData preset : loadDefaultCustom(true)) {
+            MaterialData item = preset.copy();
+            item.id = newId("mat");
+            item.sourceId = preset.id;
+            item.qty = 0f;
+            room.clientCustomItems.add(item);
+        }
+        return room;
     }
 
     ProjectData loadCurrent() {
@@ -197,6 +250,145 @@ final class NativeProjectStore {
         } catch (Exception ignored) {
         }
         return result;
+    }
+
+    HashMap<String, Float> loadDefaultPricing(boolean client) {
+        String key = client ? KEY_DEFAULT_CLIENT : KEY_DEFAULT_PURCHASE;
+        HashMap<String, Float> result = new HashMap<>();
+        String[] keys = client ? CLIENT_PRICE_KEYS : INTERNAL_PRICE_KEYS;
+        for (String item : keys) result.put(item, 0f);
+        try {
+            JSONObject o = new JSONObject(prefs.getString(key, "{}"));
+            readFloatMap(o, result);
+        } catch (Exception ignored) {
+        }
+        return result;
+    }
+
+    void saveDefaultPrice(boolean client, @NonNull String key, float value) {
+        HashMap<String, Float> pricing = loadDefaultPricing(client);
+        pricing.put(key, Math.max(0f, value));
+        prefs.edit().putString(
+                client ? KEY_DEFAULT_CLIENT : KEY_DEFAULT_PURCHASE,
+                floatMapToJson(pricing).toString()).apply();
+    }
+
+    HashSet<String> loadHiddenDefaultKeys(boolean client) {
+        HashSet<String> result = new HashSet<>();
+        String raw = prefs.getString(
+                client ? KEY_HIDDEN_DEFAULT_CLIENT : KEY_HIDDEN_DEFAULT_PURCHASE,
+                "[]");
+        try {
+            readStringSet(new JSONArray(raw), result);
+        } catch (Exception ignored) {
+        }
+        return result;
+    }
+
+    void setDefaultKeyHidden(boolean client, @NonNull String key, boolean hidden) {
+        HashSet<String> values = loadHiddenDefaultKeys(client);
+        if (hidden) values.add(key); else values.remove(key);
+        prefs.edit().putString(
+                client ? KEY_HIDDEN_DEFAULT_CLIENT : KEY_HIDDEN_DEFAULT_PURCHASE,
+                stringSetToJson(values).toString()).apply();
+    }
+
+    ArrayList<MaterialData> loadDefaultCustom(boolean client) {
+        ArrayList<MaterialData> result = new ArrayList<>();
+        String raw = prefs.getString(
+                client ? KEY_DEFAULT_CLIENT_CUSTOM : KEY_DEFAULT_PURCHASE_CUSTOM,
+                "[]");
+        try {
+            JSONArray a = new JSONArray(raw);
+            for (int i = 0; i < a.length(); i++) {
+                result.add(materialFromJson(a.getJSONObject(i)));
+            }
+        } catch (Exception ignored) {
+        }
+        return result;
+    }
+
+    void saveDefaultCustom(boolean client, @NonNull List<MaterialData> items) {
+        JSONArray a = new JSONArray();
+        for (MaterialData item : items) a.put(materialToJson(item));
+        prefs.edit().putString(
+                client ? KEY_DEFAULT_CLIENT_CUSTOM : KEY_DEFAULT_PURCHASE_CUSTOM,
+                a.toString()).apply();
+    }
+
+    void upsertDefaultCustom(boolean client, @NonNull MaterialData material) {
+        ArrayList<MaterialData> items = loadDefaultCustom(client);
+        boolean found = false;
+        for (int i = 0; i < items.size(); i++) {
+            if (items.get(i).id.equals(material.id)) {
+                items.set(i, material.copy());
+                found = true;
+                break;
+            }
+        }
+        if (!found) items.add(material.copy());
+        saveDefaultCustom(client, items);
+    }
+
+    void deleteDefaultCustom(boolean client, @NonNull String id) {
+        ArrayList<MaterialData> items = loadDefaultCustom(client);
+        items.removeIf(item -> id.equals(item.id));
+        saveDefaultCustom(client, items);
+    }
+
+    void applyDefaultsToRoom(@NonNull RoomData room, boolean client) {
+        HashMap<String, Float> defaults = loadDefaultPricing(client);
+        HashSet<String> hidden = loadHiddenDefaultKeys(client);
+        if (client) {
+            for (String key : CLIENT_PRICE_KEYS) {
+                room.clientPricing.put(key, hidden.contains(key) ? 0f : value(defaults, key));
+            }
+            room.clientPricing.put("baguette", 0f);
+            room.clientPricing.put("dowel", 0f);
+            mergeCustomPresets(room.clientCustomItems, loadDefaultCustom(true));
+        } else {
+            for (String key : INTERNAL_PRICE_KEYS) {
+                room.pricing.put(key, hidden.contains(key) ? 0f : value(defaults, key));
+            }
+            mergeCustomPresets(room.customItems, loadDefaultCustom(false));
+        }
+    }
+
+    private static void mergeCustomPresets(
+            List<MaterialData> roomItems,
+            List<MaterialData> presets) {
+        HashMap<String, MaterialData> bySource = new HashMap<>();
+        ArrayList<MaterialData> adhoc = new ArrayList<>();
+        for (MaterialData item : roomItems) {
+            if (item.sourceId != null && !item.sourceId.isEmpty()) bySource.put(item.sourceId, item);
+            else adhoc.add(item);
+        }
+        roomItems.clear();
+        for (MaterialData preset : presets) {
+            MaterialData existing = bySource.get(preset.id);
+            MaterialData item = existing == null ? new MaterialData() : existing;
+            if (existing == null) {
+                item.id = newId("mat");
+                item.sourceId = preset.id;
+                item.qty = 0f;
+            }
+            item.name = preset.name;
+            item.unit = normalizeMaterialUnit(preset.unit);
+            item.price = Math.max(0f, preset.price);
+            roomItems.add(item);
+        }
+        roomItems.addAll(adhoc);
+    }
+
+    static String normalizeMaterialUnit(String unit) {
+        if ("м".equals(unit) || "м²".equals(unit) || "компл.".equals(unit)) return unit;
+        return "шт";
+    }
+
+    private static float value(Map<String, Float> map, String key) {
+        if (map == null) return 0f;
+        Float value = map.get(key);
+        return value == null ? 0f : Math.max(0f, value);
     }
 
     void saveSnapshot(@NonNull ProjectData project) {
@@ -235,6 +427,7 @@ final class NativeProjectStore {
 
             JSONArray saved = new JSONArray(prefs.getString(KEY_SAVED, "[]"));
             payload.put("saved", saved);
+            payload.put("defaults", defaultsToJson());
         } catch (Exception ignored) {
         }
         return payload.toString();
@@ -248,6 +441,8 @@ final class NativeProjectStore {
 
             // Native backup format.
             if (saved != null) {
+                JSONObject defaults = payload.optJSONObject("defaults");
+                if (defaults != null) importDefaultsObject(defaults);
                 for (int i = 0; i < saved.length(); i++) {
                     projectFromJson(saved.getJSONObject(i));
                 }
@@ -267,6 +462,7 @@ final class NativeProjectStore {
             // compatible graph format. Unsupported room fields are ignored.
             JSONObject db = payload.optJSONObject("db");
             if (db == null) db = payload;
+            importWebDefaults(db);
             JSONArray orders = db.optJSONArray("orders");
             if (orders == null) return false;
 
@@ -291,6 +487,10 @@ final class NativeProjectStore {
                 }
                 nativeProject.put("savedAt", savedAt);
                 nativeProject.put("activeRoom", 0);
+                nativeProject.put("combinedEstimateOrderIds",
+                        web.optJSONArray("combinedEstimateOrderIds") == null
+                                ? new JSONArray()
+                                : web.optJSONArray("combinedEstimateOrderIds"));
 
                 JSONArray rooms = web.optJSONArray("rooms");
                 JSONArray nativeRooms = new JSONArray();
@@ -308,6 +508,8 @@ final class NativeProjectStore {
                         nr.put("clientEstimateQty", wr.optJSONObject("clientEstimateQty") == null ? new JSONObject() : wr.optJSONObject("clientEstimateQty"));
                         nr.put("clientEstimateOverride", wr.optJSONObject("clientEstimateOverride") == null ? new JSONObject() : wr.optJSONObject("clientEstimateOverride"));
                         nr.put("hiddenInternalKeys", wr.optJSONArray("hiddenInternalKeys") == null ? new JSONArray() : wr.optJSONArray("hiddenInternalKeys"));
+                        nr.put("customItems", wr.optJSONArray("customItems") == null ? new JSONArray() : wr.optJSONArray("customItems"));
+                        nr.put("clientCustomItems", wr.optJSONArray("clientCustomItems") == null ? new JSONArray() : wr.optJSONArray("clientCustomItems"));
                         nr.put("point90Magnet", wr.optBoolean("point90Magnet", true));
                         nr.put("wallAngleMagnet", true);
                         nr.put("showAutoLetters", wr.optBoolean("showAutoLetters", false));
@@ -394,6 +596,85 @@ final class NativeProjectStore {
         }
     }
 
+    private JSONObject defaultsToJson() {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("purchasePricing", floatMapToJson(loadDefaultPricing(false)));
+            o.put("clientPricing", floatMapToJson(loadDefaultPricing(true)));
+            o.put("hiddenPurchase", stringSetToJson(loadHiddenDefaultKeys(false)));
+            o.put("hiddenClient", stringSetToJson(loadHiddenDefaultKeys(true)));
+            JSONArray purchaseCustom = new JSONArray();
+            for (MaterialData item : loadDefaultCustom(false)) purchaseCustom.put(materialToJson(item));
+            JSONArray clientCustom = new JSONArray();
+            for (MaterialData item : loadDefaultCustom(true)) clientCustom.put(materialToJson(item));
+            o.put("purchaseCustom", purchaseCustom);
+            o.put("clientCustom", clientCustom);
+        } catch (Exception ignored) {
+        }
+        return o;
+    }
+
+    private void importDefaultsObject(JSONObject o) {
+        prefs.edit()
+                .putString(KEY_DEFAULT_PURCHASE,
+                        o.optJSONObject("purchasePricing") == null
+                                ? "{}"
+                                : o.optJSONObject("purchasePricing").toString())
+                .putString(KEY_DEFAULT_CLIENT,
+                        o.optJSONObject("clientPricing") == null
+                                ? "{}"
+                                : o.optJSONObject("clientPricing").toString())
+                .putString(KEY_HIDDEN_DEFAULT_PURCHASE,
+                        o.optJSONArray("hiddenPurchase") == null
+                                ? "[]"
+                                : o.optJSONArray("hiddenPurchase").toString())
+                .putString(KEY_HIDDEN_DEFAULT_CLIENT,
+                        o.optJSONArray("hiddenClient") == null
+                                ? "[]"
+                                : o.optJSONArray("hiddenClient").toString())
+                .putString(KEY_DEFAULT_PURCHASE_CUSTOM,
+                        o.optJSONArray("purchaseCustom") == null
+                                ? "[]"
+                                : o.optJSONArray("purchaseCustom").toString())
+                .putString(KEY_DEFAULT_CLIENT_CUSTOM,
+                        o.optJSONArray("clientCustom") == null
+                                ? "[]"
+                                : o.optJSONArray("clientCustom").toString())
+                .apply();
+    }
+
+    private void importWebDefaults(JSONObject db) {
+        JSONObject defaults = new JSONObject();
+        try {
+            defaults.put("purchasePricing",
+                    db.optJSONObject("defaultPricing") == null
+                            ? new JSONObject()
+                            : db.optJSONObject("defaultPricing"));
+            defaults.put("clientPricing",
+                    db.optJSONObject("defaultClientPricing") == null
+                            ? new JSONObject()
+                            : db.optJSONObject("defaultClientPricing"));
+            defaults.put("hiddenPurchase",
+                    db.optJSONArray("hiddenDefaultPurchaseKeys") == null
+                            ? new JSONArray()
+                            : db.optJSONArray("hiddenDefaultPurchaseKeys"));
+            defaults.put("hiddenClient",
+                    db.optJSONArray("hiddenDefaultClientKeys") == null
+                            ? new JSONArray()
+                            : db.optJSONArray("hiddenDefaultClientKeys"));
+            defaults.put("purchaseCustom",
+                    db.optJSONArray("defaultPurchaseCustomItems") == null
+                            ? new JSONArray()
+                            : db.optJSONArray("defaultPurchaseCustomItems"));
+            defaults.put("clientCustom",
+                    db.optJSONArray("defaultClientCustomItems") == null
+                            ? new JSONArray()
+                            : db.optJSONArray("defaultClientCustomItems"));
+        } catch (Exception ignored) {
+        }
+        importDefaultsObject(defaults);
+    }
+
     private ProjectData cloneProject(ProjectData p) {
         try {
             return projectFromJson(projectToJson(p));
@@ -413,6 +694,7 @@ final class NativeProjectStore {
             o.put("updatedAt", p.updatedAt);
             o.put("savedAt", p.savedAt);
             o.put("activeRoom", p.activeRoom);
+            o.put("combinedEstimateOrderIds", new JSONArray(p.combinedEstimateOrderIds));
             JSONArray rooms = new JSONArray();
             for (RoomData r : p.rooms) rooms.put(roomToJson(r));
             o.put("rooms", rooms);
@@ -433,6 +715,12 @@ final class NativeProjectStore {
         o.put("clientEstimateQty", floatMapToJson(r.clientEstimateQty));
         o.put("clientEstimateOverride", stringSetToJson(r.clientEstimateOverride));
         o.put("hiddenInternalKeys", stringSetToJson(r.hiddenInternalKeys));
+        JSONArray customItems = new JSONArray();
+        for (MaterialData item : r.customItems) customItems.put(materialToJson(item));
+        o.put("customItems", customItems);
+        JSONArray clientCustomItems = new JSONArray();
+        for (MaterialData item : r.clientCustomItems) clientCustomItems.put(materialToJson(item));
+        o.put("clientCustomItems", clientCustomItems);
         o.put("point90Magnet", r.point90Magnet);
         o.put("wallAngleMagnet", r.wallAngleMagnet);
         o.put("showAutoLetters", r.showAutoLetters);
@@ -498,6 +786,16 @@ final class NativeProjectStore {
         p.updatedAt = o.optLong("updatedAt", System.currentTimeMillis());
         p.savedAt = o.optLong("savedAt", p.updatedAt);
         p.activeRoom = o.optInt("activeRoom", 0);
+        p.combinedEstimateOrderIds.clear();
+        JSONArray combined = o.optJSONArray("combinedEstimateOrderIds");
+        if (combined != null) {
+            for (int i = 0; i < combined.length(); i++) {
+                String id = combined.optString(i, "");
+                if (!id.isEmpty() && !p.combinedEstimateOrderIds.contains(id)) {
+                    p.combinedEstimateOrderIds.add(id);
+                }
+            }
+        }
         p.rooms.clear();
         JSONArray rooms = o.optJSONArray("rooms");
         if (rooms != null) {
@@ -519,6 +817,10 @@ final class NativeProjectStore {
         readFloatMap(o.optJSONObject("clientEstimateQty"), r.clientEstimateQty);
         readStringSet(o.opt("clientEstimateOverride"), r.clientEstimateOverride);
         readStringSet(o.opt("hiddenInternalKeys"), r.hiddenInternalKeys);
+        r.customItems.clear();
+        readMaterialArray(o.optJSONArray("customItems"), r.customItems);
+        r.clientCustomItems.clear();
+        readMaterialArray(o.optJSONArray("clientCustomItems"), r.clientCustomItems);
         ensureRoomEstimateDefaults(r);
         r.point90Magnet = o.optBoolean("point90Magnet", true);
         r.wallAngleMagnet = o.optBoolean("wallAngleMagnet", true);
@@ -674,6 +976,43 @@ final class NativeProjectStore {
         if (r == null || id == null) return null;
         for (PointData p : r.points) if (id.equals(p.id)) return p;
         return null;
+    }
+
+    private static JSONObject materialToJson(MaterialData item) {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("id", item.id);
+            if (item.sourceId != null) o.put("sourceId", item.sourceId);
+            o.put("name", item.name);
+            o.put("unit", normalizeMaterialUnit(item.unit));
+            o.put("qty", Math.max(0f, item.qty));
+            o.put("price", Math.max(0f, item.price));
+        } catch (JSONException ignored) {
+        }
+        return o;
+    }
+
+    private static MaterialData materialFromJson(JSONObject o) {
+        MaterialData item = new MaterialData();
+        item.id = o.optString("id", item.id);
+        item.sourceId = o.optString(
+                "sourceId",
+                o.optString("sourcePresetId", ""));
+        if (item.sourceId != null && item.sourceId.isEmpty()) item.sourceId = null;
+        item.name = o.optString("name", "Материал").trim();
+        if (item.name.isEmpty()) item.name = "Материал";
+        item.unit = normalizeMaterialUnit(o.optString("unit", "шт"));
+        item.qty = Math.max(0f, (float) o.optDouble("qty", 0d));
+        item.price = Math.max(0f, (float) o.optDouble("price", 0d));
+        return item;
+    }
+
+    private static void readMaterialArray(JSONArray a, List<MaterialData> out) {
+        if (a == null) return;
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o != null) out.add(materialFromJson(o));
+        }
     }
 
     private static JSONObject floatMapToJson(Map<String, Float> map) {

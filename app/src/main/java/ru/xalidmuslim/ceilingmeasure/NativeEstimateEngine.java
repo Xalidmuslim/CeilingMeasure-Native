@@ -67,6 +67,8 @@ final class NativeEstimateEngine {
         final double total;
         final boolean qtyEditable;
         final boolean removable;
+        final boolean custom;
+        final String customId;
 
         Line(
                 String key,
@@ -76,6 +78,19 @@ final class NativeEstimateEngine {
                 double price,
                 boolean qtyEditable,
                 boolean removable) {
+            this(key,name,unit,qty,price,qtyEditable,removable,false,null);
+        }
+
+        Line(
+                String key,
+                String name,
+                String unit,
+                double qty,
+                double price,
+                boolean qtyEditable,
+                boolean removable,
+                boolean custom,
+                String customId) {
             this.key = key;
             this.name = name;
             this.unit = unit;
@@ -84,6 +99,8 @@ final class NativeEstimateEngine {
             this.total = qty * price;
             this.qtyEditable = qtyEditable;
             this.removable = removable;
+            this.custom = custom;
+            this.customId = customId;
         }
     }
 
@@ -152,6 +169,19 @@ final class NativeEstimateEngine {
         addInternal(lines, room, hidden, "dowel", dowelQty, "Дюбель", "шт", true);
         addInternal(lines, room, hidden, "lightline", value(room.extraQty,"lightline"), "Световые линии", "м", true);
         addInternal(lines, room, hidden, "pipe", value(room.extraQty,"pipe"), "Трубы", "шт", true);
+        for (NativeProjectStore.MaterialData item : room.customItems) {
+            if (item.qty <= 0f) continue;
+            lines.add(new Line(
+                    "custom:" + item.id,
+                    item.name,
+                    item.unit,
+                    item.qty,
+                    item.price,
+                    true,
+                    true,
+                    true,
+                    item.id));
+        }
 
         double total = 0d;
         for (Line line : lines) total += line.total;
@@ -190,6 +220,19 @@ final class NativeEstimateEngine {
         addClient(lines, room, "lightline", value(room.extraQty,"lightline"), "Световые линии", "м");
         addClient(lines, room, "shadow", 0d, "Теневой профиль", "м");
         addClient(lines, room, "porcelain", 0d, "Керамогранит", "м²");
+        for (NativeProjectStore.MaterialData item : room.clientCustomItems) {
+            if (item.qty <= 0f) continue;
+            lines.add(new Line(
+                    "custom:" + item.id,
+                    item.name,
+                    item.unit,
+                    item.qty,
+                    item.price,
+                    true,
+                    true,
+                    true,
+                    item.id));
+        }
 
         double total = 0d;
         for (Line line : lines) total += line.total;
