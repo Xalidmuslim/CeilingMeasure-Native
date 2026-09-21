@@ -79,6 +79,10 @@ public class NativeAppSmokeTest {
             assertNotNull(root.findViewWithTag("native_mode_diagonal"));
             assertNotNull(root.findViewWithTag("native_mode_labels"));
             assertNotNull(root.findViewWithTag("native_save_measurement"));
+            assertNotNull(root.findViewWithTag("native_tool_wall_magnet"));
+            assertNotNull(root.findViewWithTag("native_tool_point90"));
+            assertNotNull(root.findViewWithTag("native_tool_letters"));
+            assertNotNull(root.findViewWithTag("native_tool_wall_sequence"));
             assertFalse(containsWebView(root));
         }
     }
@@ -276,6 +280,67 @@ public class NativeAppSmokeTest {
         assertTrue(NativeGeometry.isClosed(restoredRoom));
         assertEquals(500f, restoredRoom.edges.get(0).value, 0.01f);
         assertEquals(707f, restoredRoom.diagonals.get(0).value, 0.01f);
+        restoredRoom.points.get(0).customLabel = "A";
+        restoredRoom.showAutoLetters = true;
+        second.saveCurrent(restored);
+
+        NativeProjectStore.ProjectData third = new NativeProjectStore(context).loadCurrent();
+        assertEquals("A", third.rooms.get(0).points.get(0).customLabel);
+        assertTrue(third.rooms.get(0).showAutoLetters);
+    }
+
+    @Test
+    public void geometryExtendsStraightWallInsteadOfCreatingExtraCorner() {
+        NativeProjectStore.RoomData room = new NativeProjectStore.RoomData();
+        NativeProjectStore.PointData a = new NativeProjectStore.PointData(100f, 100f);
+        NativeProjectStore.PointData b = new NativeProjectStore.PointData(250f, 100f);
+        room.points.add(a);
+        room.points.add(b);
+        NativeProjectStore.EdgeData edge = new NativeProjectStore.EdgeData(a.id, b.id);
+        edge.value = 500f;
+        room.edges.add(edge);
+
+        boolean extended = NativeGeometry.extendStraightWall(
+                room,
+                b.id,
+                400f,
+                100f,
+                null);
+
+        assertTrue(extended);
+        assertEquals(2, room.points.size());
+        assertEquals(1, room.edges.size());
+        assertEquals(400f, NativeGeometry.pointById(room, b.id).x, 0.01f);
+        assertEquals(0f, room.edges.get(0).value, 0.01f);
+    }
+
+    @Test
+    public void magnifierAppearsDuringNativeWallDrag() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(
+                NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.ACTION_NEW_ORDER);
+
+        try (ActivityScenario<NativeWorkspaceActivity> scenario =
+                     ActivityScenario.launch(intent)) {
+            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
+            scenario.onActivity(ref::set);
+            NativeWorkspaceActivity activity = ref.get();
+            assertNotNull(activity);
+
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+                CeilingDrawingView view = (CeilingDrawingView) activity.getWindow()
+                        .getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                long now = android.os.SystemClock.uptimeMillis();
+                dispatch(view, now, MotionEvent.ACTION_DOWN, 120, 120);
+                dispatch(view, now + 35, MotionEvent.ACTION_MOVE, 270, 120);
+                assertTrue(view.isMagnifierVisibleForTest());
+                dispatch(view, now + 70, MotionEvent.ACTION_UP, 270, 120);
+                assertFalse(view.isMagnifierVisibleForTest());
+            });
+        }
     }
 
     private static void drag(

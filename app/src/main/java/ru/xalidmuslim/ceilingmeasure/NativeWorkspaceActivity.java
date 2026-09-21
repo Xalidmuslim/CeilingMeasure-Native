@@ -151,6 +151,61 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         modeBar.addView(diagonalMode, weightParams());
         modeBar.addView(labelMode, weightParams());
 
+        LinearLayout drawTools = new LinearLayout(this);
+        drawTools.setOrientation(LinearLayout.HORIZONTAL);
+        drawTools.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams drawToolsParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        drawToolsParams.topMargin = dp(6);
+        drawCard.addView(drawTools, drawToolsParams);
+
+        Button wallMagnet = button("45°/90°", false);
+        wallMagnet.setTag("native_tool_wall_magnet");
+        wallMagnet.setTextSize(11);
+        wallMagnet.setOnClickListener(v -> {
+            NativeProjectStore.RoomData r = activeRoom();
+            r.wallAngleMagnet = !r.wallAngleMagnet;
+            store.saveCurrent(project);
+            Toast.makeText(
+                    this,
+                    r.wallAngleMagnet ? "Привязка стен включена" : "Привязка стен выключена",
+                    Toast.LENGTH_SHORT).show();
+        });
+
+        Button point90 = button("90° точки", false);
+        point90.setTag("native_tool_point90");
+        point90.setTextSize(11);
+        point90.setOnClickListener(v -> {
+            NativeProjectStore.RoomData r = activeRoom();
+            r.point90Magnet = !r.point90Magnet;
+            store.saveCurrent(project);
+            Toast.makeText(
+                    this,
+                    r.point90Magnet ? "Привязка 90° включена" : "Привязка 90° выключена",
+                    Toast.LENGTH_SHORT).show();
+        });
+
+        Button letters = button("Буквы", false);
+        letters.setTag("native_tool_letters");
+        letters.setTextSize(11);
+        letters.setOnClickListener(v -> {
+            NativeProjectStore.RoomData r = activeRoom();
+            r.showAutoLetters = !r.showAutoLetters;
+            store.saveCurrent(project);
+            drawingView.invalidate();
+        });
+
+        Button wallSequence = button("123", false);
+        wallSequence.setTag("native_tool_wall_sequence");
+        wallSequence.setTextSize(12);
+        wallSequence.setOnClickListener(v -> startWallSequence());
+
+        drawTools.addView(wallMagnet, weightParams());
+        drawTools.addView(point90, weightParams());
+        drawTools.addView(letters, weightParams());
+        drawTools.addView(wallSequence, weightParams());
+
         drawingView = new CeilingDrawingView(this);
         drawingView.setTag("native_drawing_view");
         drawingView.setListener(this);
@@ -418,6 +473,50 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     @Override public void onChanged(){
         store.saveCurrent(project);
         updateStats();
+    }
+
+    @Override public void onVertexLongPressed(String pointId){
+        NativeProjectStore.RoomData r=activeRoom();
+        NativeProjectStore.PointData point=NativeGeometry.pointById(r,pointId);
+        if(point==null)return;
+
+        String title="Угол";
+        if("A".equals(point.customLabel))title+=" A";
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setItems(new String[]{"Добавить угол А","Удалить угол"},(dialog,which)->{
+                    if(which==0){
+                        for(NativeProjectStore.PointData p:r.points)p.customLabel="";
+                        point.customLabel="A";
+                        store.saveCurrent(project);
+                        drawingView.invalidate();
+                        Toast.makeText(this,"Угол A добавлен",Toast.LENGTH_SHORT).show();
+                    }else{
+                        deleteVertex(pointId);
+                    }
+                })
+                .show();
+    }
+
+    private void deleteVertex(String pointId){
+        NativeProjectStore.RoomData r=activeRoom();
+        NativeProjectStore.PointData point=NativeGeometry.pointById(r,pointId);
+        if(point==null)return;
+
+        new AlertDialog.Builder(this)
+                .setTitle("Удалить угол?")
+                .setMessage("Будут удалены все стены и диагонали, связанные с этим углом.")
+                .setNegativeButton("Отмена",null)
+                .setPositiveButton("Удалить",(dialog,which)->{
+                    r.edges.removeIf(e->e.a.equals(pointId)||e.b.equals(pointId));
+                    r.diagonals.removeIf(d->d.a.equals(pointId)||d.b.equals(pointId));
+                    r.points.removeIf(p->p.id.equals(pointId));
+                    NativeGeometry.sanitize(r);
+                    store.saveCurrent(project);
+                    drawingView.invalidate();
+                    updateStats();
+                })
+                .show();
     }
 
     @Override public void onWallLongPressed(String edgeId,float currentValue){

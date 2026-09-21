@@ -250,6 +250,232 @@ final class NativeGeometry {
         return isClosed(room);
     }
 
+    @Nullable
+    static NativeProjectStore.EdgeData straightContinuationEdge(
+            NativeProjectStore.RoomData room,
+            String startId,
+            float endX,
+            float endY) {
+        List<NativeProjectStore.EdgeData> adjacent = edgesAt(room, startId);
+        if (adjacent.size() != 1) return null;
+
+        NativeProjectStore.EdgeData edge = adjacent.get(0);
+        String otherId = edge.a.equals(startId) ? edge.b : edge.a;
+        NativeProjectStore.PointData start = pointById(room, startId);
+        NativeProjectStore.PointData other = pointById(room, otherId);
+        if (start == null || other == null) return null;
+
+        float v1x = start.x - other.x;
+        float v1y = start.y - other.y;
+        float v2x = endX - start.x;
+        float v2y = endY - start.y;
+        float l1 = (float) Math.hypot(v1x, v1y);
+        float l2 = (float) Math.hypot(v2x, v2y);
+        if (l1 < 1f || l2 < 1f) return null;
+
+        float dot = (v1x * v2x + v1y * v2y) / (l1 * l2);
+        float cross = Math.abs(v1x * v2y - v1y * v2x) / (l1 * l2);
+        return dot > .992f && cross < .125f ? edge : null;
+    }
+
+    static boolean extendStraightWall(
+            NativeProjectStore.RoomData room,
+            String startId,
+            float endX,
+            float endY,
+            @Nullable NativeProjectStore.PointData target) {
+        NativeProjectStore.EdgeData edge =
+                straightContinuationEdge(room, startId, endX, endY);
+        if (edge == null) return false;
+
+        NativeProjectStore.PointData start = pointById(room, startId);
+        if (start == null) return false;
+
+        if (target != null && !target.id.equals(startId)) {
+            if (edge.a.equals(startId)) edge.a = target.id;
+            else if (edge.b.equals(startId)) edge.b = target.id;
+            else return false;
+
+            room.diagonals.removeIf(d -> d.a.equals(startId) || d.b.equals(startId));
+            room.points.removeIf(p -> p.id.equals(startId));
+        } else {
+            start.x = endX;
+            start.y = endY;
+        }
+
+        // As in the web reference: changing a wall length invalidates its old size.
+        edge.value = 0f;
+        sanitize(room);
+        return true;
+    }
+
+    @Nullable
+    private static OpenChain openChainOrder(NativeProjectStore.RoomData room) {
+        if (room == null || room.edges.size() < 2) return null;
+
+        LinkedHashSet<String> used = new LinkedHashSet<>();
+        Map<String, ArrayList<Step>> adjacency = new HashMap<>();
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            used.add(edge.a);
+            used.add(edge.b);
+            adjacency.computeIfAbsent(edge.a, k -> new ArrayList<>())
+                    .add(new Step(edge.b, edge));
+            adjacency.computeIfAbsent(edge.b, k -> new ArrayList<>())
+                    .add(new Step(edge.a, edge));
+        }
+        if (used.size() != room.edges.size() + 1) return null;
+
+        ArrayList<String> ends = new ArrayList<>();
+        for (String id : used) {
+            List<Step> list = adjacency.get(id);
+            int size = list == null ? 0 : list.size();
+            if (size == 1) ends.add(id);
+            else if (size < 1 || size > 2) return null;
+        }
+        if (ends.size() != 2) return null;
+
+        OpenChain first = buildOpenChain(ends.get(0), used.size(), adjacency);
+        OpenChain second = buildOpenChain(ends.get(1), used.size(), adjacency);
+        if (first == null || second == null) return null;
+
+        String firstStart = room.edges.get(0).a;
+        if (first.vertices.get(0).equals(firstStart)) return first;
+        if (second.vertices.get(0).equals(firstStart)) return second;
+        return first;
+    }
+
+    @Nullable
+    private static OpenChain buildOpenChain(
+            String start,
+            int vertexCount,
+            Map<String, ArrayList<Step>> adjacency) {
+        ArrayList<String> vertices = new ArrayList<>();
+        ArrayList<NativeProjectStore.EdgeData> edges = new ArrayList<>();
+        vertices.add(start);
+
+        String previous = null;
+        String current = start;
+        for (int guard = 0; guard < vertexCount + 2; guard++) {
+            List<Step> raw = adjacency.get(current);
+            if (raw == null) break;
+            ArrayList<Step> nexts = new ArrayList<>();
+            for (Step step : raw) if (!step.id.equals(previous)) nexts.add(step);
+            if (nexts.isEmpty()) break;
+            if (nexts.size() != 1) return null;
+
+            Step next = nexts.get(0);
+            edges.add(next.edge);
+            previous = current;
+            current = next.id;
+            vertices.add(current);
+            if (vertices.size() > vertexCount + 1) return null;
+        }
+        return vertices.size() == vertexCount ? new OpenChain(vertices, edges) : null;
+    }
+
+    static boolean repairOvershotClosedContour(
+            NativeProjectStore.RoomData room,
+            float maxWorld) {
+        OpenChain chain = openChainOrder(room);
+        if (chain == null || chain.edges.size() < 3) return false;
+
+        String startId = chain.vertices.get(0);
+        NativeProjectStore.PointData start = pointById(room, startId);
+        if (start == null) return false;
+
+        for (int i = 2; i < chain.edges.size(); i++) {
+            NativeProjectStore.EdgeData edge = chain.edges.get(i);
+            String fromId = chain.vertices.get(i);
+            String toId = chain.vertices.get(i + 1);
+            NativeProjectStore.PointData a = pointById(room, fromId);
+            NativeProjectStore.PointData b = pointById(room, toId);
+            if (a == null || b == null) continue;
+
+            Projection hit = projection(start.x, start.y, a.x, a.y, b.x, b.y);
+            if (hit == null) continue;
+            if (hit.t < .10f || hit.t > 1.08f || hit.distance > maxWorld) continue;
+
+            boolean measuredTail = false;
+            for (int j = i + 1; j < chain.edges.size(); j++) {
+                if (chain.edges.get(j).value > 0f) {
+                    measuredTail = true;
+                    break;
+                }
+            }
+            if (measuredTail) continue;
+
+            if (edge.a.equals(toId)) edge.a = startId;
+            else if (edge.b.equals(toId)) edge.b = startId;
+            else continue;
+
+            Set<String> keepEdges = new HashSet<>();
+            for (int j = 0; j <= i; j++) keepEdges.add(chain.edges.get(j).id);
+            room.edges.removeIf(e -> !keepEdges.contains(e.id));
+
+            Set<String> keepPoints = new HashSet<>();
+            for (NativeProjectStore.EdgeData kept : room.edges) {
+                keepPoints.add(kept.a);
+                keepPoints.add(kept.b);
+            }
+            room.points.removeIf(p -> !keepPoints.contains(p.id));
+            room.diagonals.removeIf(
+                    d -> !keepPoints.contains(d.a) || !keepPoints.contains(d.b));
+            sanitize(room);
+            return isClosed(room);
+        }
+        return false;
+    }
+
+    @Nullable
+    private static Projection projection(
+            float px,
+            float py,
+            float ax,
+            float ay,
+            float bx,
+            float by) {
+        float dx = bx - ax;
+        float dy = by - ay;
+        float length2 = dx * dx + dy * dy;
+        if (length2 < 1e-9f) return null;
+        float t = ((px - ax) * dx + (py - ay) * dy) / length2;
+        float x = ax + t * dx;
+        float y = ay + t * dy;
+        return new Projection(t, (float) Math.hypot(px - x, py - y));
+    }
+
+    private static final class Projection {
+        final float t;
+        final float distance;
+
+        Projection(float t, float distance) {
+            this.t = t;
+            this.distance = distance;
+        }
+    }
+
+    private static final class Step {
+        final String id;
+        final NativeProjectStore.EdgeData edge;
+
+        Step(String id, NativeProjectStore.EdgeData edge) {
+            this.id = id;
+            this.edge = edge;
+        }
+    }
+
+    private static final class OpenChain {
+        final ArrayList<String> vertices;
+        final ArrayList<NativeProjectStore.EdgeData> edges;
+
+        OpenChain(
+                ArrayList<String> vertices,
+                ArrayList<NativeProjectStore.EdgeData> edges) {
+            this.vertices = vertices;
+            this.edges = edges;
+        }
+    }
+
     static String pairKey(String a, String b) {
         return a.compareTo(b) <= 0 ? a + "~" + b : b + "~" + a;
     }

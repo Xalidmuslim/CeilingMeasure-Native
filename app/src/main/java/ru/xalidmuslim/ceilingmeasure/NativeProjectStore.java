@@ -27,6 +27,7 @@ final class NativeProjectStore {
         String id;
         float x;
         float y;
+        String customLabel = "";
 
         PointData(float x, float y) {
             this(newId("p"), x, y);
@@ -86,6 +87,8 @@ final class NativeProjectStore {
         final ArrayList<EdgeData> edges = new ArrayList<>();
         final ArrayList<DiagonalData> diagonals = new ArrayList<>();
         boolean point90Magnet = true;
+        boolean wallAngleMagnet = true;
+        boolean showAutoLetters = false;
         float viewScale = 1f;
         float panX = 0f;
         float panY = 0f;
@@ -188,6 +191,8 @@ final class NativeProjectStore {
         o.put("id", r.id);
         o.put("name", r.name);
         o.put("point90Magnet", r.point90Magnet);
+        o.put("wallAngleMagnet", r.wallAngleMagnet);
+        o.put("showAutoLetters", r.showAutoLetters);
         o.put("viewScale", r.viewScale);
         o.put("panX", r.panX);
         o.put("panY", r.panY);
@@ -198,6 +203,9 @@ final class NativeProjectStore {
             j.put("id", p.id);
             j.put("x", p.x);
             j.put("y", p.y);
+            if (p.customLabel != null && !p.customLabel.isEmpty()) {
+                j.put("customLabel", p.customLabel);
+            }
             points.put(j);
         }
         o.put("points", points);
@@ -253,6 +261,8 @@ final class NativeProjectStore {
         r.id = o.optString("id", r.id);
         r.name = o.optString("name", r.name);
         r.point90Magnet = o.optBoolean("point90Magnet", true);
+        r.wallAngleMagnet = o.optBoolean("wallAngleMagnet", true);
+        r.showAutoLetters = o.optBoolean("showAutoLetters", false);
         r.viewScale = clamp((float) o.optDouble("viewScale", 1d), .45f, 12f);
         r.panX = (float) o.optDouble("panX", 0d);
         r.panY = (float) o.optDouble("panY", 0d);
@@ -278,10 +288,14 @@ final class NativeProjectStore {
         if (points != null) {
             for (int i = 0; i < points.length(); i++) {
                 JSONObject j = points.getJSONObject(i);
-                r.points.add(new PointData(
+                PointData point = new PointData(
                         j.optString("id", newId("p")),
                         (float) j.optDouble("x", 0),
-                        (float) j.optDouble("y", 0)));
+                        (float) j.optDouble("y", 0));
+                point.customLabel = "A".equals(j.optString("customLabel", ""))
+                        ? "A"
+                        : "";
+                r.points.add(point);
             }
         }
 

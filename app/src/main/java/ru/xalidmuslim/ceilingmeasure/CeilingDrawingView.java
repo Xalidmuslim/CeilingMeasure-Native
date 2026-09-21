@@ -27,6 +27,7 @@ final class CeilingDrawingView extends View {
 
     interface Listener {
         void onChanged();
+        void onVertexLongPressed(@NonNull String pointId);
         void onWallLongPressed(@NonNull String edgeId, float currentValue);
         void onDiagonalCreated(@NonNull String diagonalId, float currentValue);
         void onDiagonalLongPressed(@NonNull String diagonalId, float currentValue);
@@ -74,6 +75,8 @@ final class CeilingDrawingView extends View {
     private float labelBaseY;
     private Guide activeGuide;
     private boolean point90SnapActive;
+    private PointF magnifierFocus;
+    private MagnifierKind magnifierKind;
 
     CeilingDrawingView(@NonNull Context context) {
         super(context);
@@ -186,6 +189,7 @@ final class CeilingDrawingView extends View {
         drawLabels(canvas);
 
         canvas.restore();
+        drawMagnifierOverlay(canvas);
     }
 
     private void drawGrid(Canvas canvas) {
@@ -265,7 +269,39 @@ final class CeilingDrawingView extends View {
             boolean moving = point.id.equals(draggingPointId);
             pointPaint.setColor(diagStart ? RED : (moving ? GREEN : BLUE));
             canvas.drawCircle(point.x, point.y, radius, pointPaint);
+            drawPointLetter(canvas, point);
         }
+    }
+
+    private void drawPointLetter(Canvas canvas, NativeProjectStore.PointData point) {
+        String value = "";
+        if ("A".equals(point.customLabel)) {
+            value = "A";
+        } else if (room.showAutoLetters) {
+            int index = NativeGeometry.pointIndex(room, point.id);
+            if (index >= 0 && index < 26) value = String.valueOf((char) ('A' + index));
+        }
+        if (value.isEmpty()) return;
+
+        PointF center = drawingCenter();
+        float vx = point.x - center.x;
+        float vy = point.y - center.y;
+        float len = (float) Math.hypot(vx, vy);
+        if (len < 1f) {
+            vx = 0f;
+            vy = -1f;
+            len = 1f;
+        }
+        float offset = dp(18) / scale;
+        float x = point.x + vx / len * offset;
+        float y = point.y + vy / len * offset;
+
+        Paint tp = new Paint(textPaint);
+        tp.setTextSize(sp(12) / scale);
+        tp.setColor(TEXT);
+        Paint.FontMetrics fm = tp.getFontMetrics();
+        float baseline = y - (fm.ascent + fm.descent) / 2f;
+        canvas.drawText(value, x, baseline, tp);
     }
 
     private void drawLabels(Canvas canvas) {
@@ -356,6 +392,7 @@ final class CeilingDrawingView extends View {
                     getParent().requestDisallowInterceptTouchEvent(true);
                     NativeProjectStore.PointData point = nearestPoint(worldX, worldY, dp(48) / scale);
                     draggingPointId = point == null ? null : point.id;
+                    if (point != null) scheduleLongPress("vertex", point.id);
                     return true;
                 }
                 if (mode == Mode.DIAGONAL) {
@@ -451,6 +488,7 @@ final class CeilingDrawingView extends View {
         getParent().requestDisallowInterceptTouchEvent(true);
 
         if (nearest != null) {
+            scheduleLongPress("vertex", nearest.id);
             if (NativeGeometry.vertexDegree(room, nearest.id) >= 2) return true;
             wallDraft = new WallDraft(
                     nearest.id,
@@ -483,6 +521,7 @@ final class CeilingDrawingView extends View {
         NativeProjectStore.PointData point = nearestPoint(x, y, dp(48) / scale);
 
         if (point != null) {
+            scheduleLongPress("vertex", point.id);
             diagDraft = new DiagDraft(
                     point.id,
                     new PointF(point.x, point.y),
@@ -514,7 +553,7 @@ final class CeilingDrawingView extends View {
                 wallDraft.start.x + dx,
                 wallDraft.start.y + dy);
 
-        finish = snapAngle(wallDraft.start, finish);
+        if (room.wallAngleMagnet) finish = snapAngle(wallDraft.start, finish);
         finish.x = roundPrecisionGrid(finish.x);
         finish.y = roundPrecisionGrid(finish.y);
 
@@ -560,6 +599,8 @@ final class CeilingDrawingView extends View {
             }
             wallDraft.preview.set(finish.x, finish.y);
         }
+        magnifierFocus = new PointF(wallDraft.preview.x, wallDraft.preview.y);
+        magnifierKind = MagnifierKind.WALL;
         invalidate();
     }
 
@@ -604,23 +645,39 @@ final class CeilingDrawingView extends View {
             target = null;
         }
 
-        if (target == null) {
-            target = new NativeProjectStore.PointData(
-                    draft.preview.x,
-                    draft.preview.y);
-            room.points.add(target);
-        }
-
-        if (!target.id.equals(start.id)
-                && NativeGeometry.edgeBetween(room, start.id, target.id) == null) {
-            room.edges.add(new NativeProjectStore.EdgeData(start.id, target.id));
-        }
-
-        boolean closed = NativeGeometry.repairNearlyClosedContour(
+        boolean extended = NativeGeometry.extendStraightWall(
                 room,
-                dp(24) / Math.max(.45f, scale));
+                start.id,
+                draft.preview.x,
+                draft.preview.y,
+                target);
+
+        if (!extended) {
+            if (target == null) {
+                target = new NativeProjectStore.PointData(
+                        draft.preview.x,
+                        draft.preview.y);
+                room.points.add(target);
+            }
+
+            if (!target.id.equals(start.id)
+                    && NativeGeometry.edgeBetween(room, start.id, target.id) == null) {
+                room.edges.add(new NativeProjectStore.EdgeData(start.id, target.id));
+            }
+        }
+
+        boolean closed = NativeGeometry.repairOvershotClosedContour(
+                room,
+                dp(28) / Math.max(.45f, scale));
+        if (!closed) {
+            closed = NativeGeometry.repairNearlyClosedContour(
+                    room,
+                    dp(24) / Math.max(.45f, scale));
+        }
         if (!closed) closed = NativeGeometry.isClosed(room);
 
+        magnifierFocus = null;
+        magnifierKind = null;
         changed();
         if (closed && listener != null) listener.onContourClosed();
     }
@@ -639,6 +696,8 @@ final class CeilingDrawingView extends View {
         }
 
         boolean right = isRightAngle(point);
+        magnifierFocus = new PointF(point.x, point.y);
+        magnifierKind = MagnifierKind.POINT;
         if (right && !point90SnapActive) {
             point90SnapActive = true;
             performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
@@ -651,6 +710,8 @@ final class CeilingDrawingView extends View {
     private void finishPointDrag() {
         draggingPointId = null;
         point90SnapActive = false;
+        magnifierFocus = null;
+        magnifierKind = null;
         NativeGeometry.repairNearlyClosedContour(
                 room,
                 dp(24) / Math.max(.45f, scale));
@@ -718,9 +779,20 @@ final class CeilingDrawingView extends View {
         cancelPendingLongPress();
         longPressRunnable = () -> {
             longPressFired = true;
+            wallDraft = null;
+            diagDraft = null;
+            draggingPointId = null;
+            draggingLabel = null;
+            magnifierFocus = null;
+            magnifierKind = null;
+            invalidate();
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
             if (listener == null) return;
-            if ("edge".equals(kind)) {
+            if ("vertex".equals(kind)) {
+                if (NativeGeometry.pointById(room, id) != null) {
+                    listener.onVertexLongPressed(id);
+                }
+            } else if ("edge".equals(kind)) {
                 NativeProjectStore.EdgeData edge = edgeById(id);
                 if (edge != null) listener.onWallLongPressed(edge.id, edge.value);
             } else {
@@ -745,6 +817,8 @@ final class CeilingDrawingView extends View {
         draggingLabel = null;
         activeGuide = null;
         point90SnapActive = false;
+        magnifierFocus = null;
+        magnifierKind = null;
     }
 
     private void cancelTransientGestures() {
@@ -1065,6 +1139,112 @@ final class CeilingDrawingView extends View {
         return null;
     }
 
+    private void drawMagnifierOverlay(Canvas canvas) {
+        if (room == null || magnifierFocus == null || magnifierKind == null) return;
+
+        float width = dp(180);
+        float height = dp(108);
+        float margin = dp(10);
+        float left = Math.max(margin, getWidth() - width - margin);
+        float top = margin;
+        RectF box = new RectF(left, top, left + width, top + height);
+
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bg.setColor(Color.rgb(252, 253, 254));
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setColor(Color.rgb(191, 204, 213));
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(dp(1));
+
+        canvas.save();
+        canvas.clipRoundRect(box, dp(8), dp(8));
+        canvas.drawRoundRect(box, dp(8), dp(8), bg);
+
+        float lensScale = clamp(scale * 2.8f, 2f, 7.1f);
+        float cx = box.centerX();
+        float cy = box.centerY();
+
+        canvas.save();
+        canvas.translate(cx, cy);
+        canvas.scale(lensScale, lensScale);
+        canvas.translate(-magnifierFocus.x, -magnifierFocus.y);
+
+        Paint fineGrid = new Paint(Paint.ANTI_ALIAS_FLAG);
+        fineGrid.setColor(Color.rgb(233, 238, 242));
+        fineGrid.setStrokeWidth(dp(.7f) / lensScale);
+        float halfW = width / 2f / lensScale + 20f;
+        float halfH = height / 2f / lensScale + 20f;
+        float minX = magnifierFocus.x - halfW;
+        float maxX = magnifierFocus.x + halfW;
+        float minY = magnifierFocus.y - halfH;
+        float maxY = magnifierFocus.y + halfH;
+        float step = 5f;
+        for (float x = (float) Math.floor(minX / step) * step; x <= maxX; x += step) {
+            canvas.drawLine(x, minY, x, maxY, fineGrid);
+        }
+        for (float y = (float) Math.floor(minY / step) * step; y <= maxY; y += step) {
+            canvas.drawLine(minX, y, maxX, y, fineGrid);
+        }
+
+        Paint edgePaint = new Paint(linePaint);
+        edgePaint.setStrokeWidth(dp(2.8f) / lensScale);
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
+            if (a != null && b != null) canvas.drawLine(a.x, a.y, b.x, b.y, edgePaint);
+        }
+
+        if (magnifierKind == MagnifierKind.WALL && wallDraft != null) {
+            Paint p = new Paint(previewPaint);
+            p.setStrokeWidth(dp(3f) / lensScale);
+            canvas.drawLine(
+                    wallDraft.start.x,
+                    wallDraft.start.y,
+                    wallDraft.preview.x,
+                    wallDraft.preview.y,
+                    p);
+            if (activeGuide != null) {
+                Paint gp = new Paint(guidePaint);
+                gp.setStrokeWidth(dp(1.3f) / lensScale);
+                float half = 70f / lensScale;
+                float nx = -activeGuide.uy;
+                float ny = activeGuide.ux;
+                canvas.drawLine(
+                        activeGuide.projected.x - nx * half,
+                        activeGuide.projected.y - ny * half,
+                        activeGuide.projected.x + nx * half,
+                        activeGuide.projected.y + ny * half,
+                        gp);
+            }
+        }
+
+        float pointRadius = dp(3.5f) / lensScale;
+        Paint pp = new Paint(Paint.ANTI_ALIAS_FLAG);
+        pp.setColor(BLUE);
+        for (NativeProjectStore.PointData point : room.points) {
+            canvas.drawCircle(point.x, point.y, pointRadius, pp);
+        }
+
+        canvas.restore();
+
+        int cross = magnifierKind == MagnifierKind.POINT && point90SnapActive
+                ? GREEN
+                : BLUE;
+        Paint crossPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        crossPaint.setColor(cross);
+        crossPaint.setStrokeWidth(dp(1.2f));
+        canvas.drawLine(cx - dp(9), cy, cx + dp(9), cy, crossPaint);
+        canvas.drawLine(cx, cy - dp(9), cx, cy + dp(9), crossPaint);
+        canvas.drawCircle(cx, cy, dp(2.8f), crossPaint);
+
+        canvas.restore();
+        canvas.drawRoundRect(box, dp(8), dp(8), border);
+    }
+
+    boolean isMagnifierVisibleForTest() {
+        return magnifierFocus != null && magnifierKind != null;
+    }
+
     private void changed() {
         syncViewToRoom();
         invalidate();
@@ -1235,6 +1415,8 @@ final class CeilingDrawingView extends View {
             this.score = score;
         }
     }
+
+    private enum MagnifierKind { WALL, POINT }
 
     private enum LabelKind { EDGE, DIAGONAL }
 
