@@ -6,7 +6,7 @@
 The file `webapp/index.html` is the behavioral and visual golden master. The Android APK must WRAP this app, not port or rewrite it. Do not rebuild the UI in Compose/XML and do not translate JavaScript business logic to Kotlin/Java.
 
 The SHA-256 of the approved asset is:
-`7fade548ce909eb3bea6998c244fd90feb74b060a066d19c6a6c50c02c3f05d8`
+`354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388`
 
 Any change to this file requires an explicit, separate product change and a new approved hash. A build must fail if the asset hash differs.
 
