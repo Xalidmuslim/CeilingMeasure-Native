@@ -66,7 +66,7 @@ jobs:
           test -s "$APK"
 
           unzip -p "$APK" assets/index.html > /tmp/index-from-apk.html
-          EXPECTED=7fade548ce909eb3bea6998c244fd90feb74b060a066d19c6a6c50c02c3f05d8
+          EXPECTED=b9951cd877a350f77bf6c8e0d0637719cba51a6f7d6e5679abe975182ded4195
           ACTUAL="$(sha256sum /tmp/index-from-apk.html | cut -d' ' -f1)"
           echo "APK asset SHA-256: $ACTUAL"
           test "$ACTUAL" = "$EXPECTED"
@@ -107,4 +107,4 @@ jobs:
       - name: Re-verify golden asset after tests
         run: |
           python scripts/verify_webapp.py app/src/main/assets/index.html
-          test "$(sha256sum app/src/main/assets/index.html | cut -d' ' -f1)" = "7fade548ce909eb3bea6998c244fd90feb74b060a066d19c6a6c50c02c3f05d8"
+          test "$(sha256sum app/src/main/assets/index.html | cut -d' ' -f1)" = "b9951cd877a350f77bf6c8e0d0637719cba51a6f7d6e5679abe975182ded4195"
