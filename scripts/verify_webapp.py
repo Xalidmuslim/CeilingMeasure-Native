@@ -8,7 +8,7 @@ path=Path(sys.argv[1] if len(sys.argv)>1 else 'webapp/index.html')
 if not path.is_file():
     raise SystemExit(f'FAIL: missing {path}')
 raw=path.read_text(encoding='utf-8')
-expected='7fade548ce909eb3bea6998c244fd90feb74b060a066d19c6a6c50c02c3f05d8'
+expected='b9951cd877a350f77bf6c8e0d0637719cba51a6f7d6e5679abe975182ded4195'
 actual=hashlib.sha256(path.read_bytes()).hexdigest()
 if actual!=expected:
     raise SystemExit(f'FAIL: golden master changed\nexpected {expected}\nactual   {actual}')
@@ -55,6 +55,8 @@ if 'http://' in raw or 'https://' in raw:
     raise SystemExit('FAIL: web asset acquired external network dependency')
 if 'requestFullscreen' in raw or 'exitFullscreen' in raw:
     raise SystemExit('FAIL: native browser Fullscreen API returned')
+if re.search(r'\|\|=|&&=|\?\?=', raw):
+    raise SystemExit('FAIL: logical assignment is not supported by the API 30 WebView target')
 if len(raw.encode('utf-8')) < 450_000:
     raise SystemExit('FAIL: web asset is unexpectedly small; likely functionality was dropped')
 
