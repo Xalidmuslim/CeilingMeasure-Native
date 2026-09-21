@@ -70,6 +70,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private final ArrayDeque<String> redoRooms = new ArrayDeque<>();
     private boolean restoringHistory;
     private NativeUiPrefs uiPrefs;
+    private View historyNavView;
+    private boolean wallSequenceMode;
+    private String wallEditId;
+    private NativeWallMeasureDialog wallDialog;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -312,7 +316,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         areaValue = stat(stats,"Площадь");
         perimeterValue = stat(stats,"Периметр");
 
-        page.addView(createHistoryNav(), historyNavParams());
+        historyNavView=createHistoryNav();
+        page.addView(historyNavView, historyNavParams());
 
         setContentView(page);
         page.requestApplyInsets();
@@ -949,75 +954,242 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void editWall(String edgeId,float currentValue,boolean sequence){
-        NativeProjectStore.RoomData r=activeRoom();
-        NativeProjectStore.EdgeData edge=findEdge(r,edgeId);
+        NativeProjectStore.RoomData room=activeRoom();
+        NativeProjectStore.EdgeData edge=findEdge(room,edgeId);
         if(edge==null)return;
 
-        List<NativeProjectStore.EdgeData> ordered=NativeGeometry.orderedEdges(r);
+        wallSequenceMode=sequence||wallSequenceMode;
+        wallEditId=edgeId;
+        List<NativeProjectStore.EdgeData> ordered=NativeGeometry.orderedEdges(room);
         int index=ordered.indexOf(edge);
-        String title=sequence&&index>=0
+        String title=wallSequenceMode&&index>=0
                 ?"Стена "+(index+1)+" из "+ordered.size()
-                :"Размер стены";
+                :(room.showAutoLetters?"Стена "+edgeLabel(edge):"Стена");
 
-        showNumberDialog(title,currentValue,value->{
-            NativeProjectStore.EdgeData current=findEdge(r,edgeId);
-            if(current==null)return;
+        if(wallDialog!=null)wallDialog.dismiss();
+        drawingView.setWallSequenceActive(wallSequenceMode);
+        if(historyNavView!=null)historyNavView.setVisibility(View.GONE);
+
+        wallDialog=new NativeWallMeasureDialog(
+                this,
+                title,
+                currentValue,
+                wallSequenceMode,
+                new NativeWallMeasureDialog.Listener(){
+                    @Override public void onSave(float value){
+                        NativeProjectStore.EdgeData current=findEdge(activeRoom(),edgeId);
+                        if(current==null){closeWallDialog();return;}
+                        pushHistory();
+                        current.value=value;
+                        store.saveCurrent(project);
+                        drawingView.invalidate();
+                        updateStats();
+                        if(wallSequenceMode&&value>0f){
+                            NativeProjectStore.EdgeData next=firstUnmeasuredWallAfter(activeRoom(),edgeId);
+                            if(next!=null){
+                                wallDialog.dismiss();
+                                wallDialog=null;
+                                drawingView.postDelayed(
+                                        ()->editWall(next.id,next.value,true),
+                                        70);
+                                return;
+                            }
+                            Toast.makeText(
+                                    NativeWorkspaceActivity.this,
+                                    "Все размеры стен введены",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                        closeWallDialog();
+                    }
+
+                    @Override public void onDelete(){
+                        closeWallDialog();
+                        new AlertDialog.Builder(NativeWorkspaceActivity.this)
+                                .setTitle("Удалить стену?")
+                                .setMessage("Удаление произойдёт только после отдельного подтверждения.")
+                                .setNegativeButton("Отмена",null)
+                                .setPositiveButton("Удалить",(d,w)->deleteEdge(edgeId))
+                                .show();
+                    }
+
+                    @Override public void onBack(){
+                        if(!wallSequenceMode){closeWallDialog();return;}
+                        commitOpenWallValueIfValid();
+                        NativeProjectStore.EdgeData previous=previousWall(activeRoom(),edgeId);
+                        if(previous==null){
+                            closeWallDialog();
+                        }else{
+                            wallDialog.dismiss();
+                            wallDialog=null;
+                            editWall(previous.id,previous.value,true);
+                        }
+                    }
+
+                    @Override public void onClose(){
+                        commitOpenWallValueIfValid();
+                        closeWallDialog();
+                    }
+                });
+        wallDialog.show();
+    }
+
+    private void closeWallDialog(){
+        if(wallDialog!=null){
+            wallDialog.dismiss();
+            wallDialog=null;
+        }
+        wallEditId=null;
+        wallSequenceMode=false;
+        if(drawingView!=null)drawingView.setWallSequenceActive(false);
+        if(historyNavView!=null)historyNavView.setVisibility(View.VISIBLE);
+        updateDrawingChrome();
+    }
+
+    private void commitOpenWallValueIfValid(){
+        if(wallDialog==null||wallEditId==null)return;
+        Float value=wallDialog.currentUnitsOrNull();
+        if(value==null||value<=0f)return;
+        NativeProjectStore.EdgeData edge=findEdge(activeRoom(),wallEditId);
+        if(edge!=null&&Math.abs(edge.value-value)>.001f){
             pushHistory();
-            current.value=value;
+            edge.value=value;
             store.saveCurrent(project);
             drawingView.invalidate();
             updateStats();
+        }
+    }
 
-            if(sequence){
-                NativeProjectStore.EdgeData next=firstUnmeasuredWallAfter(r,edgeId);
-                if(next!=null){
-                    drawingView.postDelayed(
-                            ()->editWall(next.id,next.value,true),
-                            100);
-                }
-            }
-        });
+    @Override public void onWallSequencePick(String edgeId){
+        if(!wallSequenceMode)return;
+        commitOpenWallValueIfValid();
+        NativeProjectStore.EdgeData edge=findEdge(activeRoom(),edgeId);
+        if(edge==null)return;
+        if(wallDialog!=null){wallDialog.dismiss();wallDialog=null;}
+        editWall(edge.id,edge.value,true);
     }
 
     private void editDiagonal(String diagonalId,float currentValue){
-        NativeProjectStore.RoomData r=activeRoom();
-        NativeProjectStore.DiagonalData diagonal=findDiagonal(r,diagonalId);
+        NativeProjectStore.RoomData room=activeRoom();
+        NativeProjectStore.DiagonalData diagonal=findDiagonal(room,diagonalId);
         if(diagonal==null)return;
-        showNumberDialog("Диагональ",currentValue,value->{
-            NativeProjectStore.DiagonalData current=findDiagonal(r,diagonalId);
-            if(current==null)return;
-            pushHistory();
-            current.value=value;
-            store.saveCurrent(project);
-            drawingView.invalidate();
-        });
+
+        Float auto=NativeMeasurementSolver.autoDiagonalValue(room,diagonal);
+        String title=room.showAutoLetters
+                ?"Диагональ "+diagonalLabel(diagonal)
+                :"Диагональ";
+
+        final NativeDiagonalMeasureDialog[] holder=new NativeDiagonalMeasureDialog[1];
+        NativeDiagonalMeasureDialog dialog=new NativeDiagonalMeasureDialog(
+                this,
+                title,
+                currentValue,
+                auto,
+                new NativeDiagonalMeasureDialog.Listener(){
+                    @Override public void onSave(float value){
+                        NativeProjectStore.DiagonalData current=findDiagonal(activeRoom(),diagonalId);
+                        if(current!=null){
+                            pushHistory();
+                            current.value=value;
+                            store.saveCurrent(project);
+                            drawingView.invalidate();
+                        }
+                        holder[0].dismiss();
+                    }
+
+                    @Override public void onUseAuto(float value){
+                        NativeProjectStore.DiagonalData current=findDiagonal(activeRoom(),diagonalId);
+                        if(current!=null){
+                            pushHistory();
+                            current.value=Math.round(value);
+                            store.saveCurrent(project);
+                            drawingView.invalidate();
+                        }
+                        holder[0].dismiss();
+                    }
+
+                    @Override public void onDelete(){
+                        holder[0].dismiss();
+                        new AlertDialog.Builder(NativeWorkspaceActivity.this)
+                                .setTitle("Удалить диагональ?")
+                                .setMessage("Удаление произойдёт только после отдельного подтверждения.")
+                                .setNegativeButton("Отмена",null)
+                                .setPositiveButton("Удалить",(d,w)->{
+                                    NativeProjectStore.DiagonalData current=
+                                            findDiagonal(activeRoom(),diagonalId);
+                                    if(current!=null){
+                                        pushHistory();
+                                        activeRoom().diagonals.remove(current);
+                                        store.saveCurrent(project);
+                                        drawingView.invalidate();
+                                    }
+                                }).show();
+                    }
+
+                    @Override public void onClose(){
+                        holder[0].dismiss();
+                    }
+                });
+        holder[0]=dialog;
+        dialog.show();
     }
 
     private void startWallSequence(){
-        NativeProjectStore.RoomData r=activeRoom();
-        if(!NativeGeometry.isClosed(r))return;
-        for(NativeProjectStore.EdgeData edge:NativeGeometry.orderedEdges(r)){
-            if(edge.value<=0){
+        NativeProjectStore.RoomData room=activeRoom();
+        if(!NativeGeometry.isClosed(room)){
+            Toast.makeText(this,"Сначала замкни контур",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        for(NativeProjectStore.EdgeData edge:NativeGeometry.orderedEdges(room)){
+            if(edge.value<=0f){
+                wallSequenceMode=true;
                 editWall(edge.id,edge.value,true);
                 return;
             }
         }
+        wallSequenceMode=false;
+        Toast.makeText(this,"Все размеры стен уже введены",Toast.LENGTH_SHORT).show();
     }
 
-    private NativeProjectStore.EdgeData firstUnmeasuredWallAfter(
+    private NativeProjectStore.EdgeData previousWall(
             NativeProjectStore.RoomData room,
             String currentId){
         List<NativeProjectStore.EdgeData> ordered=NativeGeometry.orderedEdges(room);
-        if(ordered.isEmpty())return null;
-        int current=-1;
+        int index=-1;
         for(int i=0;i<ordered.size();i++){
-            if(ordered.get(i).id.equals(currentId)){current=i;break;}
+            if(ordered.get(i).id.equals(currentId)){index=i;break;}
         }
-        for(int step=1;step<=ordered.size();step++){
-            NativeProjectStore.EdgeData edge=ordered.get((Math.max(0,current)+step)%ordered.size());
-            if(edge.value<=0)return edge;
-        }
-        return null;
+        return index>0?ordered.get(index-1):null;
+    }
+
+    private void deleteEdge(String edgeId){
+        NativeProjectStore.RoomData room=activeRoom();
+        NativeProjectStore.EdgeData edge=findEdge(room,edgeId);
+        if(edge==null)return;
+        pushHistory();
+        room.edges.remove(edge);
+        room.diagonals.removeIf(d->
+                (d.a.equals(edge.a)&&d.b.equals(edge.b))
+                        ||(d.a.equals(edge.b)&&d.b.equals(edge.a)));
+        NativeGeometry.sanitize(room);
+        store.saveCurrent(project);
+        drawingView.invalidate();
+        updateStats();
+        updateDrawingChrome();
+    }
+
+    private String pointLetter(String pointId){
+        NativeProjectStore.PointData point=NativeGeometry.pointById(activeRoom(),pointId);
+        if(point!=null&&"A".equals(point.customLabel))return"A";
+        int index=NativeGeometry.pointIndex(activeRoom(),pointId);
+        return index>=0&&index<26?String.valueOf((char)('A'+index)):String.valueOf(index+1);
+    }
+
+    private String edgeLabel(NativeProjectStore.EdgeData edge){
+        return pointLetter(edge.a)+pointLetter(edge.b);
+    }
+
+    private String diagonalLabel(NativeProjectStore.DiagonalData diagonal){
+        return pointLetter(diagonal.a)+pointLetter(diagonal.b);
     }
 
     private NativeProjectStore.EdgeData findEdge(NativeProjectStore.RoomData room,String id){

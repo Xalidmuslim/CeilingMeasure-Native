@@ -95,6 +95,62 @@ public class NativeAppSmokeTest {
     }
 
     @Test
+    public void wallAndDiagonalParityDialogsExposeWebControls() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(
+                NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.ACTION_NEW_ORDER);
+
+        try (ActivityScenario<NativeWorkspaceActivity> scenario =
+                     ActivityScenario.launch(intent)) {
+            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
+            scenario.onActivity(ref::set);
+            NativeWorkspaceActivity activity = ref.get();
+            assertNotNull(activity);
+
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+                NativeWallMeasureDialog wall = new NativeWallMeasureDialog(
+                        activity,
+                        "Стена 1 из 4",
+                        500f,
+                        true,
+                        new NativeWallMeasureDialog.Listener(){
+                            public void onSave(float v){}
+                            public void onDelete(){}
+                            public void onBack(){}
+                            public void onClose(){}
+                        });
+                wall.show();
+                View root = wall.findViewById(android.R.id.content).getRootView();
+                assertNotNull(root.findViewWithTag("native_wall_value"));
+                assertNotNull(root.findViewWithTag("native_wall_decimal"));
+                assertNotNull(root.findViewWithTag("native_wall_meter_hint"));
+                assertNotNull(root.findViewWithTag("native_wall_done"));
+                wall.dismiss();
+
+                NativeDiagonalMeasureDialog diag = new NativeDiagonalMeasureDialog(
+                        activity,
+                        "Диагональ AC",
+                        0f,
+                        707f,
+                        new NativeDiagonalMeasureDialog.Listener(){
+                            public void onSave(float v){}
+                            public void onUseAuto(float v){}
+                            public void onDelete(){}
+                            public void onClose(){}
+                        });
+                diag.show();
+                View droot = diag.findViewById(android.R.id.content).getRootView();
+                assertNotNull(droot.findViewWithTag("native_diag_auto"));
+                assertNotNull(droot.findViewWithTag("native_diag_use_auto"));
+                assertNotNull(droot.findViewWithTag("native_diag_delete"));
+                diag.dismiss();
+            });
+        }
+    }
+
+    @Test
     public void nativeNumberPadUsesCustomKeysWithZeroBelowEight() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Intent intent = new Intent(context, NativeWorkspaceActivity.class);

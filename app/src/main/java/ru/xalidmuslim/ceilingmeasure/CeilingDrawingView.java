@@ -34,6 +34,7 @@ final class CeilingDrawingView extends View {
         void onHistoryCheckpoint();
         void onVertexLongPressed(@NonNull String pointId);
         void onWallLongPressed(@NonNull String edgeId, float currentValue);
+        void onWallSequencePick(@NonNull String edgeId);
         void onDiagonalCreated(@NonNull String diagonalId, float currentValue);
         void onDiagonalLongPressed(@NonNull String diagonalId, float currentValue);
         void onContourClosed();
@@ -65,6 +66,8 @@ final class CeilingDrawingView extends View {
     private float lastCentroidX;
     private float lastCentroidY;
     private boolean multiTouch;
+    private boolean wallSequenceActive;
+    private String wallSequenceTapEdgeId;
 
     private float downScreenX;
     private float downScreenY;
@@ -166,6 +169,11 @@ final class CeilingDrawingView extends View {
 
     Mode getMode() {
         return mode;
+    }
+
+    void setWallSequenceActive(boolean active) {
+        wallSequenceActive = active;
+        wallSequenceTapEdgeId = null;
     }
 
     void setListener(@Nullable Listener listener) {
@@ -620,7 +628,11 @@ final class CeilingDrawingView extends View {
                     return true;
                 }
 
-                if (mode == Mode.WALL && wallDraft != null) {
+                if (mode == Mode.WALL && wallSequenceActive && wallSequenceTapEdgeId != null) {
+                    String picked = wallSequenceTapEdgeId;
+                    wallSequenceTapEdgeId = null;
+                    if (!moved && listener != null) listener.onWallSequencePick(picked);
+                } else if (mode == Mode.WALL && wallDraft != null) {
                     finishWallDraft();
                 } else if (mode == Mode.POINT && draggingPointId != null) {
                     finishPointDrag();
@@ -654,7 +666,11 @@ final class CeilingDrawingView extends View {
         if (closed) {
             if (edge != null) {
                 getParent().requestDisallowInterceptTouchEvent(true);
-                scheduleLongPress("edge", edge.id);
+                if (wallSequenceActive) {
+                    wallSequenceTapEdgeId = edge.id;
+                } else {
+                    scheduleLongPress("edge", edge.id);
+                }
                 return true;
             }
             getParent().requestDisallowInterceptTouchEvent(false);
@@ -1159,6 +1175,7 @@ final class CeilingDrawingView extends View {
 
     private void cancelSingleGestureForMultiTouch() {
         wallDraft = null;
+        wallSequenceTapEdgeId = null;
         draggingPointId = null;
         diagDraft = null;
         draggingLabel = null;

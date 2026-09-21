@@ -505,6 +505,18 @@ final class NativeMeasurementSolver {
         return (double) Math.abs(signedArea(solved.positions, order));
     }
 
+    @Nullable
+    static Float autoDiagonalValue(
+            @NonNull NativeProjectStore.RoomData room,
+            @NonNull NativeProjectStore.DiagonalData diagonal) {
+        Result solved = solveFree(room);
+        if (!solved.ok) return null;
+        PointF a = solved.positions.get(diagonal.a);
+        PointF b = solved.positions.get(diagonal.b);
+        if (a == null || b == null) return null;
+        return (float) Math.hypot(b.x - a.x, b.y - a.y);
+    }
+
     static int generateAutoDiagonals(@NonNull NativeProjectStore.RoomData room) {
         List<String> order = NativeGeometry.cycleOrder(room);
         if (order == null || order.size() < 4) return 0;
