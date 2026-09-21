@@ -853,17 +853,13 @@ final class NativeProjectStore {
                 edge.put("a", source.optString("a", ""));
                 edge.put("b", source.optString("b", ""));
                 edge.put("mm", formatMeasurement((float) source.optDouble("value", 0d)));
-                boolean manual = source.optBoolean("labelManual", false);
-                float dx = (float) source.optDouble("labelDx", 0d);
-                float dy = (float) source.optDouble("labelDy", 0d);
                 float angle = (float) source.optDouble("labelAngle", 0d);
                 float size = (float) source.optDouble("labelSize", 1d);
-                if (manual || Math.abs(dx) > .001f || Math.abs(dy) > .001f
-                        || Math.abs(angle) > .001f || Math.abs(size - 1f) > .001f) {
+                if (Math.abs(angle) > .001f || Math.abs(size - 1f) > .001f) {
+                    // Pre-audit native labelDx/labelDy were offsets. They cannot be
+                    // reinterpreted as v184 absolute world x/y without viewport state.
                     JSONObject pose = new JSONObject();
-                    pose.put("manual", manual);
-                    pose.put("x", dx);
-                    pose.put("y", dy);
+                    pose.put("manual", false);
                     pose.put("angle", angle);
                     pose.put("size", size);
                     edge.put("labelPose", pose);
@@ -884,17 +880,11 @@ final class NativeProjectStore {
                 diagonal.put("a", source.optString("a", ""));
                 diagonal.put("b", source.optString("b", ""));
                 diagonal.put("mm", formatMeasurement((float) source.optDouble("value", 0d)));
-                boolean manual = source.optBoolean("labelManual", false);
-                float dx = (float) source.optDouble("labelDx", 0d);
-                float dy = (float) source.optDouble("labelDy", 0d);
                 float angle = (float) source.optDouble("labelAngle", 0d);
                 float size = (float) source.optDouble("labelSize", 1d);
-                if (manual || Math.abs(dx) > .001f || Math.abs(dy) > .001f
-                        || Math.abs(angle) > .001f || Math.abs(size - 1f) > .001f) {
+                if (Math.abs(angle) > .001f || Math.abs(size - 1f) > .001f) {
                     JSONObject pose = new JSONObject();
-                    pose.put("manual", manual);
-                    pose.put("x", dx);
-                    pose.put("y", dy);
+                    pose.put("manual", false);
                     pose.put("angle", angle);
                     pose.put("size", size);
                     diagonal.put("labelPose", pose);
@@ -1291,12 +1281,13 @@ final class NativeProjectStore {
     }
 
     private static void writeLabelPose(JSONObject parent, EdgeData edge) throws JSONException {
+        boolean absoluteManual = edge.labelManual
+                && edge.labelX != null
+                && edge.labelY != null
+                && Float.isFinite(edge.labelX)
+                && Float.isFinite(edge.labelY);
         boolean include = edge.labelPosePresent
-                || edge.labelManual
-                || edge.labelX != null
-                || edge.labelY != null
-                || Math.abs(edge.labelDx) > .001f
-                || Math.abs(edge.labelDy) > .001f
+                || absoluteManual
                 || Math.abs(edge.labelAngle) > .001f
                 || Math.abs(edge.labelSize - 1f) > .001f;
         if (!include) {
@@ -1307,11 +1298,15 @@ final class NativeProjectStore {
         JSONObject pose = edge.rawLabelPose == null
                 ? new JSONObject()
                 : copyJson(edge.rawLabelPose);
-        pose.put("manual", edge.labelManual);
-        if (edge.labelX != null) pose.put("x", edge.labelX);
-        else if (edge.labelManual || Math.abs(edge.labelDx) > .001f) pose.put("x", edge.labelDx);
-        if (edge.labelY != null) pose.put("y", edge.labelY);
-        else if (edge.labelManual || Math.abs(edge.labelDy) > .001f) pose.put("y", edge.labelDy);
+        pose.put("manual", absoluteManual);
+        if (absoluteManual) {
+            pose.put("x", edge.labelX);
+            pose.put("y", edge.labelY);
+        } else if (edge.rawLabelPose == null) {
+            // Never serialize legacy runtime offsets as v184 absolute coordinates.
+            pose.remove("x");
+            pose.remove("y");
+        }
         pose.put("angle", normalizeAngle(edge.labelAngle));
         pose.put("size", normalizedLabelSize(edge.labelSize));
         parent.put("labelPose", pose);
@@ -1319,12 +1314,13 @@ final class NativeProjectStore {
 
     private static void writeLabelPose(JSONObject parent, DiagonalData diagonal)
             throws JSONException {
+        boolean absoluteManual = diagonal.labelManual
+                && diagonal.labelX != null
+                && diagonal.labelY != null
+                && Float.isFinite(diagonal.labelX)
+                && Float.isFinite(diagonal.labelY);
         boolean include = diagonal.labelPosePresent
-                || diagonal.labelManual
-                || diagonal.labelX != null
-                || diagonal.labelY != null
-                || Math.abs(diagonal.labelDx) > .001f
-                || Math.abs(diagonal.labelDy) > .001f
+                || absoluteManual
                 || Math.abs(diagonal.labelAngle) > .001f
                 || Math.abs(diagonal.labelSize - 1f) > .001f;
         if (!include) {
@@ -1335,14 +1331,13 @@ final class NativeProjectStore {
         JSONObject pose = diagonal.rawLabelPose == null
                 ? new JSONObject()
                 : copyJson(diagonal.rawLabelPose);
-        pose.put("manual", diagonal.labelManual);
-        if (diagonal.labelX != null) pose.put("x", diagonal.labelX);
-        else if (diagonal.labelManual || Math.abs(diagonal.labelDx) > .001f) {
-            pose.put("x", diagonal.labelDx);
-        }
-        if (diagonal.labelY != null) pose.put("y", diagonal.labelY);
-        else if (diagonal.labelManual || Math.abs(diagonal.labelDy) > .001f) {
-            pose.put("y", diagonal.labelDy);
+        pose.put("manual", absoluteManual);
+        if (absoluteManual) {
+            pose.put("x", diagonal.labelX);
+            pose.put("y", diagonal.labelY);
+        } else if (diagonal.rawLabelPose == null) {
+            pose.remove("x");
+            pose.remove("y");
         }
         pose.put("angle", normalizeAngle(diagonal.labelAngle));
         pose.put("size", normalizedLabelSize(diagonal.labelSize));

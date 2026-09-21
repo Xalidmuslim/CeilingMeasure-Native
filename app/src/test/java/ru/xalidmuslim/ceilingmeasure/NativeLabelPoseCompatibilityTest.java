@@ -152,6 +152,33 @@ public final class NativeLabelPoseCompatibilityTest {
         assertEquals(75.25d, persisted.getDouble("y"), .000001d);
     }
 
+    @Test
+    public void legacyRuntimeOffsetIsNeverSerializedAsAbsoluteWebPose() throws Exception {
+        MemorySharedPreferences prefs = new MemorySharedPreferences();
+        NativeProjectStore store = new NativeProjectStore(prefs);
+        NativeProjectStore.ProjectData project = store.newProject();
+        NativeProjectStore.RoomData room = project.rooms.get(0);
+
+        NativeProjectStore.PointData a = new NativeProjectStore.PointData("pa", 0f, 0f);
+        NativeProjectStore.PointData b = new NativeProjectStore.PointData("pb", 100f, 0f);
+        room.points.add(a);
+        room.points.add(b);
+        NativeProjectStore.EdgeData edge =
+                new NativeProjectStore.EdgeData("legacy_offset", a.id, b.id, 500f);
+        edge.labelDx = 17f;
+        edge.labelDy = -9f;
+        edge.labelManual = true;
+        room.edges.add(edge);
+
+        store.saveCurrent(project);
+
+        JSONObject encodedEdge = new JSONObject(store.rawDatabaseForTest())
+                .getJSONArray("orders").getJSONObject(0)
+                .getJSONArray("rooms").getJSONObject(0)
+                .getJSONArray("edges").getJSONObject(0);
+        assertFalse(encodedEdge.has("labelPose"));
+    }
+
     private static NativeProjectStore storeWithCurrentFixture() throws Exception {
         MemorySharedPreferences prefs = new MemorySharedPreferences();
         NativeProjectStore store = new NativeProjectStore(prefs);
