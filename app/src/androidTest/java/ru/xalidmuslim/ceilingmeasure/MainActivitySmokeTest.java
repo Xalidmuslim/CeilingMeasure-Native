@@ -84,9 +84,16 @@ public class MainActivitySmokeTest {
                             "!!document.getElementById('globalUndo')," +
                             "!!document.getElementById('globalRedo')," +
                             "!!document.getElementById('drawToolsNav')," +
-                            "typeof AndroidFileBridge === 'object'" +
+                            "typeof AndroidFileBridge === 'object'," +
+                            "typeof window.ceilingHandleAndroidBack === 'function'" +
                             "].every(Boolean))()");
             assertEquals("true", result);
+
+            assertEquals("true", eval(activity,
+                    "document.getElementById('roomPicker').classList.add('open');" +
+                    "window.ceilingHandleAndroidBack()"));
+            assertEquals("false", eval(activity,
+                    "document.getElementById('roomPicker').classList.contains('open')"));
 
             Thread.sleep(500);
             assertTrue("WebView console contains errors: " + activity.getConsoleErrorsForTest(),
