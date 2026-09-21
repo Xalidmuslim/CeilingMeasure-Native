@@ -10,6 +10,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.MediaStore;
 import android.webkit.WebView;
+import android.view.View;
 
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -59,6 +60,19 @@ public class MainActivitySmokeTest {
 
     @Test
     public void goldenMasterLoadsWithCoreControlsAndNoJsErrors() throws Exception {
+        try (ActivityScenario<NativeHomeActivity> homeScenario =
+                     ActivityScenario.launch(NativeHomeActivity.class)) {
+            AtomicReference<NativeHomeActivity> homeRef = new AtomicReference<>();
+            homeScenario.onActivity(homeRef::set);
+            NativeHomeActivity home = homeRef.get();
+            assertNotNull(home);
+            View root = home.getWindow().getDecorView();
+            assertNotNull(root.findViewWithTag("native_home_new"));
+            assertNotNull(root.findViewWithTag("native_home_saved"));
+            assertNotNull(root.findViewWithTag("native_home_drawing"));
+            assertNotNull(root.findViewWithTag("native_home_settings"));
+        }
+
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             MainActivity activity = activity(scenario);
             assertNotNull(activity);

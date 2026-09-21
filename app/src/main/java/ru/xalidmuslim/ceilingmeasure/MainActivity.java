@@ -46,15 +46,29 @@ public final class MainActivity extends ComponentActivity {
     private static final String TAG = "CeilingMeasure";
     public static final String START_URL = "https://appassets.androidplatform.net/assets/index.html";
 
+    public static final String EXTRA_FROM_NATIVE_HOME = "from_native_home";
+    public static final String EXTRA_LAUNCH_ACTION = "launch_action";
+    public static final String ACTION_NEW_ORDER = "new_order";
+    public static final String ACTION_SAVED_MEASUREMENTS = "saved_measurements";
+    public static final String ACTION_DRAWING = "drawing";
+    public static final String ACTION_SETTINGS = "settings";
+
     private WebView webView;
     private ValueCallback<Uri[]> pendingFileCallback;
     private ActivityResultLauncher<Intent> fileChooserLauncher;
     private final List<String> consoleErrors = Collections.synchronizedList(new ArrayList<>());
     private long lastUnhandledBackAtMs = 0L;
+    private boolean launchedFromNativeHome = false;
+    private boolean launchActionHandled = false;
+    @Nullable
+    private String launchAction;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        launchedFromNativeHome = getIntent().getBooleanExtra(EXTRA_FROM_NATIVE_HOME, false);
+        launchAction = getIntent().getStringExtra(EXTRA_LAUNCH_ACTION);
 
         fileChooserLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -104,10 +118,27 @@ public final class MainActivity extends ComponentActivity {
         }
 
         webView.evaluateJavascript(
-                "Boolean(window.ceilingHandleAndroidBack && window.ceilingHandleAndroidBack())",
+                "(() => {" +
+                        "const handled=Boolean(window.ceilingHandleAndroidBack && window.ceilingHandleAndroidBack());" +
+                        "const home=document.body.classList.contains('app-home');" +
+                        "return (handled?'1':'0')+'|'+(home?'1':'0');" +
+                        "})()",
                 value -> {
-                    if (!"true".equals(value)) {
-                        handleUnhandledBack();
+                    boolean handled = "\"1|0\"".equals(value) || "\"1|1\"".equals(value);
+                    boolean atWebHome = "\"0|1\"".equals(value) || "\"1|1\"".equals(value);
+
+                    if (launchedFromNativeHome && atWebHome) {
+                        lastUnhandledBackAtMs = 0L;
+                        finish();
+                        return;
+                    }
+
+                    if (!handled) {
+                        if (launchedFromNativeHome) {
+                            finish();
+                        } else {
+                            handleUnhandledBack();
+                        }
                     } else {
                         lastUnhandledBackAtMs = 0L;
                     }
@@ -186,6 +217,14 @@ public final class MainActivity extends ComponentActivity {
                 return !("https".equalsIgnoreCase(uri.getScheme())
                         && "appassets.androidplatform.net".equalsIgnoreCase(uri.getHost()));
             }
+
+            @Override
+            public void onPageFinished(@NonNull WebView view, @NonNull String url) {
+                super.onPageFinished(view, url);
+                if (START_URL.equals(url)) {
+                    applyNativeLaunchAction();
+                }
+            }
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
@@ -237,6 +276,30 @@ public final class MainActivity extends ComponentActivity {
         setContentView(root);
         ViewCompat.requestApplyInsets(root);
         webView.loadUrl(START_URL);
+    }
+
+    private void applyNativeLaunchAction() {
+        if (!launchedFromNativeHome || launchActionHandled || webView == null) return;
+        launchActionHandled = true;
+
+        String script;
+        if (ACTION_NEW_ORDER.equals(launchAction)) {
+            script = "(() => {const b=document.getElementById('homeNewOrder');if(!b)return false;b.click();return true})()";
+        } else if (ACTION_SAVED_MEASUREMENTS.equals(launchAction)) {
+            script = "(() => {const b=document.getElementById('homeSaved');if(!b)return false;b.click();return true})()";
+        } else if (ACTION_DRAWING.equals(launchAction)) {
+            script = "(() => {const b=document.getElementById('homeDrawing');if(!b)return false;b.click();return true})()";
+        } else if (ACTION_SETTINGS.equals(launchAction)) {
+            script = "(() => {const b=document.getElementById('homeSettingsBtn');if(!b)return false;b.click();return true})()";
+        } else {
+            return;
+        }
+
+        webView.post(() -> {
+            if (webView != null) {
+                webView.evaluateJavascript(script, null);
+            }
+        });
     }
 
     public WebView getWebViewForTest() {
