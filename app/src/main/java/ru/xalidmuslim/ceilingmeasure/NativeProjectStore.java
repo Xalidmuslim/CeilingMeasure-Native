@@ -406,6 +406,22 @@ final class NativeProjectStore {
         saveCurrent(project);
     }
 
+    void updateSavedProject(@NonNull ProjectData project) {
+        List<ProjectData> saved = loadSaved();
+        JSONArray arr = new JSONArray();
+        boolean replaced = false;
+        for (ProjectData p : saved) {
+            if (p.id.equals(project.id)) {
+                arr.put(projectToJson(project));
+                replaced = true;
+            } else {
+                arr.put(projectToJson(p));
+            }
+        }
+        if (!replaced) arr.put(projectToJson(project));
+        prefs.edit().putString(KEY_SAVED, arr.toString()).apply();
+    }
+
     void deleteSaved(@NonNull String id) {
         List<ProjectData> saved = loadSaved();
         JSONArray arr = new JSONArray();
