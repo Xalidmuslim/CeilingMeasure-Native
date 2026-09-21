@@ -502,7 +502,7 @@ final class NativeMeasurementSolver {
 
         List<String> order = NativeGeometry.cycleOrder(room);
         if (order == null) return null;
-        return Math.abs(signedArea(solved.positions, order));
+        return (double) Math.abs(signedArea(solved.positions, order));
     }
 
     static int generateAutoDiagonals(@NonNull NativeProjectStore.RoomData room) {

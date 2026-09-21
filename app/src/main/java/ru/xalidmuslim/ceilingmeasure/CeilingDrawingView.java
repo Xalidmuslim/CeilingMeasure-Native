@@ -22,6 +22,7 @@ import androidx.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 final class CeilingDrawingView extends View {
     enum Mode { WALL, POINT, DIAGONAL, LABEL }
