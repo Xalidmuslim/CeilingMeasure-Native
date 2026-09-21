@@ -13,7 +13,7 @@ Astra обязана заполнять столбцы «Web reference», «Nati
 
 | ID | Область | Требование parity | Web reference | Native reference | Test evidence | Status |
 |---|---|---|---|---|---|---|
-| P-001 | Golden master | `webapp/index.html` не меняется; SHA = `7fade548ce909eb3bea6998c244fd90feb74b060a066d19c6a6c50c02c3f05d8` | TODO | N/A | SHA check | TODO |
+| P-001 | Golden master | `webapp/index.html` не меняется; SHA = `354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388` | TODO | N/A | SHA check | TODO |
 | P-002 | Audit | Полный inventory экранов/состояний/модалок | TODO | N/A | Audit report | TODO |
 | P-003 | Audit | Полный список web event handlers/gestures | TODO | N/A | Audit report | TODO |
 | P-004 | Audit | Полный data schema + migrations | TODO | N/A | Schema report | TODO |
