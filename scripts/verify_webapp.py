@@ -8,7 +8,7 @@ path=Path(sys.argv[1] if len(sys.argv)>1 else 'webapp/index.html')
 if not path.is_file():
     raise SystemExit(f'FAIL: missing {path}')
 raw=path.read_text(encoding='utf-8')
-expected='0fa5599e6efc8664d95fa3848049da5d0bad27fdbd1b204fb08a0c415d349698'
+expected='e6688f9c45f620753bbb1fc023544adee99ba1631f99586a97d58d4517ec668c'
 actual=hashlib.sha256(path.read_bytes()).hexdigest()
 if actual!=expected:
     raise SystemExit(f'FAIL: golden master changed\nexpected {expected}\nactual   {actual}')
@@ -47,7 +47,8 @@ required_tokens=[
  'touch-action:pan-y!important',
  'data-label-size-action',
  'data-label-rotate-kind',
- 'window.ceilingHandleAndroidBack=ceilingHandleAndroidBack;'
+ 'window.ceilingHandleAndroidBack=ceilingHandleAndroidBack;',
+ 'closed-contour-scroll'
 ]
 for t in required_tokens:
     if t not in raw: raise SystemExit('FAIL: required contract token missing: '+t)
