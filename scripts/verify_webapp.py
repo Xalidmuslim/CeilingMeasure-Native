@@ -8,7 +8,7 @@ path=Path(sys.argv[1] if len(sys.argv)>1 else 'webapp/index.html')
 if not path.is_file():
     raise SystemExit(f'FAIL: missing {path}')
 raw=path.read_text(encoding='utf-8')
-expected='e6f82509dce8f2e0f2a94b10c12cb141fe8517a9f41ee69e073e89aed6ff0e3b'
+expected='354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388'
 actual=hashlib.sha256(path.read_bytes()).hexdigest()
 if actual!=expected:
     raise SystemExit(f'FAIL: golden master changed\nexpected {expected}\nactual   {actual}')
@@ -55,7 +55,7 @@ required_tokens=[
  'id="homeSaved"',
  'id="homeDrawing"',
  'function showHomeScreen()',
- 'v183-closed-contour-scroll-boost'
+ 'closedContourScroll:mode==="draw"&&closed'
 ]
 for t in required_tokens:
     if t not in raw: raise SystemExit('FAIL: required contract token missing: '+t)

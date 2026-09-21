@@ -101,6 +101,21 @@ public class MainActivitySmokeTest {
             assertEquals("false", eval(activity,
                     "document.getElementById('roomPicker').classList.contains('open')"));
 
+            // Regression guard: the three edit modes must remain selectable after
+            // the app-home and closed-contour gesture changes.
+            assertEquals("true", eval(activity,
+                    "(() => {" +
+                    "document.body.classList.remove('app-home');" +
+                    "for (const mode of ['move','diag','labels']) {" +
+                    "  const b=document.querySelector('[data-quick-mode=\"' + mode + '\"]');" +
+                    "  if (!b || b.disabled) return false;" +
+                    "  b.click();" +
+                    "  const active=document.querySelector('[data-quick-mode=\"' + mode + '\"]');" +
+                    "  if (!active || !active.classList.contains('active')) return false;" +
+                    "}" +
+                    "return true;" +
+                    "})()"));
+
             Thread.sleep(500);
             assertTrue("WebView console contains errors: " + activity.getConsoleErrorsForTest(),
                     activity.getConsoleErrorsForTest().isEmpty());

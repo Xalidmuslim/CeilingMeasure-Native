@@ -6007,7 +6007,7 @@ const fmtM2=rawArea=>Number.isFinite(+rawArea)?(+rawArea/10000).toLocaleString("
 
 const APP_STORAGE_KEY="ceilingMeasureData";
 const APP_SCHEMA_VERSION=165;
-const APP_BUILD_VERSION="183-home-dashboard";
+const APP_BUILD_VERSION="184-gesture-fix";
 const LEGACY_STORAGE_KEYS=[...Array.from({length:111},(_,i)=>`ceilingTouchV${125-i}`)];
 const volatileStorage=new Map();
 let storagePersistent=true;
@@ -12729,10 +12729,10 @@ function bindSvg(){
     const drawGuard=!!svgData(e.target,"data-draw-guard",svg);
     const wallScrollZone=!!svgData(e.target,"data-wall-scroll-zone",svg);
     const directInteractive=!!(directVid||directEidRaw||directDidRaw||labelId||rotateId||sizeId);
-    // Open contour: preserve the current drawing contract exactly.
-    // Closed contour in Wall mode: one-finger vertical swipes anywhere on the
-    // drawing belong to the page, so the user can scroll up/down naturally.
-    const nativePageScroll=closedAtDown&&mode==="draw";
+    // Keep the browser out of the SVG gesture stream. Closed-contour scrolling
+    // is handled manually below only in Wall mode, so Points / Diagonal / Numbers
+    // always retain their drawing gestures.
+    const nativePageScroll=false;
 
     if(!nativePageScroll){
       e.preventDefault();
@@ -12772,6 +12772,7 @@ function bindSvg(){
       blankScroll:mode==="draw"?false:(!drawGuard&&!vid&&!eid&&!did&&!labelId&&!rotateId&&!sizeId),
       drawGuard,
       pageScroll:false,
+      closedContourScroll:mode==="draw"&&closed,
       cornerToolLock:!!vid&&(mode==="diag"||mode==="move"),
       elementScrollAllowed:mode==="draw"?false:(closed&&!(!!vid&&(mode==="diag"||mode==="move"))),
       scrollStartY:e.clientY,
@@ -12989,17 +12990,42 @@ function bindSvg(){
         cancelVertexLongPress()
       }
 
-      // Native page scrolling must not be mixed with our old manual scrollTop path.
+      // Native page scrolling must not be mixed with our manual scrollTop path.
       if(down.nativePageScroll){
         return
       }
+
+      // Closed contour + Wall mode: vertical one-finger motion scrolls the page.
+      // This is deliberately isolated from Points / Diagonal / Numbers.
+      if(
+        down.closedContourScroll &&
+        !down.pageScroll &&
+        Math.abs(dy)>8 &&
+        Math.abs(dy)>=Math.abs(dx)*0.72
+      ){
+        down.pageScroll=true;
+        cancelVertexLongPress();
+        longPressFired=false;
+        longPressKind=null;
+        drawState=null;
+        diagDraw=null;
+        dragVertexId=null;
+        wallGuideSnapActive=false;
+        pending=null;
+        hideDrawMagnifier()
+      }
+      if(down.closedContourScroll&&down.pageScroll){
+        const scroller=$("#appScroll");
+        const delta=(down.scrollStartY-e.clientY)*1.35;
+        if(scroller)scroller.scrollTop=down.scrollStartTop+delta;
+        return
+      }
+
       // In Wall mode the invisible guard deliberately owns this gesture.
       if(down.drawGuard){
         return
       }
 
-      // In Wall mode v171 never converts a gesture from the drawing into
-      // page scrolling; only the dedicated right-side strip may scroll.
       // Other modes retain the legacy element-to-page-scroll behavior.
       if(
         down.elementScrollAllowed &&
@@ -14027,16 +14053,12 @@ html body .canvas-wrap > #drawSvg.wall-draw-mode *{
   touch-action:none!important;
   -ms-touch-action:none!important;
 }
-/* Once the contour is closed, the whole drawing becomes a vertical page-scroll
-   surface in Wall mode. Taps still work; a vertical move is handed to the browser. */
-html body .canvas-wrap > #drawSvg.wall-draw-mode.closed-contour-scroll{
-  touch-action:pan-y!important;
-  overscroll-behavior-y:auto!important;
-  -ms-touch-action:pan-y!important;
-}
-html body .canvas-wrap > #drawSvg.wall-draw-mode.closed-contour-scroll *{
-  touch-action:pan-y!important;
-  -ms-touch-action:pan-y!important;
+/* Closed contour scrolling is handled by pointer logic, not browser touch-action.
+   Non-Wall edit modes are explicitly locked to drawing gestures. */
+html body .canvas-wrap > #drawSvg:not(.wall-draw-mode),
+html body .canvas-wrap > #drawSvg:not(.wall-draw-mode) *{
+  touch-action:none!important;
+  -ms-touch-action:none!important;
 }
 html body .canvas-wrap > .wall-scroll-strip{
   position:absolute!important;
@@ -14134,26 +14156,6 @@ html body .canvas-wrap > .draw-magnifier{
   },{passive:true});
 
   window.addEventListener('blur',()=>{locked=false;pointerId=null},{passive:true});
-})();
-</script>
-
-<script id="v183-closed-contour-scroll-boost">
-(()=>{
-  const scroller=document.getElementById("appScroll");if(!scroller)return;
-  let active=false,lastY=0;
-  const onClosedDrawing=t=>!!t?.closest?.("#drawSvg.closed-contour-scroll");
-  document.addEventListener("touchstart",e=>{
-    active=e.touches.length===1&&onClosedDrawing(e.target);
-    lastY=active?e.touches[0].clientY:0
-  },{capture:true,passive:true});
-  document.addEventListener("touchmove",e=>{
-    if(!active||e.touches.length!==1){active=false;return}
-    const y=e.touches[0].clientY,dy=lastY-y;lastY=y;
-    if(Math.abs(dy)>.5)scroller.scrollTop+=dy*.32
-  },{capture:true,passive:true});
-  const stop=()=>{active=false;lastY=0};
-  document.addEventListener("touchend",stop,{capture:true,passive:true});
-  document.addEventListener("touchcancel",stop,{capture:true,passive:true});
 })();
 </script>
 
