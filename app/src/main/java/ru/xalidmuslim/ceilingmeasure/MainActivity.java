@@ -25,6 +25,7 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -49,6 +50,7 @@ public final class MainActivity extends ComponentActivity {
     private ValueCallback<Uri[]> pendingFileCallback;
     private ActivityResultLauncher<Intent> fileChooserLauncher;
     private final List<String> consoleErrors = Collections.synchronizedList(new ArrayList<>());
+    private long lastUnhandledBackAtMs = 0L;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -86,6 +88,42 @@ public final class MainActivity extends ComponentActivity {
                 });
 
         createWebView();
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleSystemBack();
+            }
+        });
+    }
+
+    private void handleSystemBack() {
+        if (webView == null) {
+            handleUnhandledBack();
+            return;
+        }
+
+        webView.evaluateJavascript(
+                "Boolean(window.ceilingHandleAndroidBack && window.ceilingHandleAndroidBack())",
+                value -> {
+                    if (!"true".equals(value)) {
+                        handleUnhandledBack();
+                    } else {
+                        lastUnhandledBackAtMs = 0L;
+                    }
+                });
+    }
+
+    private void handleUnhandledBack() {
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (now - lastUnhandledBackAtMs <= 1500L) {
+            lastUnhandledBackAtMs = 0L;
+            moveTaskToBack(true);
+            return;
+        }
+
+        lastUnhandledBackAtMs = now;
+        Toast.makeText(this, "Ещё раз назад — свернуть приложение", Toast.LENGTH_SHORT).show();
     }
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
