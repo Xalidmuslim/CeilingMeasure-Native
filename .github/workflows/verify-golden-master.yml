@@ -1,4 +1,4 @@
-name: Verify golden master
+name: Verify native Android
 
 on:
   push:
@@ -14,16 +14,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Verify exact web app
-        run: python scripts/verify_webapp.py webapp/index.html
-      - name: Verify SHA file
-        working-directory: webapp
-        run: sha256sum -c index.sha256
+
+      - name: Verify native-only architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -f app/src/main/assets/index.html
+          test ! -f app/src/main/java/ru/xalidmuslim/ceilingmeasure/MainActivity.java
+          test -f app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeHomeActivity.java
+          test -f app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeWorkspaceActivity.java
+          test -f app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
+          test -f app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeProjectStore.java
+
+          if grep -R -E "android\.webkit\.WebView|androidx\.webkit" app/src/main/java app/build.gradle; then
+            echo "WebView/WebKit is not allowed in the native application"
+            exit 1
+          fi
+
+          grep -q 'android:name=".NativeHomeActivity"' app/src/main/AndroidManifest.xml
+          grep -q 'android:name=".NativeWorkspaceActivity"' app/src/main/AndroidManifest.xml
+          grep -q 'android.intent.category.LAUNCHER' app/src/main/AndroidManifest.xml

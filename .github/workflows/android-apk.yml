@@ -34,42 +34,39 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
 
-      - name: Verify golden master
+      - name: Verify native-only source
+        shell: bash
         run: |
-          python scripts/verify_webapp.py webapp/index.html
-          python scripts/verify_webapp.py app/src/main/assets/index.html
-          test "$(sha256sum webapp/index.html | cut -d' ' -f1)" = "$(sha256sum app/src/main/assets/index.html | cut -d' ' -f1)"
+          set -euo pipefail
+          test ! -f app/src/main/assets/index.html
+          test ! -f app/src/main/java/ru/xalidmuslim/ceilingmeasure/MainActivity.java
+          if grep -R -E "android\.webkit\.WebView|androidx\.webkit" app/src/main/java app/build.gradle; then
+            echo "Legacy WebView dependency found in native application source"
+            exit 1
+          fi
+          grep -q 'android:name=".NativeHomeActivity"' app/src/main/AndroidManifest.xml
+          grep -q 'android:name=".NativeWorkspaceActivity"' app/src/main/AndroidManifest.xml
+          grep -q 'class CeilingDrawingView' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
 
       - name: Lint, unit tests, assemble
         run: gradle --no-daemon clean lintDebug testDebugUnitTest assembleDebug
 
-      - name: Verify packaged web asset and manifest
+      - name: Verify native APK
         shell: bash
         run: |
           set -euo pipefail
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
 
-          unzip -p "$APK" assets/index.html > /tmp/index-from-apk.html
-          EXPECTED=354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388
-          ACTUAL="$(sha256sum /tmp/index-from-apk.html | cut -d' ' -f1)"
-          echo "APK asset SHA-256: $ACTUAL"
-          test "$ACTUAL" = "$EXPECTED"
+          if unzip -l "$APK" | grep -q 'assets/index.html'; then
+            echo "Legacy HTML asset is still packaged in the APK"
+            exit 1
+          fi
 
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
           test -n "$SDK_ROOT"
@@ -86,10 +83,14 @@ jobs:
             exit 1
           fi
 
+          MANIFEST="$("$APK_ANALYZER" manifest print "$APK")"
+          echo "$MANIFEST" | grep -q 'ru.xalidmuslim.ceilingmeasure.NativeHomeActivity'
+          echo "$MANIFEST" | grep -q 'android.intent.category.LAUNCHER'
+
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: CeilingMeasure-debug-apk
+          name: CeilingMeasure-native-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -104,7 +105,12 @@ jobs:
           emulator-boot-timeout: 600
           script: bash scripts/run_android_smoke.sh
 
-      - name: Re-verify golden asset after tests
+      - name: Re-verify native source after tests
+        shell: bash
         run: |
-          python scripts/verify_webapp.py app/src/main/assets/index.html
-          test "$(sha256sum app/src/main/assets/index.html | cut -d' ' -f1)" = "354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388"
+          set -euo pipefail
+          test ! -f app/src/main/assets/index.html
+          test ! -f app/src/main/java/ru/xalidmuslim/ceilingmeasure/MainActivity.java
+          if grep -R -E "android\.webkit\.WebView|androidx\.webkit" app/src/main/java app/build.gradle; then
+            exit 1
+          fi
