@@ -121,8 +121,13 @@ final class NativeLabelEngine {
             if (auto == null) continue;
 
             float size = NativeProjectStore.normalizedLabelSize(edge.labelSize);
-            float x = auto.x + edge.labelDx;
-            float y = auto.y + edge.labelDy;
+            boolean absoluteManual = edge.labelManual
+                    && edge.labelX != null
+                    && edge.labelY != null
+                    && Float.isFinite(edge.labelX)
+                    && Float.isFinite(edge.labelY);
+            float x = absoluteManual ? edge.labelX : auto.x + edge.labelDx;
+            float y = absoluteManual ? edge.labelY : auto.y + edge.labelDy;
             float width = auto.box.x2 - auto.box.x1;
             float height = auto.box.y2 - auto.box.y1;
             Box finalBox = centeredBox(x, y, width * size, height * size);
@@ -170,8 +175,13 @@ final class NativeLabelEngine {
             if (auto == null) continue;
 
             float size = NativeProjectStore.normalizedLabelSize(diagonal.labelSize);
-            float x = auto.x + diagonal.labelDx;
-            float y = auto.y + diagonal.labelDy;
+            boolean absoluteManual = diagonal.labelManual
+                    && diagonal.labelX != null
+                    && diagonal.labelY != null
+                    && Float.isFinite(diagonal.labelX)
+                    && Float.isFinite(diagonal.labelY);
+            float x = absoluteManual ? diagonal.labelX : auto.x + diagonal.labelDx;
+            float y = absoluteManual ? diagonal.labelY : auto.y + diagonal.labelDy;
             float width = auto.box.x2 - auto.box.x1;
             float height = auto.box.y2 - auto.box.y1;
             Box finalBox = centeredBox(x, y, width * size, height * size);

@@ -873,15 +873,25 @@ final class CeilingDrawingView extends View {
         if (selectedLabel.kind == LabelKind.EDGE) {
             NativeProjectStore.EdgeData edge = edgeById(selectedLabel.id);
             if (edge != null) {
-                labelStartDx = edge.labelDx;
-                labelStartDy = edge.labelDy;
+                // Convert any legacy offset runtime state to canonical v184 absolute
+                // coordinates at the current visual center before drag begins.
+                edge.labelX = placement.x;
+                edge.labelY = placement.y;
+                edge.labelDx = 0f;
+                edge.labelDy = 0f;
+                labelStartDx = placement.x;
+                labelStartDy = placement.y;
                 edge.labelManual = true;
             }
         } else {
             NativeProjectStore.DiagonalData diagonal = diagonalById(selectedLabel.id);
             if (diagonal != null) {
-                labelStartDx = diagonal.labelDx;
-                labelStartDy = diagonal.labelDy;
+                diagonal.labelX = placement.x;
+                diagonal.labelY = placement.y;
+                diagonal.labelDx = 0f;
+                diagonal.labelDy = 0f;
+                labelStartDx = placement.x;
+                labelStartDy = placement.y;
                 diagonal.labelManual = true;
             }
         }
@@ -1116,15 +1126,19 @@ final class CeilingDrawingView extends View {
         if (draggingLabel.kind == LabelKind.EDGE) {
             NativeProjectStore.EdgeData edge = edgeById(draggingLabel.id);
             if (edge != null) {
-                edge.labelDx = labelStartDx + dx;
-                edge.labelDy = labelStartDy + dy;
+                edge.labelX = labelStartDx + dx;
+                edge.labelY = labelStartDy + dy;
+                edge.labelDx = 0f;
+                edge.labelDy = 0f;
                 edge.labelManual = true;
             }
         } else {
             NativeProjectStore.DiagonalData diagonal = diagonalById(draggingLabel.id);
             if (diagonal != null) {
-                diagonal.labelDx = labelStartDx + dx;
-                diagonal.labelDy = labelStartDy + dy;
+                diagonal.labelX = labelStartDx + dx;
+                diagonal.labelY = labelStartDy + dy;
+                diagonal.labelDx = 0f;
+                diagonal.labelDy = 0f;
                 diagonal.labelManual = true;
             }
         }

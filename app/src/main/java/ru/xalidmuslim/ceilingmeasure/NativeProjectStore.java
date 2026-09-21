@@ -1260,34 +1260,34 @@ final class NativeProjectStore {
         if (pose == null) return;
         edge.labelPosePresent = true;
         edge.rawLabelPose = copyJson(pose);
-        if (pose.has("x") && pose.opt("x") instanceof Number) {
-            edge.labelX = (float) pose.optDouble("x", 0d);
-            edge.labelDx = edge.labelX;
-        }
-        if (pose.has("y") && pose.opt("y") instanceof Number) {
-            edge.labelY = (float) pose.optDouble("y", 0d);
-            edge.labelDy = edge.labelY;
+
+        Float x = finiteFloat(pose.opt("x"));
+        Float y = finiteFloat(pose.opt("y"));
+        edge.labelManual = pose.optBoolean("manual", false) && x != null && y != null;
+        if (edge.labelManual) {
+            // v184 labelPose.x/y are absolute world coordinates, never offsets.
+            edge.labelX = x;
+            edge.labelY = y;
         }
         edge.labelAngle = normalizeAngle((float) pose.optDouble("angle", 0d));
         edge.labelSize = normalizedLabelSize((float) pose.optDouble("size", 1d));
-        edge.labelManual = pose.optBoolean("manual", false);
     }
 
     private static void readLabelPose(@Nullable JSONObject pose, DiagonalData diagonal) {
         if (pose == null) return;
         diagonal.labelPosePresent = true;
         diagonal.rawLabelPose = copyJson(pose);
-        if (pose.has("x") && pose.opt("x") instanceof Number) {
-            diagonal.labelX = (float) pose.optDouble("x", 0d);
-            diagonal.labelDx = diagonal.labelX;
-        }
-        if (pose.has("y") && pose.opt("y") instanceof Number) {
-            diagonal.labelY = (float) pose.optDouble("y", 0d);
-            diagonal.labelDy = diagonal.labelY;
+
+        Float x = finiteFloat(pose.opt("x"));
+        Float y = finiteFloat(pose.opt("y"));
+        diagonal.labelManual = pose.optBoolean("manual", false) && x != null && y != null;
+        if (diagonal.labelManual) {
+            // Same absolute-coordinate contract as wall labels.
+            diagonal.labelX = x;
+            diagonal.labelY = y;
         }
         diagonal.labelAngle = normalizeAngle((float) pose.optDouble("angle", 0d));
         diagonal.labelSize = normalizedLabelSize((float) pose.optDouble("size", 1d));
-        diagonal.labelManual = pose.optBoolean("manual", false);
     }
 
     private static void writeLabelPose(JSONObject parent, EdgeData edge) throws JSONException {
@@ -1497,6 +1497,13 @@ final class NativeProjectStore {
             return String.valueOf(Math.round(value));
         }
         return new BigDecimal(Float.toString(value)).stripTrailingZeros().toPlainString();
+    }
+
+    @Nullable
+    private static Float finiteFloat(@Nullable Object value) {
+        if (!(value instanceof Number)) return null;
+        float result = ((Number) value).floatValue();
+        return Float.isFinite(result) ? result : null;
     }
 
     private static float parseWebMeasurement(Object value) {
