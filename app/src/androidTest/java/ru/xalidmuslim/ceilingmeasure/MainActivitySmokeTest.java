@@ -64,22 +64,27 @@ public class MainActivitySmokeTest {
             assertNotNull(activity);
             awaitReady(activity);
 
+            // The web app implementation is intentionally scoped inside an IIFE, so this
+            // instrumentation test verifies the public DOM/bridge contract. Internal
+            // implementation tokens and the exact golden-master bytes are verified by
+            // scripts/verify_webapp.py before the emulator test starts.
             String result = eval(activity,
                     "(() => [" +
                             "location.href === 'https://appassets.androidplatform.net/assets/index.html'," +
                             "!!document.getElementById('savedBtn')," +
+                            "!!document.getElementById('newOrder')," +
+                            "!!document.getElementById('uiSettingsBtn')," +
                             "!!document.getElementById('wallSheet')," +
                             "!!document.getElementById('diagSheet')," +
                             "!!document.getElementById('savedMeasurements')," +
                             "!!document.getElementById('backupExport')," +
                             "!!document.getElementById('backupImport')," +
                             "!!document.getElementById('clientEstimatePdf')," +
-                            "typeof AndroidFileBridge === 'object'," +
-                            "typeof saveBlobFile === 'function'," +
-                            "typeof exportBackup === 'function'," +
-                            "typeof importBackupFile === 'function'," +
-                            "typeof fmtM2 === 'function'," +
-                            "Number(String(fmtM2(250000)).replace(',', '.')) === 25" +
+                            "!!document.getElementById('historyNav')," +
+                            "!!document.getElementById('globalUndo')," +
+                            "!!document.getElementById('globalRedo')," +
+                            "!!document.getElementById('drawToolsNav')," +
+                            "typeof AndroidFileBridge === 'object'" +
                             "].every(Boolean))()");
             assertEquals("true", result);
 
