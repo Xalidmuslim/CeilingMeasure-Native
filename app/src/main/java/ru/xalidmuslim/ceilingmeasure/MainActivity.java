@@ -29,6 +29,9 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
 
@@ -91,6 +94,17 @@ public final class MainActivity extends ComponentActivity {
         root.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Android 15+ enforces edge-to-edge for targetSdk 35. Keep the WebView
+        // inside the safe system-bar/cutout area so the app header and fixed
+        // bottom controls are never drawn underneath status/navigation bars.
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
+            Insets safe = windowInsets.getInsets(
+                    WindowInsetsCompat.Type.systemBars()
+                            | WindowInsetsCompat.Type.displayCutout());
+            view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+            return windowInsets;
+        });
 
         webView = new WebView(this);
         webView.setLayoutParams(new FrameLayout.LayoutParams(
@@ -183,6 +197,7 @@ public final class MainActivity extends ComponentActivity {
 
         root.addView(webView);
         setContentView(root);
+        ViewCompat.requestApplyInsets(root);
         webView.loadUrl(START_URL);
     }
 
