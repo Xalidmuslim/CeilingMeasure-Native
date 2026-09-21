@@ -23,6 +23,7 @@ final class CeilingDrawingView extends View {
         void onChanged();
         void onWallLabelTapped(int edgeIndex, float currentValue);
         void onDiagonalTapped(int diagonalIndex, float currentValue);
+        void onDiagonalLongPressed(int diagonalIndex, float currentValue);
     }
 
     private static final int BLUE = Color.rgb(47, 143, 190);
@@ -51,6 +52,8 @@ final class CeilingDrawingView extends View {
     private int draggingLabel = -1;
     private float downX;
     private float downY;
+    private long downAtMs;
+    private int downDiagonal = -1;
     private boolean moved;
 
     CeilingDrawingView(@NonNull Context context) {
@@ -249,9 +252,11 @@ final class CeilingDrawingView extends View {
             case MotionEvent.ACTION_DOWN:
                 downX = e.getX();
                 downY = e.getY();
+                downAtMs = android.os.SystemClock.uptimeMillis();
                 moved = false;
                 draggingPoint = mode == Mode.POINT ? nearestPoint(x, y, dp(24)/scale) : -1;
                 draggingLabel = mode == Mode.LABEL ? nearestLabel(x, y, dp(30)/scale) : -1;
+                downDiagonal = mode == Mode.DIAGONAL ? nearestDiagonal(x, y, dp(20)/scale) : -1;
                 getParent().requestDisallowInterceptTouchEvent(!(mode == Mode.WALL && room != null && room.closed));
                 return true;
 
@@ -283,17 +288,34 @@ final class CeilingDrawingView extends View {
                 if (moved) {
                     draggingPoint = -1;
                     draggingLabel = -1;
+                    downDiagonal = -1;
+                    return true;
+                }
+                if (mode == Mode.DIAGONAL
+                        && downDiagonal >= 0
+                        && android.os.SystemClock.uptimeMillis() - downAtMs >= 520L) {
+                    if (listener != null && downDiagonal < room.diagonals.size()) {
+                        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                        listener.onDiagonalLongPressed(
+                                downDiagonal,
+                                room.diagonals.get(downDiagonal).value);
+                    }
+                    draggingPoint = -1;
+                    draggingLabel = -1;
+                    downDiagonal = -1;
                     return true;
                 }
                 handleTap(x, y);
                 draggingPoint = -1;
                 draggingLabel = -1;
+                downDiagonal = -1;
                 return true;
 
             case MotionEvent.ACTION_CANCEL:
                 getParent().requestDisallowInterceptTouchEvent(false);
                 draggingPoint = -1;
                 draggingLabel = -1;
+                downDiagonal = -1;
                 return true;
 
             default:

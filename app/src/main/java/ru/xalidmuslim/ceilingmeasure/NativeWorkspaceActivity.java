@@ -370,21 +370,34 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private interface FloatConsumer{void accept(float value);}
 
     private void showNumberDialog(String title,float current,FloatConsumer consumer){
-        EditText input=new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        input.setText(current>0?format(current):"");
-        input.setSelectAllOnFocus(true);
-        input.setTextSize(22);
-        input.setPadding(dp(14),dp(10),dp(14),dp(10));
+        NativeNumberPadDialog dialog = new NativeNumberPadDialog(
+                this,
+                title,
+                current,
+                consumer::accept);
+        dialog.show();
+    }
+
+    @Override public void onDiagonalLongPressed(int diagonalIndex,float currentValue){
+        NativeProjectStore.RoomData r=activeRoom();
+        if(diagonalIndex<0||diagonalIndex>=r.diagonals.size())return;
+
+        String value=currentValue>0?format(currentValue):"без размера";
         new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setMessage("Введите размер")
-                .setView(input)
-                .setNegativeButton("Отмена",null)
-                .setPositiveButton("Готово",(d,w)->{
-                    try{consumer.accept(Float.parseFloat(input.getText().toString().replace(',','.')));}
-                    catch(Exception e){Toast.makeText(this,"Введите число",Toast.LENGTH_SHORT).show();}
-                }).show();
+                .setTitle("Диагональ · "+value)
+                .setItems(new String[]{"Изменить размер","Удалить"},(dialog,which)->{
+                    if(which==0){
+                        onDiagonalTapped(diagonalIndex,currentValue);
+                    }else{
+                        if(diagonalIndex>=0&&diagonalIndex<r.diagonals.size()){
+                            r.diagonals.remove(diagonalIndex);
+                            store.saveCurrent(project);
+                            drawingView.invalidate();
+                            Toast.makeText(this,"Диагональ удалена",Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                })
+                .show();
     }
 
     private void updateStats(){

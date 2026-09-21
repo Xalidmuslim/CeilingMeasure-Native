@@ -83,6 +83,48 @@ public class NativeAppSmokeTest {
     }
 
     @Test
+    public void nativeNumberPadUsesCustomKeysWithZeroBelowEight() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(
+                NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.ACTION_NEW_ORDER);
+
+        try (ActivityScenario<NativeWorkspaceActivity> scenario =
+                     ActivityScenario.launch(intent)) {
+            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
+            scenario.onActivity(ref::set);
+            NativeWorkspaceActivity activity = ref.get();
+            assertNotNull(activity);
+
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+                NativeNumberPadDialog dialog = new NativeNumberPadDialog(
+                        activity,
+                        "Размер стены",
+                        0f,
+                        value -> {});
+                dialog.show();
+
+                View zero = dialog.findViewById(android.R.id.content)
+                        .getRootView()
+                        .findViewWithTag("native_number_pad_0");
+                View eight = dialog.findViewById(android.R.id.content)
+                        .getRootView()
+                        .findViewWithTag("native_number_pad_8");
+                View display = dialog.findViewById(android.R.id.content)
+                        .getRootView()
+                        .findViewWithTag("native_number_pad_display");
+                assertNotNull(zero);
+                assertNotNull(eight);
+                assertNotNull(display);
+                assertTrue(Math.abs(zero.getX() - eight.getX()) < activity.getResources()
+                        .getDisplayMetrics().density * 6f);
+                dialog.dismiss();
+            });
+        }
+    }
+
+    @Test
     public void nativeProjectStorePersistsCurrentProject() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         context.getSharedPreferences("native_ceiling_projects", Context.MODE_PRIVATE)
