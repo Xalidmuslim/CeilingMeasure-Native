@@ -1,0 +1,331 @@
+ASTRA MAX — НАТИВНАЯ МИГРАЦИЯ «ЗАМЕР ПОТОЛКОВ»
+PHASE 0: ТОЛЬКО ПОЛНЫЙ АУДИТ. НЕ НАЧИНАТЬ ПЕРЕПИСЫВАНИЕ.
+
+ЦЕЛЬ ПРОЕКТА
+Нужно в дальнейшем создать ПОЛНОЦЕННОЕ НАТИВНОЕ Android-приложение — точную функциональную и визуальную копию текущего web-приложения `webapp/index.html`.
+
+Финальная native-версия НЕ должна быть WebView-оболочкой и НЕ должна использовать HTML/JS как рабочий UI.
+Но сейчас, на Phase 0, НИЧЕГО НАТИВНОГО НЕ ПИШИ.
+
+ГЛАВНЫЙ ЭТАЛОН
+`webapp/index.html`
+
+Ожидаемый SHA-256:
+`7fade548ce909eb3bea6998c244fd90feb74b060a066d19c6a6c50c02c3f05d8`
+
+Сначала вычисли SHA самостоятельно.
+Если SHA не совпадает — STOP, ничего не менять, сообщить расхождение.
+
+ОБЯЗАТЕЛЬНО ПРОЧИТАТЬ ПОЛНОСТЬЮ
+1. `webapp/index.html`
+2. `NATIVE_PARITY_SPEC.md`
+3. `NATIVE_MIGRATION_MATRIX.md`
+4. `FEATURE_CONTRACT.md`
+5. `README.md`
+6. `scripts/verify_webapp.py`
+7. текущий Android wrapper, но только как справочный legacy-код;
+8. все workflow GitHub Actions, связанные с приложением.
+
+ВАЖНО О FEATURE_CONTRACT
+Если в `FEATURE_CONTRACT.md` есть старое требование «Android APK must WRAP this app / WebView», считай его LEGACY-правилом текущей промежуточной APK-оболочки.
+Для новой native-миграции архитектурный приоритет имеет `NATIVE_PARITY_SPEC.md`.
+При этом все функциональные требования FEATURE_CONTRACT сохраняются и должны попасть в native parity.
+
+КРИТИЧЕСКОЕ ПРАВИЛО
+Не делай «похожее приложение».
+Не делай новый дизайн.
+Не упрощай.
+Не переставляй функции.
+Не заменяй сложную функцию более простой.
+Не удаляй функцию потому, что её тяжело перенести.
+Не «исправляй» пользовательские формулы и единицы.
+Не начинай Kotlin/Compose реализацию до отдельного разрешения после Phase 0.
+
+НА PHASE 0 ЗАПРЕЩЕНО
+- менять `webapp/index.html`;
+- менять текущую бизнес-логику;
+- менять UI;
+- создавать новые Compose screens;
+- удалять WebView wrapper;
+- переносить JS в Kotlin;
+- менять storage schema;
+- менять формулы;
+- менять тексты;
+- менять иконку;
+- начинать рефакторинг;
+- объявлять native-приложение готовым;
+- ставить PASS без доказательства.
+
+ЗАДАЧА PHASE 0
+
+A. СДЕЛАЙ ПОЛНЫЙ SOURCE AUDIT
+Не ограничивайся поиском по названиям функций. Прочитай весь single-file app блоками:
+- HTML structure;
+- CSS;
+- all inline JavaScript;
+- initial constants;
+- data structures;
+- migrations;
+- event handlers;
+- touch/pointer handlers;
+- gesture state;
+- rendering;
+- calculations;
+- PDF;
+- backup;
+- persistence;
+- settings;
+- modal/sheet state;
+- timers/animations;
+- vibration/haptics.
+
+B. СОСТАВЬ SCREEN/STATE INVENTORY
+Зафиксируй каждый:
+- экран;
+- раздел;
+- карточку;
+- expand/collapse state;
+- modal;
+- bottom sheet;
+- custom keypad;
+- action menu;
+- empty state;
+- selected state;
+- disabled state;
+- error state;
+- night-mode state.
+
+Для каждого укажи:
+- DOM IDs/classes;
+- CSS rules;
+- JS handlers;
+- входные условия;
+- выходные переходы;
+- данные, которые он читает/пишет.
+
+C. СОСТАВЬ FUNCTION MAP
+Для каждой функции приложения:
+- user-visible function;
+- exact source function/handler;
+- dependent state;
+- storage fields;
+- edge cases;
+- planned native equivalent;
+- required test.
+
+D. DATA / STORAGE AUDIT
+Найди и зафиксируй:
+- `APP_STORAGE_KEY`;
+- `APP_SCHEMA_VERSION`;
+- все migration versions;
+- полный persisted JSON shape;
+- defaults;
+- nullable fields;
+- rooms;
+- walls;
+- points;
+- diagonals;
+- dimension-label transforms;
+- customer/order fields;
+- materials/prices;
+- saved measurements;
+- UI settings;
+- current selection/indexes;
+- любое legacy поле.
+
+Создай/обнови отдельный файл:
+`docs/NATIVE_DATA_SCHEMA.md`
+
+Никаких догадок. Все поля должны иметь exact source reference.
+
+E. GESTURE AUDIT
+Зафиксируй:
+- tap;
+- long press;
+- pointerdown/move/up/cancel;
+- one-finger drawing;
+- two-finger zoom;
+- two-finger pan;
+- hit areas;
+- thresholds;
+- snapping distances;
+- 90° thresholds;
+- 74 px right strip rule;
+- scroll prevention rules;
+- behavior before/after contour closure;
+- text-selection/context-menu suppression;
+- magnifier behavior.
+
+Создай/обнови:
+`docs/NATIVE_GESTURE_MAP.md`
+
+F. HAPTIC AUDIT
+Найди каждый вызов `navigator.vibrate`/эквивалент.
+Зафиксируй:
+- trigger;
+- duration/pattern;
+- conditions;
+- debounce/repeat behavior.
+
+Создай/обнови:
+`docs/NATIVE_HAPTIC_MAP.md`
+
+G. CALCULATION AUDIT
+Извлеки формулы буквально из исходника:
+- area;
+- perimeter;
+- scale conversion;
+- diagonals;
+- totals;
+- per-room/all-rooms;
+- materials;
+- prices;
+- dowels;
+- custom materials;
+- client estimate;
+- rounding/formatting.
+
+Особый regression vector:
+квадрат с четырьмя сторонами 500 => 25 м² и 20 м.
+
+Создай/обнови:
+`docs/NATIVE_FORMULA_MAP.md`
+
+H. VISUAL TOKEN AUDIT
+Не «оценочно», а насколько возможно измеримо:
+- viewport assumptions;
+- widths/heights;
+- paddings;
+- gaps;
+- border radius;
+- strokes;
+- shadows;
+- colors;
+- font family;
+- font size;
+- font weight;
+- line-height;
+- z-index/layers;
+- fixed/sticky elements;
+- drawing canvas dimensions;
+- modal sizes;
+- nav safe area;
+- animation durations/easing.
+
+Создай/обнови:
+`docs/NATIVE_VISUAL_TOKENS.md`
+
+I. BACKUP / PDF AUDIT
+Зафиксируй:
+- JSON export exact structure;
+- import validation;
+- migration behavior;
+- filename rules;
+- PDF content;
+- selected-only behavior;
+- layout;
+- fonts;
+- sizes;
+- page breaks;
+- totals;
+- filename/mime;
+- Android bridge fallback, если есть.
+
+Создай/обнови:
+`docs/NATIVE_FILE_IO_MAP.md`
+
+J. ЗАПОЛНИ `NATIVE_MIGRATION_MATRIX.md`
+На Phase 0:
+- для каждой строки заполни `Web reference`;
+- статус может быть только AUDITED / FAIL / UNVERIFIED;
+- `Native reference` остаётся TODO/N/A;
+- `Test evidence` описывает будущий точный test case;
+- добавь НОВЫЕ строки для любой функции, найденной в source, которой нет в baseline matrix.
+
+НИ ОДНА обнаруженная user-visible функция не должна остаться вне matrix.
+
+K. ПОДГОТОВЬ NATIVE COMPONENT PLAN
+Без написания native UI-кода опиши предлагаемое соответствие:
+- web screen/component → native screen/component;
+- web drawing engine → native drawing architecture;
+- persisted model → native data model;
+- modal/keypad → native component;
+- backup/PDF → native implementation;
+- test strategy.
+
+Создай:
+`docs/NATIVE_COMPONENT_PLAN.md`
+
+Архитектурный ориентир:
+- Kotlin;
+- Jetpack Compose для обычного UI;
+- dedicated native drawing layer (`CeilingDrawingView` либо Compose Canvas, если доказана точная parity);
+- Room/DataStore/serializable storage — только после точной schema mapping;
+- без WebView в финальном UI.
+
+Не считай этот ориентир разрешением писать код на Phase 0.
+
+L. СОСТАВЬ РИСКИ
+Создай:
+`docs/NATIVE_MIGRATION_RISKS.md`
+
+Минимально оцени:
+- drawing gestures;
+- zoom/pan;
+- snapping;
+- magnifier;
+- label transforms;
+- storage compatibility;
+- PDF visual parity;
+- keyboard/modal behavior;
+- Android safe areas;
+- haptics;
+- performance;
+- screenshot parity.
+
+Для каждого риска:
+- почему;
+- source reference;
+- mitigation;
+- how to test.
+
+M. ПРОВЕРЬ GOLDEN MASTER
+Запусти существующий verifier.
+Не изменяй golden master для прохождения audit.
+Если verifier падает — сообщи отдельно.
+
+КРИТЕРИЙ ЗАВЕРШЕНИЯ PHASE 0
+Phase 0 завершён только если:
+1. SHA golden master совпал;
+2. web app прочитан полностью;
+3. создан полный screen/state inventory;
+4. data schema задокументирована;
+5. gesture map готов;
+6. haptic map готов;
+7. formula map готов;
+8. visual tokens готовы;
+9. backup/PDF map готов;
+10. component plan готов;
+11. risk register готов;
+12. `NATIVE_MIGRATION_MATRIX.md` заполнен web references;
+13. все найденные дополнительные функции добавлены в matrix;
+14. golden master не изменён;
+15. native implementation НЕ начата.
+
+ФИНАЛЬНЫЙ ОТЧЁТ PHASE 0
+После выполнения остановись и выдай ТОЛЬКО:
+- commit SHA;
+- golden-master SHA;
+- список созданных/обновлённых audit-документов;
+- сколько экранов/состояний обнаружено;
+- сколько user-visible функций обнаружено;
+- сколько persisted fields обнаружено;
+- сколько gesture/haptic rules обнаружено;
+- сколько matrix rows = AUDITED / UNVERIFIED / FAIL;
+- список расхождений между старыми документами и реальным source;
+- список рисков;
+- список вопросов, которые реально невозможно решить из исходника;
+- явную строку: `PHASE 1 NOT STARTED`.
+
+НЕ НАЧИНАЙ PHASE 1.
+Дождись отдельной команды пользователя.
