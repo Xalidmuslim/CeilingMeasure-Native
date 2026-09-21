@@ -84,6 +84,12 @@ public class MainActivitySmokeTest {
                             "!!document.getElementById('globalUndo')," +
                             "!!document.getElementById('globalRedo')," +
                             "!!document.getElementById('drawToolsNav')," +
+                            "!!document.getElementById('homeScreen')," +
+                            "!!document.getElementById('homeNewOrder')," +
+                            "!!document.getElementById('homeSaved')," +
+                            "!!document.getElementById('homeDrawing')," +
+                            "!!document.getElementById('homeBtn')," +
+                            "document.body.classList.contains('app-home')," +
                             "typeof AndroidFileBridge === 'object'," +
                             "typeof window.ceilingHandleAndroidBack === 'function'" +
                             "].every(Boolean))()");

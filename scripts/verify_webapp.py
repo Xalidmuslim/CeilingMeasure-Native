@@ -8,7 +8,7 @@ path=Path(sys.argv[1] if len(sys.argv)>1 else 'webapp/index.html')
 if not path.is_file():
     raise SystemExit(f'FAIL: missing {path}')
 raw=path.read_text(encoding='utf-8')
-expected='846042d294444bb6b5b84ef6fea1e12bef26b1f36384e047515a4e67aed46136'
+expected='e6f82509dce8f2e0f2a94b10c12cb141fe8517a9f41ee69e073e89aed6ff0e3b'
 actual=hashlib.sha256(path.read_bytes()).hexdigest()
 if actual!=expected:
     raise SystemExit(f'FAIL: golden master changed\nexpected {expected}\nactual   {actual}')
@@ -49,7 +49,13 @@ required_tokens=[
  'data-label-rotate-kind',
  'window.ceilingHandleAndroidBack=ceilingHandleAndroidBack;',
  'closed-contour-scroll',
- 'const UI_DEFAULT_PREFS={version:UI_PREFS_VERSION,font:"system",scale:1.12,weight:"normal"}'
+ 'const UI_DEFAULT_PREFS={version:UI_PREFS_VERSION,font:"system",scale:1.12,weight:"normal"}',
+ 'id="homeScreen"',
+ 'id="homeNewOrder"',
+ 'id="homeSaved"',
+ 'id="homeDrawing"',
+ 'function showHomeScreen()',
+ 'v183-closed-contour-scroll-boost'
 ]
 for t in required_tokens:
     if t not in raw: raise SystemExit('FAIL: required contract token missing: '+t)
