@@ -73,8 +73,14 @@ final class CeilingDrawingView extends View {
     private String draggingPointId;
     private DiagDraft diagDraft;
     private LabelHit draggingLabel;
-    private float labelBaseX;
-    private float labelBaseY;
+    private LabelHit rotatingLabel;
+    private LabelHit selectedLabel;
+    private float labelTouchStartX;
+    private float labelTouchStartY;
+    private float labelStartDx;
+    private float labelStartDy;
+    private float labelRotateCenterX;
+    private float labelRotateCenterY;
     private Guide activeGuide;
     private boolean point90SnapActive;
     private PointF magnifierFocus;
@@ -149,6 +155,7 @@ final class CeilingDrawingView extends View {
         cancelPendingLongPress();
         cancelTransientGestures();
         this.mode = mode;
+        if (mode != Mode.LABEL) selectedLabel = null;
         invalidate();
     }
 
@@ -352,64 +359,141 @@ final class CeilingDrawingView extends View {
     }
 
     private void drawLabels(Canvas canvas) {
-        for (NativeProjectStore.EdgeData edge : room.edges) {
-            if (edge.value <= 0f && !room.showAutoLetters) continue;
-            PointF pos = edgeLabelBase(edge);
-            if (pos == null) continue;
-
-            String value;
-            if (room.showAutoLetters) {
-                String label = edgeLetterLabel(edge);
-                value = edge.value > 0f
-                        ? label + " · " + formatValue(edge.value)
-                        : label;
-            } else {
-                value = formatValue(edge.value);
+        List<NativeLabelEngine.Placement> placements = labelPlacements();
+        for (NativeLabelEngine.Placement placement : placements) {
+            drawStyledLabel(canvas, placement);
+            if (mode == Mode.LABEL
+                    && selectedLabel != null
+                    && selectedLabel.matches(placement)) {
+                drawLabelSelection(canvas, placement);
             }
-            drawTextBadge(canvas, value, pos.x + edge.labelDx, pos.y + edge.labelDy);
-        }
-
-        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
-            if (diagonal.value <= 0f && !room.showAutoLetters) continue;
-            PointF pos = diagonalLabelBase(diagonal);
-            if (pos == null) continue;
-
-            String value;
-            if (room.showAutoLetters) {
-                String label = pointLetterLabel(diagonal.a) + pointLetterLabel(diagonal.b);
-                value = diagonal.value > 0f
-                        ? label + " · " + formatValue(diagonal.value)
-                        : label;
-            } else {
-                value = formatValue(diagonal.value);
-            }
-            drawTextBadge(
-                    canvas,
-                    value,
-                    pos.x + diagonal.labelDx,
-                    pos.y + diagonal.labelDy);
         }
     }
 
-    private void drawTextBadge(Canvas canvas, String value, float x, float y) {
+    private List<NativeLabelEngine.Placement> labelPlacements() {
+        float density = getResources().getDisplayMetrics().density;
+        return NativeLabelEngine.layout(room, scale, density);
+    }
+
+    private void drawStyledLabel(
+            Canvas canvas,
+            NativeLabelEngine.Placement placement) {
+        Paint fill = new Paint(textPaint);
+        fill.setColor(TEXT);
+        fill.setTextSize(dp(placement.fontDp) * placement.size / scale);
+        fill.setStyle(Paint.Style.FILL);
+        fill.setStrokeWidth(0f);
+
+        Paint outline = new Paint(fill);
+        outline.setColor(Color.WHITE);
+        outline.setStyle(Paint.Style.STROKE);
+        outline.setStrokeWidth(dp(4f) / scale);
+        outline.setStrokeJoin(Paint.Join.ROUND);
+
+        Paint.FontMetrics fm = fill.getFontMetrics();
+        float baseline = -(fm.ascent + fm.descent) / 2f;
+
+        canvas.save();
+        canvas.translate(placement.x, placement.y);
+        canvas.rotate(placement.angle);
+        canvas.drawText(placement.text, 0f, baseline, outline);
+        canvas.drawText(placement.text, 0f, baseline, fill);
+        canvas.restore();
+    }
+
+    private void drawLabelSelection(
+            Canvas canvas,
+            NativeLabelEngine.Placement placement) {
+        float width = placement.width * placement.size;
+        float height = placement.height * placement.size;
+        float radius = labelSelectionRadius(placement);
+        float controlY = radius + dp(26f) / scale;
+        float controlX = dp(48f) / scale;
+
+        Paint guide = new Paint(Paint.ANTI_ALIAS_FLAG);
+        guide.setColor(BLUE);
+        guide.setStyle(Paint.Style.STROKE);
+        guide.setStrokeWidth(dp(1.4f) / scale);
+        guide.setPathEffect(new DashPathEffect(
+                new float[]{dp(5f) / scale, dp(4f) / scale},
+                0));
+
+        Paint soft = new Paint(guide);
+        soft.setColor(Color.rgb(144, 191, 215));
+        soft.setStrokeWidth(dp(1f) / scale);
+        soft.setPathEffect(new DashPathEffect(
+                new float[]{dp(3f) / scale, dp(5f) / scale},
+                0));
+
+        canvas.save();
+        canvas.translate(placement.x, placement.y);
+        canvas.rotate(placement.angle);
+
+        RectF rect = new RectF(
+                -width / 2f - dp(8f) / scale,
+                -height / 2f - dp(6f) / scale,
+                width / 2f + dp(8f) / scale,
+                height / 2f + dp(6f) / scale);
+        canvas.drawRoundRect(rect, dp(8f) / scale, dp(8f) / scale, guide);
+        canvas.drawCircle(0f, 0f, radius, soft);
+
+        Paint white = new Paint(Paint.ANTI_ALIAS_FLAG);
+        white.setColor(Color.WHITE);
+        Paint handle = new Paint(Paint.ANTI_ALIAS_FLAG);
+        handle.setColor(BLUE);
+        handle.setStyle(Paint.Style.STROKE);
+        handle.setStrokeWidth(dp(2f) / scale);
+
+        float handleRadius = dp(11f) / scale;
+        canvas.drawCircle(0f, -radius, handleRadius, white);
+        canvas.drawCircle(0f, -radius, handleRadius, handle);
+
+        Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+        dot.setColor(BLUE);
+        canvas.drawCircle(0f, -radius, dp(4.5f) / scale, dot);
+
+        drawLabelControl(canvas, -controlX, controlY, "−");
+        drawLabelControl(canvas, 0f, controlY, Math.round(placement.size * 100f) + "%");
+        drawLabelControl(canvas, controlX, controlY, "+");
+
+        Paint readout = new Paint(textPaint);
+        readout.setTextSize(dp(11f) / scale);
+        readout.setColor(Color.rgb(71, 113, 135));
+        Paint.FontMetrics rfm = readout.getFontMetrics();
+        float rb = -radius - dp(20f) / scale - (rfm.ascent + rfm.descent) / 2f;
+        canvas.drawText(Math.round(placement.angle) + "°", 0f, rb, readout);
+
+        canvas.restore();
+    }
+
+    private void drawLabelControl(Canvas canvas, float x, float y, String text) {
+        float r = dp(text.endsWith("%") ? 22f : 20f) / scale;
         Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
         bg.setColor(Color.WHITE);
+        canvas.drawCircle(x, y, r, bg);
+
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setColor(Color.rgb(170, 200, 216));
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(dp(1.2f) / scale);
+        canvas.drawCircle(x, y, r, border);
 
         Paint tp = new Paint(textPaint);
-        tp.setTextSize(textPaint.getTextSize() / scale);
-        float padX = dp(7) / scale;
-        float h = dp(22) / scale;
-        float textWidth = tp.measureText(value);
-        RectF rect = new RectF(
-                x - textWidth / 2f - padX,
-                y - h / 2f,
-                x + textWidth / 2f + padX,
-                y + h / 2f);
-        canvas.drawRoundRect(rect, dp(7) / scale, dp(7) / scale, bg);
-
+        tp.setTextSize(dp(text.endsWith("%") ? 10f : 18f) / scale);
+        tp.setColor(Color.rgb(56, 107, 132));
         Paint.FontMetrics fm = tp.getFontMetrics();
         float baseline = y - (fm.ascent + fm.descent) / 2f;
-        canvas.drawText(value, x, baseline, tp);
+        canvas.drawText(text, x, baseline, tp);
+    }
+
+    private float labelSelectionRadius(NativeLabelEngine.Placement placement) {
+        float maxScreenDp = Math.max(
+                placement.width * placement.size * scale
+                        / getResources().getDisplayMetrics().density,
+                placement.height * placement.size * scale
+                        / getResources().getDisplayMetrics().density);
+        float radiusDp = Math.max(48f, Math.min(76f, maxScreenDp * .74f));
+        return dp(radiusDp) / scale;
     }
 
     @Override
@@ -492,6 +576,10 @@ final class CeilingDrawingView extends View {
                     updateDiagonalDraft(worldX, worldY);
                     return true;
                 }
+                if (mode == Mode.LABEL && rotatingLabel != null) {
+                    updateLabelRotate(worldX, worldY);
+                    return true;
+                }
                 if (mode == Mode.LABEL && draggingLabel != null) {
                     updateLabelDrag(worldX, worldY);
                     return true;
@@ -520,8 +608,9 @@ final class CeilingDrawingView extends View {
                     finishPointDrag();
                 } else if (mode == Mode.DIAGONAL && diagDraft != null) {
                     finishDiagonalDraft();
-                } else if (mode == Mode.LABEL && draggingLabel != null) {
+                } else if (mode == Mode.LABEL && (draggingLabel != null || rotatingLabel != null)) {
                     draggingLabel = null;
+                    rotatingLabel = null;
                     changed();
                 }
                 return true;
@@ -600,17 +689,85 @@ final class CeilingDrawingView extends View {
     }
 
     private void beginLabelGesture(float x, float y) {
-        draggingLabel = nearestLabel(x, y, dp(36) / scale);
-        if (draggingLabel == null) return;
-        PointF base = draggingLabel.kind == LabelKind.EDGE
-                ? edgeLabelBase(edgeById(draggingLabel.id))
-                : diagonalLabelBase(diagonalById(draggingLabel.id));
-        if (base == null) {
+        List<NativeLabelEngine.Placement> placements = labelPlacements();
+
+        if (selectedLabel != null) {
+            NativeLabelEngine.Placement selected = NativeLabelEngine.find(
+                    placements,
+                    selectedLabel.toEngineKind(),
+                    selectedLabel.id);
+            if (selected != null) {
+                float[] local = toLabelLocal(selected, x, y);
+                float radius = labelSelectionRadius(selected);
+                float controlY = radius + dp(26f) / scale;
+                float controlX = dp(48f) / scale;
+                float hit = dp(25f) / scale;
+
+                if (distance(local[0], local[1], -controlX, controlY) <= hit) {
+                    changeSelectedLabelSize(-.1f);
+                    return;
+                }
+                if (distance(local[0], local[1], controlX, controlY) <= hit) {
+                    changeSelectedLabelSize(.1f);
+                    return;
+                }
+                if (distance(local[0], local[1], 0f, controlY) <= hit) {
+                    resetSelectedLabelSize();
+                    return;
+                }
+
+                float radial = (float) Math.hypot(local[0], local[1]);
+                boolean onRing = Math.abs(radial - radius) <= dp(18f) / scale;
+                boolean onHandle = distance(local[0], local[1], 0f, -radius) <= hit;
+                if (onRing || onHandle) {
+                    rotatingLabel = selectedLabel;
+                    draggingLabel = null;
+                    labelRotateCenterX = selected.x;
+                    labelRotateCenterY = selected.y;
+                    return;
+                }
+            }
+        }
+
+        NativeLabelEngine.Placement placement = NativeLabelEngine.nearest(
+                placements,
+                x,
+                y,
+                dp(38f) / scale);
+        if (placement == null) {
+            selectedLabel = null;
             draggingLabel = null;
+            rotatingLabel = null;
+            invalidate();
             return;
         }
-        labelBaseX = base.x;
-        labelBaseY = base.y;
+
+        selectedLabel = new LabelHit(
+                placement.kind == NativeLabelEngine.Kind.EDGE
+                        ? LabelKind.EDGE
+                        : LabelKind.DIAGONAL,
+                placement.id);
+        draggingLabel = selectedLabel;
+        rotatingLabel = null;
+        labelTouchStartX = x;
+        labelTouchStartY = y;
+
+        if (selectedLabel.kind == LabelKind.EDGE) {
+            NativeProjectStore.EdgeData edge = edgeById(selectedLabel.id);
+            if (edge != null) {
+                labelStartDx = edge.labelDx;
+                labelStartDy = edge.labelDy;
+                edge.labelManual = true;
+            }
+        } else {
+            NativeProjectStore.DiagonalData diagonal = diagonalById(selectedLabel.id);
+            if (diagonal != null) {
+                labelStartDx = diagonal.labelDx;
+                labelStartDy = diagonal.labelDy;
+                diagonal.labelManual = true;
+            }
+        }
+        invalidate();
     }
 
     private void updateWallDraft(float screenX, float screenY) {
@@ -826,20 +983,104 @@ final class CeilingDrawingView extends View {
 
     private void updateLabelDrag(float x, float y) {
         if (draggingLabel == null) return;
+        float dx = x - labelTouchStartX;
+        float dy = y - labelTouchStartY;
         if (draggingLabel.kind == LabelKind.EDGE) {
             NativeProjectStore.EdgeData edge = edgeById(draggingLabel.id);
             if (edge != null) {
-                edge.labelDx = x - labelBaseX;
-                edge.labelDy = y - labelBaseY;
+                edge.labelDx = labelStartDx + dx;
+                edge.labelDy = labelStartDy + dy;
+                edge.labelManual = true;
             }
         } else {
             NativeProjectStore.DiagonalData diagonal = diagonalById(draggingLabel.id);
             if (diagonal != null) {
-                diagonal.labelDx = x - labelBaseX;
-                diagonal.labelDy = y - labelBaseY;
+                diagonal.labelDx = labelStartDx + dx;
+                diagonal.labelDy = labelStartDy + dy;
+                diagonal.labelManual = true;
             }
         }
         invalidate();
+    }
+
+    private void updateLabelRotate(float x, float y) {
+        if (rotatingLabel == null) return;
+        float distance = (float) Math.hypot(
+                x - labelRotateCenterX,
+                y - labelRotateCenterY);
+        if (distance <= dp(2f) / scale) return;
+
+        float angle = NativeProjectStore.normalizeAngle(
+                (float) Math.toDegrees(Math.atan2(
+                        y - labelRotateCenterY,
+                        x - labelRotateCenterX)) + 90f);
+        if (rotatingLabel.kind == LabelKind.EDGE) {
+            NativeProjectStore.EdgeData edge = edgeById(rotatingLabel.id);
+            if (edge != null) {
+                edge.labelAngle = angle;
+                edge.labelManual = true;
+            }
+        } else {
+            NativeProjectStore.DiagonalData diagonal = diagonalById(rotatingLabel.id);
+            if (diagonal != null) {
+                diagonal.labelAngle = angle;
+                diagonal.labelManual = true;
+            }
+        }
+        invalidate();
+    }
+
+    private void changeSelectedLabelSize(float delta) {
+        if (selectedLabel == null) return;
+        if (selectedLabel.kind == LabelKind.EDGE) {
+            NativeProjectStore.EdgeData edge = edgeById(selectedLabel.id);
+            if (edge != null) {
+                edge.labelSize = NativeProjectStore.normalizedLabelSize(edge.labelSize + delta);
+                edge.labelManual = true;
+            }
+        } else {
+            NativeProjectStore.DiagonalData diagonal = diagonalById(selectedLabel.id);
+            if (diagonal != null) {
+                diagonal.labelSize = NativeProjectStore.normalizedLabelSize(
+                        diagonal.labelSize + delta);
+                diagonal.labelManual = true;
+            }
+        }
+        changed();
+    }
+
+    private void resetSelectedLabelSize() {
+        if (selectedLabel == null) return;
+        if (selectedLabel.kind == LabelKind.EDGE) {
+            NativeProjectStore.EdgeData edge = edgeById(selectedLabel.id);
+            if (edge != null) {
+                edge.labelSize = 1f;
+                edge.labelAngle = 0f;
+            }
+        } else {
+            NativeProjectStore.DiagonalData diagonal = diagonalById(selectedLabel.id);
+            if (diagonal != null) {
+                diagonal.labelSize = 1f;
+                diagonal.labelAngle = 0f;
+            }
+        }
+        changed();
+    }
+
+    private float[] toLabelLocal(
+            NativeLabelEngine.Placement placement,
+            float worldX,
+            float worldY) {
+        float dx = worldX - placement.x;
+        float dy = worldY - placement.y;
+        double radians = Math.toRadians(-placement.angle);
+        float lx = (float) (dx * Math.cos(radians) - dy * Math.sin(radians));
+        float ly = (float) (dx * Math.sin(radians) + dy * Math.cos(radians));
+        return new float[]{lx, ly};
+    }
+
+    private float distance(float x1, float y1, float x2, float y2) {
+        return (float) Math.hypot(x1 - x2, y1 - y2);
     }
 
     private void scheduleLongPress(String kind, String id) {
@@ -882,6 +1123,7 @@ final class CeilingDrawingView extends View {
         draggingPointId = null;
         diagDraft = null;
         draggingLabel = null;
+        rotatingLabel = null;
         activeGuide = null;
         point90SnapActive = false;
         magnifierFocus = null;
@@ -944,34 +1186,17 @@ final class CeilingDrawingView extends View {
 
     @Nullable
     private LabelHit nearestLabel(float x, float y, float radius) {
-        LabelHit best = null;
-        float bestDistance = radius;
-
-        for (NativeProjectStore.EdgeData edge : room.edges) {
-            PointF base = edgeLabelBase(edge);
-            if (base == null) continue;
-            float lx = base.x + edge.labelDx;
-            float ly = base.y + edge.labelDy;
-            float distance = (float) Math.hypot(x - lx, y - ly);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                best = new LabelHit(LabelKind.EDGE, edge.id);
-            }
-        }
-
-        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
-            if (diagonal.value <= 0) continue;
-            PointF base = diagonalLabelBase(diagonal);
-            if (base == null) continue;
-            float lx = base.x + diagonal.labelDx;
-            float ly = base.y + diagonal.labelDy;
-            float distance = (float) Math.hypot(x - lx, y - ly);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                best = new LabelHit(LabelKind.DIAGONAL, diagonal.id);
-            }
-        }
-        return best;
+        NativeLabelEngine.Placement placement = NativeLabelEngine.nearest(
+                labelPlacements(),
+                x,
+                y,
+                radius);
+        if (placement == null) return null;
+        return new LabelHit(
+                placement.kind == NativeLabelEngine.Kind.EDGE
+                        ? LabelKind.EDGE
+                        : LabelKind.DIAGONAL,
+                placement.id);
     }
 
     @Nullable
@@ -1326,6 +1551,10 @@ final class CeilingDrawingView extends View {
         return magnifierFocus != null && magnifierKind != null;
     }
 
+    List<NativeLabelEngine.Placement> labelPlacementsForTest() {
+        return labelPlacements();
+    }
+
     private void changed() {
         syncViewToRoom();
         invalidate();
@@ -1508,6 +1737,16 @@ final class CeilingDrawingView extends View {
         LabelHit(LabelKind kind, String id) {
             this.kind = kind;
             this.id = id;
+        }
+
+        NativeLabelEngine.Kind toEngineKind() {
+            return kind == LabelKind.EDGE
+                    ? NativeLabelEngine.Kind.EDGE
+                    : NativeLabelEngine.Kind.DIAGONAL;
+        }
+
+        boolean matches(NativeLabelEngine.Placement placement) {
+            return id.equals(placement.id) && toEngineKind() == placement.kind;
         }
     }
 }

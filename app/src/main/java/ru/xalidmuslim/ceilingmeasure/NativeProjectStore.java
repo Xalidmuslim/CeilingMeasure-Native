@@ -47,6 +47,9 @@ final class NativeProjectStore {
         float value;
         float labelDx;
         float labelDy;
+        float labelAngle;
+        float labelSize = 1f;
+        boolean labelManual;
 
         EdgeData(@NonNull String a, @NonNull String b) {
             this(newId("e"), a, b, 0f);
@@ -67,6 +70,9 @@ final class NativeProjectStore {
         float value;
         float labelDx;
         float labelDy;
+        float labelAngle;
+        float labelSize = 1f;
+        boolean labelManual;
 
         DiagonalData(@NonNull String a, @NonNull String b) {
             this(newId("d"), a, b, 0f);
@@ -170,7 +176,7 @@ final class NativeProjectStore {
     private JSONObject projectToJson(ProjectData p) {
         JSONObject o = new JSONObject();
         try {
-            o.put("geometryVersion", 2);
+            o.put("geometryVersion", 3);
             o.put("id", p.id);
             o.put("name", p.name);
             o.put("phone", p.phone);
@@ -187,7 +193,7 @@ final class NativeProjectStore {
 
     private JSONObject roomToJson(RoomData r) throws JSONException {
         JSONObject o = new JSONObject();
-        o.put("geometryVersion", 2);
+        o.put("geometryVersion", 3);
         o.put("id", r.id);
         o.put("name", r.name);
         o.put("point90Magnet", r.point90Magnet);
@@ -219,6 +225,9 @@ final class NativeProjectStore {
             j.put("value", e.value);
             j.put("labelDx", e.labelDx);
             j.put("labelDy", e.labelDy);
+            j.put("labelAngle", e.labelAngle);
+            j.put("labelSize", e.labelSize);
+            j.put("labelManual", e.labelManual);
             edges.put(j);
         }
         o.put("edges", edges);
@@ -232,6 +241,9 @@ final class NativeProjectStore {
             j.put("value", d.value);
             j.put("labelDx", d.labelDx);
             j.put("labelDy", d.labelDy);
+            j.put("labelAngle", d.labelAngle);
+            j.put("labelSize", d.labelSize);
+            j.put("labelManual", d.labelManual);
             diagonals.put(j);
         }
         o.put("diagonals", diagonals);
@@ -311,6 +323,11 @@ final class NativeProjectStore {
                         (float) j.optDouble("value", 0));
                 e.labelDx = (float) j.optDouble("labelDx", 0);
                 e.labelDy = (float) j.optDouble("labelDy", 0);
+                e.labelAngle = normalizeAngle((float) j.optDouble("labelAngle", 0));
+                e.labelSize = clamp((float) j.optDouble("labelSize", 1), .55f, 2.5f);
+                e.labelManual = j.optBoolean(
+                        "labelManual",
+                        Math.abs(e.labelDx) > .01f || Math.abs(e.labelDy) > .01f);
                 r.edges.add(e);
             }
         }
@@ -327,6 +344,11 @@ final class NativeProjectStore {
                         (float) j.optDouble("value", 0));
                 d.labelDx = (float) j.optDouble("labelDx", 0);
                 d.labelDy = (float) j.optDouble("labelDy", 0);
+                d.labelAngle = normalizeAngle((float) j.optDouble("labelAngle", 0));
+                d.labelSize = clamp((float) j.optDouble("labelSize", 1), .55f, 2.5f);
+                d.labelManual = j.optBoolean(
+                        "labelManual",
+                        Math.abs(d.labelDx) > .01f || Math.abs(d.labelDy) > .01f);
                 r.diagonals.add(d);
             }
         }
@@ -360,6 +382,7 @@ final class NativeProjectStore {
             edge.value = walls == null ? 0f : (float) walls.optDouble(i, 0);
             edge.labelDx = labelDx == null ? 0f : (float) labelDx.optDouble(i, 0);
             edge.labelDy = labelDy == null ? 0f : (float) labelDy.optDouble(i, 0);
+            edge.labelManual = Math.abs(edge.labelDx) > .01f || Math.abs(edge.labelDy) > .01f;
             r.edges.add(edge);
         }
 
@@ -384,6 +407,16 @@ final class NativeProjectStore {
         if (r == null || id == null) return null;
         for (PointData p : r.points) if (id.equals(p.id)) return p;
         return null;
+    }
+
+    static float normalizeAngle(float value) {
+        float angle = value % 360f;
+        if (angle < 0f) angle += 360f;
+        return Math.round(angle * 10f) / 10f;
+    }
+
+    static float normalizedLabelSize(float value) {
+        return Math.round(clamp(value, .55f, 2.5f) * 100f) / 100f;
     }
 
     private static float clamp(float value, float min, float max) {

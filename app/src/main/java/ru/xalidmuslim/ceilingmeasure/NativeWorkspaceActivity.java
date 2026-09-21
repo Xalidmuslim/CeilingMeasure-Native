@@ -253,6 +253,15 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         areaValue = stat(stats,"Площадь");
         perimeterValue = stat(stats,"Периметр");
 
+        Button validate = button("Проверить замер", false);
+        validate.setTag("native_validate_measurement");
+        validate.setOnClickListener(v -> showMeasurementValidation());
+        LinearLayout.LayoutParams validateParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(44));
+        validateParams.topMargin = dp(8);
+        drawCard.addView(validate, validateParams);
+
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.CENTER);
@@ -723,6 +732,16 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         store.saveCurrent(project);
         drawingView.invalidate();
         Toast.makeText(this,"Добавлено диагоналей: "+added,Toast.LENGTH_SHORT).show();
+    }
+
+    private void showMeasurementValidation(){
+        NativeMeasurementValidator.Result result =
+                NativeMeasurementValidator.validate(activeRoom());
+        new AlertDialog.Builder(this)
+                .setTitle(result.ok() ? "Проверка замера" : "Нужно исправить")
+                .setMessage(result.message())
+                .setPositiveButton("Готово", null)
+                .show();
     }
 
     private void updateStats(){

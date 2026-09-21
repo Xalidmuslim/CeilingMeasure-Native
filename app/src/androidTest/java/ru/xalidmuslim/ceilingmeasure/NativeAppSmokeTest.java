@@ -19,6 +19,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 @RunWith(AndroidJUnit4.class)
@@ -86,6 +87,7 @@ public class NativeAppSmokeTest {
             assertNotNull(root.findViewWithTag("native_tool_auto_geometry"));
             assertNotNull(root.findViewWithTag("native_tool_auto90"));
             assertNotNull(root.findViewWithTag("native_tool_auto_diagonals"));
+            assertNotNull(root.findViewWithTag("native_validate_measurement"));
             assertFalse(containsWebView(root));
         }
     }
@@ -380,6 +382,84 @@ public class NativeAppSmokeTest {
         assertEquals(1, room.diagonals.size());
         assertNotNull(NativeGeometry.pointById(room, room.diagonals.get(0).a));
         assertNotNull(NativeGeometry.pointById(room, room.diagonals.get(0).b));
+    }
+
+    @Test
+    public void shortWallLabelsAvoidEachOtherAndKeepOutsidePlacement() {
+        NativeProjectStore.RoomData room = measuredSquare(500f);
+        // Make two adjacent walls visually short to stress automatic label placement.
+        room.points.get(1).x = 145f;
+        room.points.get(2).x = 145f;
+        room.points.get(2).y = 145f;
+        room.showAutoLetters = false;
+
+        List<NativeLabelEngine.Placement> placements =
+                NativeLabelEngine.layout(room, 1f, 3f);
+        assertEquals(4, placements.size());
+
+        for (int i = 0; i < placements.size(); i++) {
+            NativeLabelEngine.Placement a = placements.get(i);
+            NativeLabelEngine.Box boxA = new NativeLabelEngine.Box(
+                    a.x - a.width * a.size / 2f,
+                    a.y - a.height * a.size / 2f,
+                    a.x + a.width * a.size / 2f,
+                    a.y + a.height * a.size / 2f);
+            for (int j = i + 1; j < placements.size(); j++) {
+                NativeLabelEngine.Placement b = placements.get(j);
+                NativeLabelEngine.Box boxB = new NativeLabelEngine.Box(
+                        b.x - b.width * b.size / 2f,
+                        b.y - b.height * b.size / 2f,
+                        b.x + b.width * b.size / 2f,
+                        b.y + b.height * b.size / 2f);
+                assertFalse(NativeLabelEngine.overlaps(boxA, boxB, 0f));
+            }
+        }
+    }
+
+    @Test
+    public void labelPosePersistsAngleSizeAndManualOffset() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        context.getSharedPreferences("native_ceiling_projects", Context.MODE_PRIVATE)
+                .edit().clear().commit();
+
+        NativeProjectStore store = new NativeProjectStore(context);
+        NativeProjectStore.ProjectData project = store.newProject();
+        NativeProjectStore.RoomData room = project.rooms.get(0);
+        NativeProjectStore.RoomData square = measuredSquare(500f);
+        room.points.clear();
+        room.points.addAll(square.points);
+        room.edges.clear();
+        room.edges.addAll(square.edges);
+
+        NativeProjectStore.EdgeData edge = room.edges.get(0);
+        edge.labelDx = 17f;
+        edge.labelDy = -9f;
+        edge.labelAngle = 37f;
+        edge.labelSize = 1.4f;
+        edge.labelManual = true;
+        store.saveCurrent(project);
+
+        NativeProjectStore.EdgeData restored =
+                new NativeProjectStore(context).loadCurrent().rooms.get(0).edges.get(0);
+        assertEquals(17f, restored.labelDx, .01f);
+        assertEquals(-9f, restored.labelDy, .01f);
+        assertEquals(37f, restored.labelAngle, .01f);
+        assertEquals(1.4f, restored.labelSize, .01f);
+        assertTrue(restored.labelManual);
+    }
+
+    @Test
+    public void measurementValidationCatchesMissingWallsAndAcceptsMeasuredSquare() {
+        NativeProjectStore.RoomData room = measuredSquare(500f);
+        NativeMeasurementValidator.Result good = NativeMeasurementValidator.validate(room);
+        assertTrue(good.ok());
+        assertEquals(25d, good.areaM2, .001d);
+        assertEquals(20d, good.perimeterM, .001d);
+
+        room.edges.get(2).value = 0f;
+        NativeMeasurementValidator.Result bad = NativeMeasurementValidator.validate(room);
+        assertFalse(bad.ok());
+        assertTrue(bad.message().contains("Не введены размеры стен"));
     }
 
     private static NativeProjectStore.RoomData measuredSquare(float size) {
