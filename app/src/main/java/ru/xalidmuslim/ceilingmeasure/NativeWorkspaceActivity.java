@@ -1150,6 +1150,23 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         Toast.makeText(this,"Все размеры стен уже введены",Toast.LENGTH_SHORT).show();
     }
 
+    private NativeProjectStore.EdgeData firstUnmeasuredWallAfter(
+            NativeProjectStore.RoomData room,
+            String currentId){
+        List<NativeProjectStore.EdgeData> ordered=NativeGeometry.orderedEdges(room);
+        if(ordered.isEmpty())return null;
+        int current=-1;
+        for(int i=0;i<ordered.size();i++){
+            if(ordered.get(i).id.equals(currentId)){current=i;break;}
+        }
+        int start=Math.max(0,current);
+        for(int step=1;step<=ordered.size();step++){
+            NativeProjectStore.EdgeData edge=ordered.get((start+step)%ordered.size());
+            if(edge.value<=0f)return edge;
+        }
+        return null;
+    }
+
     private NativeProjectStore.EdgeData previousWall(
             NativeProjectStore.RoomData room,
             String currentId){

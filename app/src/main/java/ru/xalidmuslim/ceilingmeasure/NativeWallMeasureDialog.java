@@ -257,7 +257,7 @@ final class NativeWallMeasureDialog extends Dialog {
             }
             if(s.matches("\\d+\\.\\d{1,2}")){
                 float metres=Float.parseFloat(s);
-                return metres>0?Math.round(metres*100f):null;
+                return metres>0?(float)Math.round(metres*100f):null;
             }
         }catch(Exception ignored){}
         return null;
