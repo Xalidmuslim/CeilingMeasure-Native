@@ -1,0 +1,34 @@
+{
+  "orders": [
+    {
+      "id": "legacy12",
+      "name": "Legacy mm",
+      "rooms": [
+        {
+          "id": "r12",
+          "name": "Комната",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 100,
+              "y": 0
+            }
+          ],
+          "closed": false,
+          "walls": {
+            "0-1": "500"
+          },
+          "diags": {}
+        }
+      ],
+      "pricing": {
+        "canvas": 0,
+        "baguette": 0,
+        "insert": 0
+      }
+    }
+  ]
+}

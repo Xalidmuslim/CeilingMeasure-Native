@@ -1,0 +1,58 @@
+{
+  "orders": [
+    {
+      "id": "draw_order",
+      "name": "Drawings",
+      "pricing": {
+        "canvas": 0,
+        "baguette": 0,
+        "insert": 0
+      },
+      "pricingMigratedV59": true,
+      "rooms": [
+        {
+          "id": "draw_room",
+          "name": "Комната",
+          "points": [],
+          "edges": [],
+          "diagList": [],
+          "drawings": [
+            {
+              "id": "dr2",
+              "points": [
+                {
+                  "id": "pa",
+                  "x": 10,
+                  "y": 10
+                },
+                {
+                  "id": "pb",
+                  "x": 110,
+                  "y": 10
+                }
+              ],
+              "edges": [
+                {
+                  "id": "ea",
+                  "a": "pa",
+                  "b": "pb",
+                  "mm": "500"
+                }
+              ],
+              "diagList": [],
+              "notes": "Из drawing",
+              "showAutoLetters": true,
+              "hintCollapsed": false,
+              "view": {
+                "scale": 2,
+                "panX": 7,
+                "panY": 8
+              }
+            }
+          ],
+          "activeDrawingId": "dr2"
+        }
+      ]
+    }
+  ]
+}

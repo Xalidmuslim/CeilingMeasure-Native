@@ -1,0 +1,32 @@
+{
+  "orders": [
+    {
+      "id": "price_order",
+      "name": "Price",
+      "pricing": {
+        "canvas": 11,
+        "baguette": 22,
+        "insert": 33
+      },
+      "rooms": [
+        {
+          "id": "price_room",
+          "name": "Комната",
+          "points": [],
+          "edges": [],
+          "diagList": [],
+          "pricing": {
+            "canvas": 999
+          },
+          "extraQty": {
+            "light": 9,
+            "corner": 8,
+            "cornice": 7,
+            "lightline": 6,
+            "pipe": 5
+          }
+        }
+      ]
+    }
+  ]
+}

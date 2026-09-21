@@ -1,0 +1,372 @@
+{
+  "schemaVersion": 165,
+  "orders": [
+    {
+      "id": "order_current",
+      "name": "Квартира 189",
+      "phone": "+7 900 000-00-00",
+      "address": "Нальчик",
+      "status": "Замер",
+      "pricing": {
+        "canvas": 10,
+        "baguette": 20,
+        "insert": 30
+      },
+      "pricingMigratedV59": true,
+      "savedAt": "2026-09-21T12:00:00.000Z",
+      "combinedEstimateOrderIds": [
+        "order_second"
+      ],
+      "unknownOrder": "keep-me",
+      "rooms": [
+        {
+          "id": "room_1",
+          "name": "Комната",
+          "notes": "Скрытый карниз",
+          "pricing": {
+            "canvas": 100,
+            "baguette": 50,
+            "insert": 20,
+            "light": 10,
+            "corner": 5,
+            "cornice": 15,
+            "dowel": 2,
+            "lightline": 30,
+            "pipe": 7
+          },
+          "clientPricing": {
+            "baguette": 0,
+            "dowel": 0,
+            "canvas": 500,
+            "insert": 100,
+            "light": 300,
+            "cornice": 200,
+            "corner": 80,
+            "pipe": 90,
+            "lightline": 400,
+            "shadow": 250,
+            "porcelain": 600
+          },
+          "clientEstimateQty": {
+            "insert": 20,
+            "light": 4,
+            "cornice": 3,
+            "corner": 4,
+            "pipe": 1,
+            "lightline": 5,
+            "shadow": 7,
+            "porcelain": 2
+          },
+          "clientEstimateOverride": {
+            "insert": false,
+            "light": true,
+            "cornice": false,
+            "corner": false,
+            "pipe": true,
+            "lightline": false,
+            "shadow": true,
+            "porcelain": false
+          },
+          "clientCustomItems": [
+            {
+              "id": "cc1",
+              "sourcePresetId": "cp1",
+              "name": "Монтаж",
+              "unit": "шт",
+              "qty": 2,
+              "price": 150
+            }
+          ],
+          "customItems": [
+            {
+              "id": "pc1",
+              "sourceId": "pp1",
+              "name": "Клей",
+              "unit": "шт",
+              "qty": 3,
+              "price": 100
+            }
+          ],
+          "hiddenInternalKeys": [
+            "insert",
+            "dowel"
+          ],
+          "extraQty": {
+            "light": 4,
+            "corner": 4,
+            "cornice": 3,
+            "lightline": 5,
+            "pipe": 1
+          },
+          "geometryLocked": true,
+          "validationExpanded": false,
+          "extrasExpanded": true,
+          "showAutoLetters": true,
+          "point90Magnet": false,
+          "hintCollapsed": true,
+          "view": {
+            "scale": 1.75,
+            "panX": 12.5,
+            "panY": -8.25
+          },
+          "savedAt": "2026-09-21T12:00:00.000Z",
+          "points": [
+            {
+              "id": "p1",
+              "x": 100,
+              "y": 100,
+              "customLabel": "A"
+            },
+            {
+              "id": "p2",
+              "x": 300,
+              "y": 100
+            },
+            {
+              "id": "p3",
+              "x": 300,
+              "y": 300
+            },
+            {
+              "id": "p4",
+              "x": 100,
+              "y": 300
+            }
+          ],
+          "edges": [
+            {
+              "id": "e1",
+              "a": "p1",
+              "b": "p2",
+              "mm": "500",
+              "labelPose": {
+                "manual": true,
+                "x": 120.5,
+                "y": 75.25,
+                "angle": 15,
+                "size": 1.2
+              }
+            },
+            {
+              "id": "e2",
+              "a": "p2",
+              "b": "p3",
+              "mm": "500"
+            },
+            {
+              "id": "e3",
+              "a": "p3",
+              "b": "p4",
+              "mm": "500"
+            },
+            {
+              "id": "e4",
+              "a": "p4",
+              "b": "p1",
+              "mm": "500"
+            }
+          ],
+          "diagList": [
+            {
+              "id": "d1",
+              "a": "p1",
+              "b": "p3",
+              "mm": "707",
+              "labelPose": {
+                "manual": true,
+                "x": 215,
+                "y": 215,
+                "angle": 45,
+                "size": 1.1
+              }
+            }
+          ],
+          "unknownRoom": "keep-room"
+        }
+      ]
+    },
+    {
+      "id": "order_second",
+      "name": "Второй",
+      "phone": "",
+      "address": "",
+      "status": "Замер",
+      "pricing": {
+        "canvas": 0,
+        "baguette": 0,
+        "insert": 0
+      },
+      "pricingMigratedV59": true,
+      "combinedEstimateOrderIds": [],
+      "rooms": [
+        {
+          "id": "room_2",
+          "name": "Ванная",
+          "notes": "",
+          "pricing": {
+            "canvas": 0,
+            "baguette": 0,
+            "insert": 0,
+            "light": 0,
+            "corner": 0,
+            "cornice": 0,
+            "dowel": 0,
+            "lightline": 0,
+            "pipe": 0
+          },
+          "clientPricing": {
+            "baguette": 0,
+            "dowel": 0,
+            "canvas": 0,
+            "insert": 0,
+            "light": 0,
+            "cornice": 0,
+            "corner": 0,
+            "pipe": 0,
+            "lightline": 0,
+            "shadow": 0,
+            "porcelain": 0
+          },
+          "clientEstimateQty": {
+            "insert": 0,
+            "light": 0,
+            "cornice": 0,
+            "corner": 0,
+            "pipe": 0,
+            "lightline": 0,
+            "shadow": 0,
+            "porcelain": 0
+          },
+          "clientEstimateOverride": {
+            "insert": false,
+            "light": false,
+            "cornice": false,
+            "corner": false,
+            "pipe": false,
+            "lightline": false,
+            "shadow": false,
+            "porcelain": false
+          },
+          "clientCustomItems": [],
+          "customItems": [],
+          "hiddenInternalKeys": [],
+          "extraQty": {
+            "light": 0,
+            "corner": 0,
+            "cornice": 0,
+            "lightline": 0,
+            "pipe": 0
+          },
+          "geometryLocked": false,
+          "validationExpanded": true,
+          "extrasExpanded": false,
+          "showAutoLetters": false,
+          "point90Magnet": true,
+          "hintCollapsed": true,
+          "view": {
+            "scale": 1,
+            "panX": 0,
+            "panY": 0
+          },
+          "points": [],
+          "edges": [],
+          "diagList": []
+        }
+      ]
+    }
+  ],
+  "defaultPricing": {
+    "canvas": 222,
+    "baguette": 55,
+    "insert": 30,
+    "light": 0,
+    "corner": 0,
+    "cornice": 0,
+    "dowel": 2,
+    "lightline": 0,
+    "pipe": 0
+  },
+  "defaultClientPricing": {
+    "canvas": 555,
+    "insert": 100,
+    "light": 300,
+    "cornice": 200,
+    "corner": 80,
+    "pipe": 90,
+    "lightline": 400,
+    "shadow": 250,
+    "porcelain": 600
+  },
+  "hiddenDefaultPurchaseKeys": [
+    "pipe"
+  ],
+  "hiddenDefaultClientKeys": [
+    "porcelain"
+  ],
+  "defaultClientStandardMeta": {
+    "canvas": {
+      "name": "Квадратура",
+      "unit": "м²"
+    },
+    "insert": {
+      "name": "Вставка",
+      "unit": "м"
+    },
+    "light": {
+      "name": "Светильники",
+      "unit": "шт"
+    },
+    "cornice": {
+      "name": "Карниз",
+      "unit": "м"
+    },
+    "corner": {
+      "name": "Углы",
+      "unit": "шт"
+    },
+    "pipe": {
+      "name": "Трубы",
+      "unit": "шт"
+    },
+    "lightline": {
+      "name": "Световые линии",
+      "unit": "м"
+    },
+    "shadow": {
+      "name": "Теневой профиль",
+      "unit": "м"
+    },
+    "porcelain": {
+      "name": "Керамогранит",
+      "unit": "м²"
+    }
+  },
+  "defaultPurchaseCustomItems": [
+    {
+      "id": "pp1",
+      "name": "Клей",
+      "unit": "шт",
+      "price": 100
+    }
+  ],
+  "defaultClientCustomItems": [
+    {
+      "id": "cp1",
+      "name": "Монтаж",
+      "unit": "шт",
+      "price": 150
+    }
+  ],
+  "uiCollapse": {
+    "order": true,
+    "rooms": false,
+    "drawing": true,
+    "estimate": false
+  },
+  "internalAllRoomsMigratedV157": true,
+  "defaultClientPricingMigratedV146": true,
+  "hintsCollapsedMigratedV73": true,
+  "otherRoomNamesMigratedV66": true,
+  "autoLettersMigratedV64": true,
+  "unknownRoot": "keep-root"
+}

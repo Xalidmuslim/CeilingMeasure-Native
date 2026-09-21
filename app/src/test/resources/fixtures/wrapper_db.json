@@ -1,0 +1,36 @@
+{
+  "app": "ceilingMeasure",
+  "version": 165,
+  "exportedAt": "2026-09-21T12:34:56.000Z",
+  "db": {
+    "schemaVersion": 165,
+    "orders": [
+      {
+        "id": "wrapper_order",
+        "name": "Wrapper",
+        "phone": "1",
+        "address": "A",
+        "status": "Замер",
+        "pricing": {
+          "canvas": 0,
+          "baguette": 0,
+          "insert": 0
+        },
+        "pricingMigratedV59": true,
+        "combinedEstimateOrderIds": [],
+        "rooms": []
+      }
+    ],
+    "defaultPricing": {},
+    "defaultClientPricing": {},
+    "hiddenDefaultPurchaseKeys": [],
+    "hiddenDefaultClientKeys": [],
+    "defaultPurchaseCustomItems": [],
+    "defaultClientCustomItems": [],
+    "internalAllRoomsMigratedV157": true,
+    "defaultClientPricingMigratedV146": true,
+    "hintsCollapsedMigratedV73": true,
+    "otherRoomNamesMigratedV66": true,
+    "autoLettersMigratedV64": true
+  }
+}

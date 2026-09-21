@@ -1,0 +1,42 @@
+{
+  "orders": [
+    {
+      "id": "geom_order",
+      "name": "Geom",
+      "pricing": {
+        "canvas": 0,
+        "baguette": 0,
+        "insert": 0
+      },
+      "pricingMigratedV59": true,
+      "rooms": [
+        {
+          "id": "geom_room",
+          "name": "Комната",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 100,
+              "y": 0
+            },
+            {
+              "x": 100,
+              "y": 100
+            }
+          ],
+          "closed": false,
+          "walls": {
+            "0-1": "400",
+            "1-2": "300"
+          },
+          "diags": {
+            "0-2": "500"
+          }
+        }
+      ]
+    }
+  ]
+}
