@@ -67,6 +67,10 @@ jobs:
           grep -q 'placeWall' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeLabelEngine.java
           grep -q 'class NativeMeasurementValidator' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeMeasurementValidator.java
           grep -q 'drawLabelSelection' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
+          grep -q 'class NativeDrawToolsDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeDrawToolsDialog.java
+          grep -q 'native_draw_tool_' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeDrawToolsDialog.java
+          grep -q 'vibrateSnap' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
+          grep -q 'native_history_nav' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeWorkspaceActivity.java
           grep -q 'class NativeNumberPadDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeNumberPadDialog.java
           grep -q 'native_number_pad_' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeNumberPadDialog.java
           grep -q 'class NativeTextPadDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeTextPadDialog.java

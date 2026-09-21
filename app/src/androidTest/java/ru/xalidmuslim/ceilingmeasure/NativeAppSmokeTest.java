@@ -80,14 +80,12 @@ public class NativeAppSmokeTest {
             assertNotNull(root.findViewWithTag("native_mode_diagonal"));
             assertNotNull(root.findViewWithTag("native_mode_labels"));
             assertNotNull(root.findViewWithTag("native_save_measurement"));
-            assertNotNull(root.findViewWithTag("native_tool_wall_magnet"));
-            assertNotNull(root.findViewWithTag("native_tool_point90"));
-            assertNotNull(root.findViewWithTag("native_tool_letters"));
-            assertNotNull(root.findViewWithTag("native_tool_wall_sequence"));
-            assertNotNull(root.findViewWithTag("native_tool_auto_geometry"));
-            assertNotNull(root.findViewWithTag("native_tool_auto90"));
-            assertNotNull(root.findViewWithTag("native_tool_auto_diagonals"));
-            assertNotNull(root.findViewWithTag("native_validate_measurement"));
+            assertNotNull(root.findViewWithTag("native_drawing_check"));
+            assertNotNull(root.findViewWithTag("native_history_nav"));
+            assertNotNull(root.findViewWithTag("native_nav_redo"));
+            assertNotNull(root.findViewWithTag("native_nav_more"));
+            assertNotNull(root.findViewWithTag("native_nav_undo"));
+            assertNotNull(root.findViewWithTag("native_drawing_hint"));
             assertFalse(containsWebView(root));
         }
     }
@@ -346,6 +344,25 @@ public class NativeAppSmokeTest {
                 assertFalse(view.isMagnifierVisibleForTest());
             });
         }
+    }
+
+    @Test
+    public void roomSnapshotPreservesWebParityFlags() {
+        NativeProjectStore.RoomData room = measuredSquare(500f);
+        room.geometryLocked = true;
+        room.hintCollapsed = true;
+        room.wallAngleMagnet = false;
+        room.point90Magnet = false;
+
+        NativeProjectStore.RoomData restored =
+                NativeProjectStore.roomFromSnapshot(
+                        NativeProjectStore.snapshotRoom(room));
+
+        assertTrue(restored.geometryLocked);
+        assertTrue(restored.hintCollapsed);
+        assertFalse(restored.wallAngleMagnet);
+        assertFalse(restored.point90Magnet);
+        assertTrue(NativeGeometry.isClosed(restored));
     }
 
     @Test

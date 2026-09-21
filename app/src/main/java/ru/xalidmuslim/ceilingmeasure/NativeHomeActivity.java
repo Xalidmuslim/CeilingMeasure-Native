@@ -110,7 +110,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         mainTitleParams.topMargin = dp(5);
         titles.addView(title, mainTitleParams);
 
-        TextView subtitle = text("Заказы · замеры · чертежи", 14, MUTED, Typeface.NORMAL);
+        TextView subtitle = text("Замер · чертёж · смета", 14, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);

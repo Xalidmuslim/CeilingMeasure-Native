@@ -95,6 +95,8 @@ final class NativeProjectStore {
         boolean point90Magnet = true;
         boolean wallAngleMagnet = true;
         boolean showAutoLetters = false;
+        boolean geometryLocked = false;
+        boolean hintCollapsed = false;
         float viewScale = 1f;
         float panX = 0f;
         float panY = 0f;
@@ -191,7 +193,7 @@ final class NativeProjectStore {
         return o;
     }
 
-    private JSONObject roomToJson(RoomData r) throws JSONException {
+    private static JSONObject roomToJson(RoomData r) throws JSONException {
         JSONObject o = new JSONObject();
         o.put("geometryVersion", 3);
         o.put("id", r.id);
@@ -199,6 +201,8 @@ final class NativeProjectStore {
         o.put("point90Magnet", r.point90Magnet);
         o.put("wallAngleMagnet", r.wallAngleMagnet);
         o.put("showAutoLetters", r.showAutoLetters);
+        o.put("geometryLocked", r.geometryLocked);
+        o.put("hintCollapsed", r.hintCollapsed);
         o.put("viewScale", r.viewScale);
         o.put("panX", r.panX);
         o.put("panY", r.panY);
@@ -268,13 +272,15 @@ final class NativeProjectStore {
         return p;
     }
 
-    private RoomData roomFromJson(JSONObject o) throws JSONException {
+    private static RoomData roomFromJson(JSONObject o) throws JSONException {
         RoomData r = new RoomData();
         r.id = o.optString("id", r.id);
         r.name = o.optString("name", r.name);
         r.point90Magnet = o.optBoolean("point90Magnet", true);
         r.wallAngleMagnet = o.optBoolean("wallAngleMagnet", true);
         r.showAutoLetters = o.optBoolean("showAutoLetters", false);
+        r.geometryLocked = o.optBoolean("geometryLocked", false);
+        r.hintCollapsed = o.optBoolean("hintCollapsed", false);
         r.viewScale = clamp((float) o.optDouble("viewScale", 1d), .45f, 12f);
         r.panX = (float) o.optDouble("panX", 0d);
         r.panY = (float) o.optDouble("panY", 0d);
@@ -294,7 +300,7 @@ final class NativeProjectStore {
         return r;
     }
 
-    private void readGraphRoom(JSONObject o, RoomData r) throws JSONException {
+    private static void readGraphRoom(JSONObject o, RoomData r) throws JSONException {
         r.points.clear();
         JSONArray points = o.optJSONArray("points");
         if (points != null) {
@@ -354,7 +360,7 @@ final class NativeProjectStore {
         }
     }
 
-    private void readLegacyNativeRoom(JSONObject o, RoomData r) throws JSONException {
+    private static void readLegacyNativeRoom(JSONObject o, RoomData r) throws JSONException {
         r.points.clear();
         JSONArray points = o.optJSONArray("points");
         if (points != null) {
@@ -399,6 +405,23 @@ final class NativeProjectStore {
                 d.value = (float) j.optDouble("value", 0);
                 r.diagonals.add(d);
             }
+        }
+    }
+
+    static String snapshotRoom(@NonNull RoomData room) {
+        try {
+            return roomToJson(room).toString();
+        } catch (Exception e) {
+            return "{}";
+        }
+    }
+
+    @NonNull
+    static RoomData roomFromSnapshot(String raw) {
+        try {
+            return roomFromJson(new JSONObject(raw));
+        } catch (Exception e) {
+            return new RoomData();
         }
     }
 

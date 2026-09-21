@@ -11,6 +11,8 @@ import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -29,6 +31,7 @@ final class CeilingDrawingView extends View {
 
     interface Listener {
         void onChanged();
+        void onHistoryCheckpoint();
         void onVertexLongPressed(@NonNull String pointId);
         void onWallLongPressed(@NonNull String edgeId, float currentValue);
         void onDiagonalCreated(@NonNull String diagonalId, float currentValue);
@@ -83,6 +86,8 @@ final class CeilingDrawingView extends View {
     private float labelRotateCenterY;
     private Guide activeGuide;
     private boolean point90SnapActive;
+    private String lastWallCornerSnapId;
+    private String lastDiagonalSnapId;
     private PointF magnifierFocus;
     private MagnifierKind magnifierKind;
 
@@ -218,6 +223,7 @@ final class CeilingDrawingView extends View {
 
     void clearDrawing() {
         if (room == null) return;
+        checkpoint();
         cancelPendingLongPress();
         cancelTransientGestures();
         room.points.clear();
@@ -527,6 +533,15 @@ final class CeilingDrawingView extends View {
         float worldX = screenToWorldX(event.getX());
         float worldY = screenToWorldY(event.getY());
 
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN
+                && mode == Mode.WALL
+                && event.getX() >= getWidth() * (652f / 760f)) {
+            cancelPendingLongPress();
+            cancelTransientGestures();
+            getParent().requestDisallowInterceptTouchEvent(false);
+            return false;
+        }
+
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 multiTouch = false;
@@ -543,7 +558,10 @@ final class CeilingDrawingView extends View {
                     getParent().requestDisallowInterceptTouchEvent(true);
                     NativeProjectStore.PointData point = nearestPoint(worldX, worldY, dp(48) / scale);
                     draggingPointId = point == null ? null : point.id;
-                    if (point != null) scheduleLongPress("vertex", point.id);
+                    if (point != null) {
+                        checkpoint();
+                        scheduleLongPress("vertex", point.id);
+                    }
                     return true;
                 }
                 if (mode == Mode.DIAGONAL) {
@@ -611,6 +629,8 @@ final class CeilingDrawingView extends View {
                 } else if (mode == Mode.LABEL && (draggingLabel != null || rotatingLabel != null)) {
                     draggingLabel = null;
                     rotatingLabel = null;
+                    magnifierFocus = null;
+                    magnifierKind = null;
                     changed();
                 }
                 return true;
@@ -704,14 +724,17 @@ final class CeilingDrawingView extends View {
                 float hit = dp(25f) / scale;
 
                 if (distance(local[0], local[1], -controlX, controlY) <= hit) {
+                    checkpoint();
                     changeSelectedLabelSize(-.1f);
                     return;
                 }
                 if (distance(local[0], local[1], controlX, controlY) <= hit) {
+                    checkpoint();
                     changeSelectedLabelSize(.1f);
                     return;
                 }
                 if (distance(local[0], local[1], 0f, controlY) <= hit) {
+                    checkpoint();
                     resetSelectedLabelSize();
                     return;
                 }
@@ -720,6 +743,7 @@ final class CeilingDrawingView extends View {
                 boolean onRing = Math.abs(radial - radius) <= dp(18f) / scale;
                 boolean onHandle = distance(local[0], local[1], 0f, -radius) <= hit;
                 if (onRing || onHandle) {
+                    checkpoint();
                     rotatingLabel = selectedLabel;
                     draggingLabel = null;
                     labelRotateCenterX = selected.x;
@@ -742,6 +766,7 @@ final class CeilingDrawingView extends View {
             return;
         }
 
+        checkpoint();
         selectedLabel = new LabelHit(
                 placement.kind == NativeLabelEngine.Kind.EDGE
                         ? LabelKind.EDGE
@@ -803,7 +828,10 @@ final class CeilingDrawingView extends View {
         if (cornerSnap && near != null) {
             wallDraft.preview.set(near.x, near.y);
             activeGuide = null;
+            if (!near.id.equals(lastWallCornerSnapId)) vibrateSnap();
+            lastWallCornerSnapId = near.id;
         } else {
+            lastWallCornerSnapId = null;
             Guide guide = wallStopGuide(finish);
             if (guide != null) {
                 float screenDistance = (float) Math.hypot(
@@ -812,7 +840,7 @@ final class CeilingDrawingView extends View {
                 if (screenDistance <= dp(26)) {
                     finish.set(guide.projected.x, guide.projected.y);
                     if (activeGuide == null) {
-                        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+                        vibrateSnap();
                     }
                     activeGuide = guide;
                 } else {
@@ -847,6 +875,7 @@ final class CeilingDrawingView extends View {
             return;
         }
 
+        checkpoint();
         NativeProjectStore.PointData start = NativeGeometry.pointById(room, draft.startId);
         if (draft.newStart) {
             start = new NativeProjectStore.PointData(
@@ -924,7 +953,7 @@ final class CeilingDrawingView extends View {
         magnifierKind = MagnifierKind.POINT;
         if (right && !point90SnapActive) {
             point90SnapActive = true;
-            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+            vibrateSnap();
         } else if (!right) {
             point90SnapActive = false;
         }
@@ -947,9 +976,14 @@ final class CeilingDrawingView extends View {
         NativeProjectStore.PointData near = nearestPoint(x, y, dp(48) / scale);
         if (near != null && !near.id.equals(diagDraft.startId)) {
             diagDraft.preview.set(near.x, near.y);
+            if (!near.id.equals(lastDiagonalSnapId)) vibrateSnap();
+            lastDiagonalSnapId = near.id;
         } else {
             diagDraft.preview.set(x, y);
+            lastDiagonalSnapId = null;
         }
+        magnifierFocus = new PointF(diagDraft.preview.x, diagDraft.preview.y);
+        magnifierKind = MagnifierKind.DIAGONAL;
         invalidate();
     }
 
@@ -974,6 +1008,7 @@ final class CeilingDrawingView extends View {
         NativeProjectStore.DiagonalData diagonal =
                 NativeGeometry.diagonalBetween(room, draft.startId, end.id);
         if (diagonal == null) {
+            checkpoint();
             diagonal = new NativeProjectStore.DiagonalData(draft.startId, end.id);
             room.diagonals.add(diagonal);
             changed();
@@ -1000,6 +1035,8 @@ final class CeilingDrawingView extends View {
                 diagonal.labelManual = true;
             }
         }
+        magnifierFocus = new PointF(x, y);
+        magnifierKind = MagnifierKind.LABEL;
         invalidate();
     }
 
@@ -1027,6 +1064,8 @@ final class CeilingDrawingView extends View {
                 diagonal.labelManual = true;
             }
         }
+        magnifierFocus = new PointF(x, y);
+        magnifierKind = MagnifierKind.LABEL;
         invalidate();
     }
 
@@ -1524,6 +1563,17 @@ final class CeilingDrawingView extends View {
             }
         }
 
+        if (magnifierKind == MagnifierKind.DIAGONAL && diagDraft != null) {
+            Paint p = new Paint(previewPaint);
+            p.setStrokeWidth(dp(2.5f) / lensScale);
+            canvas.drawLine(
+                    diagDraft.start.x,
+                    diagDraft.start.y,
+                    diagDraft.preview.x,
+                    diagDraft.preview.y,
+                    p);
+        }
+
         float pointRadius = dp(3.5f) / lensScale;
         Paint pp = new Paint(Paint.ANTI_ALIAS_FLAG);
         pp.setColor(BLUE);
@@ -1553,6 +1603,70 @@ final class CeilingDrawingView extends View {
 
     List<NativeLabelEngine.Placement> labelPlacementsForTest() {
         return labelPlacements();
+    }
+
+    private void checkpoint() {
+        if (listener != null) listener.onHistoryCheckpoint();
+    }
+
+    private void vibrateSnap() {
+        try {
+            Vibrator vibrator = (Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
+            if (vibrator != null && vibrator.hasVibrator()) {
+                vibrator.vibrate(VibrationEffect.createOneShot(
+                        18L,
+                        VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+                performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+            }
+        } catch (Throwable ignored) {
+            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+        }
+    }
+
+    void zoomBy(float factor) {
+        float cx = getWidth() / 2f;
+        float cy = getHeight() / 2f;
+        float old = scale;
+        scale = clamp(scale * factor, .45f, 12f);
+        if (old != 0f) {
+            offsetX = cx - (cx - offsetX) * (scale / old);
+            offsetY = cy - (cy - offsetY) * (scale / old);
+        }
+        syncViewToRoom();
+        invalidate();
+        if (listener != null) listener.onChanged();
+    }
+
+    void fitView() {
+        if (room == null || room.points.isEmpty()) {
+            scale = 1f;
+            offsetX = 0f;
+            offsetY = 0f;
+        } else {
+            float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE;
+            float minY = Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+            for (NativeProjectStore.PointData p : room.points) {
+                minX = Math.min(minX, p.x);
+                maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y);
+                maxY = Math.max(maxY, p.y);
+            }
+            float bw = Math.max(1f, maxX - minX);
+            float bh = Math.max(1f, maxY - minY);
+            scale = clamp(Math.min(
+                    (getWidth() - dp(90f)) / bw,
+                    (getHeight() - dp(110f)) / bh), .45f, 12f);
+            offsetX = getWidth() / 2f - ((minX + maxX) / 2f) * scale;
+            offsetY = getHeight() / 2f - ((minY + maxY) / 2f) * scale;
+        }
+        syncViewToRoom();
+        invalidate();
+        if (listener != null) listener.onChanged();
+    }
+
+    int getZoomPercent() {
+        return Math.round(scale * 100f);
     }
 
     private void changed() {
@@ -1726,7 +1840,7 @@ final class CeilingDrawingView extends View {
         }
     }
 
-    private enum MagnifierKind { WALL, POINT }
+    private enum MagnifierKind { WALL, POINT, DIAGONAL, LABEL }
 
     private enum LabelKind { EDGE, DIAGONAL }
 
