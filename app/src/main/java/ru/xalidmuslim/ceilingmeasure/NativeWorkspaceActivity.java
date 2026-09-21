@@ -19,7 +19,7 @@ import android.widget.Toast;
 
 import androidx.activity.ComponentActivity;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
+import android.app.AlertDialog;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
