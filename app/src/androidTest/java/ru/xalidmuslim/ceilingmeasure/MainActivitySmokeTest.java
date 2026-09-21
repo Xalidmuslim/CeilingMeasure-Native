@@ -50,11 +50,11 @@ public class MainActivitySmokeTest {
     private static void awaitReady(MainActivity activity) throws Exception {
         long deadline = System.currentTimeMillis() + 15_000;
         while (System.currentTimeMillis() < deadline) {
-            String ready = eval(activity, "document.readyState");
-            if ("\"complete\"".equals(ready)) return;
+            String ready = eval(activity, "location.href + '|' + document.readyState");
+            if (("\"" + MainActivity.START_URL + "|complete\"").equals(ready)) return;
             Thread.sleep(150);
         }
-        throw new AssertionError("Web app did not finish loading");
+        throw new AssertionError("Golden-master WebView did not finish loading at " + MainActivity.START_URL);
     }
 
     @Test
