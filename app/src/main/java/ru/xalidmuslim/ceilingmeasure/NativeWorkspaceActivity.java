@@ -312,7 +312,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         page.addView(createHistoryNav(), historyNavParams());
 
         setContentView(page);
-        ViewCompat.requestApplyWindowInsets(page);
+        page.requestApplyInsets();
         setMode(CeilingDrawingView.Mode.WALL);
         updateStats();
         updateDrawingChrome();
