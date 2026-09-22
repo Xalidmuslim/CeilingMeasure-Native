@@ -52,14 +52,17 @@ public final class NativeFactualGeometryTest {
 
         NativeProjectStore.DiagonalData conflict =
                 new NativeProjectStore.DiagonalData("p1", "p3");
-        conflict.value = 600f;
+        // 5.09 m instead of the factual 5.00 m: this is below the old
+        // 0.10 m working tolerance but must still be treated as a conflict.
+        conflict.value = 509f;
         NativeGeometry.markDiagonalMeasured(conflict);
         room.diagonals.add(conflict);
 
         NativeMeasurementSolver.Result result =
                 NativeMeasurementSolver.solveFactual(room);
         assertTrue(result.ok);
-        assertTrue(result.maxError > NativeMeasurementSolver.FIELD_MEASURE_TOL);
+        assertTrue(result.maxError > NativeMeasurementSolver.FACTUAL_CONFLICT_TOL);
+        assertTrue(result.maxError < NativeMeasurementSolver.FIELD_MEASURE_TOL);
         assertTrue(result.message.contains("Замеры конфликтуют"));
     }
 
