@@ -958,9 +958,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 pushHistory();
                 room.showAutoLetters=!room.showAutoLetters;
                 break;
+            case "sketchGeometry":
+                restoreSketchGeometry();
+                updateDrawingChrome();
+                return;
+            case "actualGeometry":
             case "autoGeometry":
-                pushHistory();
-                applyGeometrySolution(false);
+                applyFactualGeometry();
                 updateDrawingChrome();
                 return;
             case "auto90":
@@ -1217,6 +1221,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     r.diagonals.removeIf(d->d.a.equals(pointId)||d.b.equals(pointId));
                     r.points.removeIf(p->p.id.equals(pointId));
                     NativeGeometry.sanitize(r);
+                    NativeGeometry.discardFactualGeometrySession(r);
                     store.saveCurrent(project);
                     drawingView.invalidate();
                     updateStats();
@@ -1291,6 +1296,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                         if(current==null){closeWallDialog();return;}
                         pushHistory();
                         current.value=value;
+                        NativeGeometry.markFactualGeometryDirty(activeRoom());
                         store.saveCurrent(project);
                         drawingView.invalidate();
                         updateStats();
@@ -1394,6 +1400,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(edge!=null&&Math.abs(edge.value-value)>.001f){
             pushHistory();
             edge.value=value;
+            NativeGeometry.markFactualGeometryDirty(activeRoom());
             store.saveCurrent(project);
             drawingView.invalidate();
             updateStats();
@@ -1431,6 +1438,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                         if(current!=null){
                             pushHistory();
                             current.value=value;
+                            NativeGeometry.markDiagonalMeasured(current);
+                            NativeGeometry.markFactualGeometryDirty(activeRoom());
                             store.saveCurrent(project);
                             drawingView.invalidate();
                         }
@@ -1442,6 +1451,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                         if(current!=null){
                             pushHistory();
                             current.value=Math.round(value);
+                            NativeGeometry.markDiagonalAuto(current);
                             store.saveCurrent(project);
                             drawingView.invalidate();
                         }
@@ -1460,6 +1470,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                                     if(current!=null){
                                         pushHistory();
                                         activeRoom().diagonals.remove(current);
+                                        NativeGeometry.markFactualGeometryDirty(activeRoom());
                                         store.saveCurrent(project);
                                         drawingView.invalidate();
                                     }
@@ -1571,6 +1582,76 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 current,
                 consumer::accept);
         dialog.show();
+    }
+
+
+    private void restoreSketchGeometry(){
+        NativeProjectStore.RoomData room=activeRoom();
+        if(!NativeGeometry.hasSketchGeometryBackup(room)){
+            Toast.makeText(
+                    this,
+                    "Используется геометрия эскиза. Размеры не меняют форму.",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        pushHistory();
+        if(!NativeGeometry.restoreSketchGeometry(room)){
+            Toast.makeText(
+                    this,
+                    "Эскиз не восстановлен: после расчёта изменилась топология углов.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        store.saveCurrent(project);
+        drawingView.invalidate();
+        updateStats();
+        Toast.makeText(
+                this,
+                "Геометрия эскиза восстановлена. Замеры сохранены.",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    private void applyFactualGeometry(){
+        NativeProjectStore.RoomData room=activeRoom();
+        NativeMeasurementSolver.Result result=
+                NativeMeasurementSolver.solveFactual(room);
+
+        if(!result.ok){
+            new AlertDialog.Builder(this)
+                    .setTitle("Фактическая геометрия")
+                    .setMessage(result.message)
+                    .setPositiveButton("Понятно",null)
+                    .show();
+            return;
+        }
+
+        if(result.maxError>NativeMeasurementSolver.FIELD_MEASURE_TOL){
+            new AlertDialog.Builder(this)
+                    .setTitle("Замеры конфликтуют")
+                    .setMessage(
+                            result.message
+                                    +"\n\nЭскиз оставлен без изменений. "
+                                    +"Проверь размеры и диагонали.")
+                    .setPositiveButton("Понятно",null)
+                    .show();
+            return;
+        }
+
+        pushHistory();
+        if(!NativeGeometry.captureSketchGeometry(room)){
+            Toast.makeText(
+                    this,
+                    "Не удалось сохранить исходную геометрию эскиза",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        drawingView.applySolvedGeometry(result.positions);
+        NativeGeometry.markFactualGeometry(room);
+        store.saveCurrent(project);
+        updateStats();
+        Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();
     }
 
     private void applyGeometrySolution(boolean orthogonal){
