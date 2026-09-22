@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 final class NativeMeasurementSolver {
@@ -308,6 +309,192 @@ final class NativeMeasurementSolver {
                 maxError,
                 unique,
                 false);
+    }
+
+
+    /**
+     * Builds factual geometry from measured walls and measured diagonals only.
+     *
+     * The sketch is used solely to select the mirror branch of circle intersections.
+     * It never contributes a distance, angle or soft direction constraint.
+     */
+    @NonNull
+    static Result solveFactual(@NonNull NativeProjectStore.RoomData room) {
+        List<String> order = NativeGeometry.cycleOrder(room);
+        if (order == null) {
+            return Result.fail("Сначала стены должны образовать один замкнутый контур.");
+        }
+        if (order.size() < 3) {
+            return Result.fail("Для фактической геометрии нужно минимум три угла.");
+        }
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            if (edge.value <= 0f) {
+                return Result.fail("Сначала введи реальные размеры всех стен.");
+            }
+        }
+
+        String anchorId = order.get(0);
+        int missing = 0;
+        for (int i = 2; i < order.size() - 1; i++) {
+            NativeProjectStore.DiagonalData diagonal =
+                    NativeGeometry.diagonalBetween(room, anchorId, order.get(i));
+            if (!NativeGeometry.isMeasuredDiagonal(diagonal)) missing++;
+        }
+        if (missing > 0) {
+            return Result.fail(
+                    "Недостаточно измеренных диагоналей. Добавь и измерь ещё "
+                            + missing
+                            + (missing == 1
+                            ? " диагональ от первого угла."
+                            : " диагонали от первого угла.")
+                            + " Расчётные диагонали не считаются фактическим замером.");
+        }
+
+        NativeProjectStore.EdgeData firstEdge =
+                NativeGeometry.edgeBetween(room, order.get(0), order.get(1));
+        if (firstEdge == null || firstEdge.value <= 0f) {
+            return Result.fail("Не удалось прочитать первую стену.");
+        }
+
+        Map<String, PointF> positions = new HashMap<>();
+        positions.put(order.get(0), new PointF(0f, 0f));
+        positions.put(order.get(1), new PointF(firstEdge.value, 0f));
+
+        for (int i = 2; i < order.size(); i++) {
+            String previousId = order.get(i - 1);
+            String currentId = order.get(i);
+
+            NativeProjectStore.EdgeData wall =
+                    NativeGeometry.edgeBetween(room, previousId, currentId);
+            if (wall == null || wall.value <= 0f) {
+                return Result.fail("Не удалось прочитать одну из стен.");
+            }
+
+            Float anchorDistance = factualDistance(room, anchorId, currentId);
+            if (anchorDistance == null || anchorDistance <= 0f) {
+                return Result.fail(
+                        "Недостаточно измерений для угла "
+                                + (i + 1)
+                                + ". Нужна измеренная диагональ.");
+            }
+
+            PointF anchor = positions.get(anchorId);
+            PointF previous = positions.get(previousId);
+            if (anchor == null || previous == null) {
+                return Result.fail("Не удалось последовательно восстановить геометрию.");
+            }
+
+            float dx = previous.x - anchor.x;
+            float dy = previous.y - anchor.y;
+            float d = (float) Math.hypot(dx, dy);
+            float rAnchor = anchorDistance;
+            float rPrevious = wall.value;
+            if (d < 1e-6f) {
+                return Result.fail("Замеры конфликтуют: две опорные точки совпали.");
+            }
+
+            final float epsilon = .02f;
+            if (d > rAnchor + rPrevious + epsilon
+                    || d < Math.abs(rAnchor - rPrevious) - epsilon) {
+                return Result.fail(
+                        "Замеры конфликтуют: для угла "
+                                + (i + 1)
+                                + " измеренные расстояния не образуют треугольник.");
+            }
+
+            float along = (rAnchor * rAnchor - rPrevious * rPrevious + d * d)
+                    / (2f * d);
+            float h2 = rAnchor * rAnchor - along * along;
+            if (h2 < -epsilon) {
+                return Result.fail(
+                        "Замеры конфликтуют: невозможно точно определить угол "
+                                + (i + 1)
+                                + ".");
+            }
+            float h = (float) Math.sqrt(Math.max(0f, h2));
+            float ux = dx / d;
+            float uy = dy / d;
+            float baseX = anchor.x + ux * along;
+            float baseY = anchor.y + uy * along;
+
+            int side = sketchSide(room, anchorId, previousId, currentId);
+            float px = -uy;
+            float py = ux;
+            positions.put(currentId, new PointF(
+                    baseX + side * px * h,
+                    baseY + side * py * h));
+        }
+
+        ArrayList<Constraint> factual = factualConstraints(room);
+        float maxError = maxConstraintError(positions, factual);
+        String message;
+        if (maxError > FIELD_MEASURE_TOL) {
+            message = String.format(
+                    Locale.getDefault(),
+                    "Замеры конфликтуют. Максимальная невязка: %.2f м. "
+                            + "Фактическая геометрия не должна применяться автоматически.",
+                    maxError / 100f);
+        } else {
+            message = String.format(
+                    Locale.getDefault(),
+                    "Фактическая геометрия рассчитана только по измеренным стенам "
+                            + "и диагоналям. Максимальная невязка: %.2f м.",
+                    maxError / 100f);
+        }
+
+        return new Result(
+                true,
+                message,
+                positions,
+                maxError,
+                true,
+                false);
+    }
+
+    @Nullable
+    private static Float factualDistance(
+            NativeProjectStore.RoomData room,
+            String a,
+            String b) {
+        NativeProjectStore.EdgeData edge = NativeGeometry.edgeBetween(room, a, b);
+        if (edge != null && edge.value > 0f) return edge.value;
+
+        NativeProjectStore.DiagonalData diagonal =
+                NativeGeometry.diagonalBetween(room, a, b);
+        if (NativeGeometry.isMeasuredDiagonal(diagonal)) return diagonal.value;
+        return null;
+    }
+
+    private static int sketchSide(
+            NativeProjectStore.RoomData room,
+            String anchorId,
+            String previousId,
+            String currentId) {
+        NativeProjectStore.PointData anchor = NativeGeometry.pointById(room, anchorId);
+        NativeProjectStore.PointData previous = NativeGeometry.pointById(room, previousId);
+        NativeProjectStore.PointData current = NativeGeometry.pointById(room, currentId);
+        if (anchor == null || previous == null || current == null) return 1;
+
+        float cross = (previous.x - anchor.x) * (current.y - anchor.y)
+                - (previous.y - anchor.y) * (current.x - anchor.x);
+        if (Math.abs(cross) < 1e-5f) return 1;
+        return cross >= 0f ? 1 : -1;
+    }
+
+    private static ArrayList<Constraint> factualConstraints(
+            NativeProjectStore.RoomData room) {
+        ArrayList<Constraint> result = new ArrayList<>();
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            if (edge.value > 0f) {
+                result.add(new Constraint(edge.a, edge.b, edge.value));
+            }
+        }
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            if (NativeGeometry.isMeasuredDiagonal(diagonal)) {
+                result.add(new Constraint(diagonal.a, diagonal.b, diagonal.value));
+            }
+        }
+        return result;
     }
 
     @NonNull
