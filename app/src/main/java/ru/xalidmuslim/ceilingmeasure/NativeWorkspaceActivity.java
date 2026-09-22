@@ -1098,9 +1098,20 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private String drawingStatusText(NativeProjectStore.RoomData room){
         CeilingDrawingView.Mode mode=drawingView.getMode();
-        if(mode==CeilingDrawingView.Mode.LABEL)return "Режим цифр: выбери число на чертеже.";
         if(room.geometryLocked)return "Геометрия зафиксирована. Доступны просмотр и расчёт.";
-        if(NativeGeometry.isClosed(room))return "Контур замкнут. Площадь рассчитана.";
+        if(NativeGeometry.isClosed(room)){
+            if(NativeGeometry.isFactualGeometryDirty(room)){
+                return "Фактическая геометрия требует обновления после изменения замеров.";
+            }
+            if(NativeGeometry.isFactualGeometry(room)){
+                return "Контур замкнут · фактическая геометрия по замерам.";
+            }
+            if(mode==CeilingDrawingView.Mode.LABEL){
+                return "Режим цифр · геометрия эскиза сохранена.";
+            }
+            return "Контур замкнут · геометрия эскиза. Размеры не меняют форму.";
+        }
+        if(mode==CeilingDrawingView.Mode.LABEL)return "Режим цифр: выбери число на чертеже.";
         if(mode==CeilingDrawingView.Mode.DIAGONAL)return "Веди диагональ к нужному углу.";
         if(mode==CeilingDrawingView.Mode.POINT)return "Зажми угол и перетащи его.";
         return "Рисование стен.";
