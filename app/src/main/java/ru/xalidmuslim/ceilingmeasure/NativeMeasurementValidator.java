@@ -87,15 +87,22 @@ final class NativeMeasurementValidator {
 
             int needed = Math.max(0, cycle.size() - 3);
             int measured = 0;
+            int calculated = 0;
             for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
-                if (diagonal.value > 0f) measured++;
+                if (NativeGeometry.isMeasuredDiagonal(diagonal)) measured++;
+                else if (diagonal.value > 0f) calculated++;
             }
             if (needed > measured) {
                 int left = needed - measured;
                 result.warnings.add(
-                        "Для точного определения кривизны добавь ещё "
+                        "Для фактической геометрии измерь ещё "
                                 + left
                                 + (left == 1 ? " контрольную диагональ." : " контрольные диагонали."));
+            }
+            if (calculated > 0) {
+                result.warnings.add(
+                        "Расчётные диагонали не считаются фактическим замером: "
+                                + calculated + ".");
             }
         }
 
