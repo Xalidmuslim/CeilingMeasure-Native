@@ -2,6 +2,9 @@ package ru.xalidmuslim.ceilingmeasure;
 
 import androidx.annotation.Nullable;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -11,6 +14,15 @@ import java.util.Map;
 import java.util.Set;
 
 final class NativeGeometry {
+    private static final String SKETCH_GEOMETRY_KEY = "_nativeSketchGeometryV1";
+    private static final String GEOMETRY_MODE_KEY = "_nativeGeometryMode";
+    private static final String GEOMETRY_MODE_SKETCH = "sketch";
+    private static final String GEOMETRY_MODE_ACTUAL = "actual";
+    private static final String GEOMETRY_MODE_ACTUAL_DIRTY = "actual_dirty";
+    private static final String DIAGONAL_SOURCE_KEY = "_nativeMeasurementSource";
+    private static final String DIAGONAL_SOURCE_MEASURED = "measured";
+    private static final String DIAGONAL_SOURCE_AUTO = "auto";
+
     private NativeGeometry() {}
 
     static void sanitize(NativeProjectStore.RoomData room) {
@@ -474,6 +486,136 @@ final class NativeGeometry {
             this.vertices = vertices;
             this.edges = edges;
         }
+    }
+
+
+    static boolean hasSketchGeometryBackup(@Nullable NativeProjectStore.RoomData room) {
+        return room != null && room.raw.optJSONArray(SKETCH_GEOMETRY_KEY) != null;
+    }
+
+    static boolean isFactualGeometry(@Nullable NativeProjectStore.RoomData room) {
+        return room != null
+                && GEOMETRY_MODE_ACTUAL.equals(room.raw.optString(GEOMETRY_MODE_KEY, ""));
+    }
+
+    static boolean isFactualGeometryDirty(@Nullable NativeProjectStore.RoomData room) {
+        return room != null
+                && GEOMETRY_MODE_ACTUAL_DIRTY.equals(
+                        room.raw.optString(GEOMETRY_MODE_KEY, ""));
+    }
+
+    static boolean captureSketchGeometry(@Nullable NativeProjectStore.RoomData room) {
+        if (room == null || room.points.isEmpty()) return false;
+        if (hasSketchGeometryBackup(room)) return true;
+
+        JSONArray points = new JSONArray();
+        try {
+            for (NativeProjectStore.PointData point : room.points) {
+                JSONObject item = new JSONObject();
+                item.put("id", point.id);
+                item.put("x", point.x);
+                item.put("y", point.y);
+                points.put(item);
+            }
+            room.raw.put(SKETCH_GEOMETRY_KEY, points);
+            if (!room.raw.has(GEOMETRY_MODE_KEY)) {
+                room.raw.put(GEOMETRY_MODE_KEY, GEOMETRY_MODE_SKETCH);
+            }
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    static boolean restoreSketchGeometry(@Nullable NativeProjectStore.RoomData room) {
+        if (room == null) return false;
+        JSONArray stored = room.raw.optJSONArray(SKETCH_GEOMETRY_KEY);
+        if (stored == null || stored.length() == 0) return false;
+
+        HashMap<String, float[]> saved = new HashMap<>();
+        for (int i = 0; i < stored.length(); i++) {
+            JSONObject item = stored.optJSONObject(i);
+            if (item == null) continue;
+            String id = item.optString("id", "");
+            if (id.isEmpty()) continue;
+            saved.put(id, new float[]{
+                    (float) item.optDouble("x", Float.NaN),
+                    (float) item.optDouble("y", Float.NaN)});
+        }
+
+        // Never partially restore a different topology.
+        for (NativeProjectStore.PointData point : room.points) {
+            float[] xy = saved.get(point.id);
+            if (xy == null || !Float.isFinite(xy[0]) || !Float.isFinite(xy[1])) {
+                return false;
+            }
+        }
+        if (saved.size() != room.points.size()) return false;
+
+        for (NativeProjectStore.PointData point : room.points) {
+            float[] xy = saved.get(point.id);
+            point.x = xy[0];
+            point.y = xy[1];
+        }
+
+        try {
+            room.raw.put(GEOMETRY_MODE_KEY, GEOMETRY_MODE_SKETCH);
+            room.raw.remove(SKETCH_GEOMETRY_KEY);
+        } catch (Exception ignored) {
+        }
+        return true;
+    }
+
+    static void markFactualGeometry(@Nullable NativeProjectStore.RoomData room) {
+        if (room == null) return;
+        try {
+            room.raw.put(GEOMETRY_MODE_KEY, GEOMETRY_MODE_ACTUAL);
+        } catch (Exception ignored) {
+        }
+    }
+
+    static void markFactualGeometryDirty(@Nullable NativeProjectStore.RoomData room) {
+        if (room == null || !hasSketchGeometryBackup(room)) return;
+        String mode = room.raw.optString(GEOMETRY_MODE_KEY, "");
+        if (!GEOMETRY_MODE_ACTUAL.equals(mode)
+                && !GEOMETRY_MODE_ACTUAL_DIRTY.equals(mode)) return;
+        try {
+            room.raw.put(GEOMETRY_MODE_KEY, GEOMETRY_MODE_ACTUAL_DIRTY);
+        } catch (Exception ignored) {
+        }
+    }
+
+    static void discardFactualGeometrySession(@Nullable NativeProjectStore.RoomData room) {
+        if (room == null) return;
+        try {
+            room.raw.put(GEOMETRY_MODE_KEY, GEOMETRY_MODE_SKETCH);
+            room.raw.remove(SKETCH_GEOMETRY_KEY);
+        } catch (Exception ignored) {
+        }
+    }
+
+    static void markDiagonalMeasured(@Nullable NativeProjectStore.DiagonalData diagonal) {
+        if (diagonal == null) return;
+        try {
+            diagonal.raw.put(DIAGONAL_SOURCE_KEY, DIAGONAL_SOURCE_MEASURED);
+        } catch (Exception ignored) {
+        }
+    }
+
+    static void markDiagonalAuto(@Nullable NativeProjectStore.DiagonalData diagonal) {
+        if (diagonal == null) return;
+        try {
+            diagonal.raw.put(DIAGONAL_SOURCE_KEY, DIAGONAL_SOURCE_AUTO);
+        } catch (Exception ignored) {
+        }
+    }
+
+    static boolean isMeasuredDiagonal(@Nullable NativeProjectStore.DiagonalData diagonal) {
+        if (diagonal == null || diagonal.value <= 0f) return false;
+        // Existing v184/legacy values have no provenance marker. They were user-entered,
+        // so they remain factual unless this native app explicitly marked them as auto.
+        return !DIAGONAL_SOURCE_AUTO.equals(
+                diagonal.raw.optString(DIAGONAL_SOURCE_KEY, DIAGONAL_SOURCE_MEASURED));
     }
 
     static String pairKey(String a, String b) {
