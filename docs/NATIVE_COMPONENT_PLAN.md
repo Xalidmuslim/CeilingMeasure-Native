@@ -22,9 +22,14 @@ Source HEAD: c5d6f3e196da617b291342e5ef3a3d0593139a80
 | MigrationAdapters | v14/v13 cm, old mm, drawings, pricing v59, UI prefs, later flags | data schema | fixture-by-version migration tests |
 
 ### Architecture constraints
-- Final UI: Kotlin + Compose for ordinary screens; dedicated native drawing layer for the plan.
+- Final UI must be fully native Android. Existing Android Views/Java components may be retained and refined when they can achieve verified parity; Jetpack Compose is optional, not a requirement. Do not rewrite a working native screen merely to change toolkit. The drawing plan remains a dedicated native drawing layer.
 - No WebView, HTML, JavaScript engine or web asset as production UI/runtime.
 - The golden HTML remains test/reference material only.
 - Native references in NATIVE_MIGRATION_MATRIX.md remain TODO during Phase 0 even though the repository already contains Java native classes; those classes are not accepted as parity evidence until a later phase verifies them against the golden maps.
 - Preserve backup compatibility before any storage-schema cleanup.
 - Do not “improve” thresholds, formulas, copy, layout, motion or haptics during parity migration.
+
+
+### Toolkit decision after Phase 1
+
+Exact parity and regression control have priority over a framework rewrite. The repository already contains a fully native Android Views/Java shell and drawing surface. For Phase 2+, retain and correct those components when practical. A Compose migration is allowed only if it solves a verified parity blocker and is separately justified by tests/screenshots. WebView/HTML/JS remains forbidden as production UI/runtime.
