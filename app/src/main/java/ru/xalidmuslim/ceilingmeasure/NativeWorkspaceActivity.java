@@ -638,7 +638,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 label,
                 11,
                 primary?Color.WHITE:Color.rgb(54,82,103),
-                true);
+                Typeface.BOLD);
         LinearLayout.LayoutParams textLp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);

@@ -68,6 +68,8 @@ final class NativeUiSettingsDialog extends Dialog {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT);
         }
+        View decor = window == null ? null : window.getDecorView();
+        if (decor != null) decor.requestApplyInsets();
         if (sheet != null) {
             sheet.setAlpha(0f);
             sheet.setScaleX(.985f);
@@ -88,6 +90,12 @@ final class NativeUiSettingsDialog extends Dialog {
 
     NativeUiPrefs prefsForTest() {
         return prefs;
+    }
+
+    void setScaleForTest(float scale) {
+        changePrefs(prefs.withScale(scale), false);
+        if (sheet != null) NativeTypography.applyTree(sheet, prefs);
+        if (sizeValue != null) sizeValue.setText(Math.round(prefs.scale * 100f) + "%");
     }
 
     @Override

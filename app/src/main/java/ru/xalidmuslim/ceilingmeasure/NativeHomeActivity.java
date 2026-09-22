@@ -36,7 +36,9 @@ public final class NativeHomeActivity extends ComponentActivity {
         NativeShellInsets.configureWindow(this);
         store = new NativeProjectStore(this);
         uiPrefs = NativeUiPrefs.load(this);
-        setContentView(createContent());
+        View content = createContent();
+        setContentView(content);
+        content.requestApplyInsets();
     }
 
     @Override

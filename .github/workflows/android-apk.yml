@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 70
 
     steps:
       - name: Checkout
@@ -102,6 +102,18 @@ jobs:
           grep -q 'native_text_pad_' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeTextPadDialog.java
           grep -q 'addRow(keypad, ",", "0", "⌫")' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeNumberPadDialog.java
 
+      - name: Capture Phase 2 web golden reference screenshots
+        shell: bash
+        run: bash scripts/capture_phase2_web_refs.sh
+
+      - name: Upload Phase 2 web references
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-phase2-web-reference
+          path: build/phase2-web-reference
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Lint, unit tests, assemble
         run: gradle --no-daemon clean lintDebug testDebugUnitTest assembleDebug
 
@@ -153,6 +165,25 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 600
           script: bash scripts/run_android_smoke.sh
+
+      - name: Run Phase 2 API 35 shell, inset, width and screenshot evidence
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: bash scripts/run_phase2_shell_evidence.sh
+
+      - name: Upload Phase 2 native screenshot evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-phase2-native-screenshots
+          path: build/phase2-native-evidence
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Re-verify native source after tests
         shell: bash
