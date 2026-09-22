@@ -1540,6 +1540,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 (d.a.equals(edge.a)&&d.b.equals(edge.b))
                         ||(d.a.equals(edge.b)&&d.b.equals(edge.a)));
         NativeGeometry.sanitize(room);
+        NativeGeometry.discardFactualGeometrySession(room);
         store.saveCurrent(project);
         drawingView.invalidate();
         updateStats();
