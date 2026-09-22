@@ -332,6 +332,16 @@ final class CeilingDrawingView extends View {
         return room != null && NativeGeometry.isClosed(room);
     }
 
+    boolean restoreSketchGeometryPreservingLabels() {
+        if (room == null) return false;
+        List<SegmentLabelAnchor> labelAnchors = captureManualLabelAnchors();
+        if (!NativeGeometry.restoreSketchGeometry(room)) return false;
+        restoreManualLabelAnchors(labelAnchors);
+        cancelTransientGestures();
+        changed();
+        return true;
+    }
+
     void clearDrawing() {
         if (room == null) return;
         checkpoint();
