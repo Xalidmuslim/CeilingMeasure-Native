@@ -1625,7 +1625,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             return;
         }
 
-        if(result.maxError>NativeMeasurementSolver.FIELD_MEASURE_TOL){
+        if(result.maxError>NativeMeasurementSolver.FACTUAL_CONFLICT_TOL){
             new AlertDialog.Builder(this)
                     .setTitle("Замеры конфликтуют")
                     .setMessage(
