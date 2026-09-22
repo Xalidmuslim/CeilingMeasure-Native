@@ -171,10 +171,13 @@ jobs:
         with:
           api-level: 35
           arch: x86_64
-          target: google_apis
+          target: default
           profile: pixel_6
+          cores: 2
+          ram-size: 2048M
           disable-animations: true
-          emulator-boot-timeout: 600
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: bash scripts/run_phase2_shell_evidence.sh
 
       - name: Upload Phase 2 native screenshot evidence
