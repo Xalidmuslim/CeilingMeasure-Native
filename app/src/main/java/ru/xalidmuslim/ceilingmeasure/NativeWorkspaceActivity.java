@@ -1,6 +1,7 @@
 package ru.xalidmuslim.ceilingmeasure;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.text.TextWatcher;
 import android.text.Editable;
 import android.net.Uri;
@@ -8,6 +9,7 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
@@ -19,6 +21,7 @@ import android.widget.FrameLayout;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -26,6 +29,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import android.app.AlertDialog;
 import androidx.core.graphics.Insets;
@@ -53,13 +58,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private static final int REQUEST_IMPORT_BACKUP = 7202;
     private static final int REQUEST_EXPORT_CLIENT_PDF = 7203;
 
-    private static final int BG = Color.rgb(244,247,249);
-    private static final int PANEL = Color.WHITE;
-    private static final int TEXT = Color.rgb(35,56,72);
-    private static final int MUTED = Color.rgb(116,136,151);
-    private static final int BLUE = Color.rgb(47,143,190);
-    private static final int LINE = Color.rgb(220,229,235);
-    private static final int DANGER = Color.rgb(190,72,79);
+    private static final int BG = NativeVisualTokens.APP_BG;
+    private static final int PANEL = NativeVisualTokens.SURFACE;
+    private static final int TEXT = NativeVisualTokens.TEXT;
+    private static final int MUTED = NativeVisualTokens.MUTED;
+    private static final int BLUE = NativeVisualTokens.ACCENT;
+    private static final int LINE = NativeVisualTokens.LINE;
+    private static final int DANGER = NativeVisualTokens.DANGER;
 
     private NativeProjectStore store;
     private NativeProjectStore.ProjectData project;
@@ -93,6 +98,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private byte[] pendingClientPdf;
     private String pendingClientPdfName;
     private View historyNavView;
+    private View workspacePage;
+    private NativeUiSettingsDialog settingsDialog;
     private boolean wallSequenceMode;
     private String wallEditId;
     private NativeWallMeasureDialog wallDialog;
@@ -100,6 +107,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        NativeShellInsets.configureWindow(this);
         store = new NativeProjectStore(this);
         uiPrefs = NativeUiPrefs.load(this);
 
@@ -109,11 +117,26 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         if (ACTION_SAVED_MEASUREMENTS.equals(action)) {
             showSavedMeasurements();
-        } else if (ACTION_SETTINGS.equals(action)) {
-            showNativeSettings();
         } else {
             showEditor(ACTION_DRAWING.equals(action));
+            if (ACTION_SETTINGS.equals(action)) {
+                getWindow().getDecorView().post(this::showNativeSettings);
+            }
         }
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (settingsDialog != null && settingsDialog.isShowing()) {
+                    settingsDialog.dismiss();
+                    return;
+                }
+                // v184 shell-level Back leaves Workspace for Home without changing
+                // active-order/room persistence semantics.
+                if (nameInput != null && project != null) syncProjectFields();
+                finish();
+            }
+        });
     }
 
     private void showEditor(boolean jumpToDrawing) {
@@ -121,20 +144,22 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         redoRooms.clear();
 
         FrameLayout page = new FrameLayout(this);
-        page.setBackgroundColor(BG);
+        page.setTag("native_workspace_page");
+        page.setBackground(NativeVisualTokens.workspaceBackground());
+        workspacePage = page;
 
         editorScroll = new ScrollView(this);
         editorScroll.setTag("native_editor_scroll");
         editorScroll.setFillViewport(true);
-        editorScroll.setBackgroundColor(BG);
+        editorScroll.setBackgroundColor(Color.TRANSPARENT);
         editorScroll.setClipToPadding(false);
         editorScroll.setSmoothScrollingEnabled(true);
         editorScroll.setVerticalScrollBarEnabled(false);
 
-        root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(12), dp(10), dp(12), dp(104));
-        editorScroll.addView(root, new ScrollView.LayoutParams(
+        LinearLayout scrollContent = new LinearLayout(this);
+        scrollContent.setTag("native_workspace_scroll_content");
+        scrollContent.setOrientation(LinearLayout.VERTICAL);
+        editorScroll.addView(scrollContent, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -142,19 +167,25 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
-        ViewCompat.setOnApplyWindowInsetsListener(page, (view, insets) -> {
-            Insets safe = insets.getInsets(
-                    WindowInsetsCompat.Type.systemBars()
-                            | WindowInsetsCompat.Type.displayCutout());
-            editorScroll.setPadding(safe.left, safe.top, safe.right, safe.bottom);
-            return insets;
-        });
+        scrollContent.addView(editorTopBar(), new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        root.addView(editorTopBar());
+        root = new LinearLayout(this);
+        root.setTag("native_workspace_main");
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(
+                dp(4),
+                0,
+                dp(4),
+                dp(NativeVisualTokens.SCROLL_NAV_RESERVE_DP));
+        scrollContent.addView(root, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
         LinearLayout orderCard = card();
         orderCard.setTag("native_order_card");
-        root.addView(orderCard, marginParams(0,8));
+        root.addView(orderCard, marginParams(0,4));
 
         nameInput = field(orderCard, "Имя / объект", project.name, InputType.TYPE_CLASS_TEXT);
         phoneInput = field(orderCard, "Телефон", project.phone, InputType.TYPE_CLASS_PHONE);
@@ -166,7 +197,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         addressInput.setOnFocusChangeListener(saver);
 
         LinearLayout roomsCard = card();
-        root.addView(roomsCard, marginParams(0,8));
+        root.addView(roomsCard, marginParams(0,4));
         TextView roomsTitle = text("Комнаты",17,TEXT,Typeface.BOLD);
         roomsCard.addView(roomsTitle);
 
@@ -186,7 +217,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         drawingCard = card();
         drawingCard.setTag("native_drawing_card");
-        root.addView(drawingCard, marginParams(0,8));
+        root.addView(drawingCard, marginParams(0,4));
 
         LinearLayout drawingHead = new LinearLayout(this);
         drawingHead.setOrientation(LinearLayout.HORIZONTAL);
@@ -364,7 +395,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         LinearLayout estimateCard=card();
         estimateCard.setTag("native_estimate_card");
-        root.addView(estimateCard,marginParams(0,8));
+        estimateCard.setContentDescription("native_last_content");
+        root.addView(estimateCard,marginParams(0,4));
 
         LinearLayout estimateHead=new LinearLayout(this);
         estimateHead.setOrientation(LinearLayout.HORIZONTAL);
@@ -422,10 +454,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         notesInput.setTag("native_room_notes");
         notesInput.setText(activeRoom().notes);
         notesInput.setHint("Короткая заметка по комнате");
-        notesInput.setTextSize(uiPrefs.textSize(12));
+        NativeTypography.register(notesInput,12,false,uiPrefs);
         notesInput.setTextColor(TEXT);
         notesInput.setHintTextColor(MUTED);
-        notesInput.setTypeface(uiPrefs.typeface(false));
         notesInput.setGravity(Gravity.TOP|Gravity.START);
         notesInput.setMinHeight(dp(64));
         notesInput.setPadding(dp(10),dp(8),dp(10),dp(8));
@@ -442,6 +473,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         historyNavView=createHistoryNav();
         page.addView(historyNavView, historyNavParams());
+        NativeShellInsets.bindWorkspace(
+                page,
+                editorScroll,
+                historyNavView,
+                dp(NativeVisualTokens.HISTORY_BOTTOM_DP));
 
         setContentView(page);
         page.requestApplyInsets();
@@ -459,39 +495,69 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private LinearLayout editorTopBar(){
         LinearLayout bar=new LinearLayout(this);
+        bar.setTag("native_workspace_topbar");
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(0,dp(4),0,dp(8));
+        bar.setPadding(dp(8),dp(7),dp(8),dp(7));
+        bar.setMinimumHeight(dp(60));
+        bar.setBackgroundColor(NativeVisualTokens.SURFACE);
+        bar.setElevation(dp(2));
 
         LinearLayout brand=new LinearLayout(this);
         brand.setOrientation(LinearLayout.VERTICAL);
-        TextView main=text("Натяжные потолки",17,TEXT,Typeface.BOLD);
-        TextView sub=text("замер · расчёт · смета",10,MUTED,Typeface.NORMAL);
+        brand.setGravity(Gravity.CENTER_VERTICAL);
+        TextView main=text("Натяжные потолки",18,TEXT,Typeface.BOLD);
+        main.setTag("native_workspace_brand_title");
+        main.setSingleLine(true);
+        main.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        TextView sub=text("замер · расчёт · смета",11,MUTED,Typeface.NORMAL);
+        sub.setTag("native_workspace_brand_subtitle");
         brand.addView(main);
-        brand.addView(sub);
+        LinearLayout.LayoutParams subLp=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        subLp.topMargin=dp(2);
+        brand.addView(sub,subLp);
         bar.addView(brand,new LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 1f));
 
-        Button home=button("⌂",false);
-        home.setTag("native_top_home");
-        home.setContentDescription("Главная");
-        home.setOnClickListener(v->finish());
-        bar.addView(home,new LinearLayout.LayoutParams(dp(40),dp(40)));
+        LinearLayout actions=new LinearLayout(this);
+        actions.setTag("native_workspace_top_actions");
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        actions.setPadding(dp(2),dp(2),dp(2),dp(2));
+        actions.setBackground(NativeVisualTokens.solid(
+                Color.rgb(244,247,249),
+                dp(12)));
+        bar.addView(actions);
 
-        Button saved=button("▣\nЗамеры",false);
-        saved.setTag("native_top_saved");
-        saved.setTextSize(uiPrefs.textSize(9));
+        ImageView home=topIconButton(R.drawable.ic_shell_home,"native_top_home","Главная");
+        home.setOnClickListener(v->{
+            syncProjectFields();
+            finish();
+        });
+        actions.addView(home,new LinearLayout.LayoutParams(dp(32),dp(32)));
+
+        View saved=topActionButton(
+                R.drawable.ic_shell_saved,
+                "Замеры",
+                false,
+                "native_top_saved");
         saved.setOnClickListener(v->{
             syncProjectFields();
             showSavedMeasurements();
         });
-        bar.addView(saved,new LinearLayout.LayoutParams(dp(58),dp(40)));
+        LinearLayout.LayoutParams savedLp=new LinearLayout.LayoutParams(dp(64),dp(46));
+        savedLp.leftMargin=dp(3);
+        actions.addView(saved,savedLp);
 
-        Button fresh=button("+\nЗаказ",true);
-        fresh.setTag("native_top_new_order");
-        fresh.setTextSize(uiPrefs.textSize(9));
+        View fresh=topActionButton(
+                R.drawable.ic_shell_add,
+                "Заказ",
+                true,
+                "native_top_new_order");
         fresh.setOnClickListener(v->new AlertDialog.Builder(this)
                 .setTitle("Новый заказ?")
                 .setMessage("Текущий замер сохранён автоматически.")
@@ -502,14 +568,83 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     project=store.newProject();
                     showEditor(false);
                 }).show());
-        bar.addView(fresh,new LinearLayout.LayoutParams(dp(58),dp(40)));
+        LinearLayout.LayoutParams freshLp=new LinearLayout.LayoutParams(dp(62),dp(46));
+        freshLp.leftMargin=dp(3);
+        actions.addView(fresh,freshLp);
 
-        Button settings=button("☷",false);
-        settings.setTag("native_top_settings");
-        settings.setContentDescription("Настройки");
+        ImageView settings=topIconButton(
+                R.drawable.ic_shell_sliders,
+                "native_top_settings",
+                "Настройки интерфейса");
         settings.setOnClickListener(v->showNativeSettings());
-        bar.addView(settings,new LinearLayout.LayoutParams(dp(40),dp(40)));
+        LinearLayout.LayoutParams settingsLp=new LinearLayout.LayoutParams(dp(32),dp(32));
+        settingsLp.leftMargin=dp(3);
+        actions.addView(settings,settingsLp);
         return bar;
+    }
+
+    private ImageView topIconButton(
+            @DrawableRes int iconRes,
+            String tag,
+            String description){
+        ImageView view=new ImageView(this);
+        view.setTag(tag);
+        view.setContentDescription(description);
+        view.setImageResource(iconRes);
+        view.setPadding(dp(7),dp(7),dp(7),dp(7));
+        view.setClickable(true);
+        view.setFocusable(true);
+        GradientDrawable content=NativeVisualTokens.outlined(
+                NativeVisualTokens.SURFACE,
+                NativeVisualTokens.LINE,
+                dp(9),
+                dp(1));
+        GradientDrawable mask=NativeVisualTokens.solid(Color.WHITE,dp(9));
+        view.setBackground(new RippleDrawable(
+                ColorStateList.valueOf(Color.argb(22,30,49,68)),
+                content,
+                mask));
+        return view;
+    }
+
+    private View topActionButton(
+            @DrawableRes int iconRes,
+            String label,
+            boolean primary,
+            String tag){
+        LinearLayout button=new LinearLayout(this);
+        button.setTag(tag);
+        button.setContentDescription(label);
+        button.setOrientation(LinearLayout.HORIZONTAL);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(6),0,dp(6),0);
+        button.setClickable(true);
+        button.setFocusable(true);
+        button.setBackground(primary
+                ?NativeVisualTokens.primaryButton(dp(14),dp(1))
+                :NativeVisualTokens.outlined(
+                        NativeVisualTokens.SURFACE,
+                        Color.rgb(223,231,237),
+                        dp(14),
+                        dp(1)));
+
+        ImageView icon=new ImageView(this);
+        icon.setImageResource(iconRes);
+        if(!primary)icon.setImageTintList(ColorStateList.valueOf(Color.rgb(54,82,103)));
+        icon.setPadding(dp(1),dp(1),dp(1),dp(1));
+        button.addView(icon,new LinearLayout.LayoutParams(dp(15),dp(15)));
+
+        TextView text=text(
+                label,
+                11,
+                primary?Color.WHITE:Color.rgb(54,82,103),
+                true);
+        LinearLayout.LayoutParams textLp=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        textLp.leftMargin=dp(4);
+        button.addView(text,textLp);
+        return button;
     }
 
     private LinearLayout topBar(String title) {
@@ -724,37 +859,70 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         nav.setTag("native_history_nav");
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
-        nav.setPadding(dp(4),dp(3),dp(4),dp(3));
+        nav.setPadding(
+                dp(NativeVisualTokens.HISTORY_PADDING_DP),
+                dp(NativeVisualTokens.HISTORY_PADDING_DP),
+                dp(NativeVisualTokens.HISTORY_PADDING_DP),
+                dp(NativeVisualTokens.HISTORY_PADDING_DP));
         nav.setElevation(dp(8));
-        nav.setBackground(rounded(Color.WHITE,LINE,16,1));
+        nav.setBackground(NativeVisualTokens.outlined(
+                NativeVisualTokens.SURFACE,
+                NativeVisualTokens.LINE,
+                dp(NativeVisualTokens.HISTORY_RADIUS_DP),
+                dp(1)));
 
-        Button redo=button("↷\nВперёд",false);
-        redo.setTag("native_nav_redo");
-        redo.setTextSize(9.5f);
-        redo.setOnClickListener(v->redoRoom());
+        View redo=historyButton("↷","Вперёд","native_nav_redo",v->redoRoom());
+        View more=historyButton("⋯","Еще","native_nav_more",v->openDrawTools());
+        View undo=historyButton("↶","Назад","native_nav_undo",v->undoRoom());
 
-        Button more=button("⋯\nЕще",false);
-        more.setTag("native_nav_more");
-        more.setTextSize(9.5f);
-        more.setOnClickListener(v->openDrawTools());
-
-        Button undo=button("↶\nНазад",false);
-        undo.setTag("native_nav_undo");
-        undo.setTextSize(9.5f);
-        undo.setOnClickListener(v->undoRoom());
-
-        nav.addView(redo,new LinearLayout.LayoutParams(dp(70),dp(46)));
-        nav.addView(undo,new LinearLayout.LayoutParams(dp(70),dp(46)));
-        nav.addView(more,new LinearLayout.LayoutParams(dp(70),dp(46)));
+        nav.addView(redo,historyButtonParams(0));
+        nav.addView(more,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+        nav.addView(undo,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
         return nav;
+    }
+
+    private View historyButton(
+            String icon,
+            String label,
+            String tag,
+            View.OnClickListener listener){
+        LinearLayout button=new LinearLayout(this);
+        button.setTag(tag);
+        button.setContentDescription(label);
+        button.setOrientation(LinearLayout.VERTICAL);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(3),dp(2),dp(3),dp(2));
+        button.setClickable(true);
+        button.setFocusable(true);
+        button.setBackground(NativeVisualTokens.outlined(
+                NativeVisualTokens.SURFACE,
+                Color.TRANSPARENT,
+                dp(NativeVisualTokens.HISTORY_BUTTON_RADIUS_DP),
+                0));
+        button.setOnClickListener(listener);
+        TextView arrow=text(icon,16,TEXT,Typeface.BOLD);
+        arrow.setGravity(Gravity.CENTER);
+        TextView small=text(label,11.5f,TEXT,Typeface.BOLD);
+        small.setGravity(Gravity.CENTER);
+        button.addView(arrow);
+        button.addView(small);
+        return button;
+    }
+
+    private LinearLayout.LayoutParams historyButtonParams(int leftMarginDp){
+        LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(
+                dp(NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP),
+                dp(NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP));
+        params.leftMargin=dp(leftMarginDp);
+        return params;
     }
 
     private FrameLayout.LayoutParams historyNavParams(){
         FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(
-                dp(222),
-                dp(56),
+                dp(NativeVisualTokens.HISTORY_WIDTH_DP),
+                dp(NativeVisualTokens.HISTORY_HEIGHT_DP),
                 Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);
-        p.bottomMargin=dp(10);
+        p.bottomMargin=dp(NativeVisualTokens.HISTORY_BOTTOM_DP);
         return p;
     }
 
@@ -935,14 +1103,15 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void styleMode(Button b,boolean active){
-        GradientDrawable d=rounded(active?BLUE:Color.rgb(248,250,251),active?BLUE:LINE,10,1);
-        b.setBackground(d);
+        b.setBackground(active
+                ?NativeVisualTokens.primaryButton(dp(10),dp(1))
+                :rounded(Color.rgb(248,250,251),LINE,10,1));
         b.setTextColor(active?Color.WHITE:TEXT);
     }
 
     private void styleSelected(Button b){
-        b.setBackground(rounded(Color.rgb(233,246,252),BLUE,10,1));
-        b.setTextColor(BLUE);
+        b.setBackground(rounded(NativeVisualTokens.ACCENT_SOFT,BLUE,10,1));
+        b.setTextColor(NativeVisualTokens.ACCENT_STRONG);
     }
 
     private EditText field(LinearLayout parent,String label,String value,int inputType){
@@ -954,14 +1123,15 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         EditText e=new EditText(this);
         e.setText(value);
-        e.setTextSize(16);
+        NativeTypography.register(e,15,false,uiPrefs);
         e.setTextColor(TEXT);
+        e.setHintTextColor(MUTED);
         e.setSingleLine(true);
         e.setInputType(inputType);
-        e.setPadding(dp(12),0,dp(12),0);
+        e.setPadding(dp(9),0,dp(9),0);
         e.setBackground(rounded(Color.rgb(249,251,252),LINE,11,1));
         parent.addView(e,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(48)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(40)));
         return e;
     }
 
@@ -1540,8 +1710,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void showSavedMeasurements(){
         ScrollView scroll=new ScrollView(this);
+        scroll.setTag("native_saved_scroll");
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(BG);
+        scroll.setClipToPadding(false);
+        scroll.setBackground(NativeVisualTokens.workspaceBackground());
 
         LinearLayout content=new LinearLayout(this);
         content.setTag("native_saved_panel");
@@ -1627,6 +1799,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         render.run();
         setContentView(scroll);
+        NativeShellInsets.bindHome(scroll,scroll);
     }
 
     private void renderSavedList(
@@ -1804,151 +1977,37 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void showNativeSettings(){
-        ScrollView scroll=new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setBackgroundColor(BG);
-
-        LinearLayout content=new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(16),dp(14),dp(16),dp(28));
-        scroll.addView(content,new ScrollView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        content.addView(topBar("Настройки"));
-
-        LinearLayout fontCard=card();
-        content.addView(fontCard,marginParams(0,10));
-        fontCard.addView(text("Шрифт",14,TEXT,Typeface.BOLD));
-        LinearLayout fontRow=new LinearLayout(this);
-        fontRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams frp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(64));
-        frp.topMargin=dp(8);
-        fontCard.addView(fontRow,frp);
-        addUiChoice(fontRow,"Aa\nСистемный",NativeUiPrefs.FONT_SYSTEM,uiPrefs.font,true);
-        addUiChoice(fontRow,"Aa\nС засечками",NativeUiPrefs.FONT_SERIF,uiPrefs.font,true);
-        addUiChoice(fontRow,"Aa\nМоно",NativeUiPrefs.FONT_MONO,uiPrefs.font,true);
-
-        LinearLayout sizeCard=card();
-        content.addView(sizeCard,marginParams(0,10));
-        LinearLayout sizeHead=new LinearLayout(this);
-        sizeHead.setOrientation(LinearLayout.HORIZONTAL);
-        sizeHead.setGravity(Gravity.CENTER_VERTICAL);
-        TextView sizeLabel=text("Размер текста",14,TEXT,Typeface.BOLD);
-        TextView sizeValue=text(Math.round(uiPrefs.scale*100)+"%",13,BLUE,Typeface.BOLD);
-        sizeValue.setTag("native_ui_size_value");
-        sizeHead.addView(sizeLabel,new LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f));
-        sizeHead.addView(sizeValue);
-        sizeCard.addView(sizeHead);
-        sizeCard.addView(text(
-                "Меняется плавно во всём приложении",
-                11,
-                MUTED,
-                Typeface.NORMAL),
-                marginParams(0,4));
-
-        SeekBar slider=new SeekBar(this);
-        slider.setTag("native_ui_size_slider");
-        slider.setMax(45);
-        slider.setProgress(Math.round(uiPrefs.scale*100)-85);
-        slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-            @Override public void onProgressChanged(SeekBar s,int progress,boolean fromUser){
-                int percent=85+progress;
-                sizeValue.setText(percent+"%");
-                if(fromUser){
-                    uiPrefs=uiPrefs.withScale(percent/100f);
-                    uiPrefs.save(NativeWorkspaceActivity.this);
-                }
-            }
-            @Override public void onStartTrackingTouch(SeekBar s){}
-            @Override public void onStopTrackingTouch(SeekBar s){
-                showNativeSettings();
-            }
+        if(settingsDialog!=null&&settingsDialog.isShowing())return;
+        settingsDialog=new NativeUiSettingsDialog(this,uiPrefs,next->{
+            uiPrefs=next;
+            View decor=getWindow().getDecorView();
+            NativeTypography.applyTree(decor,uiPrefs);
         });
-        sizeCard.addView(slider,marginParams(0,8));
-
-        LinearLayout weightCard=card();
-        content.addView(weightCard,marginParams(0,10));
-        weightCard.addView(text("Жирность",14,TEXT,Typeface.BOLD));
-        weightCard.addView(text(
-                "Меняет базовую жирность, сохраняя разницу между обычным текстом и заголовками",
-                11,
-                MUTED,
-                Typeface.NORMAL),
-                marginParams(0,4));
-        LinearLayout weightRow=new LinearLayout(this);
-        weightRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams wrp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(58));
-        wrp.topMargin=dp(8);
-        weightCard.addView(weightRow,wrp);
-        addUiChoice(weightRow,"Aa\nОбычная",NativeUiPrefs.WEIGHT_NORMAL,uiPrefs.weight,false);
-        addUiChoice(weightRow,"Aa\nСредняя",NativeUiPrefs.WEIGHT_MEDIUM,uiPrefs.weight,false);
-        addUiChoice(weightRow,"Aa\nЖирная",NativeUiPrefs.WEIGHT_BOLD,uiPrefs.weight,false);
-
-        LinearLayout preview=card();
-        preview.setTag("native_ui_preview");
-        content.addView(preview,marginParams(0,10));
-        preview.addView(text("Предпросмотр",10,MUTED,Typeface.NORMAL));
-        preview.addView(text("Комната 1 · 28,00 м²",16,TEXT,Typeface.BOLD),marginParams(0,4));
-        preview.addView(text(
-                "Калькулятор, смета, кнопки и чертёж меняются сразу.",
-                11,
-                MUTED,
-                Typeface.NORMAL),
-                marginParams(0,3));
-
-        LinearLayout actions=new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        Button reset=button("По умолчанию",false);
-        reset.setTag("native_ui_reset");
-        reset.setOnClickListener(v->{
-            uiPrefs=NativeUiPrefs.defaults();
-            uiPrefs.save(this);
-            showNativeSettings();
-        });
-        Button done=button("Готово",true);
-        done.setTag("native_ui_done");
-        done.setOnClickListener(v->finish());
-        actions.addView(reset,weightParams());
-        actions.addView(done,weightParams());
-        content.addView(actions,marginParams(0,6));
-
-        setContentView(scroll);
+        settingsDialog.setOnDismissListener(dialog->settingsDialog=null);
+        settingsDialog.show();
     }
 
-    private void addUiChoice(
-            LinearLayout row,
-            String label,
-            String value,
-            String selected,
-            boolean fontChoice){
-        Button b=button(label,false);
-        boolean active=value.equals(selected);
-        if(active)styleSelected(b);
-        b.setTextSize(uiPrefs.textSize(10));
-        b.setOnClickListener(v->{
-            uiPrefs=fontChoice
-                    ?uiPrefs.withFont(value)
-                    :uiPrefs.withWeight(value);
-            uiPrefs.save(this);
-            showNativeSettings();
-        });
-        row.addView(b,weightParams());
+    NativeUiPrefs getUiPrefsForTest(){
+        return uiPrefs;
     }
+
+    @Nullable
+    NativeUiSettingsDialog getSettingsDialogForTest(){
+        return settingsDialog;
+    }
+
+
 
     private LinearLayout card(){
         LinearLayout l=new LinearLayout(this);
         l.setOrientation(LinearLayout.VERTICAL);
-        l.setPadding(dp(10),dp(10),dp(10),dp(10));
-        l.setBackground(rounded(PANEL,LINE,14,1));
-        l.setElevation(dp(2));
+        l.setPadding(dp(6),dp(7),dp(6),dp(7));
+        l.setBackground(rounded(
+                NativeVisualTokens.SURFACE,
+                NativeVisualTokens.LINE,
+                NativeVisualTokens.CARD_RADIUS_DP,
+                1));
+        l.setElevation(dp(1));
         return l;
     }
 
@@ -1956,21 +2015,26 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         Button b=new Button(this);
         b.setText(value);
         b.setAllCaps(false);
-        b.setTextSize(uiPrefs.textSize(14));
-        b.setTypeface(uiPrefs.typeface(true));
+        NativeTypography.register(b,14,true,uiPrefs);
         b.setTextColor(primary?Color.WHITE:TEXT);
         b.setGravity(Gravity.CENTER);
         b.setPadding(dp(10),0,dp(10),0);
-        b.setBackground(rounded(primary?BLUE:Color.WHITE,primary?BLUE:LINE,11,1));
+        b.setBackground(primary
+                ?NativeVisualTokens.primaryButton(dp(12),dp(1))
+                :rounded(NativeVisualTokens.SURFACE,LINE,12,1));
         return b;
     }
 
     private TextView text(String value,int sp,int color,int style){
+        return text(value,(float)sp,color,style);
+    }
+
+    private TextView text(String value,float sp,int color,int style){
         TextView t=new TextView(this);
-        t.setText(value);t.setTextSize(uiPrefs.textSize(sp));t.setTextColor(color);
-        t.setTypeface(uiPrefs.typeface(style==Typeface.BOLD));
+        t.setText(value);
+        t.setTextColor(color);
         t.setIncludeFontPadding(false);
-        return t;
+        return NativeTypography.register(t,sp,style==Typeface.BOLD,uiPrefs);
     }
 
     private LinearLayout.LayoutParams marginParams(int left,int top){

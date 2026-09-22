@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="native_typography_meta" type="id" />
+    <item name="native_safe_top" type="id" />
+    <item name="native_safe_bottom" type="id" />
+    <item name="native_safe_left" type="id" />
+    <item name="native_safe_right" type="id" />
+</resources>
