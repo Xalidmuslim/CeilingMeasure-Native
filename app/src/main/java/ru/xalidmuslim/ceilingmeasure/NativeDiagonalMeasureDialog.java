@@ -71,7 +71,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         shell.addView(head);
 
         shell.addView(text(
-                "Можно оставить расчётную или ввести диагональ с мини-клавиатуры",
+                "Расчётное значение — только подсказка. Для фактической геометрии введи измеренную диагональ.",
                 11,MUTED,false));
 
         LinearLayout calc=new LinearLayout(getContext());
@@ -132,7 +132,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         actions.addView(cancel,new LinearLayout.LayoutParams(0,dp(42),1f));
         actions.addView(save,new LinearLayout.LayoutParams(0,dp(42),1f));
 
-        Button useAuto=button("Использовать расчётное значение",false);
+        Button useAuto=button("Подставить расчётное (не замер)",false);
         useAuto.setTag("native_diag_use_auto");
         useAuto.setEnabled(autoValue!=null);
         useAuto.setAlpha(autoValue==null?.45f:1f);
