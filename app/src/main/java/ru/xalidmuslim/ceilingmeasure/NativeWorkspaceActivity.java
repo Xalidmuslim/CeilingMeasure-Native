@@ -1596,7 +1596,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         }
 
         pushHistory();
-        if(!NativeGeometry.restoreSketchGeometry(room)){
+        if(!drawingView.restoreSketchGeometryPreservingLabels()){
             Toast.makeText(
                     this,
                     "Эскиз не восстановлен: после расчёта изменилась топология углов.",
@@ -1604,7 +1604,6 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             return;
         }
         store.saveCurrent(project);
-        drawingView.invalidate();
         updateStats();
         Toast.makeText(
                 this,
