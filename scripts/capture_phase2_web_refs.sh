@@ -59,9 +59,9 @@ f.addEventListener('load',()=>{
       },120);
     }
     if(state==='workspace_top'){
-      d.getElementById('homeDrawing')?.click();
+      d.getElementById('homeNewOrder')?.click();
     }else if(state==='workspace_bottom'){
-      d.getElementById('homeDrawing')?.click();
+      d.getElementById('homeNewOrder')?.click();
       setTimeout(()=>{const sc=d.getElementById('appScroll');if(sc)sc.scrollTop=sc.scrollHeight;},220);
     }else if(state==='settings_default'){
       d.getElementById('homeSettingsBtn')?.click();
@@ -74,7 +74,7 @@ f.addEventListener('load',()=>{
       custom();
       setTimeout(()=>{
         d.getElementById('uiSettingsDone')?.click();
-        d.getElementById('homeDrawing')?.click();
+        d.getElementById('homeNewOrder')?.click();
       },360);
     }
   },350);

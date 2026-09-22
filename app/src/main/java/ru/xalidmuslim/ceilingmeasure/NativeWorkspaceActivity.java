@@ -872,12 +872,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(1)));
 
         View redo=historyButton("↷","Вперёд","native_nav_redo",v->redoRoom());
-        View more=historyButton("⋯","Еще","native_nav_more",v->openDrawTools());
         View undo=historyButton("↶","Назад","native_nav_undo",v->undoRoom());
+        View more=historyButton("⋯","Еще","native_nav_more",v->openDrawTools());
 
         nav.addView(redo,historyButtonParams(0));
-        nav.addView(more,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
         nav.addView(undo,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+        nav.addView(more,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
         return nav;
     }
 
