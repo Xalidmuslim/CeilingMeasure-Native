@@ -687,11 +687,17 @@ final class NativeMeasurementSolver {
         Double rectangle = exactRectAreaRaw(room);
         if (rectangle != null) return rectangle;
 
-        Result solved = solveFree(room);
-        if (!solved.ok || solved.maxError > FIELD_MEASURE_TOL) return null;
-
         List<String> order = NativeGeometry.cycleOrder(room);
         if (order == null) return null;
+
+        if (NativeGeometry.isFactualGeometry(room)) {
+            Result factual = solveFactual(room);
+            if (!factual.ok || factual.maxError > FACTUAL_CONFLICT_TOL) return null;
+            return (double) Math.abs(signedArea(factual.positions, order));
+        }
+
+        Result solved = solveFree(room);
+        if (!solved.ok || solved.maxError > FIELD_MEASURE_TOL) return null;
         return (double) Math.abs(signedArea(solved.positions, order));
     }
 
