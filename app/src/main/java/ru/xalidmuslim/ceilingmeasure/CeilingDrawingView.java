@@ -171,47 +171,161 @@ final class CeilingDrawingView extends View {
 
     void applySolvedGeometry(@NonNull Map<String, PointF> positions) {
         if (room == null || positions.isEmpty()) return;
+        List<String> order = NativeGeometry.cycleOrder(room);
+        if (order == null || order.size() < 2) return;
 
-        float minX = Float.MAX_VALUE;
-        float maxX = -Float.MAX_VALUE;
-        float minY = Float.MAX_VALUE;
-        float maxY = -Float.MAX_VALUE;
-        for (PointF p : positions.values()) {
-            minX = Math.min(minX, p.x);
-            maxX = Math.max(maxX, p.x);
-            minY = Math.min(minY, p.y);
-            maxY = Math.max(maxY, p.y);
-        }
+        NativeProjectStore.PointData worldA =
+                NativeGeometry.pointById(room, order.get(0));
+        NativeProjectStore.PointData worldB =
+                NativeGeometry.pointById(room, order.get(1));
+        PointF solvedA = positions.get(order.get(0));
+        PointF solvedB = positions.get(order.get(1));
+        if (worldA == null || worldB == null || solvedA == null || solvedB == null) return;
 
-        float contentWidth = Math.max(1f, maxX - minX);
-        float contentHeight = Math.max(1f, maxY - minY);
-        float viewWidth = Math.max(dp(280), getWidth());
-        float viewHeight = Math.max(dp(360), getHeight());
-        float fit = Math.min(
-                (viewWidth - dp(80)) / contentWidth,
-                (viewHeight - dp(100)) / contentHeight);
-        fit = Math.max(.05f, fit);
+        float sourceDx = solvedB.x - solvedA.x;
+        float sourceDy = solvedB.y - solvedA.y;
+        float sourceLength = (float) Math.hypot(sourceDx, sourceDy);
+        float targetDx = worldB.x - worldA.x;
+        float targetDy = worldB.y - worldA.y;
+        float targetLength = (float) Math.hypot(targetDx, targetDy);
+        if (sourceLength < 1e-6f || targetLength < 1e-6f) return;
 
-        float centerX = (minX + maxX) / 2f;
-        float centerY = (minY + maxY) / 2f;
-        float targetX = viewWidth / 2f;
-        float targetY = viewHeight / 2f;
+        List<SegmentLabelAnchor> labelAnchors = captureManualLabelAnchors();
+
+        // Keep the existing sketch's first wall as the visual anchor. This changes
+        // only the room geometry; the user's current zoom and pan are untouched.
+        float cos = (sourceDx * targetDx + sourceDy * targetDy)
+                / (sourceLength * targetLength);
+        float sin = (sourceDx * targetDy - sourceDy * targetDx)
+                / (sourceLength * targetLength);
+        float worldPerMeasuredUnit = targetLength / sourceLength;
+        float anchorX = worldA.x;
+        float anchorY = worldA.y;
 
         for (NativeProjectStore.PointData point : room.points) {
             PointF solved = positions.get(point.id);
             if (solved == null) continue;
-            point.x = targetX + (solved.x - centerX) * fit;
-            point.y = targetY + (solved.y - centerY) * fit;
+            float dx = solved.x - solvedA.x;
+            float dy = solved.y - solvedA.y;
+            float rx = dx * cos - dy * sin;
+            float ry = dx * sin + dy * cos;
+            point.x = anchorX + rx * worldPerMeasuredUnit;
+            point.y = anchorY + ry * worldPerMeasuredUnit;
         }
 
-        scale = 1f;
-        offsetX = 0f;
-        offsetY = 0f;
-        room.viewScale = 1f;
-        room.panX = 0f;
-        room.panY = 0f;
+        restoreManualLabelAnchors(labelAnchors);
         cancelTransientGestures();
         changed();
+    }
+
+    private static final class SegmentLabelAnchor {
+        final boolean diagonal;
+        final String id;
+        final float t;
+        final float normalOffset;
+
+        SegmentLabelAnchor(boolean diagonal, String id, float t, float normalOffset) {
+            this.diagonal = diagonal;
+            this.id = id;
+            this.t = t;
+            this.normalOffset = normalOffset;
+        }
+    }
+
+    private List<SegmentLabelAnchor> captureManualLabelAnchors() {
+        ArrayList<SegmentLabelAnchor> result = new ArrayList<>();
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            if (!edge.labelManual || edge.labelX == null || edge.labelY == null) continue;
+            SegmentLabelAnchor anchor = makeLabelAnchor(
+                    false, edge.id, edge.a, edge.b, edge.labelX, edge.labelY);
+            if (anchor != null) result.add(anchor);
+        }
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            if (!diagonal.labelManual
+                    || diagonal.labelX == null
+                    || diagonal.labelY == null) continue;
+            SegmentLabelAnchor anchor = makeLabelAnchor(
+                    true,
+                    diagonal.id,
+                    diagonal.a,
+                    diagonal.b,
+                    diagonal.labelX,
+                    diagonal.labelY);
+            if (anchor != null) result.add(anchor);
+        }
+        return result;
+    }
+
+    @Nullable
+    private SegmentLabelAnchor makeLabelAnchor(
+            boolean diagonal,
+            String id,
+            String aId,
+            String bId,
+            float labelX,
+            float labelY) {
+        NativeProjectStore.PointData a = NativeGeometry.pointById(room, aId);
+        NativeProjectStore.PointData b = NativeGeometry.pointById(room, bId);
+        if (a == null || b == null) return null;
+        float dx = b.x - a.x;
+        float dy = b.y - a.y;
+        float length2 = dx * dx + dy * dy;
+        float length = (float) Math.sqrt(length2);
+        if (length < 1e-6f) return null;
+
+        float lx = labelX - a.x;
+        float ly = labelY - a.y;
+        float t = (lx * dx + ly * dy) / length2;
+        float normalOffset = lx * (-dy / length) + ly * (dx / length);
+        return new SegmentLabelAnchor(diagonal, id, t, normalOffset);
+    }
+
+    private void restoreManualLabelAnchors(List<SegmentLabelAnchor> anchors) {
+        for (SegmentLabelAnchor anchor : anchors) {
+            String aId;
+            String bId;
+            if (anchor.diagonal) {
+                NativeProjectStore.DiagonalData diagonal = diagonalById(anchor.id);
+                if (diagonal == null) continue;
+                aId = diagonal.a;
+                bId = diagonal.b;
+            } else {
+                NativeProjectStore.EdgeData edge = edgeById(anchor.id);
+                if (edge == null) continue;
+                aId = edge.a;
+                bId = edge.b;
+            }
+
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, aId);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, bId);
+            if (a == null || b == null) continue;
+            float dx = b.x - a.x;
+            float dy = b.y - a.y;
+            float length = (float) Math.hypot(dx, dy);
+            if (length < 1e-6f) continue;
+            float nx = -dy / length;
+            float ny = dx / length;
+            float x = a.x + anchor.t * dx + anchor.normalOffset * nx;
+            float y = a.y + anchor.t * dy + anchor.normalOffset * ny;
+
+            if (anchor.diagonal) {
+                NativeProjectStore.DiagonalData diagonal = diagonalById(anchor.id);
+                if (diagonal != null) {
+                    diagonal.labelX = x;
+                    diagonal.labelY = y;
+                    diagonal.labelDx = 0f;
+                    diagonal.labelDy = 0f;
+                }
+            } else {
+                NativeProjectStore.EdgeData edge = edgeById(anchor.id);
+                if (edge != null) {
+                    edge.labelX = x;
+                    edge.labelY = y;
+                    edge.labelDx = 0f;
+                    edge.labelDy = 0f;
+                }
+            }
+        }
     }
 
     boolean hasClosedContour() {
@@ -226,6 +340,7 @@ final class CeilingDrawingView extends View {
         room.points.clear();
         room.edges.clear();
         room.diagonals.clear();
+        NativeGeometry.discardFactualGeometrySession(room);
         changed();
     }
 
@@ -1034,6 +1149,7 @@ final class CeilingDrawingView extends View {
 
         magnifierFocus = null;
         magnifierKind = null;
+        NativeGeometry.discardFactualGeometrySession(room);
         changed();
         if (closed && listener != null) listener.onContourClosed();
     }
@@ -1071,6 +1187,7 @@ final class CeilingDrawingView extends View {
         NativeGeometry.repairNearlyClosedContour(
                 room,
                 dp(24) / Math.max(.45f, scale));
+        NativeGeometry.discardFactualGeometrySession(room);
         changed();
     }
 
