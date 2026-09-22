@@ -375,6 +375,44 @@ public final class NativeProjectStoreTest {
                 prefs.getString("ceilingMeasureUiPrefsV1", "{}")).has("night"));
     }
 
+    @Test
+    public void factualGeometryMetadataAndDiagonalProvenanceSurviveStoreRoundTrip() {
+        MemorySharedPreferences prefs = new MemorySharedPreferences();
+        NativeProjectStore store = new NativeProjectStore(prefs);
+        NativeProjectStore.ProjectData project = store.newProject();
+        NativeProjectStore.RoomData room = project.rooms.get(0);
+
+        room.points.add(new NativeProjectStore.PointData("p0", 10f, 20f));
+        room.points.add(new NativeProjectStore.PointData("p1", 110f, 20f));
+        room.points.add(new NativeProjectStore.PointData("p2", 110f, 120f));
+        room.points.add(new NativeProjectStore.PointData("p3", 10f, 120f));
+        room.edges.add(new NativeProjectStore.EdgeData("p0", "p1"));
+        room.edges.add(new NativeProjectStore.EdgeData("p1", "p2"));
+        room.edges.add(new NativeProjectStore.EdgeData("p2", "p3"));
+        room.edges.add(new NativeProjectStore.EdgeData("p3", "p0"));
+        for (NativeProjectStore.EdgeData edge : room.edges) edge.value = 100f;
+
+        NativeProjectStore.DiagonalData diagonal =
+                new NativeProjectStore.DiagonalData("p0", "p2");
+        diagonal.value = 141f;
+        NativeGeometry.markDiagonalAuto(diagonal);
+        room.diagonals.add(diagonal);
+
+        assertTrue(NativeGeometry.captureSketchGeometry(room));
+        NativeGeometry.markFactualGeometry(room);
+        store.saveCurrent(project);
+
+        NativeProjectStore.RoomData restored =
+                new NativeProjectStore(prefs).loadCurrent().rooms.get(0);
+        assertTrue(NativeGeometry.isFactualGeometry(restored));
+        assertTrue(NativeGeometry.hasSketchGeometryBackup(restored));
+        assertEquals(1, restored.diagonals.size());
+        assertFalse(NativeGeometry.isMeasuredDiagonal(restored.diagonals.get(0)));
+
+        NativeGeometry.markDiagonalMeasured(restored.diagonals.get(0));
+        assertTrue(NativeGeometry.isMeasuredDiagonal(restored.diagonals.get(0)));
+    }
+
     private static JSONObject fixtureObject(String name) throws Exception {
         return new JSONObject(fixtureText(name));
     }
