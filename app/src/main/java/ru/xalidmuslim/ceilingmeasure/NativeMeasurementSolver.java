@@ -16,6 +16,9 @@ final class NativeMeasurementSolver {
     // Web reference v184: project scale is 100 units = 1 metre.
     // Field measurement tolerance is 10 units = 0.10 m.
     static final float FIELD_MEASURE_TOL = 10f;
+    // Factual geometry must not silently absorb the legacy 0.10 m working tolerance.
+    // One project unit is 1 cm, so > 1 cm residual is reported as a measurement conflict.
+    static final float FACTUAL_CONFLICT_TOL = 1f;
 
     private NativeMeasurementSolver() {}
 
@@ -428,7 +431,7 @@ final class NativeMeasurementSolver {
         ArrayList<Constraint> factual = factualConstraints(room);
         float maxError = maxConstraintError(positions, factual);
         String message;
-        if (maxError > FIELD_MEASURE_TOL) {
+        if (maxError > FACTUAL_CONFLICT_TOL) {
             message = String.format(
                     Locale.getDefault(),
                     "Замеры конфликтуют. Максимальная невязка: %.2f м. "
