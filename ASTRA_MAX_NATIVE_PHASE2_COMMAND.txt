@@ -1,0 +1,401 @@
+ASTRA MAX — НАТИВНАЯ МИГРАЦИЯ «ЗАМЕР ПОТОЛКОВ»
+PHASE 2: NATIVE APP SHELL / VISUAL TOKENS / SAFE AREAS / NAVIGATION ONLY
+
+НЕ НАЧИНАТЬ PHASE 3.
+НЕ ПЕРЕПИСЫВАТЬ DRAWING ENGINE.
+НЕ ДЕЛАТЬ «ПОХОЖИЙ» ДИЗАЙН — НУЖНА PARITY С WEB v184.
+
+ИСХОДНОЕ СОСТОЯНИЕ
+Phase 0 audit завершён.
+Phase 1 data/persistence/backup compatibility завершён на main.
+Последний подтверждённый Phase-1 HEAD до этой команды:
+a1d386ce5a311ceb5e329e09f68d3ee9d3bb481c
+Последний Phase-1 Android APK workflow:
+35655250257 — SUCCESS
+Последний native verifier:
+35655250250 — SUCCESS
+
+После этой команды в main также есть документационная правка toolkit policy.
+Всегда обновляй main перед работой и не используй старый checkout.
+
+GOLDEN MASTER
+webapp/index.html
+APP_BUILD_VERSION: 184-gesture-fix
+SHA-256:
+354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388
+
+Перед изменениями:
+1. обнови main;
+2. вычисли SHA golden master самостоятельно;
+3. запусти scripts/verify_webapp.py webapp/index.html;
+4. прочитай полностью:
+   - NATIVE_PARITY_SPEC.md
+   - NATIVE_MIGRATION_MATRIX.md
+   - docs/NATIVE_VISUAL_TOKENS.md
+   - docs/NATIVE_SCREEN_STATE_INVENTORY.md
+   - docs/NATIVE_COMPONENT_PLAN.md
+   - docs/NATIVE_MIGRATION_RISKS.md
+   - docs/NATIVE_FUNCTION_MAP.md
+   - webapp/index.html;
+5. если SHA/verifier не совпадает — STOP;
+6. webapp/index.html не менять.
+
+ВАЖНО О TOOLKIT
+Финальный UI должен быть полностью native Android.
+WebView/HTML/JS production runtime запрещён.
+
+НО:
+- не переписывай существующий native Android Views/Java UI в Compose только ради toolkit;
+- exact parity важнее выбора framework;
+- существующие NativeHomeActivity / NativeWorkspaceActivity и native components можно сохранять и исправлять;
+- Compose допустим только если есть конкретный parity blocker и это доказано;
+- массовый framework rewrite на Phase 2 запрещён.
+
+ЦЕЛЬ PHASE 2
+Сделать нативную оболочку приложения визуально и навигационно эквивалентной web v184, не затрагивая предметную реализацию следующих фаз.
+
+Разрешённый scope:
+- app-level Home/Workspace shell;
+- top bars / global headers;
+- global background/panel/card styling;
+- typography system;
+- colors;
+- spacing;
+- radii;
+- borders/strokes;
+- shadows/elevation;
+- fixed/sticky shell elements;
+- safe areas / status bar / navigation bar / display cutout;
+- bottom history/navigation shell;
+- Home ↔ Workspace routing;
+- Android Back на уровне shell;
+- section container/header visual treatment;
+- collapse container mechanics только там, где это shell-level и не меняет data/business semantics;
+- UI settings surface для font family / scale / weight;
+- application of Phase-1 persisted UI prefs to newly rendered native UI;
+- отсутствие night mode;
+- system bar appearance;
+- required screenshot/test harness for Phase-2 states.
+
+НЕ ВХОДИТ В PHASE 2
+Не реализовывать и не «улучшать»:
+- создание/удаление/rename/duplicate комнат как Phase-3 parity;
+- точную бизнес-логику заказов как Phase-3 parity;
+- drawing geometry;
+- wall/point/diagonal input;
+- drawing touch arbitration;
+- zoom/pan;
+- closure logic;
+- undo/redo drawing behavior;
+- snapping;
+- 90°;
+- magnifier;
+- haptics;
+- labels drag/rotate/resize;
+- calculations/materials;
+- saved-measurements functional parity;
+- backup logic beyond preserving Phase 1;
+- PDF;
+- estimate UI/content parity;
+- modal-specific business flows;
+- Phase-3+ logic.
+
+Если Phase-2 shell касается существующих элементов этих областей, допускается менять только внешний контейнер/layout/style, не event semantics и не algorithms.
+
+SOURCE OF TRUTH — VISUAL
+Используй effective late-layer values из docs/NATIVE_VISUAL_TOKENS.md и реальный computed/effective смысл web v184, а не ранние CSS tokens.
+
+Ключевые audited tokens включают:
+- system font stack;
+- UI prefs default scale 112%;
+- UI scale range 85%..130%;
+- weight mapping normal / medium / bold;
+- compact app gaps;
+- authoritative late-layer radii/shadows/colors;
+- overlay motion 115 ms;
+- collapse motion 145 ms;
+- easing cubic-bezier(.22,.78,.24,1);
+- safe-area behavior;
+- no effective night mode.
+
+Не копируй ранний CSS, если поздние overrides его заменяют.
+
+TYPOGRAPHY CONTRACT
+Обязательное:
+- default font = system;
+- default text scale = 112%;
+- range = 85..130%;
+- font aliases/migration уже Phase 1 — не ломать;
+- weight choices exactly normal / medium / bold semantics from audit;
+- font/scale/weight применяются ко ВСЕМ вновь создаваемым native shell views без relaunch;
+- настройки переживают relaunch;
+- никакого night mode;
+- не добавлять dynamic color / Material You auto recoloring;
+- не позволять Android theme самовольно менять audited colors.
+
+SAFE AREA CONTRACT
+Критично из реального теста APK:
+- никакой текст/кнопка header не должна попадать под status bar;
+- никакая нижняя навигация не должна попадать под gesture/navigation bar;
+- display cutout учитывается;
+- safe-area отступ не должен дублироваться и создавать лишний воздух;
+- rotation/разные status-bar heights не должны ломать layout;
+- keyboard/IME не должна сдвигать fixed shell в неверное место;
+- status/nav bar colors/light icons должны соответствовать светлой теме golden master.
+
+Нужно проверить минимум:
+- API 29/30 style behavior;
+- API 35 enforced edge-to-edge;
+- gesture navigation;
+- 3-button navigation если emulator позволяет;
+- top inset;
+- bottom inset.
+
+HOME / WORKSPACE NAVIGATION
+Используй docs/NATIVE_SCREEN_STATE_INVENTORY.md:
+- S01 Home;
+- S02 Workspace;
+- ST01 navigation state.
+
+Обязательные invariants:
+- Home и Workspace — разные UI states;
+- переход Home → Workspace не сбрасывает данные;
+- возврат Workspace → Home не удаляет текущий проект;
+- cold launch ведёт в состояние, соответствующее golden master;
+- Android Back не должен создавать новый проект или терять state;
+- если Home имеет специальную back behavior, повтори source behavior, не существующий native guess;
+- не вводить новый navigation model без source evidence.
+
+ПЕРЕД изменением текущего NativeHomeActivity back behavior найди web/bridge authority.
+Если web не подтверждает «двойное назад — свернуть», не считать текущую native реализацию эталоном.
+
+BOTTOM NAVIGATION / HISTORY SHELL
+Phase 2 переносит ВНЕШНИЙ shell и routing surface, но НЕ обязана подтверждать drawing undo/redo algorithm.
+
+Обязательное:
+- позиция;
+- размеры;
+- safe bottom inset;
+- радиусы;
+- border/shadow;
+- тексты/иконки;
+- порядок;
+- enabled/disabled visual states;
+- не перекрывает последний контент;
+- остаётся визуально на месте при вертикальном scroll;
+- не прыгает при system bars;
+- Android Back routing не конфликтует с ним.
+
+Если actual source bottom nav = «Вперёд / Назад / … Ещё» или другой состав — брать ТОЛЬКО из v184 source, не из памяти/старых APK.
+
+SECTION SHELL
+Для order / rooms / drawing / estimate секций на Phase 2:
+- перенести только общую card/header/collapse визуальную систему;
+- не объявлять бизнес-функции этих секций PASS;
+- не менять data model;
+- content может продолжать использовать существующие native views;
+- collapse persistence должна использовать уже Phase-1 canonical data;
+- animation timing/easing — source v184.
+
+UI SETTINGS SURFACE
+Разрешено привести native settings к v184:
+- font family;
+- size;
+- weight;
+- reset/default только если он есть в source;
+- preview только если он есть в source;
+- Done/close behavior по source;
+- NO night mode;
+- settings sheet/surface geometry и copy по source, не по текущему native guess.
+
+Если существующий native settings содержит текст/controls, отсутствующие в v184 — убрать/изменить только после exact source check.
+
+VISUAL PARITY EVIDENCE
+Нельзя ставить Phase-2 UI PASS только потому, что «выглядит похоже».
+
+Нужно создать repeatable screenshot evidence.
+
+Минимальные Phase-2 reference states:
+1. Home default;
+2. Workspace top + order/rooms/drawing section shells;
+3. Workspace scrolled so bottom navigation and last visible content relation is tested;
+4. UI settings default;
+5. UI settings custom font scale/weight;
+6. Home/API35 with system status + gesture nav bars visible;
+7. Workspace/API35 with system bars visible.
+
+Для каждого:
+- фиксированный emulator/device profile;
+- фиксированный viewport;
+- native screenshot artifact;
+- web golden reference screenshot или, если headless browser/reference capture технически недоступен, exact source-token/layout assertions + состояние в matrix = UNVERIFIED для pixel-only parity;
+- не придумывать PASS без reference evidence.
+
+Желательно:
+- side-by-side;
+- image diff/overlay;
+- bounding-box measurement key anchors.
+
+Если добавляешь screenshot tooling, оно должно быть test/dev-only и не попадать в production APK.
+
+AUTOMATED TESTS PHASE 2
+Добавь/расширь tests минимум для:
+- no WebView/HTML runtime;
+- Home cold launch;
+- Home→Workspace route preserves project data;
+- Workspace→Home preserves project data;
+- status-bar inset applied exactly once;
+- bottom inset applied exactly once;
+- bottom nav does not cover content;
+- font default = audited system/112/normal semantics;
+- font/scale/weight change applies without process restart;
+- UI prefs survive relaunch;
+- night mode control absent;
+- no 'ui-dark'/night-mode native feature introduced;
+- system bar appearance deterministic;
+- section collapse animation/state does not mutate business data;
+- Phase-1 32 unit tests remain green;
+- Phase-1 backup/persistence semantics remain green.
+
+Не тестировать drawing algorithm как Phase-2 PASS.
+
+CURRENT NATIVE CODE IS NOT AUTHORITY
+NativeHomeActivity / NativeWorkspaceActivity уже существуют.
+Их текущий вид — кандидат, не эталон.
+
+Например:
+- hardcoded colors;
+- hardcoded paddings;
+- Home copy;
+- settings copy;
+- back behavior;
+- card sizes;
+- action ordering;
+могут быть неверны.
+
+Каждый такой элемент сверяй с web v184 / audit docs.
+Не сохраняй старое только потому, что оно уже написано.
+
+CENTRALIZE TOKENS
+В Phase 2 желательно убрать повторяющиеся shell-level hardcoded visual constants в один native token layer, например NativeVisualTokens / NativeThemeTokens / equivalent.
+
+Но:
+- не делай архитектурный rewrite;
+- не переносить туда drawing-specific constants;
+- не менять numeric drawing/gesture constants;
+- token names должны отражать audited source semantics.
+
+MATRIX RULES
+Обновляй NATIVE_MIGRATION_MATRIX.md строго.
+
+Разрешено PASS только для реально доказанных Phase-2 требований, например:
+- UI-002 typography parity;
+- UI-003 colors parity;
+- UI-004 spacing/radius/shadows parity;
+- UI-007 lower navigation parity — только shell/layout/routing evidence, если row слишком широкая, добавь отдельную Phase-2 shell row вместо ложного полного PASS;
+- UI-008 safe areas;
+- UI-009 no content under system bars;
+- SET-001 font family;
+- SET-002 font size;
+- SET-003 font weight;
+- SET-004 absence of night mode;
+- shell-level animation rows только если полностью доказаны в текущем scope.
+
+НЕ переводить UI-001 в полный PASS, если внутри Workspace ещё не перенесены Phase-3+ компоненты.
+НЕ переводить UI-005/UI-006 в полный PASS, если все overlay/business states ещё не реализованы.
+При необходимости добавь P2-* rows с узким, честным scope.
+
+Каждый PASS:
+- exact native class/method/resource reference;
+- exact test method;
+- screenshot artifact/reference;
+- CI run ID.
+
+PHASE-1 REGRESSION GATE
+Ни одна из Phase-1 PASS строк не должна регрессировать.
+Особенно:
+- schemaVersion 165;
+- migrations;
+- backup import/export;
+- transient active order/room semantics;
+- labelPose absolute persisted semantics;
+- UI prefs persistence;
+- unknown-compatible fields.
+
+Golden master не менять.
+
+CI
+Финальный Phase-2 HEAD обязан пройти:
+- golden verifier PASS;
+- native-only gate PASS;
+- lintDebug PASS;
+- testDebugUnitTest PASS;
+- assembleDebug PASS;
+- APK verification PASS;
+- Android instrumentation PASS;
+- screenshot/layout tests PASS where applicable;
+- no WebView;
+- no production HTML/JS runtime;
+- no golden master changes.
+
+CHANGED-FILES DISCIPLINE
+Ожидаемые Phase-2 изменения:
+- native shell activities/views/components;
+- native visual token/theme resources;
+- shell/nav/settings tests;
+- screenshot test tooling/artifacts metadata;
+- NATIVE_MIGRATION_MATRIX.md;
+- при source-backed omission — audit doc amendment.
+
+НЕОЖИДАННЫЕ/ЗАПРЕЩЁННЫЕ без отдельного justification:
+- NativeDataContract behavior changes;
+- migration semantic changes;
+- backup schema changes;
+- NativeGeometry algorithms;
+- solver changes;
+- gesture thresholds;
+- CeilingDrawingView touch engine;
+- haptic gates;
+- PDF generation;
+- estimate formulas.
+
+Если без изменения запрещённой области Phase 2 невозможно закрыть — STOP и отчитай blocker, не расширяй scope сам.
+
+PHASE 2 PASS CRITERIA
+Phase 2 завершена только если:
+1. golden SHA exact;
+2. app remains native-only;
+3. Home/Workspace shell parity evidence существует;
+4. typography system parity доказана;
+5. colors/radii/spacing/shadows shell parity доказаны;
+6. safe areas system bars корректны на API35;
+7. bottom nav shell не перекрывает content и учитывает bottom inset;
+8. UI settings font/scale/weight parity доказана;
+9. night mode отсутствует;
+10. Phase-1 tests/regression green;
+11. final CI fully green;
+12. matrix updated with honest Phase-2 evidence;
+13. Phase 3 business/order/room work не начат;
+14. drawing/gesture algorithm не изменён.
+
+FINAL REPORT
+После полного выполнения STOP и выдай:
+- final commit SHA;
+- base HEAD;
+- final workflow run IDs/links;
+- changed files;
+- new/changed tests;
+- screenshot/reference artifacts;
+- exact Phase-2 matrix rows moved to PASS;
+- Phase-2 PASS/FAIL/UNVERIFIED counts;
+- proof Phase-1 regression still green;
+- golden SHA;
+- list remaining visual mismatches;
+- list deferred Phase-3+ items;
+- explicit line: PHASE 2 COMPLETE
+- explicit line: PHASE 3 NOT STARTED
+
+Если pixel/reference evidence или safe-area tests не закрыты:
+PHASE 2 INCOMPLETE
+
+НЕ НАЧИНАЙ PHASE 3.
