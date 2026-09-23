@@ -351,6 +351,16 @@ public final class NativePhase2ShellTest {
             assertEquals(1.18f, activity.getUiPrefsForTest().scale, .0001f);
             assertEquals(NativeUiPrefs.WEIGHT_MEDIUM, activity.getUiPrefsForTest().weight);
             float before = brand.getTextSize();
+            scenario.onActivity(a -> {
+                View workspace = a.getWindow().getDecorView()
+                        .findViewWithTag("native_workspace_page");
+                assertNotNull(workspace);
+                assertTrue(workspace.isShown());
+                workspace.invalidate();
+                a.getWindow().getDecorView().invalidate();
+            });
+            instrumentation.waitForIdleSync();
+            SystemClock.sleep(300);
             capture("workspace_custom_prefs");
 
             scenario.onActivity(a -> a.getWindow().getDecorView()
@@ -402,6 +412,55 @@ public final class NativePhase2ShellTest {
             assertEquals("Маршрут Phase 2", after.name);
             assertEquals("+7 999", after.phone);
             assertEquals("Parity street", after.address);
+        } finally {
+            instrumentation.removeMonitor(monitor);
+        }
+    }
+
+    @Test
+    public void workspaceAndroidBackReturnsToHomeAndPreservesPhase1Data() throws Exception {
+        NativeProjectStore store = new NativeProjectStore(context);
+        NativeProjectStore.ProjectData project = store.newProject();
+        project.name = "Back Phase 2";
+        project.phone = "+7 900";
+        String orderId = project.id;
+        String roomId = project.rooms.get(0).id;
+        store.saveCurrent(project);
+
+        Instrumentation.ActivityMonitor monitor = instrumentation.addMonitor(
+                NativeWorkspaceActivity.class.getName(), null, false);
+        try (ActivityScenario<NativeHomeActivity> scenario =
+                     ActivityScenario.launch(NativeHomeActivity.class)) {
+            AtomicReference<NativeHomeActivity> homeRef = new AtomicReference<>();
+            scenario.onActivity(homeRef::set);
+            instrumentation.waitForIdleSync();
+
+            scenario.onActivity(a -> a.getWindow().getDecorView()
+                    .findViewWithTag("native_home_drawing").performClick());
+            Activity workspace = instrumentation.waitForMonitorWithTimeout(monitor, 4000);
+            assertNotNull("Workspace must open from Home before Back test", workspace);
+            assertTrue(workspace instanceof NativeWorkspaceActivity);
+
+            instrumentation.runOnMainSync(() ->
+                    ((NativeWorkspaceActivity) workspace)
+                            .getOnBackPressedDispatcher()
+                            .onBackPressed());
+            instrumentation.waitForIdleSync();
+            SystemClock.sleep(180);
+
+            assertTrue("Android Back must finish Workspace shell", workspace.isFinishing());
+            NativeHomeActivity home = homeRef.get();
+            assertNotNull(home);
+            View homeRoot = home.getWindow().getDecorView()
+                    .findViewWithTag("native_home_root");
+            assertNotNull(homeRoot);
+            assertTrue("Home must remain visible after Workspace Back", homeRoot.isShown());
+
+            NativeProjectStore.ProjectData after = new NativeProjectStore(context).loadCurrent();
+            assertEquals(orderId, after.id);
+            assertEquals(roomId, after.rooms.get(0).id);
+            assertEquals("Back Phase 2", after.name);
+            assertEquals("+7 900", after.phone);
         } finally {
             instrumentation.removeMonitor(monitor);
         }
@@ -520,6 +579,20 @@ public final class NativePhase2ShellTest {
         File out = new File(dir,
                 String.format(Locale.US, "api%d_%ddp_%s.png",
                         Build.VERSION.SDK_INT, widthDp, state));
+        int nonBlankSamples = 0;
+        int startY = Math.max(0, bitmap.getHeight() / 8);
+        int endY = Math.min(bitmap.getHeight(), bitmap.getHeight() * 7 / 8);
+        int stepX = Math.max(8, bitmap.getWidth() / 60);
+        int stepY = Math.max(8, bitmap.getHeight() / 100);
+        for (int y = startY; y < endY; y += stepY) {
+            for (int x = 0; x < bitmap.getWidth(); x += stepX) {
+                int rgb = bitmap.getPixel(x, y) & 0x00FFFFFF;
+                if (rgb < 0x00F4F4F4) nonBlankSamples++;
+            }
+        }
+        assertTrue("Phase-2 screenshot must contain rendered app UI, not a blank system frame",
+                nonBlankSamples > 40);
+
         try (FileOutputStream stream = new FileOutputStream(out)) {
             assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream));
         }
