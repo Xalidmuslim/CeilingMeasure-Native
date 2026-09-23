@@ -65,14 +65,14 @@ final class NativeVisualTokens {
 
     static final int APP_COMPACT_GAP_DP = 7;
     static final int HISTORY_BOTTOM_DP = 8;
+    // Golden v184 computed rects at 360/393/412 CSS px:
+    // outer nav 266x58, each button 84x50, padding/gap 3, bottom 8.
     static final int HISTORY_BUTTON_WIDTH_DP = 84;
-    static final int HISTORY_BUTTON_HEIGHT_DP = 39;
+    static final int HISTORY_BUTTON_HEIGHT_DP = 50;
     static final int HISTORY_GAP_DP = 3;
     static final int HISTORY_PADDING_DP = 3;
-    static final int HISTORY_WIDTH_DP =
-            HISTORY_BUTTON_WIDTH_DP * 3 + HISTORY_GAP_DP * 2 + HISTORY_PADDING_DP * 2; // 264
-    static final int HISTORY_HEIGHT_DP =
-            HISTORY_BUTTON_HEIGHT_DP + HISTORY_PADDING_DP * 2; // 45
+    static final int HISTORY_WIDTH_DP = 266;
+    static final int HISTORY_HEIGHT_DP = 58
     // Golden v184 computed at 360/393/412 CSS px: #appScroll and .app
     // both resolve to padding-bottom: 104px.
     static final int SCROLL_NAV_RESERVE_DP = 104;

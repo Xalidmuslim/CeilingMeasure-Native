@@ -418,7 +418,9 @@ public final class NativePhase2ShellTest {
         assertEquals(13, NativeVisualTokens.CARD_RADIUS_DP);
         assertEquals(7, NativeVisualTokens.APP_COMPACT_GAP_DP);
         assertEquals(84, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP);
-        assertEquals(39, NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP);
+        assertEquals(50, NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP);
+        assertEquals(266, NativeVisualTokens.HISTORY_WIDTH_DP);
+        assertEquals(58, NativeVisualTokens.HISTORY_HEIGHT_DP);
         assertEquals(8, NativeVisualTokens.HISTORY_BOTTOM_DP);
         assertEquals(104, NativeVisualTokens.SCROLL_NAV_RESERVE_DP);
         assertEquals(115L, NativeVisualTokens.OVERLAY_MOTION_MS);
