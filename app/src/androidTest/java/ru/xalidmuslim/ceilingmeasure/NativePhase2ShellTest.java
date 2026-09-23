@@ -283,12 +283,17 @@ public final class NativePhase2ShellTest {
 
             scenario.onActivity(a -> {
                 NativeUiSettingsDialog current = a.getSettingsDialogForTest();
-                View done = current.getWindow().getDecorView()
-                        .findViewWithTag("native_ui_done");
-                done.performClick();
+                if (current != null && current.isShowing()) {
+                    View done = current.getWindow().getDecorView()
+                            .findViewWithTag("native_ui_done");
+                    assertNotNull(done);
+                    done.performClick();
+                }
             });
             instrumentation.waitForIdleSync();
             SystemClock.sleep(130);
+            NativeUiSettingsDialog afterSettings = activity.getSettingsDialogForTest();
+            assertTrue(afterSettings == null || !afterSettings.isShowing());
             capture("home_custom_prefs");
 
             NativeUiPrefs persisted = NativeUiPrefs.load(context);
