@@ -569,9 +569,36 @@ public final class NativePhase2ShellTest {
 
     private void capture(String state) throws Exception {
         instrumentation.waitForIdleSync();
-        SystemClock.sleep(60);
-        Bitmap bitmap = instrumentation.getUiAutomation().takeScreenshot();
-        assertNotNull(bitmap);
+
+        Bitmap bitmap = null;
+        int nonBlankSamples = 0;
+        for (int attempt = 0; attempt < 6; attempt++) {
+            SystemClock.sleep(attempt == 0 ? 120 : 280);
+            Bitmap candidate = instrumentation.getUiAutomation().takeScreenshot();
+            if (candidate == null) continue;
+
+            int samples = 0;
+            int startY = Math.max(0, candidate.getHeight() / 8);
+            int endY = Math.min(candidate.getHeight(), candidate.getHeight() * 7 / 8);
+            int stepX = Math.max(8, candidate.getWidth() / 60);
+            int stepY = Math.max(8, candidate.getHeight() / 100);
+            for (int y = startY; y < endY; y += stepY) {
+                for (int x = 0; x < candidate.getWidth(); x += stepX) {
+                    int rgb = candidate.getPixel(x, y) & 0x00FFFFFF;
+                    if (rgb < 0x00F4F4F4) samples++;
+                }
+            }
+
+            bitmap = candidate;
+            nonBlankSamples = samples;
+            if (samples > 40) break;
+            candidate.recycle();
+            bitmap = null;
+        }
+
+        assertNotNull("Phase-2 screenshot capture must return a bitmap", bitmap);
+        assertTrue("Phase-2 screenshot must contain rendered app UI, not a blank system frame",
+                nonBlankSamples > 40);
 
         File dir = new File(context.getExternalFilesDir(null), "phase2");
         assertTrue(dir.exists() || dir.mkdirs());
@@ -579,24 +606,12 @@ public final class NativePhase2ShellTest {
         File out = new File(dir,
                 String.format(Locale.US, "api%d_%ddp_%s.png",
                         Build.VERSION.SDK_INT, widthDp, state));
-        int nonBlankSamples = 0;
-        int startY = Math.max(0, bitmap.getHeight() / 8);
-        int endY = Math.min(bitmap.getHeight(), bitmap.getHeight() * 7 / 8);
-        int stepX = Math.max(8, bitmap.getWidth() / 60);
-        int stepY = Math.max(8, bitmap.getHeight() / 100);
-        for (int y = startY; y < endY; y += stepY) {
-            for (int x = 0; x < bitmap.getWidth(); x += stepX) {
-                int rgb = bitmap.getPixel(x, y) & 0x00FFFFFF;
-                if (rgb < 0x00F4F4F4) nonBlankSamples++;
-            }
-        }
-        assertTrue("Phase-2 screenshot must contain rendered app UI, not a blank system frame",
-                nonBlankSamples > 40);
 
         try (FileOutputStream stream = new FileOutputStream(out)) {
             assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream));
         }
         assertTrue(out.length() > 0L);
+        bitmap.recycle();
     }
 
     private void writeMetric(Activity activity, String state, String line) throws Exception {
