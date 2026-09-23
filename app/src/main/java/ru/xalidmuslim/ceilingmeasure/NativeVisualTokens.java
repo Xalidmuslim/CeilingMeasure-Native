@@ -72,7 +72,7 @@ final class NativeVisualTokens {
     static final int HISTORY_GAP_DP = 3;
     static final int HISTORY_PADDING_DP = 3;
     static final int HISTORY_WIDTH_DP = 266;
-    static final int HISTORY_HEIGHT_DP = 58
+    static final int HISTORY_HEIGHT_DP = 58;
     // Golden v184 computed at 360/393/412 CSS px: #appScroll and .app
     // both resolve to padding-bottom: 104px.
     static final int SCROLL_NAV_RESERVE_DP = 104;
