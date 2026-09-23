@@ -390,6 +390,7 @@ public final class NativePhase2ShellTest {
         assertEquals(84, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP);
         assertEquals(39, NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP);
         assertEquals(8, NativeVisualTokens.HISTORY_BOTTOM_DP);
+        assertEquals(104, NativeVisualTokens.SCROLL_NAV_RESERVE_DP);
         assertEquals(115L, NativeVisualTokens.OVERLAY_MOTION_MS);
         assertEquals(145L, NativeVisualTokens.COLLAPSE_MOTION_MS);
     }

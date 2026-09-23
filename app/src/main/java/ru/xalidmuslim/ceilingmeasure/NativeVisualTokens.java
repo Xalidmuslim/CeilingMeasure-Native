@@ -73,7 +73,9 @@ final class NativeVisualTokens {
             HISTORY_BUTTON_WIDTH_DP * 3 + HISTORY_GAP_DP * 2 + HISTORY_PADDING_DP * 2; // 264
     static final int HISTORY_HEIGHT_DP =
             HISTORY_BUTTON_HEIGHT_DP + HISTORY_PADDING_DP * 2; // 45
-    static final int SCROLL_NAV_RESERVE_DP = 64;
+    // Golden v184 computed at 360/393/412 CSS px: #appScroll and .app
+    // both resolve to padding-bottom: 104px.
+    static final int SCROLL_NAV_RESERVE_DP = 104;
 
     static final long OVERLAY_MOTION_MS = 115L;
     static final long COLLAPSE_MOTION_MS = 145L;
