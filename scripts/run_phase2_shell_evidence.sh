@@ -17,6 +17,12 @@ done
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
+# Phase-2 screenshot evidence must contain the app itself, not transient
+# system/launcher ANR overlays caused by the heavily loaded headless emulator.
+# This does not alter application behavior or test assertions.
+adb shell settings put global hide_error_dialogs 1 || true
+adb shell settings put global anr_show_background 0 || true
+
 adb shell rm -rf "/sdcard/Android/data/$PACKAGE/files/phase2" || true
 rm -rf "$OUT"
 mkdir -p "$OUT"
@@ -30,6 +36,14 @@ run_width() {
   adb shell wm density "$density"
   sleep 2
   adb shell am force-stop "$PACKAGE" || true
+  adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+  sleep 1
+
+  if adb shell dumpsys window windows 2>/dev/null | grep -Eqi 'AppErrorDialog|Application Not Responding'; then
+    echo "System error dialog is visible before Phase-2 instrumentation"
+    adb shell dumpsys window windows | grep -Ei 'AppErrorDialog|Application Not Responding|mCurrentFocus' || true
+    exit 1
+  fi
 
   adb shell am instrument -w -r     -e class ru.xalidmuslim.ceilingmeasure.NativePhase2ShellTest     -e phase2Width "$expected"     "$TEST_PACKAGE/$RUNNER" | tee "$log"
 
@@ -50,6 +64,8 @@ cleanup() {
   local code=$?
   collect_evidence
   adb shell wm density reset >/dev/null 2>&1 || true
+  adb shell settings delete global hide_error_dialogs >/dev/null 2>&1 || true
+  adb shell settings delete global anr_show_background >/dev/null 2>&1 || true
   exit "$code"
 }
 trap cleanup EXIT
