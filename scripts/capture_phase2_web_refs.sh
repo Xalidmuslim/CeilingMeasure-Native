@@ -99,7 +99,7 @@ measure_workspace_shell() {
   cat > "$file" <<EOF
 <!doctype html>
 <meta charset="utf-8">
-<iframe id="f" src="$GOLDEN_URI" style="position:fixed;inset:0;width:100%;height:100%;border:0"></iframe>
+<iframe id="f" src="$GOLDEN_URI" style="position:fixed;left:0;top:0;width:${width}px;height:${height}px;border:0"></iframe>
 <pre id="metrics"></pre>
 <script>
 const f=document.getElementById('f');
