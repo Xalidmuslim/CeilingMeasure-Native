@@ -167,6 +167,7 @@ jobs:
           script: bash scripts/run_android_smoke.sh
 
       - name: Run Phase 2 API 35 shell, inset, width and screenshot evidence
+        if: ${{ !cancelled() }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -182,6 +183,7 @@ jobs:
           script: bash scripts/run_phase2_shell_evidence.sh
 
       - name: Upload Phase 2 native screenshot evidence
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: CeilingMeasure-phase2-native-screenshots
@@ -190,6 +192,7 @@ jobs:
           retention-days: 30
 
       - name: Re-verify native source after tests
+        if: ${{ !cancelled() }}
         shell: bash
         run: |
           set -euo pipefail
