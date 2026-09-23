@@ -39,15 +39,27 @@ run_width() {
   fi
 }
 
-trap 'adb shell wm density reset >/dev/null 2>&1 || true' EXIT
+collect_evidence() {
+  local remote="/sdcard/Android/data/$PACKAGE/files/phase2"
+  mkdir -p "$OUT"
+  adb pull "$remote" "$OUT/pulled" >/dev/null 2>&1 || true
+  find "$OUT" -name '*metrics.txt' -type f -print -exec cat {} \; 2>/dev/null || true
+}
+
+cleanup() {
+  local code=$?
+  collect_evidence
+  adb shell wm density reset >/dev/null 2>&1 || true
+  exit "$code"
+}
+trap cleanup EXIT
 run_width 480 360
 run_width 440 393
 run_width 419 412
 adb shell wm density reset
 sleep 2
 
-REMOTE="/sdcard/Android/data/$PACKAGE/files/phase2"
-adb pull "$REMOTE" "$OUT/pulled"
+collect_evidence
 COUNT="$(find "$OUT" -name '*.png' | wc -l)"
 echo "Native Phase 2 screenshots: $COUNT"
 [[ "$COUNT" -ge 21 ]] || {

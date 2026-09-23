@@ -180,10 +180,15 @@ public final class NativePhase2ShellTest {
             scenario.onActivity(a -> {
                 ScrollView scroll = a.getWindow().getDecorView()
                         .findViewWithTag("native_editor_scroll");
-                scroll.fullScroll(View.FOCUS_DOWN);
+                assertNotNull(scroll);
+                View child = scroll.getChildAt(0);
+                assertNotNull(child);
+                // Deterministic evidence position: jump to the real clamped bottom.
+                // The assertions below are unchanged; this removes smooth-scroll timing.
+                scroll.scrollTo(0, child.getHeight());
             });
             instrumentation.waitForIdleSync();
-            SystemClock.sleep(80);
+            SystemClock.sleep(40);
 
             View page = activity.getWindow().getDecorView()
                     .findViewWithTag("native_workspace_page");
@@ -205,6 +210,17 @@ public final class NativePhase2ShellTest {
             int pageBottom = pageLoc[1] + page.getHeight();
             int navBottom = navLoc[1] + nav.getHeight();
             int lastBottom = lastLoc[1] + last.getHeight();
+
+            System.out.println("PHASE2_NATIVE_BOTTOM_METRICS:"
+                    + "widthDp=" + activity.getResources().getConfiguration().screenWidthDp
+                    + ",safeBottom=" + safe.bottom
+                    + ",pageBottom=" + pageBottom
+                    + ",navTop=" + navLoc[1]
+                    + ",navBottom=" + navBottom
+                    + ",lastBottom=" + lastBottom
+                    + ",scrollY=" + scroll.getScrollY()
+                    + ",scrollRange=" + Math.max(0, scroll.getChildAt(0).getHeight() - scroll.getHeight())
+                    + ",reserve=" + dp(activity, NativeVisualTokens.SCROLL_NAV_RESERVE_DP));
 
             assertTrue("bottom nav must remain above system gesture/navigation inset",
                     navBottom <= pageBottom - safe.bottom - dp(activity, 7));
