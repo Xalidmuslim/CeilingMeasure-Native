@@ -186,9 +186,14 @@ public final class NativePhase2ShellTest {
                 // Deterministic evidence position: jump to the real clamped bottom.
                 // The assertions below are unchanged; this removes smooth-scroll timing.
                 scroll.scrollTo(0, child.getHeight());
+                child.invalidate();
+                scroll.invalidate();
+                a.getWindow().getDecorView().invalidate();
             });
             instrumentation.waitForIdleSync();
-            SystemClock.sleep(40);
+            // Give the headless API-35 compositor enough time to present the
+            // already-updated view tree before UiAutomation.takeScreenshot().
+            SystemClock.sleep(250);
 
             View page = activity.getWindow().getDecorView()
                     .findViewWithTag("native_workspace_page");
@@ -239,7 +244,11 @@ public final class NativePhase2ShellTest {
                             + ",pageBottom=" + pageBottom
                             + ",navTop=" + navLoc[1]
                             + ",navBottom=" + navBottom
-                            + ",lastBottom=" + lastBottom);
+                            + ",lastBottom=" + lastBottom
+                            + ",scrollY=" + scroll.getScrollY()
+                            + ",childHeight=" + scroll.getChildAt(0).getHeight()
+                            + ",scrollHeight=" + scroll.getHeight()
+                            + ",reservePx=" + dp(activity, NativeVisualTokens.SCROLL_NAV_RESERVE_DP));
             capture("workspace_bottom_fixed_nav");
         }
     }
