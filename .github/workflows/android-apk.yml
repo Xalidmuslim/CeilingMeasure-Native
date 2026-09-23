@@ -166,6 +166,15 @@ jobs:
           emulator-boot-timeout: 600
           script: bash scripts/run_android_smoke.sh
 
+      - name: Free disk before Phase 2 API 35 evidence
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$HOME/.android/avd/test.avd" "$HOME/.android/avd/test.ini"
+          rm -rf "${ANDROID_SDK_ROOT:-${ANDROID_HOME}}/system-images/android-30"
+          df -h "$HOME" "${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
+
       - name: Run Phase 2 API 35 shell, inset, width and screenshot evidence
         if: ${{ !cancelled() }}
         uses: reactivecircus/android-emulator-runner@v2
