@@ -456,6 +456,145 @@ final class NativeProjectStore {
         }
     }
 
+    ProjectData deleteOrderAndLoadFirst(@NonNull String id) {
+        JSONObject db = loadDb();
+        JSONArray orders = db.optJSONArray("orders");
+        JSONArray next = new JSONArray();
+        if (orders != null) {
+            for (int i = 0; i < orders.length(); i++) {
+                JSONObject order = orders.optJSONObject(i);
+                if (order == null || !id.equals(order.optString("id", ""))) {
+                    next.put(orders.opt(i));
+                }
+            }
+        }
+        try {
+            db.put("orders", next);
+            persistDb(db);
+        } catch (Exception ignored) {
+        }
+        // Golden ensureOrder semantics: deleting the final order immediately
+        // creates one fresh canonical order and selects its first room.
+        return loadCurrent();
+    }
+
+    boolean isUiCollapsed(@NonNull String key) {
+        JSONObject collapse = loadDb().optJSONObject("uiCollapse");
+        return collapse != null && collapse.optBoolean(key, false);
+    }
+
+    void setUiCollapsed(@NonNull String key, boolean collapsed) {
+        JSONObject db = loadDb();
+        try {
+            JSONObject state = db.optJSONObject("uiCollapse");
+            if (state == null) state = new JSONObject();
+            state.put(key, collapsed);
+            db.put("uiCollapse", state);
+            persistDb(db);
+        } catch (Exception ignored) {
+        }
+    }
+
+    /**
+     * Deep runtime clone used by Phase-3 room duplication.
+     *
+     * Deliberately does not call NativeGeometry.sanitize or any solver/drawing
+     * helper: web v184 duplicateRoom is clone(source) plus four explicit
+     * exceptions (id, savedAt, geometryLocked, name).
+     */
+    @NonNull
+    static RoomData cloneRoomExact(@NonNull RoomData source) {
+        RoomData copy = new RoomData();
+        copy.id = source.id;
+        copy.name = source.name;
+        copy.notes = source.notes;
+
+        copy.points.clear();
+        for (PointData point : source.points) {
+            PointData p = new PointData(point.id, point.x, point.y);
+            p.customLabel = point.customLabel;
+            p.raw = copyJson(point.raw);
+            copy.points.add(p);
+        }
+
+        copy.edges.clear();
+        for (EdgeData edge : source.edges) {
+            EdgeData e = new EdgeData(edge.id, edge.a, edge.b, edge.value);
+            e.labelDx = edge.labelDx;
+            e.labelDy = edge.labelDy;
+            e.labelAngle = edge.labelAngle;
+            e.labelSize = edge.labelSize;
+            e.labelManual = edge.labelManual;
+            e.labelX = edge.labelX;
+            e.labelY = edge.labelY;
+            e.labelPosePresent = edge.labelPosePresent;
+            e.rawLabelPose = edge.rawLabelPose == null
+                    ? null : copyJson(edge.rawLabelPose);
+            e.rawMeasurement = edge.rawMeasurement;
+            e.rawMeasurementValue = edge.rawMeasurementValue;
+            e.raw = copyJson(edge.raw);
+            copy.edges.add(e);
+        }
+
+        copy.diagonals.clear();
+        for (DiagonalData diagonal : source.diagonals) {
+            DiagonalData d = new DiagonalData(
+                    diagonal.id,
+                    diagonal.a,
+                    diagonal.b,
+                    diagonal.value);
+            d.labelDx = diagonal.labelDx;
+            d.labelDy = diagonal.labelDy;
+            d.labelAngle = diagonal.labelAngle;
+            d.labelSize = diagonal.labelSize;
+            d.labelManual = diagonal.labelManual;
+            d.labelX = diagonal.labelX;
+            d.labelY = diagonal.labelY;
+            d.labelPosePresent = diagonal.labelPosePresent;
+            d.rawLabelPose = diagonal.rawLabelPose == null
+                    ? null : copyJson(diagonal.rawLabelPose);
+            d.rawMeasurement = diagonal.rawMeasurement;
+            d.rawMeasurementValue = diagonal.rawMeasurementValue;
+            d.raw = copyJson(diagonal.raw);
+            copy.diagonals.add(d);
+        }
+
+        copy.pricing.clear();
+        copy.pricing.putAll(source.pricing);
+        copy.clientPricing.clear();
+        copy.clientPricing.putAll(source.clientPricing);
+        copy.extraQty.clear();
+        copy.extraQty.putAll(source.extraQty);
+        copy.clientEstimateQty.clear();
+        copy.clientEstimateQty.putAll(source.clientEstimateQty);
+
+        copy.clientEstimateOverride.clear();
+        copy.clientEstimateOverride.addAll(source.clientEstimateOverride);
+        copy.hiddenInternalKeys.clear();
+        copy.hiddenInternalKeys.addAll(source.hiddenInternalKeys);
+
+        copy.customItems.clear();
+        for (MaterialData item : source.customItems) copy.customItems.add(item.copy());
+        copy.clientCustomItems.clear();
+        for (MaterialData item : source.clientCustomItems) {
+            copy.clientCustomItems.add(item.copy());
+        }
+
+        copy.point90Magnet = source.point90Magnet;
+        copy.wallAngleMagnet = source.wallAngleMagnet;
+        copy.showAutoLetters = source.showAutoLetters;
+        copy.geometryLocked = source.geometryLocked;
+        copy.validationExpanded = source.validationExpanded;
+        copy.extrasExpanded = source.extrasExpanded;
+        copy.hintCollapsed = source.hintCollapsed;
+        copy.viewScale = source.viewScale;
+        copy.panX = source.panX;
+        copy.panY = source.panY;
+        copy.savedAt = source.savedAt;
+        copy.raw = copyJson(source.raw);
+        return copy;
+    }
+
     String exportBackup() {
         try {
             return NativeDataContract.exportBackup(
