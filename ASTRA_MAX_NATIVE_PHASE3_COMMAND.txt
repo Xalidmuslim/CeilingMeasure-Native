@@ -1,0 +1,683 @@
+ASTRA MAX — НАТИВНАЯ МИГРАЦИЯ «ЗАМЕР ПОТОЛКОВ»
+PHASE 3: ORDERS + ROOMS PARITY ONLY
+
+НЕ НАЧИНАТЬ PHASE 4
+НЕ МЕНЯТЬ DRAWING / GEOMETRY / SOLVER / GESTURE LOGIC
+НЕ ОТКАТЫВАТЬ УТВЕРЖДЁННЫЕ 18 GEOMETRY/SOLVER/DRAWING COMMITS
+
+BASELINE
+Current approved native baseline:
+73b52971ab1790aa4d43dca9e26c88ab2e575fac
+
+This baseline includes:
+- completed Phase 1 data/persistence/backup compatibility;
+- completed Phase 2 native shell/safe-area/navigation;
+- all 18 approved geometry/solver/drawing commits already accepted as part of the current native application.
+
+Final Phase 2 CI:
+- Verify native Android run 35929731017 — SUCCESS
+- Android APK run 35929731020 — SUCCESS
+
+Phase 2 evidence:
+- Android 15 / API 35
+- 360 dp — 8/8 PASS
+- 393 dp — 8/8 PASS
+- 412 dp — 8/8 PASS
+- 21 native screenshots
+- fixed bottom nav geometry/source-backed reserve verified
+- all Phase-1 PASS preserved
+
+GOLDEN MASTER
+webapp/index.html
+Required SHA-256:
+354fbede167490d2481d3253507ff2829dcefec495298075487880ea2258a388
+
+BEFORE CHANGING CODE
+1. Update repository to latest main.
+2. Confirm HEAD is 73b52971ab1790aa4d43dca9e26c88ab2e575fac or newer.
+3. Run scripts/verify_webapp.py webapp/index.html.
+4. Independently compute SHA-256 and confirm exact match.
+5. Read fully:
+   - NATIVE_PARITY_SPEC.md
+   - NATIVE_MIGRATION_MATRIX.md
+   - docs/NATIVE_SCREEN_STATE_INVENTORY.md
+   - docs/NATIVE_FUNCTION_MAP.md
+   - docs/NATIVE_DATA_SCHEMA.md
+   - docs/NATIVE_VISUAL_TOKENS.md
+   - docs/NATIVE_COMPONENT_PLAN.md
+   - docs/NATIVE_MIGRATION_RISKS.md
+   - webapp/index.html order/room source, especially render/new/delete/rename/duplicate/picker/room-ready/collapse paths
+   - current NativeHomeActivity.java
+   - current NativeWorkspaceActivity.java
+   - current NativeProjectStore.java
+6. If golden verifier or SHA fails — STOP.
+7. Do not change webapp/index.html.
+
+OBJECTIVE
+Make the native Orders + Rooms layer a precise behavioral and visual copy of v184.
+
+Phase 3 includes:
+- creation/deletion/editing of orders;
+- customer name/phone/address;
+- live order title behavior;
+- order auto-save;
+- room creation/type picker;
+- room selection;
+- room long-press action sheet;
+- custom room-name keyboard;
+- room rename;
+- room duplicate;
+- room delete;
+- room ready indicator;
+- compact horizontal room-card layout;
+- order/rooms collapse behavior only;
+- correct interaction with already-approved Phase 1 persistence and Phase 2 shell.
+
+Phase 3 does NOT include:
+- drawing implementation;
+- wall/point/diagonal interactions;
+- zoom/pan;
+- snapping/magnifier;
+- geometry formulas/solver;
+- materials/calculations;
+- saved measurements screen;
+- backup/PDF;
+- estimate UI;
+- label editing;
+- Phase 4 drawing engine work.
+
+SOURCE OF TRUTH
+Executable v184 behavior wins over old docs.
+
+Relevant known web functions/anchors include:
+- curOrder / curRoom
+- newOrder
+- ensureOrder
+- renderOrders
+- render
+- requestDeleteRoom
+- openRoomActions / closeRoomActions
+- buildRoomAlphaKeyboard
+- saveRoomRename
+- nextRoomTypeName
+- openRoomPicker / closeRoomPicker
+- addRoomByType
+- renderRooms
+- duplicateRoom
+- roomReady
+- Home New Order handler
+
+Do not reproduce stale behavior from older versions.
+
+A. ORDER CREATION
+
+Exact v184 semantics:
+- new order object:
+  - id = new unique id
+  - name = ""
+  - phone = ""
+  - address = ""
+  - status = "Замер"
+  - pricing = {canvas:0, baguette:0, insert:0}
+  - pricingMigratedV59 = true
+  - rooms = [makeRoom("Комната 1")]
+- insert new order at BEGINNING of orders list, not end;
+- select new order runtime-only;
+- select its first room runtime-only;
+- reset relevant transient room/drawing selection/history state exactly as needed without touching drawing implementation;
+- persist;
+- render.
+
+Home "Новый заказ":
+- enters Workspace first;
+- then creates the new order.
+
+Top Workspace "Новый заказ":
+- same canonical creation semantics.
+
+Do not add order-number field.
+Do not persist active order id.
+Do not introduce new status values.
+
+Tests:
+- starting with 2 existing orders, New Order inserts at index 0;
+- blank name renders as "Без имени" in Workspace title;
+- after process/store relaunch first order becomes active per Phase 1;
+- new order has exactly one "Комната 1";
+- new order defaults match canonical Phase-1 schema;
+- Home new-order and Workspace new-order create semantically identical records.
+
+B. ORDER FIELDS
+
+Fields:
+- Заказчик → order.name
+- Телефон → order.phone
+- Адрес → order.address
+
+Behavior:
+- changes save automatically;
+- order.name immediately updates current order heading;
+- blank/whitespace-only displayed heading = "Без имени";
+- phone/address are persisted exactly;
+- no order number;
+- no hidden generated order number.
+
+Do not normalize user text beyond source behavior.
+Do not reformat telephone values automatically.
+
+Tests:
+- type customer/phone/address → persisted without separate Save;
+- process/store reload preserves values;
+- deleting all name chars immediately gives heading "Без имени";
+- O-006 asserts there is no order-number UI or persisted field.
+
+C. ORDER DELETE
+
+v184 confirmation:
+Title:
+"Удалить заказ?"
+
+Text:
+"Карточка заказчика и все комнаты будут удалены."
+
+Semantics:
+- remove complete order and all its rooms;
+- after deletion select db.orders[0] and its first room;
+- if no orders remain, existing ensureOrder/newOrder behavior creates a fresh canonical order;
+- persist;
+- never leave dangling active order/room ids.
+
+Use native confirm UI consistent with Phase-2 visual language, but behavior/text must match v184.
+
+Tests:
+- delete inactive/active where applicable;
+- delete current among multiple → first remaining selected;
+- delete final order → canonical fresh order exists;
+- confirmation cancel changes nothing;
+- confirmation positive removes complete order data.
+
+D. ROOMS CARD / HORIZONTAL LIST
+
+Exact user-visible behavior:
+- compact horizontal room-card row;
+- each room appears as one compact card/button;
+- active room visibly selected;
+- "+" add-room control at end;
+- room label uses room.name;
+- completed indicator "✓" only when roomReady(room) is true.
+
+IMPORTANT:
+roomReady v184:
+- room has at least one edge
+AND
+- existing roomValidation(room).ok is true.
+
+Do NOT change NativeMeasurementValidator, solver or drawing logic to make this indicator pass.
+Consume current approved validation result only.
+
+Room card must support vertical page scrolling when a drag begins on it.
+Do not make room cards trap normal vertical scrolling.
+
+Visual parity evidence at 360/393/412 dp is required.
+
+E. ROOM TAP
+
+Short tap:
+- selects the room;
+- mode returns to normal drawing mode equivalent;
+- resets relevant transient active vertex/start-placement/draw/diag drag/undo/redo runtime state as v184;
+- does NOT mutate room geometry;
+- does NOT rewrite room data;
+- renders selected room.
+
+The selected room id remains runtime-only, never persisted.
+
+Test:
+- tap each room;
+- verify active styling and room content;
+- verify room data untouched;
+- relaunch still selects first room, preserving Phase-1 PASS R-009.
+
+F. ROOM LONG PRESS
+
+Golden constants:
+- LONG_PRESS_MS = 330 ms;
+- pointer movement >22 px cancels long press.
+
+Behavior:
+- long press selects the room WITHOUT rebuilding the room-button row first;
+- renders room;
+- opens room action sheet after render;
+- a vertical swipe from room card must not accidentally trigger action sheet;
+- short tap must not trigger action sheet;
+- long press must not also fire short tap selection twice.
+
+Implement source-equivalent Android gesture handling.
+Do not use a platform default long-click delay if it materially differs from 330 ms.
+
+Required tests:
+- 329 ms or safely below threshold → no menu;
+- >=330 ms stationary → menu;
+- movement >22 dp before threshold → cancel;
+- vertical scroll beginning on room card works and does not open menu;
+- long press on non-active room selects it then opens menu.
+
+G. ROOM ACTION SHEET
+
+Exact visible content:
+Title: "Комната"
+Subtitle:
+"Удерживай комнату примерно полсекунды → переименовать или удалить"
+
+Readonly/custom-entry room name field.
+Buttons:
+- Закрыть
+- Переименовать
+- Дублировать комнату
+- Удалить комнату
+
+Do not use system keyboard for rename.
+Do not replace this with a generic Android contextual menu.
+
+Opening:
+- field prefilled with current room name.
+
+Closing:
+- clears current action-room runtime reference;
+- no data changes unless an action was confirmed.
+
+Android Back should close the action sheet before leaving Workspace.
+
+H. CUSTOM ROOM ALPHA KEYBOARD
+
+Exact rows:
+1. 1 2 3 4 5 6 7 8 9 0
+2. й ц у к е н г ш щ з х
+3. ф ы в а п р о л д ж э
+4. я ч с м и т ь б ю ё
+
+Controls:
+- Пробел
+- -
+- ⌫
+- Очистить
+
+Rules:
+- max length 40;
+- Russian letter auto-capitalizes when input is empty/whitespace OR after space/hyphen;
+- Space only appends when value is non-empty, <40 chars, and does not already end with space;
+- dash appends if length <40;
+- backspace removes final character;
+- clear empties field;
+- system keyboard must not appear.
+
+Required deterministic unit/instrumentation tests for every control and capitalization rule.
+
+I. ROOM RENAME
+
+On Rename:
+- trim field value;
+- empty after trim → do not save; toast exactly:
+  "Введите название комнаты"
+- valid:
+  - room.name = trimmed value
+  - persist
+  - close action sheet
+  - update room row and active room UI
+  - toast:
+    "Комната переименована"
+
+Do not rename drawing data or ids.
+Do not change room id.
+
+Tests:
+- empty/space-only rejected;
+- 40-char limit;
+- rename active room;
+- rename non-active room selected by long press;
+- relaunch persists name.
+
+J. ROOM TYPE PICKER / ADD ROOM
+
+Picker title:
+"Добавить помещение"
+
+Types exactly:
+- Комната
+- Коридор
+- Ванная
+- Другое
+
+Tip:
+"Название потом можно изменить долгим нажатием по комнате."
+
+Close control:
+×
+Backdrop tap closes if source behavior has equivalent; Android Back closes first.
+
+Name-generation semantics MUST copy v184 exactly.
+
+For base "Комната":
+- inspect names matching /^Комната\s+(\d+)$/i
+- new name = "Комната " + (max existing numeric suffix + 1)
+- source does not fill numeric gaps.
+
+For other bases:
+- if neither exact base nor numbered base exists → use base, e.g. "Коридор"
+- otherwise use "{base} N"
+- N = max(1, maximum numbered suffix) + 1
+Examples:
+  first Коридор → "Коридор"
+  next → "Коридор 2"
+  then "Коридор 3"
+Same for Ванная and Другое.
+
+Adding:
+- create canonical makeRoom equivalent using Phase-1 defaults;
+- append to END of current order.rooms;
+- select the new room runtime-only;
+- reset transient drawing/history state required by source;
+- persist;
+- close picker;
+- refresh room row and room content.
+
+Tests:
+- each type;
+- repeated each type;
+- numbering with gaps;
+- custom existing names that should not match numbering regex;
+- defaults/pricing inherited exactly from canonical Phase-1 factory.
+
+K. DUPLICATE ROOM
+
+v184 semantics are strict:
+- deep clone source room, including geometry, diagonals, labels, pricing, extras, notes, custom items, view, flags and other compatible fields;
+- assign NEW room id;
+- delete copy.savedAt;
+- set copy.geometryLocked = false;
+- name root = "{source.name} копия";
+- if root exists:
+  "{source.name} копия 2", then 3, etc.;
+- insert copy immediately AFTER source room;
+- select copy;
+- mode returns to normal draw equivalent;
+- reset transient active vertex/undo/redo as source;
+- persist;
+- close room action sheet;
+- toast exactly:
+  "Комната продублирована"
+
+Do NOT regenerate/normalize geometry.
+Do NOT call solver.
+Do NOT alter source room.
+Do NOT preserve same room id.
+Do NOT copy savedAt.
+Do not change existing geometry/solver/drawing implementation.
+
+Deep-comparison tests:
+- source vs copy are semantically equal except allowed fields:
+  id, name, savedAt removal, geometryLocked=false;
+- changing copy later must not mutate source;
+- copy inserted at source index+1;
+- duplicate naming collisions;
+- geometry/diag/labelPose/current custom material values preserved exactly.
+
+L. DELETE ROOM
+
+If order has only one room:
+- refuse deletion;
+- toast exactly:
+  "В заказе должна остаться хотя бы одна комната"
+- do not show destructive result;
+- do not mutate data.
+
+Otherwise confirmation:
+Title:
+"Удалить комнату «{room.name}»?"
+
+Text:
+"Будут удалены её чертёж, размеры и диагонали."
+
+Positive button:
+"Удалить"
+
+On confirm:
+- remove room completely;
+- if removed room was active, select first remaining room;
+- clear room-action runtime id;
+- reset relevant transient drawing/history state;
+- persist;
+- refresh rooms and room content.
+
+On cancel:
+- no data mutation.
+
+Tests:
+- delete inactive room;
+- delete active room;
+- last-room protection;
+- cancel;
+- all geometry/pricing/labels for deleted room disappear with room;
+- no other room modified.
+
+M. ROOM READY INDICATOR
+
+Implement exact UI semantics only.
+Use existing approved validation.
+
+PASS condition:
+edges.length > 0 && roomValidation.ok equivalent.
+
+Do not modify validation logic.
+
+Tests:
+- empty room → no check;
+- room with edge but invalid validation → no check;
+- valid completed room → ✓;
+- selected/unselected visuals;
+- indicator persists after room switching/relaunch when underlying room remains valid.
+
+If constructing a valid geometry fixture would require touching drawing code, use deterministic existing geometry fixture/test data, not production drawing changes.
+
+N. ORDER/ROOM COLLAPSE ONLY
+
+Implement parity for the two Phase-3 cards:
+- order block;
+- rooms block.
+
+Use existing persisted db.uiCollapse.order / db.uiCollapse.rooms semantics from Phase 1.
+
+Do NOT claim broad UI-005 PASS for all application collapsibles.
+
+If evidence is complete, add narrow matrix rows such as:
+- UI-014 order-card collapse parity
+- UI-015 rooms-card collapse parity
+
+Requirements:
+- chevron/expanded state;
+- content visibility;
+- persisted state;
+- live transition uses already-approved shell motion tokens;
+- no impact on drawing/estimate collapse blocks.
+
+O. VISUAL PARITY
+
+Do not redesign order/rooms.
+Match effective v184 at 360 / 393 / 412 dp.
+
+Required screenshot states per width:
+1. Workspace fresh order: blank customer fields + one room.
+2. Order with name/phone/address.
+3. 4+ rooms horizontally.
+4. active non-first room.
+5. room-ready checkmark fixture.
+6. room picker open.
+7. room action sheet open.
+8. room rename keyboard visible.
+9. collapsed order.
+10. collapsed rooms.
+11. delete-order confirm.
+12. delete-room confirm if practical.
+
+Compare against golden browser states at same logical viewport.
+
+Do not overclaim whole-app visual parity.
+Only Phase-3 surfaces can become PASS.
+
+P. ANDROID BACK / OVERLAY ORDER
+
+At minimum:
+- Room action sheet → closes first.
+- Room picker → closes first.
+- delete confirmation → closes/cancels first.
+- rename keyboard is part of action sheet and does not create an extra Activity.
+- after overlays close, existing Phase-2 Workspace→Home Back behavior remains unchanged.
+
+Q. PRESERVE APPROVED BASE
+
+ABSOLUTELY DO NOT MODIFY functional behavior in:
+- CeilingDrawingView
+- NativeGeometry
+- NativeMeasurementSolver
+- NativeMeasurementValidator
+- wall/point/diagonal modes
+- zoom/pan
+- snapping
+- magnifier
+- label drag/rotation/size
+- Phase-1 migrations/backup semantics
+- Phase-2 shell geometry/insets/history-nav reserve
+- materials/estimate formulas
+- PDF
+- saved-measurement screen
+
+The 18 geometry/solver/drawing commits are approved current baseline.
+Do not revert them.
+Do not classify them as conflicts.
+Do not include them in Phase-3 changed-files summary.
+
+If Phase-3 room selection needs to reset transient drawing state, use existing public/reset hooks or minimal workspace-level state assignment. Do not alter the underlying drawing algorithms.
+
+R. MATRIX
+
+Expected Phase-3 candidate rows:
+- O-001
+- O-002
+- O-003
+- O-004
+- O-005
+- O-006
+- O-007
+- R-001
+- R-002
+- R-003
+- R-004
+- R-005
+- R-006
+- R-007
+- R-008
+- R-010
+- R-011
+
+O-008 and R-009 are already Phase-1 PASS and must remain PASS.
+
+Do NOT move O-009 to PASS unless explicit "Завершить замер"/savedAt behavior is actually implemented and fully tested; it belongs with saved-measurement completion flow and may remain AUDITED for later phase.
+
+For broad UI-005, do not mark global PASS. Add narrow Phase-3 rows for order/rooms collapse if needed.
+
+Each PASS:
+- exact Native reference;
+- exact test method;
+- CI run evidence;
+- screenshot evidence where user-visible.
+
+S. TESTS
+
+Add both JVM tests and API 35 instrumentation where appropriate.
+
+Minimum behavioral test coverage:
+1. new order canonical fields/index 0;
+2. Home/Workspace new-order equivalence;
+3. autosave name/phone/address;
+4. no order number;
+5. delete order confirm/cancel/last-order regeneration;
+6. room picker four types;
+7. exact numbering rules;
+8. room tap selection;
+9. long press >=330 ms;
+10. below threshold no menu;
+11. >22 px movement cancels;
+12. vertical scroll from room card remains possible;
+13. alpha keyboard keys + controls + capitalization + max 40;
+14. rename empty reject;
+15. rename success/persistence;
+16. duplicate deep clone exact exceptions;
+17. duplicate naming;
+18. delete room active/inactive/cancel;
+19. last-room deletion refusal;
+20. roomReady indicator;
+21. order collapse persistence;
+22. rooms collapse persistence;
+23. Android Back overlay priority;
+24. widths 360/393/412 visual/layout checks.
+
+All existing Phase 1 and Phase 2 tests must continue passing unchanged unless a test itself was stale relative to v184. If you believe a prior test is stale, STOP and report before weakening it.
+
+T. CI GATE
+
+Final HEAD must pass:
+- golden verifier exact SHA;
+- native-only / no-WebView gate;
+- all Phase-1 tests;
+- all Phase-2 shell/API35 tests;
+- all new Phase-3 JVM tests;
+- all new Phase-3 instrumentation tests;
+- lintDebug;
+- testDebugUnitTest;
+- assembleDebug;
+- APK verification;
+- ordinary Android smoke;
+- API35 360/393/412 Phase-2 evidence unchanged;
+- Phase-3 screenshots/evidence.
+
+Golden master must remain byte-identical.
+
+U. PHASE 3 COMPLETION CRITERIA
+
+Complete only if:
+1. all intended O/R Phase-3 rows implemented;
+2. exact room long-press semantics verified;
+3. custom rename keyboard parity verified;
+4. duplicate-room deep clone parity verified;
+5. room-type numbering parity verified;
+6. order and room delete safeguards verified;
+7. roomReady consumes existing validator without modifying it;
+8. 360/393/412 visual evidence complete;
+9. all Phase-1 PASS remain PASS;
+10. all Phase-2 PASS remain PASS;
+11. no drawing/geometry/solver behavioral changes;
+12. all CI green.
+
+FINAL REPORT
+
+After completion STOP and report:
+- final commit SHA;
+- workflow run IDs/links;
+- changed files;
+- exact new JVM/instrumentation test counts;
+- exact Phase-3 matrix rows moved to PASS;
+- Phase-3 PASS / FAIL / UNVERIFIED counts;
+- proof all previous Phase-1 and Phase-2 PASS remained PASS;
+- proof golden SHA unchanged;
+- screenshot artifact count + widths/states;
+- confirmation geometry/solver/drawing implementation unchanged;
+- remaining Phase-4+ risks;
+- exact line:
+  PHASE 3 COMPLETE
+- exact line:
+  PHASE 4 NOT STARTED
+
+If any required order/room behavior or evidence remains incomplete:
+PHASE 3 INCOMPLETE
+
+DO NOT START PHASE 4.
