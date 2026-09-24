@@ -170,14 +170,15 @@ public final class NativePhase3RoomLogicTest {
         assertFalse(NativeOrderRoomLogic.roomReady(empty));
 
         NativeProjectStore.RoomData square=room("ready");
-        square.points.add(new NativeProjectStore.PointData("a",0,0));
-        square.points.add(new NativeProjectStore.PointData("b",500,0));
-        square.points.add(new NativeProjectStore.PointData("c",500,500));
-        square.points.add(new NativeProjectStore.PointData("d",0,500));
-        square.edges.add(edge("ab","a","b",500));
-        square.edges.add(edge("bc","b","c",500));
-        square.edges.add(edge("cd","c","d",500));
-        square.edges.add(edge("da","d","a",500));
+        NativeProjectStore.PointData a=new NativeProjectStore.PointData(100f,100f);
+        NativeProjectStore.PointData b=new NativeProjectStore.PointData(300f,100f);
+        NativeProjectStore.PointData c=new NativeProjectStore.PointData(300f,300f);
+        NativeProjectStore.PointData d=new NativeProjectStore.PointData(100f,300f);
+        square.points.add(a); square.points.add(b); square.points.add(c); square.points.add(d);
+        square.edges.add(edge("ab",a.id,b.id,500));
+        square.edges.add(edge("bc",b.id,c.id,500));
+        square.edges.add(edge("cd",c.id,d.id,500));
+        square.edges.add(edge("da",d.id,a.id,500));
         assertTrue(NativeOrderRoomLogic.roomReady(square));
         square.edges.get(0).value=0;
         assertFalse(NativeOrderRoomLogic.roomReady(square));
