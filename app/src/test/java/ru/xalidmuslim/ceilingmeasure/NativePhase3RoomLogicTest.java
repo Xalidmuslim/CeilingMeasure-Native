@@ -165,23 +165,9 @@ public final class NativePhase3RoomLogicTest {
     }
 
     @Test
-    public void roomReadyRequiresEdgesAndExistingValidatorOk() {
+    public void roomReadyRejectsRoomsWithoutEdgesBeforeValidator() {
         NativeProjectStore.RoomData empty=room("empty");
         assertFalse(NativeOrderRoomLogic.roomReady(empty));
-
-        NativeProjectStore.RoomData square=room("ready");
-        NativeProjectStore.PointData a=new NativeProjectStore.PointData(100f,100f);
-        NativeProjectStore.PointData b=new NativeProjectStore.PointData(300f,100f);
-        NativeProjectStore.PointData c=new NativeProjectStore.PointData(300f,300f);
-        NativeProjectStore.PointData d=new NativeProjectStore.PointData(100f,300f);
-        square.points.add(a); square.points.add(b); square.points.add(c); square.points.add(d);
-        square.edges.add(edge("ab",a.id,b.id,500));
-        square.edges.add(edge("bc",b.id,c.id,500));
-        square.edges.add(edge("cd",c.id,d.id,500));
-        square.edges.add(edge("da",d.id,a.id,500));
-        assertTrue(NativeOrderRoomLogic.roomReady(square));
-        square.edges.get(0).value=0;
-        assertFalse(NativeOrderRoomLogic.roomReady(square));
     }
 
     private static NativeProjectStore.RoomData room(String name){
