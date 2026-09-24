@@ -31,6 +31,7 @@ import android.widget.Toast;
 import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import android.app.AlertDialog;
 import androidx.core.graphics.Insets;
@@ -80,6 +81,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private EditText nameInput;
     private EditText phoneInput;
     private EditText addressInput;
+    private TextView orderTitle;
+    private TextView roomCountLabel;
+    private LinearLayout orderBody;
+    private LinearLayout roomsBody;
+    private Button orderCollapseButton;
+    private Button roomsCollapseButton;
     private TextView drawingRoomTitle;
     private TextView drawingStatus;
     private TextView zoomStatus;
@@ -100,6 +107,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private View historyNavView;
     private View workspacePage;
     private NativeUiSettingsDialog settingsDialog;
+    private NativeRoomPickerDialog roomPickerDialog;
+    private NativeRoomActionDialog roomActionDialog;
+    private NativePhase3ConfirmDialog phase3ConfirmDialog;
+    private String roomActionId;
+    private String phase3LastToast;
     private boolean wallSequenceMode;
     private String wallEditId;
     private NativeWallMeasureDialog wallDialog;
@@ -127,12 +139,24 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                if (phase3ConfirmDialog != null && phase3ConfirmDialog.isShowing()) {
+                    phase3ConfirmDialog.dismiss();
+                    return;
+                }
+                if (roomActionDialog != null && roomActionDialog.isShowing()) {
+                    roomActionDialog.dismiss();
+                    return;
+                }
+                if (roomPickerDialog != null && roomPickerDialog.isShowing()) {
+                    roomPickerDialog.dismiss();
+                    return;
+                }
                 if (settingsDialog != null && settingsDialog.isShowing()) {
                     settingsDialog.dismiss();
                     return;
                 }
-                // v184 shell-level Back leaves Workspace for Home without changing
-                // active-order/room persistence semantics.
+                // v184: after Phase-3 overlays are exhausted, Workspace Back
+                // returns to Home without persisting a runtime active id.
                 if (nameInput != null && project != null) syncProjectFields();
                 finish();
             }
@@ -187,33 +211,164 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         orderCard.setTag("native_order_card");
         root.addView(orderCard, marginParams(0,4));
 
-        nameInput = field(orderCard, "Имя / объект", project.name, InputType.TYPE_CLASS_TEXT);
-        phoneInput = field(orderCard, "Телефон", project.phone, InputType.TYPE_CLASS_PHONE);
-        addressInput = field(orderCard, "Адрес", project.address, InputType.TYPE_CLASS_TEXT);
+        LinearLayout orderHead = new LinearLayout(this);
+        orderHead.setTag("native_order_head");
+        orderHead.setOrientation(LinearLayout.HORIZONTAL);
+        orderHead.setGravity(Gravity.CENTER_VERTICAL);
 
-        View.OnFocusChangeListener saver=(v,has)->{if(!has)syncProjectFields();};
-        nameInput.setOnFocusChangeListener(saver);
-        phoneInput.setOnFocusChangeListener(saver);
-        addressInput.setOnFocusChangeListener(saver);
+        LinearLayout orderTitleBox = new LinearLayout(this);
+        orderTitleBox.setOrientation(LinearLayout.VERTICAL);
+        TextView orderEyebrow = text("Текущий заказ", 11, MUTED, Typeface.BOLD);
+        orderEyebrow.setTag("native_order_eyebrow");
+        orderTitle = text(
+                NativeOrderRoomLogic.orderDisplayName(project.name),
+                16,
+                TEXT,
+                Typeface.BOLD);
+        orderTitle.setTag("native_order_title");
+        orderTitleBox.addView(orderEyebrow);
+        LinearLayout.LayoutParams orderTitleLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        orderTitleLp.topMargin = dp(1);
+        orderTitleBox.addView(orderTitle, orderTitleLp);
+        orderHead.addView(orderTitleBox, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        Button deleteOrderButton = button("Удалить заказ", false);
+        deleteOrderButton.setTag("native_order_delete");
+        deleteOrderButton.setTextColor(DANGER);
+        deleteOrderButton.setBackground(rounded(
+                Color.rgb(255,248,248),
+                Color.rgb(239,202,202),
+                9,
+                1));
+        deleteOrderButton.setOnClickListener(v -> requestDeleteOrder());
+        orderHead.addView(deleteOrderButton,
+                new LinearLayout.LayoutParams(dp(106), dp(32)));
+
+        orderCollapseButton = collapseButton("order");
+        LinearLayout.LayoutParams orderCollapseLp =
+                new LinearLayout.LayoutParams(dp(31), dp(31));
+        orderCollapseLp.leftMargin = dp(5);
+        orderHead.addView(orderCollapseButton, orderCollapseLp);
+        orderCard.addView(orderHead);
+
+        orderBody = new LinearLayout(this);
+        orderBody.setTag("native_order_body");
+        orderBody.setOrientation(LinearLayout.VERTICAL);
+        orderCard.addView(orderBody, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout orderFirstRow = new LinearLayout(this);
+        orderFirstRow.setOrientation(LinearLayout.HORIZONTAL);
+        orderBody.addView(orderFirstRow, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout nameBox = new LinearLayout(this);
+        nameBox.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams nameBoxLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        nameBoxLp.rightMargin = dp(3);
+        orderFirstRow.addView(nameBox, nameBoxLp);
+        nameInput = field(nameBox, "Заказчик", project.name, InputType.TYPE_CLASS_TEXT);
+        nameInput.setTag("native_order_name");
+        nameInput.setHint("Имя");
+
+        LinearLayout phoneBox = new LinearLayout(this);
+        phoneBox.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams phoneBoxLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        phoneBoxLp.leftMargin = dp(3);
+        orderFirstRow.addView(phoneBox, phoneBoxLp);
+        phoneInput = field(phoneBox, "Телефон", project.phone, InputType.TYPE_CLASS_PHONE);
+        phoneInput.setTag("native_order_phone");
+        phoneInput.setHint("Телефон");
+
+        addressInput = field(orderBody, "Адрес", project.address, InputType.TYPE_CLASS_TEXT);
+        addressInput.setTag("native_order_address");
+        addressInput.setHint("Адрес");
+        bindOrderAutosave();
+
+        applyCollapseState(
+                "order",
+                orderBody,
+                orderCollapseButton,
+                store.isUiCollapsed("order"),
+                false);
 
         LinearLayout roomsCard = card();
+        roomsCard.setTag("native_rooms_card");
         root.addView(roomsCard, marginParams(0,4));
-        TextView roomsTitle = text("Комнаты",17,TEXT,Typeface.BOLD);
-        roomsCard.addView(roomsTitle);
+
+        LinearLayout roomsHead = new LinearLayout(this);
+        roomsHead.setTag("native_rooms_head");
+        roomsHead.setOrientation(LinearLayout.HORIZONTAL);
+        roomsHead.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout roomsTitleBox = new LinearLayout(this);
+        roomsTitleBox.setOrientation(LinearLayout.VERTICAL);
+        TextView roomsEyebrow = text("Помещения", 11, MUTED, Typeface.BOLD);
+        TextView roomsTitle = text("Комнаты", 16, TEXT, Typeface.BOLD);
+        roomsTitleBox.addView(roomsEyebrow);
+        roomsTitleBox.addView(roomsTitle);
+        roomsHead.addView(roomsTitleBox, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        roomCountLabel = text("", 10.5f, MUTED, Typeface.NORMAL);
+        roomCountLabel.setTag("native_room_count");
+        roomsHead.addView(roomCountLabel);
+        roomsCollapseButton = collapseButton("rooms");
+        LinearLayout.LayoutParams roomsCollapseLp =
+                new LinearLayout.LayoutParams(dp(31), dp(31));
+        roomsCollapseLp.leftMargin = dp(5);
+        roomsHead.addView(roomsCollapseButton, roomsCollapseLp);
+        roomsCard.addView(roomsHead);
+
+        roomsBody = new LinearLayout(this);
+        roomsBody.setTag("native_rooms_body");
+        roomsBody.setOrientation(LinearLayout.VERTICAL);
+        roomsCard.addView(roomsBody, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        TextView roomsHint = text(
+                "Тап — открыть · удержание — меню",
+                10.5f,
+                MUTED,
+                Typeface.NORMAL);
+        roomsHint.setTag("native_rooms_hint");
+        LinearLayout.LayoutParams hintLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        hintLp.topMargin = dp(4);
+        roomsBody.addView(roomsHint, hintLp);
 
         HorizontalScrollView roomsScroll = new HorizontalScrollView(this);
+        roomsScroll.setTag("native_rooms_scroll");
         roomsScroll.setHorizontalScrollBarEnabled(false);
+        roomsScroll.setFillViewport(false);
         roomRow = new LinearLayout(this);
+        roomRow.setTag("native_rooms_row");
         roomRow.setOrientation(LinearLayout.HORIZONTAL);
+        roomRow.setGravity(Gravity.CENTER_VERTICAL);
         roomsScroll.addView(roomRow, new HorizontalScrollView.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout.LayoutParams rs = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        rs.topMargin=dp(8);
-        roomsCard.addView(roomsScroll,rs);
+        rs.topMargin=dp(4);
+        roomsBody.addView(roomsScroll,rs);
         renderRooms();
+        applyCollapseState(
+                "rooms",
+                roomsBody,
+                roomsCollapseButton,
+                store.isUiCollapsed("rooms"),
+                false);
 
         drawingCard = card();
         drawingCard.setTag("native_drawing_card");
@@ -558,16 +713,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 "Заказ",
                 true,
                 "native_top_new_order");
-        fresh.setOnClickListener(v->new AlertDialog.Builder(this)
-                .setTitle("Новый заказ?")
-                .setMessage("Текущий замер сохранён автоматически.")
-                .setNegativeButton("Отмена",null)
-                .setPositiveButton("Создать",(d,w)->{
-                    syncProjectFields();
-                    store.saveCurrent(project);
-                    project=store.newProject();
-                    showEditor(false);
-                }).show());
+        fresh.setOnClickListener(v -> createNewOrderFromWorkspace());
         LinearLayout.LayoutParams freshLp=new LinearLayout.LayoutParams(dp(62),dp(46));
         freshLp.leftMargin=dp(3);
         actions.addView(fresh,freshLp);
@@ -668,153 +814,412 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void renderRooms() {
+        if (roomRow == null) return;
         roomRow.removeAllViews();
-        for(int i=0;i<project.rooms.size();i++){
-            final int index=i;
-            NativeProjectStore.RoomData r=project.rooms.get(i);
-            Button b=button(roomButtonLabel(r.name,index),false);
-            b.setTag("native_room_"+index);
-            b.setTextSize(11);
-            b.setSingleLine(true);
-            b.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            b.setMinWidth(0);
-            b.setPadding(dp(5),0,dp(5),0);
-            if(i==project.activeRoom) styleSelected(b);
-            b.setOnClickListener(v->{
-                project.activeRoom=index;
-                store.saveCurrent(project);
-                renderRooms();
-                undoRooms.clear();
-                redoRooms.clear();
-                if(drawingView!=null)drawingView.setRoom(activeRoom());
-                if(drawingRoomTitle!=null)drawingRoomTitle.setText(activeRoom().name);
-                updateStats();
-                updateDrawingChrome();
-            });
-            b.setOnLongClickListener(v->{
-                showRoomActions(index);
-                return true;
-            });
-            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(dp(58),dp(48));
-            p.rightMargin=dp(5);
-            roomRow.addView(b,p);
+        if (roomCountLabel != null) {
+            roomCountLabel.setText(project.rooms.size() + " помещ.");
         }
-        Button add=button("+",false);
+
+        for (int i = 0; i < project.rooms.size(); i++) {
+            final int index = i;
+            NativeProjectStore.RoomData room = project.rooms.get(i);
+            String fullName = room.name == null ? "" : room.name;
+            boolean ready = NativeOrderRoomLogic.roomReady(room);
+
+            Button button = button(ready ? fullName + "  ✓" : fullName, false);
+            button.setTag("native_room_" + index);
+            button.setContentDescription(fullName);
+            button.setTextSize(9.5f);
+            button.setMaxLines(2);
+            button.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            button.setMinWidth(0);
+            button.setPadding(dp(4), dp(2), dp(4), dp(2));
+            styleRoomButton(button, index == project.activeRoom);
+            bindRoomPress(button, index);
+
+            LinearLayout.LayoutParams p =
+                    new LinearLayout.LayoutParams(dp(58), dp(44));
+            p.rightMargin = dp(5);
+            roomRow.addView(button, p);
+        }
+
+        Button add = button("+", false);
         add.setTag("native_room_add");
-        add.setTextSize(22);
+        add.setTextSize(20);
         add.setContentDescription("Добавить комнату");
-        add.setOnClickListener(v->showRoomPicker());
-        LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(dp(48),dp(48));
-        roomRow.addView(add,addParams);
+        add.setOnClickListener(v -> showRoomPicker());
+        LinearLayout.LayoutParams addParams =
+                new LinearLayout.LayoutParams(dp(48), dp(44));
+        roomRow.addView(add, addParams);
     }
 
-    private String roomButtonLabel(String name,int index){
-        String value=name==null?"":name.trim();
-        if(value.isEmpty())return String.valueOf(index+1);
-        if(value.matches("(?i)комната\\s*\\d+"))return String.valueOf(index+1);
-        return value;
-    }
+    private void bindRoomPress(@NonNull Button button, int index) {
+        final float[] start = new float[2];
+        final boolean[] longDone = new boolean[]{false};
+        final Runnable[] hold = new Runnable[1];
 
-    private void showRoomActions(int index){
-        if(index<0||index>=project.rooms.size())return;
-        NativeProjectStore.RoomData room=project.rooms.get(index);
-        new AlertDialog.Builder(this)
-                .setTitle(room.name)
-                .setItems(new String[]{"Переименовать","Дублировать","Удалить"},(dialog,which)->{
-                    if(which==0){
-                        showRoomRename(index);
-                    }else if(which==1){
-                        duplicateRoom(index);
-                    }else{
-                        deleteRoom(index);
+        hold[0] = () -> {
+            if (index < 0 || index >= project.rooms.size()) return;
+            longDone[0] = true;
+            selectRoom(index, false);
+            roomRow.post(() -> showRoomActions(index));
+        };
+
+        button.setOnTouchListener((v, event) -> {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    start[0] = event.getRawX();
+                    start[1] = event.getRawY();
+                    longDone[0] = false;
+                    v.postDelayed(hold[0], NativeOrderRoomLogic.LONG_PRESS_MS);
+                    return false;
+                case MotionEvent.ACTION_MOVE:
+                    if (NativeOrderRoomLogic.shouldCancelLongPress(
+                            start[0], start[1], event.getRawX(), event.getRawY())) {
+                        v.removeCallbacks(hold[0]);
                     }
-                })
-                .show();
+                    return false;
+                case MotionEvent.ACTION_UP:
+                    v.removeCallbacks(hold[0]);
+                    if (longDone[0]) {
+                        longDone[0] = false;
+                        return true;
+                    }
+                    return false;
+                case MotionEvent.ACTION_CANCEL:
+                    v.removeCallbacks(hold[0]);
+                    longDone[0] = false;
+                    return false;
+                default:
+                    return false;
+            }
+        });
+        button.setOnClickListener(v -> {
+            if (!longDone[0]) selectRoom(index, true);
+            longDone[0] = false;
+        });
     }
 
-    private void showRoomPicker(){
-        new NativeRoomPickerDialog(this,this::addRoomOfType).show();
-    }
+    private void selectRoom(int index, boolean rebuildRow) {
+        if (index < 0 || index >= project.rooms.size()) return;
+        project.activeRoom = index;
 
-    private void addRoomOfType(String type){
-        int same=0;
-        for(NativeProjectStore.RoomData existing:project.rooms){
-            if(existing.name!=null&&existing.name.startsWith(type))same++;
+        // Selection is runtime-only in v184. Reset only workspace transient
+        // state; do not mutate room geometry or persist an active-room id.
+        undoRooms.clear();
+        redoRooms.clear();
+
+        if (rebuildRow) renderRooms();
+        else updateRoomSelectionStyles();
+
+        if (drawingView != null) {
+            drawingView.setRoom(activeRoom());
+            drawingView.setMode(CeilingDrawingView.Mode.WALL);
+            styleMode(wallMode, true);
+            styleMode(pointMode, false);
+            styleMode(diagonalMode, false);
+            styleMode(labelMode, false);
         }
-        String roomName="Другое".equals(type)
-                ?"Помещение "+(project.rooms.size()+1)
-                :type+" "+(same+1);
-        NativeProjectStore.RoomData room=store.createRoom(roomName);
-        project.rooms.add(room);
-        project.activeRoom=project.rooms.size()-1;
-        store.saveCurrent(project);
-        undoRooms.clear();
-        redoRooms.clear();
-        renderRooms();
-        if(drawingView!=null)drawingView.setRoom(activeRoom());
+        if (drawingRoomTitle != null) drawingRoomTitle.setText(activeRoom().name);
         updateStats();
         updateDrawingChrome();
     }
 
-    private void duplicateRoom(int index){
-        if(index<0||index>=project.rooms.size())return;
-        NativeProjectStore.RoomData source=project.rooms.get(index);
-        NativeProjectStore.RoomData copy=
-                NativeProjectStore.roomFromSnapshot(
-                        NativeProjectStore.snapshotRoom(source));
-        copy.id=NativeProjectStore.newId("room");
-        copy.name=source.name+" копия";
-        project.rooms.add(index+1,copy);
-        project.activeRoom=index+1;
-        store.saveCurrent(project);
-        undoRooms.clear();
-        redoRooms.clear();
-        renderRooms();
-        if(drawingView!=null)drawingView.setRoom(activeRoom());
-        updateStats();
-        updateDrawingChrome();
-        Toast.makeText(this,"Комната дублирована",Toast.LENGTH_SHORT).show();
+    private void refreshActiveRoomReadyIndicator() {
+        if (roomRow == null || project == null || project.rooms.isEmpty()) return;
+        int index = Math.max(0, Math.min(project.activeRoom, project.rooms.size() - 1));
+        View child = roomRow.findViewWithTag("native_room_" + index);
+        if (!(child instanceof Button)) return;
+        NativeProjectStore.RoomData room = project.rooms.get(index);
+        String name = room.name == null ? "" : room.name;
+        ((Button) child).setText(
+                NativeOrderRoomLogic.roomReady(room) ? name + "  ✓" : name);
     }
 
-    private void showRoomRename(int index){
-        if(index<0||index>=project.rooms.size())return;
-        NativeProjectStore.RoomData room=project.rooms.get(index);
-        NativeTextPadDialog dialog=new NativeTextPadDialog(
+    private void updateRoomSelectionStyles() {
+        if (roomRow == null) return;
+        for (int i = 0; i < project.rooms.size(); i++) {
+            View child = roomRow.findViewWithTag("native_room_" + i);
+            if (child instanceof Button) {
+                styleRoomButton((Button) child, i == project.activeRoom);
+            }
+        }
+    }
+
+    private void styleRoomButton(@NonNull Button button, boolean active) {
+        if (active) {
+            button.setTextColor(Color.WHITE);
+            button.setBackground(NativeVisualTokens.primaryButton(dp(11), dp(1)));
+        } else {
+            button.setTextColor(TEXT);
+            button.setBackground(rounded(
+                    NativeVisualTokens.SURFACE,
+                    NativeVisualTokens.LINE,
+                    11,
+                    1));
+        }
+    }
+
+    private void showRoomActions(int index) {
+        if (index < 0 || index >= project.rooms.size()) return;
+        NativeProjectStore.RoomData room = project.rooms.get(index);
+        final String targetId = room.id;
+        roomActionId = targetId;
+
+        if (roomActionDialog != null && roomActionDialog.isShowing()) {
+            roomActionDialog.dismiss();
+        }
+        roomActionDialog = new NativeRoomActionDialog(
                 this,
-                "Переименовать комнату",
-                room.name,
-                value->{
-                    room.name=value;
-                    store.saveCurrent(project);
-                    renderRooms();
+                room.name == null ? "" : room.name,
+                uiPrefs,
+                new NativeRoomActionDialog.Listener() {
+                    @Override public boolean onRename(@NonNull String rawValue) {
+                        return renameRoom(targetId, rawValue);
+                    }
+
+                    @Override public void onDuplicate() {
+                        duplicateRoomById(targetId);
+                    }
+
+                    @Override public void onDelete() {
+                        requestDeleteRoomById(targetId);
+                    }
                 });
-        dialog.show();
+        roomActionDialog.setOnDismissListener(dialog -> {
+            if (targetId.equals(roomActionId)) roomActionId = null;
+            roomActionDialog = null;
+        });
+        roomActionDialog.show();
     }
 
-    private void deleteRoom(int index){
-        if(index<0||index>=project.rooms.size())return;
-        if(project.rooms.size()<=1){
-            Toast.makeText(this,"Нельзя удалить единственную комнату",Toast.LENGTH_SHORT).show();
+    private void showRoomPicker() {
+        if (roomPickerDialog != null && roomPickerDialog.isShowing()) return;
+        roomPickerDialog = new NativeRoomPickerDialog(
+                this,
+                uiPrefs,
+                this::addRoomOfType);
+        roomPickerDialog.setOnDismissListener(dialog -> roomPickerDialog = null);
+        roomPickerDialog.show();
+    }
+
+    private void addRoomOfType(String type) {
+        String roomName = NativeOrderRoomLogic.nextRoomTypeName(project.rooms, type);
+        NativeProjectStore.RoomData room = store.createRoom(roomName);
+        project.rooms.add(room);
+        project.activeRoom = project.rooms.size() - 1;
+        store.saveCurrent(project);
+        selectRoom(project.activeRoom, true);
+    }
+
+    private void duplicateRoomById(@NonNull String roomId) {
+        int index = roomIndexById(roomId);
+        if (index < 0) return;
+        NativeProjectStore.RoomData source = project.rooms.get(index);
+        NativeProjectStore.RoomData copy = NativeOrderRoomLogic.duplicateRoom(
+                source,
+                project.rooms,
+                NativeProjectStore.newId("room"));
+        project.rooms.add(index + 1, copy);
+        project.activeRoom = index + 1;
+        store.saveCurrent(project);
+        selectRoom(project.activeRoom, true);
+        phase3Toast("Комната продублирована");
+    }
+
+    private boolean renameRoom(@NonNull String roomId, @NonNull String rawValue) {
+        int index = roomIndexById(roomId);
+        if (index < 0) return false;
+        String name = rawValue.trim();
+        if (name.isEmpty()) {
+            phase3Toast("Введите название комнаты");
+            return false;
+        }
+        NativeProjectStore.RoomData room = project.rooms.get(index);
+        room.name = name;
+        store.saveCurrent(project);
+        renderRooms();
+        if (project.activeRoom == index && drawingRoomTitle != null) {
+            drawingRoomTitle.setText(name);
+        }
+        phase3Toast("Комната переименована");
+        return true;
+    }
+
+    private void requestDeleteRoomById(@NonNull String roomId) {
+        int index = roomIndexById(roomId);
+        if (index < 0) return;
+        if (project.rooms.size() <= 1) {
+            phase3Toast("В заказе должна остаться хотя бы одна комната");
             return;
         }
 
-        String roomName=project.rooms.get(index).name;
-        new AlertDialog.Builder(this)
-                .setTitle("Удалить комнату?")
-                .setMessage(roomName+" и её чертёж будут удалены.")
-                .setNegativeButton("Отмена",null)
-                .setPositiveButton("Удалить",(dialog,which)->{
-                    project.rooms.remove(index);
-                    if(project.activeRoom>index)project.activeRoom--;
-                    if(project.activeRoom>=project.rooms.size())project.activeRoom=project.rooms.size()-1;
-                    project.activeRoom=Math.max(0,project.activeRoom);
-                    store.saveCurrent(project);
-                    renderRooms();
-                    if(drawingView!=null)drawingView.setRoom(activeRoom());
-                    updateStats();
-                })
-                .show();
+        String roomName = project.rooms.get(index).name;
+        showPhase3Confirm(
+                "Удалить комнату «" + roomName + "»?",
+                "Будут удалены её чертёж, размеры и диагонали.",
+                "native_delete_room_confirm",
+                () -> confirmDeleteRoom(roomId));
     }
+
+    private void confirmDeleteRoom(@NonNull String roomId) {
+        int index = roomIndexById(roomId);
+        if (index < 0 || project.rooms.size() <= 1) return;
+
+        String activeId = activeRoom().id;
+        project.rooms.remove(index);
+        int activeIndex = roomIndexById(activeId);
+        project.activeRoom = activeIndex >= 0 ? activeIndex : 0;
+        roomActionId = null;
+        undoRooms.clear();
+        redoRooms.clear();
+        store.saveCurrent(project);
+        renderRooms();
+        if (drawingView != null) {
+            drawingView.setRoom(activeRoom());
+            drawingView.setMode(CeilingDrawingView.Mode.WALL);
+        }
+        if (drawingRoomTitle != null) drawingRoomTitle.setText(activeRoom().name);
+        updateStats();
+        updateDrawingChrome();
+    }
+
+    private int roomIndexById(@Nullable String id) {
+        if (id == null) return -1;
+        for (int i = 0; i < project.rooms.size(); i++) {
+            if (id.equals(project.rooms.get(i).id)) return i;
+        }
+        return -1;
+    }
+
+    private void requestDeleteOrder() {
+        if (project == null) return;
+        final String orderId = project.id;
+        showPhase3Confirm(
+                "Удалить заказ?",
+                "Карточка заказчика и все комнаты будут удалены.",
+                "native_delete_order_confirm",
+                () -> {
+                    project = store.deleteOrderAndLoadFirst(orderId);
+                    showEditor(false);
+                });
+    }
+
+    private void createNewOrderFromWorkspace() {
+        project = store.newProject();
+        showEditor(false);
+    }
+
+    private void showPhase3Confirm(
+            @NonNull String title,
+            @NonNull String message,
+            @NonNull String tagPrefix,
+            @NonNull NativePhase3ConfirmDialog.Listener listener) {
+        if (phase3ConfirmDialog != null && phase3ConfirmDialog.isShowing()) {
+            phase3ConfirmDialog.dismiss();
+        }
+        phase3ConfirmDialog = new NativePhase3ConfirmDialog(
+                this, title, message, tagPrefix, uiPrefs, listener);
+        phase3ConfirmDialog.setOnDismissListener(dialog -> phase3ConfirmDialog = null);
+        phase3ConfirmDialog.show();
+    }
+
+    private Button collapseButton(@NonNull String key) {
+        Button button = button("⌃", false);
+        button.setTag("native_collapse_" + key);
+        button.setPadding(0,0,0,0);
+        button.setTextSize(17);
+        button.setOnClickListener(v -> toggleCollapse(key));
+        return button;
+    }
+
+    private void toggleCollapse(@NonNull String key) {
+        boolean collapsed = !store.isUiCollapsed(key);
+        store.setUiCollapsed(key, collapsed);
+        if ("order".equals(key)) {
+            applyCollapseState(key, orderBody, orderCollapseButton, collapsed, true);
+        } else if ("rooms".equals(key)) {
+            applyCollapseState(key, roomsBody, roomsCollapseButton, collapsed, true);
+        }
+    }
+
+    private void applyCollapseState(
+            @NonNull String key,
+            @Nullable View body,
+            @Nullable Button toggle,
+            boolean collapsed,
+            boolean animate) {
+        if (body == null || toggle == null) return;
+        toggle.setText(collapsed ? "⌄" : "⌃");
+        toggle.setContentDescription(collapsed ? "Развернуть" : "Свернуть");
+        toggle.setTag("native_collapse_" + key);
+        body.animate().cancel();
+        body.setPivotY(0f);
+
+        if (!animate) {
+            body.setVisibility(collapsed ? View.GONE : View.VISIBLE);
+            body.setAlpha(collapsed ? 0f : 1f);
+            body.setScaleY(collapsed ? .992f : 1f);
+            body.setTranslationY(collapsed ? -dp(3) : 0f);
+            return;
+        }
+
+        if (collapsed) {
+            body.animate()
+                    .alpha(0f)
+                    .scaleY(.992f)
+                    .translationY(-dp(3))
+                    .setDuration(NativeVisualTokens.COLLAPSE_MOTION_MS)
+                    .withEndAction(() -> body.setVisibility(View.GONE))
+                    .start();
+        } else {
+            body.setVisibility(View.VISIBLE);
+            body.setAlpha(0f);
+            body.setScaleY(.992f);
+            body.setTranslationY(-dp(3));
+            body.animate()
+                    .alpha(1f)
+                    .scaleY(1f)
+                    .translationY(0f)
+                    .setDuration(NativeVisualTokens.COLLAPSE_MOTION_MS)
+                    .start();
+        }
+    }
+
+    private void bindOrderAutosave() {
+        TextWatcher watcher = new TextWatcher() {
+            @Override public void beforeTextChanged(
+                    CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(
+                    CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable editable) {
+                if (project == null) return;
+                project.name = nameInput == null ? "" : nameInput.getText().toString();
+                project.phone = phoneInput == null ? "" : phoneInput.getText().toString();
+                project.address = addressInput == null ? "" : addressInput.getText().toString();
+                if (orderTitle != null) {
+                    orderTitle.setText(NativeOrderRoomLogic.orderDisplayName(project.name));
+                }
+                store.saveCurrent(project);
+            }
+        };
+        nameInput.addTextChangedListener(watcher);
+        phoneInput.addTextChangedListener(watcher);
+        addressInput.addTextChangedListener(watcher);
+    }
+
+    private void phase3Toast(@NonNull String message) {
+        phase3LastToast = message;
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    @Nullable String getPhase3LastToastForTest() { return phase3LastToast; }
+    @Nullable NativeRoomPickerDialog getRoomPickerDialogForTest() { return roomPickerDialog; }
+    @Nullable NativeRoomActionDialog getRoomActionDialogForTest() { return roomActionDialog; }
+    @Nullable NativePhase3ConfirmDialog getPhase3ConfirmDialogForTest() {
+        return phase3ConfirmDialog;
+    }
+    NativeProjectStore.ProjectData getProjectForTest() { return project; }
 
     private Button modeButton(String text, CeilingDrawingView.Mode mode, String tag){
         Button b=button(text,false);
@@ -1167,9 +1572,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void syncProjectFields(){
-        if(nameInput!=null)project.name=nameInput.getText().toString().trim();
-        if(phoneInput!=null)project.phone=phoneInput.getText().toString().trim();
-        if(addressInput!=null)project.address=addressInput.getText().toString().trim();
+        if(nameInput!=null)project.name=nameInput.getText().toString();
+        if(phoneInput!=null)project.phone=phoneInput.getText().toString();
+        if(addressInput!=null)project.address=addressInput.getText().toString();
+        if(orderTitle!=null){
+            orderTitle.setText(NativeOrderRoomLogic.orderDisplayName(project.name));
+        }
         store.saveCurrent(project);
     }
 
@@ -1745,6 +2153,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void updateStats(){
+        refreshActiveRoomReadyIndicator();
         if(areaValue==null||perimeterValue==null)return;
         NativeProjectStore.RoomData room=activeRoom();
         List<NativeProjectStore.EdgeData> edges=NativeGeometry.orderedEdges(room);
