@@ -1,0 +1,21 @@
+name: Export TEST v188
+
+on:
+  push:
+    paths:
+      - ".github/workflows/export-test-v188.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-v188-html
+          path: webapp/test_v188.html
+          if-no-files-found: error
+          retention-days: 1
