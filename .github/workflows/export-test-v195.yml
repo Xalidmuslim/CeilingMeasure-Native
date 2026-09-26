@@ -1,0 +1,39 @@
+name: Validate and Export TEST v195
+
+on:
+  push:
+    paths:
+      - ".github/workflows/export-test-v195.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("webapp/test_v195.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", html, re.S|re.I)
+          if not scripts:
+              raise SystemExit("No inline scripts found")
+          Path("/tmp/test_v195.js").write_text("\n".join(scripts), encoding="utf-8")
+          PY
+      - name: JavaScript syntax check
+        run: node --check /tmp/test_v195.js
+      - name: Static regression guards
+        run: |
+          grep -q 'data-draw-action="factualGeometry"' webapp/test_v195.html
+          ! grep -q 'factualGeometryPreview' webapp/test_v195.html
+          grep -q 'wall-scroll-strip' webapp/test_v195.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-v195-html
+          path: webapp/test_v195.html
+          if-no-files-found: error
+          retention-days: 1
