@@ -855,10 +855,15 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void bindRoomPress(@NonNull Button button, int index) {
         final float[] start = new float[2];
+        final float[] last = new float[2];
         final boolean[] longDone = new boolean[]{false};
+        final boolean[] verticalScroll = new boolean[]{false};
         final Runnable[] hold = new Runnable[1];
+        final float touchSlop = android.view.ViewConfiguration.get(this)
+                .getScaledTouchSlop();
 
         hold[0] = () -> {
+            if (verticalScroll[0]) return;
             if (index < 0 || index >= project.rooms.size()) return;
             longDone[0] = true;
             selectRoom(index, false);
@@ -866,37 +871,81 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         };
 
         button.setOnTouchListener((v, event) -> {
+            float rawX = event.getRawX();
+            float rawY = event.getRawY();
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
-                    start[0] = event.getRawX();
-                    start[1] = event.getRawY();
+                    start[0] = rawX;
+                    start[1] = rawY;
+                    last[0] = rawX;
+                    last[1] = rawY;
                     longDone[0] = false;
+                    verticalScroll[0] = false;
                     v.postDelayed(hold[0], NativeOrderRoomLogic.LONG_PRESS_MS);
                     return false;
+
                 case MotionEvent.ACTION_MOVE:
+                    float totalDx = rawX - start[0];
+                    float totalDy = rawY - start[1];
                     if (NativeOrderRoomLogic.shouldCancelLongPress(
-                            start[0], start[1], event.getRawX(), event.getRawY())) {
+                            start[0], start[1], rawX, rawY)) {
                         v.removeCallbacks(hold[0]);
                     }
+
+                    if (!longDone[0]
+                            && !verticalScroll[0]
+                            && Math.abs(totalDy) > touchSlop
+                            && Math.abs(totalDy) > Math.abs(totalDx)) {
+                        verticalScroll[0] = true;
+                        v.removeCallbacks(hold[0]);
+                        v.setPressed(false);
+                    }
+
+                    if (verticalScroll[0] && editorScroll != null) {
+                        int delta = Math.round(last[1] - rawY);
+                        if (delta != 0) {
+                            editorScroll.scrollBy(0, delta);
+                            editorScroll.postInvalidateOnAnimation();
+                        }
+                        last[0] = rawX;
+                        last[1] = rawY;
+                        return true;
+                    }
+
+                    last[0] = rawX;
+                    last[1] = rawY;
                     return false;
+
                 case MotionEvent.ACTION_UP:
                     v.removeCallbacks(hold[0]);
+                    if (verticalScroll[0]) {
+                        verticalScroll[0] = false;
+                        longDone[0] = false;
+                        v.setPressed(false);
+                        return true;
+                    }
                     if (longDone[0]) {
                         longDone[0] = false;
+                        v.setPressed(false);
                         return true;
                     }
                     return false;
+
                 case MotionEvent.ACTION_CANCEL:
                     v.removeCallbacks(hold[0]);
+                    verticalScroll[0] = false;
                     longDone[0] = false;
+                    v.setPressed(false);
                     return false;
+
                 default:
                     return false;
             }
         });
         button.setOnClickListener(v -> {
-            if (!longDone[0]) selectRoom(index, true);
+            if (!longDone[0] && !verticalScroll[0]) selectRoom(index, true);
             longDone[0] = false;
+            verticalScroll[0] = false;
         });
     }
 

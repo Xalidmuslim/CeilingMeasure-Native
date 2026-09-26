@@ -283,6 +283,9 @@ public final class NativePhase3OrdersRoomsTest {
             instrumentation.waitForIdleSync();
             assertTrue(activity.getRoomActionDialogForTest() == null);
 
+            // Short tap rebuilds the row, so every subsequent gesture must target
+            // the currently attached room-card view.
+            first = tagged(activity, "native_room_0", View.class);
             dispatchDirect(first, MotionEvent.ACTION_DOWN, 10f, 10f);
             SystemClock.sleep(80);
             dispatchDirect(first, MotionEvent.ACTION_MOVE, 33.1f, 10f);
@@ -291,6 +294,7 @@ public final class NativePhase3OrdersRoomsTest {
             instrumentation.waitForIdleSync();
             assertTrue(activity.getRoomActionDialogForTest() == null);
 
+            first = tagged(activity, "native_room_0", View.class);
             dispatchDirect(first, MotionEvent.ACTION_DOWN, 10f, 10f);
             SystemClock.sleep(360);
             instrumentation.waitForIdleSync();
