@@ -260,7 +260,7 @@ public class NativeAppSmokeTest {
     }
 
     @Test
-    public void nativeRoomControlsUseCompactButtonsAndCustomTextPad() {
+    public void nativeRoomControlsUseCompactButtonsAndCustomRoomActionSheet() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Intent intent = new Intent(context, NativeWorkspaceActivity.class);
         intent.putExtra(
@@ -280,29 +280,30 @@ public class NativeAppSmokeTest {
                 View add = root.findViewWithTag("native_room_add");
                 assertNotNull(room);
                 assertNotNull(add);
-                assertTrue(room.isLongClickable());
                 assertTrue(room.getLayoutParams().width <= activity.getResources()
                         .getDisplayMetrics().density * 60f);
 
-                NativeTextPadDialog dialog = new NativeTextPadDialog(
+                NativeRoomActionDialog dialog = new NativeRoomActionDialog(
                         activity,
-                        "Переименовать комнату",
                         "Комната 1",
-                        value -> {});
+                        NativeUiPrefs.load(activity),
+                        new NativeRoomActionDialog.Listener() {
+                            @Override public boolean onRename(String value) { return true; }
+                            @Override public void onDuplicate() {}
+                            @Override public void onDelete() {}
+                        });
                 dialog.show();
 
-                View keyA = dialog.findViewById(android.R.id.content)
-                        .getRootView()
-                        .findViewWithTag("native_text_pad_key_А");
-                View space = dialog.findViewById(android.R.id.content)
-                        .getRootView()
-                        .findViewWithTag("native_text_pad_space");
-                View done = dialog.findViewById(android.R.id.content)
-                        .getRootView()
-                        .findViewWithTag("native_text_pad_done");
-                assertNotNull(keyA);
-                assertNotNull(space);
-                assertNotNull(done);
+                View dialogRoot = dialog.findViewById(android.R.id.content).getRootView();
+                assertNotNull(dialogRoot.findViewWithTag("native_room_alpha_key_й"));
+                assertNotNull(dialogRoot.findViewWithTag("native_room_alpha_space"));
+                assertNotNull(dialogRoot.findViewWithTag("native_room_alpha_dash"));
+                assertNotNull(dialogRoot.findViewWithTag("native_room_alpha_back"));
+                assertNotNull(dialogRoot.findViewWithTag("native_room_alpha_clear"));
+                assertNotNull(dialogRoot.findViewWithTag("native_room_action_rename"));
+                assertNotNull(dialogRoot.findViewWithTag("native_room_action_duplicate"));
+                assertNotNull(dialogRoot.findViewWithTag("native_room_action_delete"));
+                assertFalse(containsEditText(dialogRoot));
                 dialog.dismiss();
             });
         }
@@ -825,6 +826,17 @@ public class NativeAppSmokeTest {
                 0);
         view.dispatchTouchEvent(event);
         event.recycle();
+    }
+
+    private static boolean containsEditText(View view) {
+        if (view instanceof android.widget.EditText) return true;
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                if (containsEditText(group.getChildAt(i))) return true;
+            }
+        }
+        return false;
     }
 
     private static boolean containsWebView(View view) {
