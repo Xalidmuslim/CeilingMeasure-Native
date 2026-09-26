@@ -1,0 +1,39 @@
+name: Validate and Export TEST v193
+
+on:
+  push:
+    paths:
+      - ".github/workflows/export-test-v193.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("webapp/test_v193.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", html, re.S|re.I)
+          if not scripts:
+              raise SystemExit("No inline scripts found")
+          Path("/tmp/test_v193.js").write_text("\n".join(scripts), encoding="utf-8")
+          PY
+      - name: JavaScript syntax check
+        run: node --check /tmp/test_v193.js
+      - name: Static factual-preview guards
+        run: |
+          grep -q 'function factualGeometryPreviewResult' webapp/test_v193.html
+          grep -q 'Фактическая геометрия' webapp/test_v193.html
+          grep -q 'Do not attach any mutation' webapp/test_v193.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-v193-html
+          path: webapp/test_v193.html
+          if-no-files-found: error
+          retention-days: 1
