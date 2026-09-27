@@ -326,6 +326,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         roomsCollapseLp.leftMargin = dp(5);
         roomsHead.addView(roomsCollapseButton, roomsCollapseLp);
         roomsCard.addView(roomsHead);
+        roomsHead.setVisibility(View.GONE);
 
         roomsBody = new LinearLayout(this);
         roomsBody.setTag("native_rooms_body");
@@ -344,6 +345,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         hintLp.topMargin = dp(4);
+        roomsHint.setVisibility(View.GONE);
         roomsBody.addView(roomsHint, hintLp);
 
         final float roomListTouchSlop = android.view.ViewConfiguration.get(this)
@@ -442,13 +444,21 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         drawingCard.setTag("native_drawing_card");
         root.addView(drawingCard, marginParams(0,4));
 
+        // v2 workspace order: room strip -> drawing -> order details -> estimate.
+        // This makes the drawing the first real task after launch.
+        root.removeView(roomsCard);
+        root.addView(roomsCard, 0, marginParams(0,4));
+        root.removeView(drawingCard);
+        root.addView(drawingCard, 1, marginParams(0,4));
+
         LinearLayout drawingHead = new LinearLayout(this);
         drawingHead.setOrientation(LinearLayout.HORIZONTAL);
         drawingHead.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout leftHead = new LinearLayout(this);
         leftHead.setOrientation(LinearLayout.VERTICAL);
-        TextView eyebrow = text("Чертёж",11,MUTED,Typeface.BOLD);
-        drawingRoomTitle = text(activeRoom().name,18,TEXT,Typeface.BOLD);
+        TextView eyebrow = text("Чертёж",10,MUTED,Typeface.BOLD);
+        eyebrow.setVisibility(View.GONE);
+        drawingRoomTitle = text(activeRoom().name,16,TEXT,Typeface.BOLD);
         leftHead.addView(eyebrow);
         leftHead.addView(drawingRoomTitle);
         drawingHead.addView(leftHead, new LinearLayout.LayoutParams(
@@ -469,7 +479,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout.LayoutParams mbp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        mbp.topMargin=dp(8);
+        mbp.topMargin=dp(4);
         drawingCard.addView(modeBar,mbp);
 
         wallMode = modeButton("Стена", CeilingDrawingView.Mode.WALL, "native_mode_wall");
@@ -486,11 +496,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         int screenWidthDp = Math.round(
                 getResources().getDisplayMetrics().widthPixels
                         / getResources().getDisplayMetrics().density);
-        normalCanvasHeight = dp(screenWidthDp <= 500 ? 500 : 560);
+        normalCanvasHeight = dp(screenWidthDp <= 500 ? 560 : 600);
         LinearLayout.LayoutParams canvasParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 normalCanvasHeight);
-        canvasParams.topMargin = dp(8);
+        canvasParams.topMargin = dp(5);
         drawingCard.addView(drawingCanvasWrap, canvasParams);
 
         drawingView = new CeilingDrawingView(this);
@@ -539,7 +549,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         LinearLayout zoom = new LinearLayout(this);
         zoom.setOrientation(LinearLayout.VERTICAL);
-        zoom.setBackground(rounded(Color.argb(242,255,255,255),LINE,12,1));
+        zoom.setBackground(rounded(Color.argb(248,255,255,255),Color.rgb(226,233,239),11,1));
         String[] zoomLabels={"+","−","⊙"};
         for(String z:zoomLabels){
             Button zb=button(z,false);
@@ -547,7 +557,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             if("+".equals(z))zb.setOnClickListener(v->{drawingView.zoomBy(1.16f);updateDrawingChrome();});
             else if("−".equals(z))zb.setOnClickListener(v->{drawingView.zoomBy(1f/1.16f);updateDrawingChrome();});
             else zb.setOnClickListener(v->{drawingView.fitView();updateDrawingChrome();});
-            zoom.addView(zb,new LinearLayout.LayoutParams(dp(42),dp(40)));
+            zoom.addView(zb,new LinearLayout.LayoutParams(dp(40),dp(40)));
         }
         FrameLayout.LayoutParams zoomParams = new FrameLayout.LayoutParams(
                 dp(44),
@@ -591,10 +601,22 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 1f));
         status.addView(zoomStatus);
 
+        LinearLayout drawingStats = new LinearLayout(this);
+        drawingStats.setTag("native_drawing_stats");
+        drawingStats.setOrientation(LinearLayout.HORIZONTAL);
+        drawingStats.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams drawingStatsParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        drawingStatsParams.topMargin = dp(5);
+        drawingCard.addView(drawingStats, drawingStatsParams);
+        areaValue = stat(drawingStats,"Площадь");
+        perimeterValue = stat(drawingStats,"Периметр");
+
         LinearLayout saveRow = new LinearLayout(this);
         saveRow.setOrientation(LinearLayout.HORIZONTAL);
         saveRow.setGravity(Gravity.CENTER_VERTICAL);
-        saveRow.setPadding(0,dp(9),0,0);
+        saveRow.setPadding(0,dp(6),0,0);
         LinearLayout saveCopy=new LinearLayout(this);
         saveCopy.setOrientation(LinearLayout.VERTICAL);
         TextView saveRoom=text(activeRoom().name,13,TEXT,Typeface.BOLD);
@@ -613,7 +635,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             store.saveSnapshot(project);
             Toast.makeText(this,"Замер завершён",Toast.LENGTH_SHORT).show();
         });
-        saveRow.addView(save,new LinearLayout.LayoutParams(dp(170),dp(44)));
+        saveRow.addView(save,new LinearLayout.LayoutParams(dp(148),dp(44)));
         drawingCard.addView(saveRow);
 
         LinearLayout estimateCard=card();
@@ -634,17 +656,6 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 1f));
         estimateHead.addView(text(activeRoom().name,11,MUTED,Typeface.NORMAL));
         estimateCard.addView(estimateHead);
-
-        LinearLayout stats = new LinearLayout(this);
-        stats.setOrientation(LinearLayout.HORIZONTAL);
-        stats.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        sp.topMargin=dp(9);
-        estimateCard.addView(stats,sp);
-        areaValue = stat(stats,"Площадь");
-        perimeterValue = stat(stats,"Периметр");
 
         TextView validation=text("",11,MUTED,Typeface.NORMAL);
         validation.setTag("native_validation_card");
@@ -721,19 +732,24 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         bar.setTag("native_workspace_topbar");
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(dp(8),dp(7),dp(8),dp(7));
-        bar.setMinimumHeight(dp(60));
+        bar.setPadding(dp(7),dp(4),dp(7),dp(4));
+        bar.setMinimumHeight(dp(54));
         bar.setBackgroundColor(NativeVisualTokens.SURFACE);
         bar.setElevation(dp(2));
 
         LinearLayout brand=new LinearLayout(this);
         brand.setOrientation(LinearLayout.VERTICAL);
         brand.setGravity(Gravity.CENTER_VERTICAL);
-        TextView main=text("Натяжные потолки",18,TEXT,Typeface.BOLD);
+        String headerTitle = project.address == null || project.address.trim().isEmpty()
+                ? NativeOrderRoomLogic.orderDisplayName(project.name)
+                : project.address.trim();
+        if (headerTitle == null || headerTitle.trim().isEmpty()) headerTitle = "Замер потолков";
+        String customer = project.name == null ? "" : project.name.trim();
+        TextView main=text(headerTitle,15,TEXT,Typeface.BOLD);
         main.setTag("native_workspace_brand_title");
         main.setSingleLine(true);
         main.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        TextView sub=text("замер · расчёт · смета",11,MUTED,Typeface.NORMAL);
+        TextView sub=text(customer.isEmpty() ? "Рабочий замер" : customer,10.5f,MUTED,Typeface.NORMAL);
         sub.setTag("native_workspace_brand_subtitle");
         brand.addView(main);
         LinearLayout.LayoutParams subLp=new LinearLayout.LayoutParams(
@@ -761,7 +777,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             syncProjectFields();
             finish();
         });
-        actions.addView(home,new LinearLayout.LayoutParams(dp(32),dp(32)));
+        actions.addView(home,new LinearLayout.LayoutParams(dp(40),dp(40)));
 
         View saved=topActionButton(
                 R.drawable.ic_shell_saved,
@@ -772,7 +788,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             syncProjectFields();
             showSavedMeasurements();
         });
-        LinearLayout.LayoutParams savedLp=new LinearLayout.LayoutParams(dp(64),dp(46));
+        LinearLayout.LayoutParams savedLp=new LinearLayout.LayoutParams(dp(58),dp(42));
         savedLp.leftMargin=dp(3);
         actions.addView(saved,savedLp);
 
@@ -782,7 +798,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 true,
                 "native_top_new_order");
         fresh.setOnClickListener(v -> createNewOrderFromWorkspace());
-        LinearLayout.LayoutParams freshLp=new LinearLayout.LayoutParams(dp(62),dp(46));
+        LinearLayout.LayoutParams freshLp=new LinearLayout.LayoutParams(dp(56),dp(42));
         freshLp.leftMargin=dp(3);
         actions.addView(fresh,freshLp);
 
@@ -791,7 +807,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 "native_top_settings",
                 "Настройки интерфейса");
         settings.setOnClickListener(v->showNativeSettings());
-        LinearLayout.LayoutParams settingsLp=new LinearLayout.LayoutParams(dp(32),dp(32));
+        LinearLayout.LayoutParams settingsLp=new LinearLayout.LayoutParams(dp(40),dp(40));
         settingsLp.leftMargin=dp(3);
         actions.addView(settings,settingsLp);
         return bar;
@@ -1341,8 +1357,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private Button modeButton(String text, CeilingDrawingView.Mode mode, String tag){
         Button b=button(text,false);
         b.setTag(tag);
-        b.setTextSize(11);
-        b.setPadding(dp(6),0,dp(6),0);
+        b.setTextSize(10.5f);
+        b.setPadding(dp(5),0,dp(5),0);
         b.setOnClickListener(v->{
             v.animate().scaleX(.985f).scaleY(.985f).setDuration(70).withEndAction(() ->
                     v.animate().scaleX(1f).scaleY(1f).setDuration(110).start()).start();
@@ -1352,7 +1368,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private LinearLayout.LayoutParams compactModeParams(){
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(40),1f);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(44),1f);
         p.leftMargin=dp(2);
         p.rightMargin=dp(2);
         return p;
@@ -1386,7 +1402,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_PADDING_DP),
                 dp(NativeVisualTokens.HISTORY_PADDING_DP),
                 dp(NativeVisualTokens.HISTORY_PADDING_DP));
-        nav.setElevation(dp(8));
+        nav.setElevation(dp(3));
         nav.setBackground(NativeVisualTokens.outlined(
                 NativeVisualTokens.SURFACE,
                 NativeVisualTokens.LINE,
@@ -1424,7 +1440,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         button.setOnClickListener(listener);
         TextView arrow=text(icon,16,TEXT,Typeface.BOLD);
         arrow.setGravity(Gravity.CENTER);
-        TextView small=text(label,11.5f,TEXT,Typeface.BOLD);
+        TextView small=text(label,10.5f,TEXT,Typeface.BOLD);
         small.setGravity(Gravity.CENTER);
         button.addView(arrow);
         button.addView(small);
@@ -1676,10 +1692,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout box=new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER);
-        box.setPadding(dp(10),dp(8),dp(10),dp(8));
-        box.setBackground(rounded(Color.rgb(248,250,252),LINE,12,1));
-        TextView l=text(label,11,MUTED,Typeface.NORMAL);
-        TextView v=text("—",18,TEXT,Typeface.BOLD);
+        box.setPadding(dp(8),dp(5),dp(8),dp(5));
+        box.setBackground(rounded(Color.rgb(249,251,253),Color.rgb(226,233,239),10,1));
+        TextView l=text(label,10,MUTED,Typeface.NORMAL);
+        TextView v=text("—",16,TEXT,Typeface.BOLD);
         box.addView(l);
         box.addView(v);
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
@@ -2625,7 +2641,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 NativeVisualTokens.LINE,
                 NativeVisualTokens.CARD_RADIUS_DP,
                 1));
-        l.setElevation(dp(1));
+        l.setElevation(0f);
         return l;
     }
 
