@@ -73,7 +73,8 @@ final class NativeWallMeasureDialog extends Dialog {
         LinearLayout head=new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title=text(titleText,15,TEXT,true);
+        String headerTitle = titleText.contains("мм") ? titleText : titleText + ", мм";
+        TextView title=text(headerTitle,14,TEXT,true);
         head.addView(title,new LinearLayout.LayoutParams(0,dp(34),1f));
         Button x=button("×",false);
         x.setTag("native_wall_dismiss");
@@ -83,8 +84,8 @@ final class NativeWallMeasureDialog extends Dialog {
 
         TextView sub=text(
                 sequence
-                        ?"Нажми на любую сторону. Можно вводить 58 или 0,58 м."
-                        :"Размер стены · можно вводить 58 или 0,58 м",
+                        ?"Выберите сторону и введите размер."
+                        :"Введите размер стены. Быстрый тап ничего не удаляет.",
                 10,
                 MUTED,
                 false);
@@ -125,7 +126,7 @@ final class NativeWallMeasureDialog extends Dialog {
 
         GridLayout keypad=new GridLayout(getContext());
         keypad.setTag("native_wall_keypad");
-        keypad.setColumnCount(4);
+        keypad.setColumnCount(3);
         LinearLayout.LayoutParams kp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -158,7 +159,7 @@ final class NativeWallMeasureDialog extends Dialog {
             if(sequence)listener.onBack();
             else listener.onClose();
         });
-        Button done=button("Готово",true);
+        Button done=button("Сохранить",true);
         done.setTag("native_wall_done");
         done.setOnClickListener(v->submit());
 
@@ -219,12 +220,12 @@ final class NativeWallMeasureDialog extends Dialog {
 
     private void addKey(GridLayout grid,String key){
         Button b=button(key,false);
-        b.setTextSize("Очистить".equals(key)?10:17);
+        b.setTextSize("Очистить".equals(key)?9.5f:17);
         b.setTag("native_wall_key_"+key);
         b.setOnClickListener(v->press(key));
         GridLayout.LayoutParams p=new GridLayout.LayoutParams();
         p.width=0;
-        p.height=dp(39);
+        p.height=dp(44);
         p.columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f);
         p.setMargins(dp(2),dp(2),dp(2),dp(2));
         grid.addView(b,p);
