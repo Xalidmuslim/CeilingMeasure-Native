@@ -346,7 +346,75 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         hintLp.topMargin = dp(4);
         roomsBody.addView(roomsHint, hintLp);
 
-        HorizontalScrollView roomsScroll = new HorizontalScrollView(this);
+        final float roomListTouchSlop = android.view.ViewConfiguration.get(this)
+                .getScaledTouchSlop();
+        HorizontalScrollView roomsScroll = new HorizontalScrollView(this) {
+            private float downX;
+            private float downY;
+            private float lastY;
+            private boolean handoffToPageScroll;
+
+            @Override
+            public boolean onInterceptTouchEvent(MotionEvent event) {
+                float rawX = event.getRawX();
+                float rawY = event.getRawY();
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downX = rawX;
+                        downY = rawY;
+                        lastY = rawY;
+                        handoffToPageScroll = false;
+                        break;
+                    case MotionEvent.ACTION_MOVE:
+                        float dx = rawX - downX;
+                        float dy = rawY - downY;
+                        if (!handoffToPageScroll
+                                && Math.abs(dy) > roomListTouchSlop
+                                && Math.abs(dy) > Math.abs(dx)) {
+                            handoffToPageScroll = true;
+                            // Intercepting here sends ACTION_CANCEL to the room
+                            // button, which cancels its 330ms long-press runnable.
+                            return true;
+                        }
+                        break;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        handoffToPageScroll = false;
+                        break;
+                    default:
+                        break;
+                }
+                return super.onInterceptTouchEvent(event);
+            }
+
+            @Override
+            public boolean onTouchEvent(MotionEvent event) {
+                float rawY = event.getRawY();
+                if (handoffToPageScroll) {
+                    switch (event.getActionMasked()) {
+                        case MotionEvent.ACTION_MOVE:
+                            if (editorScroll != null) {
+                                int delta = Math.round(lastY - rawY);
+                                if (delta != 0) {
+                                    editorScroll.scrollBy(0, delta);
+                                    editorScroll.postInvalidateOnAnimation();
+                                }
+                            }
+                            lastY = rawY;
+                            return true;
+                        case MotionEvent.ACTION_UP:
+                        case MotionEvent.ACTION_CANCEL:
+                            handoffToPageScroll = false;
+                            return true;
+                        default:
+                            lastY = rawY;
+                            return true;
+                    }
+                }
+                lastY = rawY;
+                return super.onTouchEvent(event);
+            }
+        };
         roomsScroll.setTag("native_rooms_scroll");
         roomsScroll.setHorizontalScrollBarEnabled(false);
         roomsScroll.setFillViewport(false);
