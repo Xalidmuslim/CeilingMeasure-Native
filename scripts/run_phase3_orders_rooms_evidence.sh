@@ -69,6 +69,17 @@ run_width() {
   if grep -q "FAILURES!!!" "$log"; then
     exit 1
   fi
+
+  # pm clear before the next width removes app external files as well,
+  # so preserve this width's screenshots/metrics immediately.
+  collect_evidence
+  local saved_png
+  saved_png="$(find "$OUT" -name "api35_${expected}dp_*.png" | wc -l)"
+  local saved_metrics
+  saved_metrics="$(find "$OUT" -name "api35_${expected}dp_metrics.txt" | wc -l)"
+  echo "Preserved Phase 3 evidence for ${expected}dp: screenshots=${saved_png}, metrics=${saved_metrics}"
+  [[ "$saved_png" -ge 12 ]]
+  [[ "$saved_metrics" -ge 1 ]]
 }
 
 run_width 480 360
