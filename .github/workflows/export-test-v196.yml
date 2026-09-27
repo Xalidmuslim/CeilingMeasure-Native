@@ -1,0 +1,66 @@
+name: Validate and Export TEST v196
+
+on:
+  push:
+    paths:
+      - ".github/workflows/export-test-v196.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("webapp/test_v196.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", html, re.S|re.I)
+          if not scripts:
+              raise SystemExit("No inline scripts found")
+          Path("/tmp/test_v196.js").write_text("\n".join(scripts), encoding="utf-8")
+          PY
+
+      - name: JavaScript syntax check
+        run: node --check /tmp/test_v196.js
+
+      - name: Duplicate function guard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, collections
+          s = Path("webapp/test_v196.html").read_text(encoding="utf-8")
+          names = re.findall(r'\bfunction\s+([A-Za-z_$][\w$]*)\s*\(', s)
+          dup = {k:v for k,v in collections.Counter(names).items() if v > 1}
+          if dup:
+              raise SystemExit(f"Duplicate functions: {dup}")
+          PY
+
+      - name: Interaction regression guards
+        run: |
+          grep -q 'function bindSvg()' webapp/test_v196.html
+          grep -q 'if(mode==="move"&&vid)' webapp/test_v196.html
+          grep -q 'if(mode==="diag")' webapp/test_v196.html
+          grep -q 'if(mode==="labels"&&labelKind&&labelId' webapp/test_v196.html
+          grep -q 'wall-scroll-strip no-print' webapp/test_v196.html
+          grep -q 'quantity editing is long-press only' webapp/test_v196.html
+          grep -q 'data-client-add-material-room' webapp/test_v196.html
+          grep -q 'insert:c.perimeterM||0' webapp/test_v196.html
+
+      - name: Performance guards
+        run: |
+          grep -q 'autoGeometrySolveCache' webapp/test_v196.html
+          grep -q 'redrawFrame=requestAnimationFrame' webapp/test_v196.html
+          ! grep -q 'function pointSegmentDistance' webapp/test_v196.html
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-v196-html
+          path: webapp/test_v196.html
+          if-no-files-found: error
+          retention-days: 1
