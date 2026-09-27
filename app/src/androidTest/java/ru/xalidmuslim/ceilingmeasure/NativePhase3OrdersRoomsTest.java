@@ -314,23 +314,39 @@ public final class NativePhase3OrdersRoomsTest {
             NativeWorkspaceActivity activity = activity(scenario);
             View room = tagged(activity, "native_room_0", View.class);
             ScrollView scroll = tagged(activity, "native_editor_scroll", ScrollView.class);
-            int before = scroll.getScrollY();
+
+            instrumentation.runOnMainSync(() -> {
+                View focused = activity.getCurrentFocus();
+                if (focused != null) focused.clearFocus();
+                scroll.scrollTo(0, 0);
+            });
+            instrumentation.waitForIdleSync();
+            SystemClock.sleep(120);
+
+            assertEquals("gesture evidence must start at the top", 0, scroll.getScrollY());
+            View scrollChild = scroll.getChildAt(0);
+            assertNotNull(scrollChild);
+            assertTrue("Workspace must have real vertical scroll range",
+                    scrollChild.getHeight() > scroll.getHeight());
 
             int[] loc = new int[2];
             instrumentation.runOnMainSync(() -> room.getLocationOnScreen(loc));
             float x = loc[0] + room.getWidth() / 2f;
             float y = loc[1] + room.getHeight() / 2f;
-            float endY = Math.max(30f, y - 180f);
+            float travel = Math.min(160f, Math.max(80f, y - 40f));
 
             long down = SystemClock.uptimeMillis();
             sendScreenPointer(down, down, MotionEvent.ACTION_DOWN, x, y);
-            sendScreenPointer(down, down + 80, MotionEvent.ACTION_MOVE, x, endY);
-            sendScreenPointer(down, down + 140, MotionEvent.ACTION_UP, x, endY);
+            sendScreenPointer(down, down + 35, MotionEvent.ACTION_MOVE, x, y - travel * .25f);
+            sendScreenPointer(down, down + 70, MotionEvent.ACTION_MOVE, x, y - travel * .50f);
+            sendScreenPointer(down, down + 105, MotionEvent.ACTION_MOVE, x, y - travel * .75f);
+            sendScreenPointer(down, down + 140, MotionEvent.ACTION_MOVE, x, y - travel);
+            sendScreenPointer(down, down + 175, MotionEvent.ACTION_UP, x, y - travel);
             SystemClock.sleep(300);
             instrumentation.waitForIdleSync();
 
-            assertTrue("room-origin swipe must scroll page",
-                    scroll.getScrollY() > before);
+            assertTrue("room-origin swipe must scroll page from top",
+                    scroll.getScrollY() > 0);
             assertTrue(activity.getRoomActionDialogForTest() == null);
         }
     }
