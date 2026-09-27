@@ -114,6 +114,18 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Capture Phase 3 web golden reference screenshots
+        shell: bash
+        run: bash scripts/capture_phase3_web_refs.sh
+
+      - name: Upload Phase 3 web references
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-phase3-web-reference
+          path: build/phase3-web-reference
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Lint, unit tests, assemble
         run: gradle --no-daemon clean lintDebug testDebugUnitTest assembleDebug
 
@@ -197,6 +209,39 @@ jobs:
         with:
           name: CeilingMeasure-phase2-native-screenshots
           path: build/phase2-native-evidence
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Free AVD before Phase 3 API 35 evidence
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$HOME/.android/avd/test.avd" "$HOME/.android/avd/test.ini"
+          df -h "$HOME" "${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
+
+      - name: Run Phase 3 API 35 orders and rooms evidence
+        if: ${{ success() }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: default
+          profile: pixel_6
+          cores: 2
+          ram-size: 2048M
+          disk-size: 4096M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash scripts/run_phase3_orders_rooms_evidence.sh
+
+      - name: Upload Phase 3 native screenshot evidence
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-phase3-native-screenshots
+          path: build/phase3-native-evidence
           if-no-files-found: error
           retention-days: 30
 
