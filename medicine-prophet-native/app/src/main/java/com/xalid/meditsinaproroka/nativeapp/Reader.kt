@@ -297,6 +297,7 @@ private fun SelectableNativeText(chapter: Chapter, block: BookBlock, store: AppS
 
                 customSelectionActionModeCallback = object : ActionMode.Callback {
                     override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+                        menu?.clear()
                         menu?.add(0, 9101, 0, "Выделить")
                         menu?.add(0, 9102, 1, "Заметка")
                         menu?.add(0, 9103, 2, "Снять выделение")
@@ -324,7 +325,7 @@ private fun SelectableNativeText(chapter: Chapter, block: BookBlock, store: AppS
                                 }
                                 AlertDialog.Builder(context)
                                     .setTitle("Заметка к выделению")
-                                    .setMessage("«§selected»")
+                                    .setMessage("«$selected»")
                                     .setView(input)
                                     .setPositiveButton("Сохранить") { _, _ ->
                                         store.addNote(chapter.id, block.id, start, end, selected, input.text.toString())

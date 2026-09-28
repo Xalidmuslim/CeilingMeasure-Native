@@ -41,6 +41,7 @@ jobs:
         run: |
           mkdir -p medicine-prophet-native/app/src/main/assets
           curl -fsSL https://medicina-proroka.netlify.app/data/book.json             -o medicine-prophet-native/app/src/main/assets/book.json
+          echo "db5201e4150a50a41f7fde2eef5ac8ae3d8b1cf9da933c651f508ac0de5da0e1  medicine-prophet-native/app/src/main/assets/book.json" | sha256sum -c -
           python - <<'PY'
           import json
           p="medicine-prophet-native/app/src/main/assets/book.json"
@@ -63,7 +64,7 @@ jobs:
 
       - name: Build release APK and Play AAB
         working-directory: medicine-prophet-native
-        run: gradle --no-daemon :app:assembleRelease :app:bundleRelease
+        run: gradle --no-daemon :app:lintRelease :app:testReleaseUnitTest :app:assembleRelease :app:bundleRelease
 
       - name: Verify artifacts
         run: |
