@@ -10,6 +10,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
+internal const val DEFAULT_BOOKMARK_FOLDER = "Без папки"
+internal val DEFAULT_BOOKMARK_FOLDERS = listOf(DEFAULT_BOOKMARK_FOLDER, "Изучить", "Важное")
+
+internal fun canonicalBookmarkFolder(folder: String): String {
+    val clean = folder.trim()
+    return when (clean) {
+        "", "Общее" -> DEFAULT_BOOKMARK_FOLDER
+        "Вернуться" -> "Важное"
+        else -> clean
+    }
+}
+
 data class ReaderSettings(
     val theme: String = "system",
     val fontFamily: String = "book",
@@ -18,7 +30,7 @@ data class ReaderSettings(
     val showHistoricalLabels: Boolean = true,
 )
 
-data class Bookmark(val chapterId: String, val anchor: String? = null, val folder: String = "Общее")
+data class Bookmark(val chapterId: String, val anchor: String? = null, val folder: String = DEFAULT_BOOKMARK_FOLDER)
 data class Note(
     val id: String,
     val chapterId: String,
@@ -50,7 +62,7 @@ class AppStore(context: Context) {
     val highlights = mutableStateListOf<Highlight>()
     val history = mutableStateListOf<HistoryEntry>()
     val progress = mutableStateMapOf<String, Int>()
-    val bookmarkFolders = mutableStateListOf("Общее", "Изучить", "Вернуться")
+    val bookmarkFolders = mutableStateListOf(*DEFAULT_BOOKMARK_FOLDERS.toTypedArray())
 
     var lastChapterId by mutableStateOf(prefs.getString("lastChapterId", null))
         private set
@@ -64,6 +76,11 @@ class AppStore(context: Context) {
         history.addAll(loadHistory())
         loadProgress()
         loadFolders()
+        if (!prefs.getBoolean("bookmarkFoldersV2Migrated", false)) {
+            persistBookmarks()
+            persistFolders()
+            prefs.edit().putBoolean("bookmarkFoldersV2Migrated", true).apply()
+        }
     }
 
     fun updateSettings(transform: (ReaderSettings) -> ReaderSettings) {
@@ -89,20 +106,20 @@ class AppStore(context: Context) {
         persistHistory()
     }
 
-    fun toggleChapterBookmark(chapterId: String, folder: String = "Общее") {
+    fun toggleChapterBookmark(chapterId: String, folder: String = DEFAULT_BOOKMARK_FOLDER) {
         val index = bookmarks.indexOfFirst { it.chapterId == chapterId && it.anchor == null }
-        if (index >= 0) bookmarks.removeAt(index) else bookmarks.add(Bookmark(chapterId, null, folder))
+        if (index >= 0) bookmarks.removeAt(index) else bookmarks.add(Bookmark(chapterId, null, canonicalBookmarkFolder(folder)))
         persistBookmarks()
     }
 
-    fun toggleAnchorBookmark(chapterId: String, anchor: String, folder: String = "Общее") {
+    fun toggleAnchorBookmark(chapterId: String, anchor: String, folder: String = DEFAULT_BOOKMARK_FOLDER) {
         val index = bookmarks.indexOfFirst { it.chapterId == chapterId && it.anchor == anchor }
-        if (index >= 0) bookmarks.removeAt(index) else bookmarks.add(Bookmark(chapterId, anchor, folder))
+        if (index >= 0) bookmarks.removeAt(index) else bookmarks.add(Bookmark(chapterId, anchor, canonicalBookmarkFolder(folder)))
         persistBookmarks()
     }
 
     fun addFolder(name: String) {
-        val clean = name.trim()
+        val clean = canonicalBookmarkFolder(name)
         if (clean.isNotEmpty() && clean !in bookmarkFolders) {
             bookmarkFolders.add(clean)
             persistFolders()
@@ -170,7 +187,11 @@ class AppStore(context: Context) {
     }
 
     private fun loadBookmarks(): List<Bookmark> = parseArray("bookmarks") {
-        Bookmark(it.optString("chapterId"), it.optString("anchor").takeIf(String::isNotBlank), it.optString("folder", "Общее"))
+        Bookmark(
+            it.optString("chapterId"),
+            it.optString("anchor").takeIf(String::isNotBlank),
+            canonicalBookmarkFolder(it.optString("folder", DEFAULT_BOOKMARK_FOLDER))
+        )
     }
     private fun persistBookmarks() = putArray("bookmarks", bookmarks.map {
         JSONObject().put("chapterId", it.chapterId).put("anchor", it.anchor ?: "").put("folder", it.folder)
@@ -216,7 +237,7 @@ class AppStore(context: Context) {
     private fun loadFolders() {
         val arr = runCatching { JSONArray(prefs.getString("folders", "[]")) }.getOrNull() ?: return
         for (i in 0 until arr.length()) {
-            val f = arr.optString(i)
+            val f = canonicalBookmarkFolder(arr.optString(i))
             if (f.isNotBlank() && f !in bookmarkFolders) bookmarkFolders.add(f)
         }
     }
