@@ -52,6 +52,7 @@ fun ReaderScreen(
 
     val listState = rememberLazyListState()
     var settingsOpen by remember { mutableStateOf(false) }
+    var bookmarkFolderOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val topics = remember(book, chapter) { chapter.topics.mapNotNull { id -> book.topics.firstOrNull { it.id == id } } }
     val remedies = remember(book, chapter) { chapter.remedies.mapNotNull { id -> book.remedies.firstOrNull { it.id == id } } }
@@ -111,19 +112,26 @@ fun ReaderScreen(
                     Spacer(Modifier.height(16.dp))
                     Text("Действия с главой", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     Spacer(Modifier.height(10.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = { copyToClipboard(context, chapter.title, chapterPlainText(book, chapter)) },
-                            modifier = Modifier.weight(1f)
-                        ) { Icon(Icons.Default.ContentCopy, null); Spacer(Modifier.width(5.dp)); Text("Копировать") }
-                        OutlinedButton(
-                            onClick = { shareText(context, chapter.title, chapterPlainText(book, chapter, includeSource = true)) },
-                            modifier = Modifier.weight(1f)
-                        ) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(5.dp)); Text("Поделиться") }
-                    }
+                    OutlinedButton(
+                        onClick = { copyToClipboard(context, chapter.title, chapterPlainText(book, chapter)) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Icon(Icons.Default.ContentCopy, null); Spacer(Modifier.width(6.dp)); Text("Копировать главу") }
+                    Spacer(Modifier.height(7.dp))
+                    OutlinedButton(
+                        onClick = { copyToClipboard(context, chapter.title, chapterPlainText(book, chapter, includeSource = true)) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Icon(Icons.Default.FormatQuote, null); Spacer(Modifier.width(6.dp)); Text("Копировать с названием книги и главы") }
+                    Spacer(Modifier.height(7.dp))
+                    OutlinedButton(
+                        onClick = { shareText(context, chapter.title, chapterPlainText(book, chapter, includeSource = true)) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(6.dp)); Text("Поделиться") }
                     Spacer(Modifier.height(8.dp))
                     Button(
-                        onClick = { store.toggleChapterBookmark(chapter.id) },
+                        onClick = {
+                            if (store.isChapterBookmarked(chapter.id)) store.toggleChapterBookmark(chapter.id)
+                            else bookmarkFolderOpen = true
+                        },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(if (store.isChapterBookmarked(chapter.id)) Icons.Default.Star else Icons.Default.StarBorder, null)
@@ -189,6 +197,32 @@ fun ReaderScreen(
             ReaderSettingsContent(store = store, compact = true)
             Spacer(Modifier.height(20.dp))
         }
+    }
+
+    if (bookmarkFolderOpen) {
+        AlertDialog(
+            onDismissRequest = { bookmarkFolderOpen = false },
+            title = { Text("Сохранить в папку") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    store.bookmarkFolders.forEach { folder ->
+                        TextButton(
+                            onClick = {
+                                store.toggleChapterBookmark(chapter.id, folder)
+                                bookmarkFolderOpen = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Folder, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(folder, modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { bookmarkFolderOpen = false }) { Text("Отмена") } }
+        )
     }
 }
 
