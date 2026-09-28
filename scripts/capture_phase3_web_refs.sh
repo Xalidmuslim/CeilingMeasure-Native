@@ -119,28 +119,31 @@ f.addEventListener('load',async()=>{
   const longPressRoom=async i=>{
     const b=d.querySelectorAll('[data-r]')[i];
     if(!b)return;
-    const down={
-      pointerType:'touch',
-      button:0,
+    const EventCtor=w.PointerEvent||w.MouseEvent;
+    b.dispatchEvent(new EventCtor('pointerdown',{
+      bubbles:true,
+      cancelable:true,
       pointerId:91,
+      pointerType:'touch',
+      isPrimary:true,
+      button:0,
+      buttons:1,
       clientX:12,
-      clientY:12,
-      stopPropagation(){},
-      preventDefault(){}
-    };
-    b.onpointerdown?.(down);
+      clientY:12
+    }));
     await sleep(380);
-    const up={
-      pointerType:'touch',
-      button:0,
+    b.dispatchEvent(new EventCtor('pointerup',{
+      bubbles:true,
+      cancelable:true,
       pointerId:91,
+      pointerType:'touch',
+      isPrimary:true,
+      button:0,
+      buttons:0,
       clientX:12,
-      clientY:12,
-      stopPropagation(){},
-      preventDefault(){}
-    };
-    b.onpointerup?.(up);
-    await sleep(120);
+      clientY:12
+    }));
+    await sleep(160);
   };
 
   fresh();
