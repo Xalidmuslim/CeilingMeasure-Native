@@ -91,7 +91,7 @@ fun WebHeader(
                 ) {
                     Text(
                         title,
-                        fontFamily = WebSerifFont,
+                        fontFamily = WebSansFont,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         lineHeight = 21.sp,
@@ -103,7 +103,8 @@ fun WebHeader(
                             subtitle,
                             fontFamily = WebSansFont,
                             fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -559,9 +560,9 @@ private fun WebCollectionCard(
         Column(Modifier.padding(15.dp)) {
             Text(
                 collection.title,
-                fontFamily = WebSerifFont,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 18.sp,
+                fontFamily = WebSansFont,
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
                 lineHeight = 20.sp,
             )
             Spacer(Modifier.height(6.dp))
