@@ -14,9 +14,25 @@ android {
         versionName = "1.0"
     }
 
+    val keystorePath = System.getenv("MEDICINA_KEYSTORE")
+
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("MEDICINA_STORE_PASSWORD")
+                keyAlias = System.getenv("MEDICINA_KEY_ALIAS")
+                keyPassword = System.getenv("MEDICINA_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (keystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
