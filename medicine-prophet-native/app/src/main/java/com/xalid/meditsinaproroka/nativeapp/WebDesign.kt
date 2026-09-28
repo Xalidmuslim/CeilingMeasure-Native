@@ -6,6 +6,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -14,12 +15,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -112,6 +120,63 @@ fun WebHeader(
 }
 
 @Composable
+private fun WebHomeHeader(
+    title: String,
+    author: String,
+    onSettings: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        tonalElevation = 0.dp,
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.medicine_launcher),
+                    contentDescription = null,
+                    modifier = Modifier.size(58.dp).clip(RoundedCornerShape(14.dp)),
+                    contentScale = ContentScale.Crop,
+                )
+                Spacer(Modifier.width(13.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        title,
+                        fontFamily = WebSansFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        lineHeight = 23.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        author,
+                        fontFamily = WebSansFont,
+                        fontSize = 13.sp,
+                        lineHeight = 17.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                IconButton(onClick = onSettings, modifier = Modifier.size(44.dp)) {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = "Настройки",
+                        modifier = Modifier.size(27.dp),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.72f))
+        }
+    }
+}
+
+@Composable
 fun WebHomeScreen(
     book: BookData,
     store: AppStore,
@@ -125,40 +190,36 @@ fun WebHomeScreen(
         index != null && chapter.blocks.isNotEmpty() &&
             index.toFloat() >= ((chapter.blocks.size - 1).toFloat() * 0.96f)
     }
-    val pct = if (book.chapters.isEmpty()) 0 else ((completed * 100f) / book.chapters.size).toInt().coerceIn(0, 100)
+    val pct = if (book.chapters.isEmpty()) 0 else
+        ((completed * 100f) / book.chapters.size).toInt().coerceIn(0, 100)
     val quickCollections = book.collections.take(4)
 
     Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        WebHeader(book.title, book.author, settings = { navigate(Route.Settings) })
+        WebHomeHeader(book.title, book.author) { navigate(Route.Settings) }
+
         androidx.compose.foundation.lazy.LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                Column(Modifier.padding(horizontal = 2.dp, vertical = 4.dp)) {
+                Column(Modifier.padding(horizontal = 1.dp, vertical = 2.dp)) {
                     Text(
-                        "ПОЛНЫЙ ТЕКСТ · ЧТЕНИЕ И ИЗУЧЕНИЕ",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontFamily = WebSansFont,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.25.sp,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        "Книга, разбитая на главы, темы и средства",
-                        fontFamily = WebSerifFont,
+                        "Книга, разбитая на главы,\nтемы и средства",
+                        fontFamily = WebLiterataFont,
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 28.sp,
-                        lineHeight = 32.sp,
+                        fontSize = 29.sp,
+                        lineHeight = 33.sp,
+                        letterSpacing = (-0.25).sp,
                     )
-                    Spacer(Modifier.height(11.dp))
+                    Spacer(Modifier.height(9.dp))
                     Text(
                         "Полный русский текст с поиском, заметками, источниками и офлайн-доступом.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 15.sp,
-                        lineHeight = 24.sp,
+                        fontFamily = WebSansFont,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.5.sp,
+                        lineHeight = 21.sp,
                     )
                 }
             }
@@ -166,40 +227,63 @@ fun WebHomeScreen(
             item {
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     shadowElevation = 1.dp,
                 ) {
-                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Row(verticalAlignment = Alignment.Top) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    "Продолжить чтение",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 12.sp,
-                                )
-                                Spacer(Modifier.height(5.dp))
-                                Text(
-                                    last?.title ?: "Начать с первой главы",
-                                    fontFamily = WebSerifFont,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 21.sp,
-                                    lineHeight = 26.sp,
-                                )
+                    Column(
+                        Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+                        verticalArrangement = Arrangement.spacedBy(11.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+                                shape = RoundedCornerShape(9.dp),
+                            ) {
+                                Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.MenuBook,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(19.dp),
+                                    )
+                                }
                             }
-                            Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape) {
+                            Spacer(Modifier.width(9.dp))
+                            Text(
+                                "Продолжить чтение",
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontFamily = WebSansFont,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                            )
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
+                                shape = CircleShape,
+                            ) {
                                 Text(
                                     "$pct%",
-                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                     color = MaterialTheme.colorScheme.primary,
+                                    fontFamily = WebSansFont,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
+                                    fontSize = 13.sp,
                                 )
                             }
                         }
+
+                        Text(
+                            if (last != null) "Глава: ${last.title}" else "Начать с первой главы",
+                            fontFamily = WebSansFont,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
+                            lineHeight = 24.sp,
+                        )
+
                         Box(
-                            Modifier.fillMaxWidth().height(6.dp).clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.42f))
+                            Modifier.fillMaxWidth().height(5.dp).clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.32f))
                         ) {
                             if (pct > 0) {
                                 Box(
@@ -208,17 +292,20 @@ fun WebHomeScreen(
                                 )
                             }
                         }
+
                         Button(
                             onClick = {
                                 val chapter = last ?: book.chapters.firstOrNull()
                                 if (chapter != null) navigate(Route.Reader(chapter.id, resume = last != null))
                             },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
-                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            shape = RoundedCornerShape(11.dp),
                         ) {
                             Text(
                                 if (last != null) "Продолжить →" else "Начать чтение →",
+                                fontFamily = WebSansFont,
                                 fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp,
                             )
                         }
                     }
@@ -233,15 +320,28 @@ fun WebHomeScreen(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().heightIn(min = 58.dp).padding(horizontal = 16.dp, vertical = 13.dp),
+                        Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 15.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("⌕", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 27.sp)
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(25.dp),
+                        )
                         Spacer(Modifier.width(12.dp))
                         Text(
                             "Поиск по всей книге",
+                            modifier = Modifier.weight(1f),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 16.sp,
+                            fontFamily = WebSansFont,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp,
+                        )
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
@@ -250,12 +350,12 @@ fun WebHomeScreen(
             item {
                 Surface(
                     onClick = { navigate(Route.Treatments) },
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f),
-                    shape = RoundedCornerShape(13.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.32f)),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)),
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(14.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Surface(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(11.dp)) {
@@ -263,27 +363,31 @@ fun WebHomeScreen(
                                 Text(
                                     "✚",
                                     color = MaterialTheme.colorScheme.onPrimary,
-                                    fontSize = 26.sp,
+                                    fontSize = 25.sp,
                                     fontWeight = FontWeight.Bold,
                                 )
                             }
                         }
-                        Spacer(Modifier.width(14.dp))
+                        Spacer(Modifier.width(13.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
                                 "Как лечили / что применялось",
-                                fontFamily = WebSerifFont,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 18.sp,
-                                lineHeight = 21.sp,
+                                fontFamily = WebSansFont,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                lineHeight = 20.sp,
                             )
+                            Spacer(Modifier.height(3.dp))
                             Text(
                                 "Состояние → средства → полный текст",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 11.sp,
+                                fontFamily = WebSansFont,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 11.5.sp,
+                                lineHeight = 15.sp,
                             )
                         }
-                        Text("→", fontSize = 26.sp)
+                        Icon(Icons.Default.ChevronRight, contentDescription = null)
                     }
                 }
             }
@@ -298,6 +402,7 @@ fun WebHomeScreen(
                     }
                 }
             }
+
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     WebQuickCard("⚗", "Средства", "${book.remedies.size} позиций", Modifier.weight(1f)) {
@@ -315,9 +420,9 @@ fun WebHomeScreen(
                         Text(
                             "Быстрые подборки",
                             modifier = Modifier.weight(1f),
-                            fontFamily = WebSerifFont,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 22.sp,
+                            fontFamily = WebSansFont,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 19.sp,
                         )
                         TextButton(onClick = { navigate(Route.Collections) }) {
                             Text("Все", color = MaterialTheme.colorScheme.primary)
@@ -347,12 +452,12 @@ fun WebHomeScreen(
             }
 
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         "Продолжить изучение",
-                        fontFamily = WebSerifFont,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 22.sp,
+                        fontFamily = WebSansFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 19.sp,
                     )
                     Row(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -379,23 +484,52 @@ private fun WebQuickCard(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 142.dp),
+        modifier = modifier.heightIn(min = 116.dp),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(13.dp),
+        shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f),
-                shape = RoundedCornerShape(10.dp),
-            ) {
-                Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-                    Text(icon, color = MaterialTheme.colorScheme.primary, fontSize = 19.sp)
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f),
+                    shape = RoundedCornerShape(9.dp),
+                ) {
+                    Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            icon,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontFamily = WebSansFont,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 17.sp,
+                        )
+                    }
                 }
+                Spacer(Modifier.weight(1f))
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(21.dp),
+                )
             }
-            Spacer(Modifier.weight(1f))
-            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+            Spacer(Modifier.height(11.dp))
+            Text(
+                title,
+                fontFamily = WebSansFont,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.5.sp,
+                lineHeight = 19.sp,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                subtitle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontFamily = WebSansFont,
+                fontWeight = FontWeight.Medium,
+                fontSize = 11.5.sp,
+                lineHeight = 15.sp,
+            )
         }
     }
 }
