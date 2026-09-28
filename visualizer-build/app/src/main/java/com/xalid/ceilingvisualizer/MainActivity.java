@@ -383,13 +383,8 @@ public class MainActivity extends Activity {
         private final ExecutorService assetPool=Executors.newFixedThreadPool(3);
         private final Handler mainHandler=new Handler(Looper.getMainLooper());
 
-        private static final String ASSET_TRACK_BLACK="https://pandaprojects.co.uk/wp-content/uploads/2026/03/TL-TRK90-RAL9005m-Black.jpg";
-        private static final String ASSET_TRACK_WHITE="https://pandaprojects.co.uk/wp-content/uploads/2026/03/TL-TRK90-RAL9016m-White.jpg";
-        private static final String ASSET_SPOT_WHITE="https://spotwereld.nl/cdn/shop/files/sw-pollux-wit.jpg?v=1786812775&width=600";
-        private static final String ASSET_SPOT_BLACK="https://spotwereld.nl/cdn/shop/files/sw-pollux-zwart.jpg?v=1786812775&width=600";
-        private static final String ASSET_RING_BLACK="https://images.thdstatic.com/productImages/e4d586721c9a4c3789b50061f252bdd5/svn/black-umeiluce-pendant-lights-mys306-64_1000.jpg";
-        private static final String ASSET_RING_GOLD="https://www.lumibox.ca/storage/spec-sheets/luminaire-suspendu-decoratif.png";
-        private static final String ASSET_THREE_GLOBES="https://images.thdstatic.com/productImages/9bb1d86b-6d1d-4471-b7b9-fb7727616476/svn/brass-and-frosted-white-pendant-lights-lvn4474brass-c3_600.jpg";
+        private static final String ASSET_SHEET_MAIN="https://cdn.openart.ai/watermarked_images/wwKL72mZPzCRR9UDPBp1/thumbnail_8678e3e8_1790620789465.webp";
+        private static final String ASSET_SHEET_EXTRA="https://cdn.openart.ai/watermarked_images/wwKL72mZPzCRR9UDPBp1/thumbnail_77a095af_1790621044706.webp";
 
         EditorView(Activity a){
             super(a);
@@ -526,11 +521,19 @@ public class MainActivity extends Activity {
         }
 
         private void drawTrackHead(Canvas c,PointF p,PointF a,PointF b,int style,boolean black){
-            Bitmap real=remoteAssets.get(black?"track_black":"track_white");
-            if(real!=null && style<=1 && (black || hasUsefulTransparency(real))){
+            String key;
+            if(style==0) key=black?"track_compact_black":"track_compact_white";
+            else if(style==1) key=black?"track_long_black":"track_long_white";
+            else if(style==2) key="track_linear_black";
+            else if(style==4) key="track_pendant_black";
+            else key=null;
+            Bitmap real=key==null?null:remoteAssets.get(key);
+            if(real!=null){
                 PointF sa=planeToScreen(a), sb=planeToScreen(b);
                 float screenAngle=(float)Math.toDegrees(Math.atan2(sb.y-sa.y,sb.x-sa.x))+90f;
-                drawBillboardAtPlane(c,real,p,118f,screenAngle,250,0.50f);
+                float width=(style==2?100f:(style==4?82f:92f));
+                float anchor=(style==4?0.12f:0.50f);
+                drawBillboardAtPlane(c,real,p,width,screenAngle,250,anchor);
                 return;
             }
 
@@ -568,17 +571,22 @@ public class MainActivity extends Activity {
         }
 
         private void drawSpot(Canvas c,Fixture f){
-            boolean blackFixture=(f.style==1||f.style==3||f.style==5);
-            Bitmap real=remoteAssets.get(blackFixture?"spot_black":"spot_white");
-            if(real!=null && (blackFixture || hasUsefulTransparency(real))){
-                float size=(f.style<=1?82f:98f)*f.scale;
-                if(f.style<=1){
-                    drawBitmapOnPlane(c,real,f.p,size,size,0f,245);
-                }else{
-                    drawBillboardAtPlane(c,real,f.p,size,0f,245,0.52f);
-                }
-                PointF glowCenter=add(f.p,0,8f*f.scale);
-                drawPlaneCircle(c,glowCenter,size*0.58f,withAlpha(lightColor(f.kelvin),13));
+            String spotKey;
+            switch(f.style){
+                case 0: spotKey="spot_recessed_white"; break;
+                case 1: spotKey="spot_recessed_black"; break;
+                case 2: spotKey="spot_surface_white"; break;
+                case 3: spotKey="spot_surface_black"; break;
+                case 4: spotKey="spot_gimbal_white"; break;
+                default: spotKey="spot_gimbal_black"; break;
+            }
+            Bitmap real=remoteAssets.get(spotKey);
+            if(real!=null){
+                float size=(f.style<=1?74f:90f)*f.scale;
+                if(f.style<=1) drawBitmapOnPlane(c,real,f.p,size,size,0f,250);
+                else drawBillboardAtPlane(c,real,f.p,size,0f,250,0.46f);
+                PointF glowCenter=add(f.p,0,7f*f.scale);
+                drawPlaneCircle(c,glowCenter,size*0.50f,withAlpha(lightColor(f.kelvin),11));
                 return;
             }
 
@@ -611,14 +619,25 @@ public class MainActivity extends Activity {
         }
 
         private void drawChandelier(Canvas c,Fixture f){
-            Bitmap real=null;
-            if(f.style==0) real=remoteAssets.get("ring_black");
-            else if(f.style==1) real=remoteAssets.get("ring_gold");
-            else if(f.style==3) real=remoteAssets.get("three_globes");
-
-            if(real!=null && (f.style!=3 || hasUsefulTransparency(real))){
-                float planeWidth=(f.style==3?235f:205f)*f.scale;
-                drawPendantBitmap(c,real,f.p,planeWidth,f.rotation,250);
+            String chKey=null;
+            switch(f.style){
+                case 0: chKey="ch_ring_black"; break;
+                case 1: chKey="ch_double_gold"; break;
+                case 2: chKey="ch_linear"; break;
+                case 3: chKey="ch_three_globes"; break;
+                case 4: chKey="ch_five_globes"; break;
+                case 5: chKey="ch_cascade"; break;
+                case 6: chKey="ch_flush"; break;
+                case 7: chKey="ch_cluster"; break;
+            }
+            Bitmap real=chKey==null?null:remoteAssets.get(chKey);
+            if(real!=null){
+                float planeWidth;
+                if(f.style==2) planeWidth=245f;
+                else if(f.style==5) planeWidth=180f;
+                else if(f.style==6) planeWidth=165f;
+                else planeWidth=210f;
+                drawPendantBitmap(c,real,f.p,planeWidth*f.scale,f.rotation,252);
                 return;
             }
 
@@ -671,47 +690,81 @@ public class MainActivity extends Activity {
         }
 
         private void preloadAssets(){
-            loadRemoteAsset("track_black",ASSET_TRACK_BLACK,true,true,true);
-            loadRemoteAsset("track_white",ASSET_TRACK_WHITE,true,true,false);
-            loadRemoteAsset("spot_white",ASSET_SPOT_WHITE,true,false,false);
-            loadRemoteAsset("spot_black",ASSET_SPOT_BLACK,true,false,true);
-            loadRemoteAsset("ring_black",ASSET_RING_BLACK,true,false,true);
-            loadRemoteAsset("ring_gold",ASSET_RING_GOLD,true,false,false);
-            loadRemoteAsset("three_globes",ASSET_THREE_GLOBES,true,false,false);
+            String[] mainNames={
+                    "spot_recessed_white","spot_recessed_black","spot_surface_white","spot_surface_black",
+                    "spot_gimbal_white","spot_gimbal_black","track_compact_black","track_compact_white",
+                    "track_long_black","track_long_white","track_linear_black","track_pendant_black",
+                    "ch_ring_black","ch_double_gold","ch_linear","ch_three_globes"
+            };
+            String[] extraNames={"ch_five_globes","ch_cascade","ch_flush","ch_cluster"};
+            loadAssetSheet("main7",ASSET_SHEET_MAIN,4,4,mainNames);
+            loadAssetSheet("extra7",ASSET_SHEET_EXTRA,2,2,extraNames);
         }
 
-        private void loadRemoteAsset(String key,String url,boolean removeBackground,boolean trackCrop,boolean aggressiveWhite){
+        private void loadAssetSheet(String cachePrefix,String url,int cols,int rows,String[] names){
             assetPool.execute(()->{
                 try{
-                    File cache=new File(getContext().getCacheDir(),"cv6_"+key+".png");
-                    Bitmap bmp=null;
-                    if(cache.exists()){
-                        try(FileInputStream in=new FileInputStream(cache)){ bmp=BitmapFactory.decodeStream(in); }
+                    File sheetCache=new File(getContext().getCacheDir(),"cv_"+cachePrefix+"_sheet.png");
+                    Bitmap sheet=null;
+                    if(sheetCache.exists()){
+                        try(FileInputStream in=new FileInputStream(sheetCache)){sheet=BitmapFactory.decodeStream(in);}
                     }
-                    if(bmp==null){
+                    if(sheet==null){
                         HttpURLConnection con=(HttpURLConnection)new URL(url).openConnection();
-                        con.setConnectTimeout(12000); con.setReadTimeout(18000);
+                        con.setConnectTimeout(15000); con.setReadTimeout(22000);
                         con.setRequestProperty("User-Agent","Mozilla/5.0 CeilingVisualizer");
                         con.setInstanceFollowRedirects(true);
-                        try(InputStream in=con.getInputStream()){ bmp=BitmapFactory.decodeStream(in); }
+                        try(InputStream in=con.getInputStream()){sheet=BitmapFactory.decodeStream(in);}
                         con.disconnect();
-                        if(bmp!=null){
-                            bmp=scaleDown(bmp,720);
-                            if(trackCrop) bmp=cropTrackHead(bmp);
-                            if(removeBackground) bmp=removeEdgeBackground(bmp);
-                            if(aggressiveWhite) bmp=removeWhiteMatte(bmp);
-                            bmp=cropTransparent(bmp);
-                            if(!hasUsefulTransparency(bmp) && aggressiveWhite) bmp=removeWhiteMatte(bmp);
-                            bmp=cropTransparent(bmp);
-                            try(FileOutputStream out=new FileOutputStream(cache)){ bmp.compress(Bitmap.CompressFormat.PNG,100,out); }
+                        if(sheet!=null){
+                            try(FileOutputStream out=new FileOutputStream(sheetCache)){sheet.compress(Bitmap.CompressFormat.PNG,100,out);}
                         }
                     }
-                    if(bmp!=null){
-                        Bitmap ready=bmp;
-                        mainHandler.post(()->{remoteAssets.put(key,ready);invalidate();});
+                    if(sheet==null)return;
+
+                    int cellW=sheet.getWidth()/cols;
+                    int cellH=sheet.getHeight()/rows;
+                    HashMap<String,Bitmap> prepared=new HashMap<>();
+                    int index=0;
+                    for(int row=0;row<rows;row++){
+                        for(int col=0;col<cols&&index<names.length;col++,index++){
+                            int x=col*cellW, y=row*cellH;
+                            int w=(col==cols-1?sheet.getWidth()-x:cellW);
+                            int h=(row==rows-1?sheet.getHeight()-y:cellH);
+                            Bitmap cell=Bitmap.createBitmap(sheet,x,y,w,h).copy(Bitmap.Config.ARGB_8888,true);
+                            cell=chromaKeyGreen(cell);
+                            cell=cropTransparent(cell);
+                            cell=scaleDown(cell,520);
+                            prepared.put(names[index],cell);
+                        }
                     }
+                    mainHandler.post(()->{
+                        remoteAssets.putAll(prepared);
+                        invalidate();
+                    });
                 }catch(Exception ignored){}
             });
+        }
+
+        private Bitmap chromaKeyGreen(Bitmap src){
+            Bitmap b=src.copy(Bitmap.Config.ARGB_8888,true);
+            int w=b.getWidth(),h=b.getHeight();
+            int[] px=new int[w*h];b.getPixels(px,0,w,0,0,w,h);
+            for(int i=0;i<px.length;i++){
+                int c=px[i];
+                int r=Color.red(c),g=Color.green(c),bl=Color.blue(c);
+                int greenDominance=g-Math.max(r,bl);
+                if(g>145 && greenDominance>45){
+                    int alpha;
+                    if(greenDominance>105 && g>190) alpha=0;
+                    else alpha=Math.max(0,Math.min(255,255-(greenDominance-45)*4));
+                    int nr=Math.min(255,(int)(r*1.05f));
+                    int nb=Math.min(255,(int)(bl*1.05f));
+                    px[i]=Color.argb(alpha,nr,Math.min(g,Math.max(nr,nb)+18),nb);
+                }
+            }
+            b.setPixels(px,0,w,0,0,w,h);
+            return b;
         }
 
         private Bitmap scaleDown(Bitmap src,int max){
