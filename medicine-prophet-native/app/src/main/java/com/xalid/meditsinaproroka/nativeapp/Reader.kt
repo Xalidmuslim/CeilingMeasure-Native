@@ -1,0 +1,469 @@
+package com.xalid.meditsinaproroka.nativeapp
+
+import android.app.AlertDialog
+import android.graphics.Typeface
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.BackgroundColorSpan
+import android.text.style.UnderlineSpan
+import android.util.TypedValue
+import android.view.ActionMode
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.EditText
+import android.widget.TextView
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.flow.distinctUntilChanged
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReaderScreen(
+    book: BookData,
+    store: AppStore,
+    route: Route.Reader,
+    modifier: Modifier,
+    back: () -> Unit,
+    navigate: (Route) -> Unit,
+) {
+    val chapter = book.chapters.firstOrNull { it.id == route.chapterId }
+    if (chapter == null) {
+        Column(modifier.fillMaxSize()) {
+            PageHeader("Глава не найдена", null, back)
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Не удалось открыть главу") }
+        }
+        return
+    }
+
+    val listState = rememberLazyListState()
+    var settingsOpen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val topics = remember(book, chapter) { chapter.topics.mapNotNull { id -> book.topics.firstOrNull { it.id == id } } }
+    val remedies = remember(book, chapter) { chapter.remedies.mapNotNull { id -> book.remedies.firstOrNull { it.id == id } } }
+
+    LaunchedEffect(chapter.id, route.anchor, route.resume) {
+        store.addHistory(chapter.id, route.anchor)
+        val target = when {
+            route.anchor != null -> chapter.blocks.indexOfFirst { it.anchor == route.anchor }.takeIf { it >= 0 } ?: 0
+            route.resume -> store.progress[chapter.id] ?: if (store.lastChapterId == chapter.id) store.lastBlockIndex else 0
+            else -> 0
+        }
+        if (route.anchor != null || route.resume) listState.scrollToItem((target + 1).coerceAtMost(chapter.blocks.size))
+        else listState.scrollToItem(0)
+    }
+
+    LaunchedEffect(chapter.id, listState) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .collect { index ->
+                val blockIndex = (index - 1).coerceAtLeast(0).coerceAtMost((chapter.blocks.size - 1).coerceAtLeast(0))
+                store.setLastPosition(chapter.id, blockIndex)
+            }
+    }
+
+    Box(modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            PageHeader(chapter.title, "Глава ${chapter.order} из ${book.chapters.size}", back)
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 110.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                item(key = "header") {
+                    Text(chapter.section, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.height(8.dp))
+                    Text(chapter.title, fontFamily = FontFamily.Serif, fontSize = 30.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(15.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(10.dp))
+                }
+
+                items(
+                    count = chapter.blocks.size,
+                    key = { index -> chapter.blocks[index].id },
+                ) { index ->
+                    ReaderBlock(
+                        chapter = chapter,
+                        block = chapter.blocks[index],
+                        store = store,
+                    )
+                }
+
+                item(key = "actions") {
+                    Spacer(Modifier.height(24.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(16.dp))
+                    Text("Действия с главой", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { copyToClipboard(context, chapter.title, chapterPlainText(book, chapter)) },
+                            modifier = Modifier.weight(1f)
+                        ) { Icon(Icons.Default.ContentCopy, null); Spacer(Modifier.width(5.dp)); Text("Копировать") }
+                        OutlinedButton(
+                            onClick = { shareText(context, chapter.title, chapterPlainText(book, chapter, includeSource = true)) },
+                            modifier = Modifier.weight(1f)
+                        ) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(5.dp)); Text("Поделиться") }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { store.toggleChapterBookmark(chapter.id) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(if (store.isChapterBookmarked(chapter.id)) Icons.Default.Star else Icons.Default.StarBorder, null)
+                        Spacer(Modifier.width(7.dp))
+                        Text(if (store.isChapterBookmarked(chapter.id)) "Убрать из закладок" else "В закладки")
+                    }
+                }
+
+                if (topics.isNotEmpty() || remedies.isNotEmpty()) {
+                    item(key = "related-title") {
+                        Spacer(Modifier.height(22.dp))
+                        Text("Связанные материалы", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    items(count = topics.size, key = { "topic-${topics[it].id}" }) { i ->
+                        SuggestionChip(
+                            onClick = { navigate(Route.TopicDetail(topics[i].id)) },
+                            label = { Text(topics[i].title) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    items(count = remedies.size, key = { "remedy-${remedies[it].id}" }) { i ->
+                        SuggestionChip(
+                            onClick = { navigate(Route.RemedyDetail(remedies[i].id)) },
+                            label = { Text(remedies[i].title) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                item(key = "nav") {
+                    Spacer(Modifier.height(24.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        val prev = book.chapters.firstOrNull { it.id == chapter.previousId }
+                        val next = book.chapters.firstOrNull { it.id == chapter.nextId }
+                        OutlinedButton(
+                            onClick = { if (prev != null) navigate(Route.Reader(prev.id)) },
+                            enabled = prev != null,
+                            modifier = Modifier.weight(1f)
+                        ) { Icon(Icons.Default.ChevronLeft, null); Text("Предыдущая") }
+                        Button(
+                            onClick = { if (next != null) navigate(Route.Reader(next.id)) },
+                            enabled = next != null,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Следующая"); Icon(Icons.Default.ChevronRight, null) }
+                    }
+                }
+            }
+        }
+
+        FloatingActionButton(
+            onClick = { settingsOpen = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ) {
+            Text("Aa", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold)
+        }
+    }
+
+    if (settingsOpen) {
+        ModalBottomSheet(onDismissRequest = { settingsOpen = false }) {
+            ReaderSettingsContent(store = store, compact = true)
+            Spacer(Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun ReaderBlock(chapter: Chapter, block: BookBlock, store: AppStore) {
+    val settings = store.settings
+    val label = when (block.type) {
+        "quran" -> "Коран"
+        "hadith" -> "Хадис"
+        "historical_note" -> if (settings.showHistoricalLabels) "Медицина эпохи" else null
+        else -> null
+    }
+
+    if (block.type == "subheading") {
+        Spacer(Modifier.height(20.dp))
+        Text(
+            block.text,
+            fontFamily = FontFamily.Serif,
+            fontSize = (settings.fontSizeSp + 7).sp,
+            lineHeight = ((settings.fontSizeSp + 7) * 1.15f).sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(8.dp))
+        return
+    }
+
+    val isSpecial = block.type == "quran" || block.type == "hadith" || block.type == "historical_note"
+    if (isSpecial) {
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(Modifier.padding(15.dp)) {
+                if (label != null) {
+                    Text(label.uppercase(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(6.dp))
+                }
+                SelectableNativeText(chapter, block, store)
+                if (block.type == "hadith") {
+                    Spacer(Modifier.height(7.dp))
+                    Text(
+                        if (block.hadithSources.isEmpty()) "Источник требует ручного тахриджа" else block.hadithSources.joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    } else {
+        Box(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
+            SelectableNativeText(chapter, block, store)
+        }
+    }
+}
+
+@Composable
+private fun SelectableNativeText(chapter: Chapter, block: BookBlock, store: AppStore) {
+    val settings = store.settings
+    val textColor = MaterialTheme.colorScheme.onBackground.toArgb()
+    val highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.30f).toArgb()
+    val highlights = store.highlightsFor(chapter.id, block.id)
+    val notes = store.notesFor(chapter.id, block.id)
+
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context ->
+            TextView(context).apply {
+                setTextIsSelectable(true)
+                setTextColor(textColor)
+                setPadding(0, 0, 0, 0)
+                includeFontPadding = false
+
+                customSelectionActionModeCallback = object : ActionMode.Callback {
+                    override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+                        menu?.add(0, 9101, 0, "Выделить")
+                        menu?.add(0, 9102, 1, "Заметка")
+                        menu?.add(0, 9103, 2, "Снять выделение")
+                        return true
+                    }
+
+                    override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?) = false
+
+                    override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
+                        val start = selectionStart.coerceAtLeast(0)
+                        val end = selectionEnd.coerceAtLeast(0)
+                        if (end <= start) return false
+                        val selected = block.text.substring(start.coerceAtMost(block.text.length), end.coerceAtMost(block.text.length))
+
+                        return when (item?.itemId) {
+                            9101 -> {
+                                store.addHighlight(chapter.id, block.id, start, end)
+                                mode?.finish()
+                                true
+                            }
+                            9102 -> {
+                                val input = EditText(context).apply {
+                                    hint = "Ваша заметка"
+                                    setPadding(28, 18, 28, 18)
+                                }
+                                AlertDialog.Builder(context)
+                                    .setTitle("Заметка к выделению")
+                                    .setMessage("«§selected»")
+                                    .setView(input)
+                                    .setPositiveButton("Сохранить") { _, _ ->
+                                        store.addNote(chapter.id, block.id, start, end, selected, input.text.toString())
+                                    }
+                                    .setNegativeButton("Отмена", null)
+                                    .show()
+                                mode?.finish()
+                                true
+                            }
+                            9103 -> {
+                                store.removeHighlights(chapter.id, block.id, start, end)
+                                mode?.finish()
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+
+                    override fun onDestroyActionMode(mode: ActionMode?) = Unit
+                }
+            }
+        },
+        update = { tv ->
+            tv.setTextColor(textColor)
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, settings.fontSizeSp)
+            tv.setLineSpacing(0f, settings.lineSpacing)
+            tv.typeface = Typeface.create(
+                when (settings.fontFamily) {
+                    "classic" -> "sans-serif-condensed"
+                    "modern" -> "sans-serif"
+                    else -> "serif"
+                },
+                Typeface.NORMAL
+            )
+
+            val span = SpannableString(block.text)
+            highlights.forEach { h ->
+                val start = h.start.coerceIn(0, block.text.length)
+                val end = h.end.coerceIn(start, block.text.length)
+                if (end > start) span.setSpan(BackgroundColorSpan(highlightColor), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            notes.forEach { n ->
+                val start = n.start.coerceIn(0, block.text.length)
+                val end = n.end.coerceIn(start, block.text.length)
+                if (end > start) span.setSpan(UnderlineSpan(), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            tv.text = span
+        }
+    )
+}
+
+@Composable
+fun SettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
+    Column(modifier.fillMaxSize()) {
+        PageHeader("Настройки чтения", null, back)
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 18.dp).verticalScroll(androidx.compose.foundation.rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            ReaderSettingsContent(store = store, compact = false)
+            OutlinedButton(onClick = { store.clearProgress() }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.RestartAlt, null)
+                Spacer(Modifier.width(7.dp))
+                Text("Сбросить прогресс и историю")
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReaderSettingsContent(store: AppStore, compact: Boolean) {
+    val s = store.settings
+
+    Text("Предпросмотр", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(15.dp)) {
+            Text("Руководство Пророка ﷺ в лечении", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Spacer(Modifier.height(8.dp))
+            NativePreviewText(settings = s)
+        }
+    }
+
+    Text("Шрифт", fontWeight = FontWeight.Bold)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        FontChoice("Книжный", "book", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "book") } }
+        FontChoice("Классический", "classic", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "classic") } }
+        FontChoice("Современный", "modern", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "modern") } }
+    }
+
+    Text("Размер текста", fontWeight = FontWeight.Bold)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedButton(onClick = { store.updateSettings { it.copy(fontSizeSp = (it.fontSizeSp - 1).coerceAtLeast(14f)) } }) { Text("A−") }
+        Text("${s.fontSizeSp.toInt()} sp", modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        OutlinedButton(onClick = { store.updateSettings { it.copy(fontSizeSp = (it.fontSizeSp + 1).coerceAtMost(30f)) } }) { Text("A+") }
+    }
+
+    Text("Межстрочный интервал", fontWeight = FontWeight.Bold)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf(1.42f to "Плотный", 1.62f to "Обычный", 1.88f to "Свободный").forEach { (value, label) ->
+            FilterChip(
+                selected = kotlin.math.abs(s.lineSpacing - value) < 0.05f,
+                onClick = { store.updateSettings { it.copy(lineSpacing = value) } },
+                label = { Text(label) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+
+    if (!compact) {
+        Text("Тема", fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("system" to "Система", "light" to "Светлая", "dark" to "Тёмная").forEach { (value, label) ->
+                FilterChip(
+                    selected = s.theme == value,
+                    onClick = { store.updateSettings { it.copy(theme = value) } },
+                    label = { Text(label) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        ListItem(
+            headlineContent = { Text("Метки «Медицина эпохи»") },
+            supportingContent = { Text("Текст не скрывается; меняется только редакционная метка") },
+            trailingContent = {
+                Switch(
+                    checked = s.showHistoricalLabels,
+                    onCheckedChange = { checked -> store.updateSettings { it.copy(showHistoricalLabels = checked) } }
+                )
+            }
+        )
+    }
+}
+
+@Composable
+private fun FontChoice(label: String, value: String, selected: String, modifier: Modifier, onClick: () -> Unit) {
+    val family = when (value) {
+        "modern" -> FontFamily.SansSerif
+        "classic" -> FontFamily.Monospace
+        else -> FontFamily.Serif
+    }
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 72.dp),
+        colors = if (selected == value) ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer) else ButtonDefaults.outlinedButtonColors(),
+        contentPadding = PaddingValues(7.dp)
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Аб", fontFamily = family, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(label, fontSize = 10.sp, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun NativePreviewText(settings: ReaderSettings) {
+    val color = MaterialTheme.colorScheme.onSurface.toArgb()
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context -> TextView(context).apply { includeFontPadding = false } },
+        update = { tv ->
+            tv.text = "Полезное знание требует спокойного и внимательного чтения. Здесь сразу видно выбранный шрифт, размер и интервал."
+            tv.setTextColor(color)
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, settings.fontSizeSp)
+            tv.setLineSpacing(0f, settings.lineSpacing)
+            tv.typeface = Typeface.create(
+                when (settings.fontFamily) {
+                    "classic" -> "sans-serif-condensed"
+                    "modern" -> "sans-serif"
+                    else -> "serif"
+                }, Typeface.NORMAL
+            )
+        }
+    )
+}
