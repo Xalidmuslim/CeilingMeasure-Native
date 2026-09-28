@@ -8,7 +8,9 @@ from statistics import median
 from PIL import Image, ImageDraw, ImageFont
 
 MAIN_URL = "https://cdn.openart.ai/watermarked_images/wwKL72mZPzCRR9UDPBp1/thumbnail_8678e3e8_1790620789465.webp"
-EXTRA_URL = "https://cdn.openart.ai/watermarked_images/wwKL72mZPzCRR9UDPBp1/thumbnail_77a095af_1790621044706.webp"
+TRACK_BLACK_URL = "https://cdn.openart.ai/watermarked_images/wwKL72mZPzCRR9UDPBp1/thumbnail_c97160c5_1790623301099.webp"
+TRACK_WHITE_URL = "https://cdn.openart.ai/watermarked_images/wwKL72mZPzCRR9UDPBp1/thumbnail_73257293_1790623303105.webp"
+RING_BLACK_URL = "https://cdn.openart.ai/watermarked_images/wwKL72mZPzCRR9UDPBp1/thumbnail_0379484b_1790623305738.webp"
 
 OUT = Path("visualizer-build/generated-fixtures")
 OUT.mkdir(parents=True, exist_ok=True)
@@ -32,33 +34,40 @@ def bg_color(cell: Image.Image):
     return tuple(int(median([p[i] for p in pts])) for i in range(3))
 
 def key_green(cell: Image.Image) -> Image.Image:
-    bg = bg_color(cell)
+    return key_background(cell, mode="green")
+
+def key_magenta(cell: Image.Image) -> Image.Image:
+    return key_background(cell, mode="magenta")
+
+def key_background(cell: Image.Image, mode: str) -> Image.Image:
     img = cell.copy()
     pix = img.load()
     w, h = img.size
     for y in range(h):
         for x in range(w):
             r, g, b, a = pix[x, y]
-            dr, dg, db = r - bg[0], g - bg[1], b - bg[2]
-            dist = (dr * dr + dg * dg + db * db) ** 0.5
-            green_dom = g - max(r, b)
+            if mode == "green":
+                dominance = g - max(r, b)
+                strength = g
+            else:
+                dominance = min(r, b) - g
+                strength = min(r, b)
 
-            # Generated chroma backgrounds vary from vivid green to pale mint.
-            # Combine distance-to-border-background with green dominance.
-            if dist <= 28:
-                na = 0
-            elif dist <= 78:
-                na = int(255 * (dist - 28) / 50)
+            if strength > 155 and dominance > 38:
+                if strength > 205 and dominance > 90:
+                    na = 0
+                else:
+                    na = max(0, min(255, int(255 - (dominance - 38) * 4.7)))
             else:
                 na = 255
 
-            if g > 115 and green_dom > 26:
-                chroma_alpha = max(0, min(255, int(255 - (green_dom - 26) * 4.2)))
-                na = min(na, chroma_alpha)
-
-            # Decontaminate semi-transparent edge pixels.
             if na < 255:
-                g = min(g, max(r, b) + 10)
+                if mode == "green":
+                    g = min(g, max(r, b) + 8)
+                else:
+                    neutral = g + 8
+                    r = min(r, neutral)
+                    b = min(b, neutral)
             pix[x, y] = (r, g, b, min(a, na))
 
     alpha = img.getchannel("A")
@@ -66,8 +75,7 @@ def key_green(cell: Image.Image) -> Image.Image:
     if bbox:
         l, t, r, b = bbox
         pad = 12
-        bbox = (max(0, l - pad), max(0, t - pad), min(w, r + pad), min(h, b + pad))
-        img = img.crop(bbox)
+        img = img.crop((max(0,l-pad), max(0,t-pad), min(w,r+pad), min(h,b+pad)))
     return img
 
 def crop_cell(sheet: Image.Image, cols: int, rows: int, col: int, row: int):
@@ -83,9 +91,6 @@ main = fetch(MAIN_URL)
 selection = [
     ("spot_white", 0, 0),
     ("spot_black", 1, 0),
-    ("track_black", 2, 1),
-    ("track_white", 3, 1),
-    ("ring_black", 0, 3),
     ("three_globes", 3, 3),
 ]
 
@@ -93,6 +98,18 @@ assets = []
 for name, col, row in selection:
     cell = crop_cell(main, 4, 4, col, row)
     keyed = key_green(cell)
+    keyed.thumbnail((480, 480), Image.Resampling.LANCZOS)
+    path = OUT / f"{name}.png"
+    keyed.save(path, "PNG", optimize=True)
+    assets.append((name, keyed))
+
+for name, url in [
+    ("track_black", TRACK_BLACK_URL),
+    ("track_white", TRACK_WHITE_URL),
+    ("ring_black", RING_BLACK_URL),
+]:
+    raw = fetch(url)
+    keyed = key_magenta(raw)
     keyed.thumbnail((480, 480), Image.Resampling.LANCZOS)
     path = OUT / f"{name}.png"
     keyed.save(path, "PNG", optimize=True)
