@@ -239,6 +239,7 @@ private fun BottomNav(
                         item.label,
                         modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale),
                         fontSize = 11.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                         maxLines = 1,
                     )
                 },
@@ -248,7 +249,7 @@ private fun BottomNav(
                     selectedTextColor = MaterialTheme.colorScheme.primary,
                     indicatorColor = Color.Transparent,
                     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurface,
                 ),
             )
         }
