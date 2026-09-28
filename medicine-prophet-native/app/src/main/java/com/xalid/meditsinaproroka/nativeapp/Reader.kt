@@ -13,6 +13,7 @@ import android.view.MenuItem
 import android.widget.EditText
 import android.widget.TextView
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
