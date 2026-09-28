@@ -555,7 +555,7 @@ private fun ReaderSettingsContent(store: AppStore, compact: Boolean) {
     Text("Предпросмотр", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.padding(15.dp)) {
-            Text("Руководство Пророка ﷺ в лечении", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("Руководство Пророка ﷺ в лечении", fontFamily = WebModernFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
             Spacer(Modifier.height(8.dp))
             NativePreviewText(settings = s)
         }
@@ -584,7 +584,14 @@ private fun ReaderSettingsContent(store: AppStore, compact: Boolean) {
 
     Text("Межстрочный интервал", fontWeight = FontWeight.Bold)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf(1.28f to "Очень плотный", 1.38f to "Плотный", 1.48f to "Обычный", 1.60f to "Свободный").forEach { (value, label) ->
+        listOf(
+            1.08f to "Минимальный",
+            1.14f to "Очень плотный",
+            1.20f to "Плотный",
+            1.28f to "Компактный",
+            1.38f to "Обычный",
+            1.48f to "Свободный",
+        ).forEach { (value, label) ->
             FilterChip(
                 selected = kotlin.math.abs(s.lineSpacing - value) < 0.05f,
                 onClick = { store.updateSettings { it.copy(lineSpacing = value) } },
