@@ -125,7 +125,7 @@ fun HomeScreen(
         }
 
         item {
-            ElevatedCard(modifier = Modifier.fillMaxWidth().clickable { navigate(Route.Collections) }) {
+            ElevatedCard(modifier = Modifier.fillMaxWidth().clickable { navigate(Route.Treatments) }) {
                 Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.MedicalServices, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
                     Spacer(Modifier.width(14.dp))
@@ -215,6 +215,13 @@ fun TopicDetailScreen(book: BookData, id: String, modifier: Modifier, back: () -
     Column(modifier.fillMaxSize()) {
         PageHeader(topic?.title ?: "Тема", "${chapters.size} глав", back)
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            if (!col?.description.isNullOrBlank()) {
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Text(col?.description.orEmpty(), modifier = Modifier.padding(16.dp))
+                    }
+                }
+            }
             items(chapters, key = { it.id }) { ChapterRow(it, { open(it.id) }) }
         }
     }
@@ -325,16 +332,18 @@ fun BookmarksScreen(
 @Composable
 fun MoreScreen(modifier: Modifier, navigate: (Route) -> Unit) {
     val rows = listOf(
-        Triple("Читать книгу", "Полное содержание", Route.Book),
-        Triple("Средства", "Все упомянутые средства и связанные главы", Route.Remedies),
-        Triple("Как лечили", "Тематические подборки", Route.Collections),
-        Triple("Хадисы и источники", "Проверяемые пометки по источникам", Route.Hadiths),
+        Triple("Оглавление книги", "111 глав в оригинальном порядке", Route.Book),
+        Triple("Как лечили / что применялось", "Состояния и методы из лечебных глав", Route.Treatments),
+        Triple("Быстрые подборки", "Головная боль, сон, тревога, рукъя и другое", Route.Collections),
+        Triple("Справочник средств", "Переходы к местам полного текста", Route.Remedies),
+        Triple("Словарь терминов", "Рукъя, кыст, тальбина и другое", Route.Glossary),
+        Triple("Хадисы и источники", "Источники, указанные в тексте", Route.Hadiths),
         Triple("Мои заметки", "Выделения и личные записи", Route.Notes),
-        Triple("История", "Недавно открытые главы", Route.History),
-        Triple("Словарь", "Термины и названия средств", Route.Glossary),
+        Triple("История чтения", "Недавно открытые главы", Route.History),
+        Triple("Офлайн-копия", "Книга уже сохранена внутри приложения", Route.Offline),
         Triple("Настройки чтения", "Шрифт, размер, интервал, тема", Route.Settings),
-        Triple("Офлайн", "Статус локальной копии", Route.Offline),
-        Triple("О книге", "Источник текста и важная оговорка", Route.About),
+        Triple("О приложении", "Назначение и границы использования", Route.About),
+        Triple("Об источнике текста", "Структура и полнота локального издания", Route.Source),
     )
     Column(modifier.fillMaxSize()) {
         PageHeader("Ещё")
@@ -484,7 +493,7 @@ private fun effectiveCollections(book: BookData): List<BookCollection> =
 fun CollectionsScreen(book: BookData, modifier: Modifier, back: () -> Unit, open: (String) -> Unit) {
     val cols = remember(book) { effectiveCollections(book) }
     Column(modifier.fillMaxSize()) {
-        PageHeader("Как лечили", "${cols.size} подборок", back)
+        PageHeader("Быстрые подборки", "${cols.size} подборок", back)
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             items(cols, key = { it.id }) { col ->
                 Card(Modifier.fillMaxWidth().clickable { open(col.id) }) {
@@ -493,7 +502,8 @@ fun CollectionsScreen(book: BookData, modifier: Modifier, back: () -> Unit, open
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(col.title, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                            Text("${col.chapterIds.size} глав", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (col.description.isNotBlank()) Text(col.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${col.chapterIds.size} глав", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
                         }
                         Icon(Icons.Default.ChevronRight, null)
                     }
@@ -517,18 +527,152 @@ fun CollectionDetailScreen(book: BookData, id: String, modifier: Modifier, back:
 }
 
 @Composable
+fun TreatmentsScreen(book: BookData, modifier: Modifier, back: () -> Unit, open: (String) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("Все") }
+    val categories = remember(book) { listOf("Все") + book.treatments.map { it.category }.filter { it.isNotBlank() }.distinct() }
+    val visible = remember(book, query, category) {
+        val q = query.trim()
+        book.treatments.filter { treatment ->
+            val categoryMatches = category == "Все" || treatment.category == category
+            val queryMatches = q.isBlank() ||
+                treatment.condition.contains(q, ignoreCase = true) ||
+                treatment.remedies.any { it.contains(q, ignoreCase = true) } ||
+                treatment.methods.any { it.contains(q, ignoreCase = true) }
+            categoryMatches && queryMatches
+        }
+    }
+
+    Column(modifier.fillMaxSize()) {
+        PageHeader("Как лечили", "${book.treatments.size} состояний", back)
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Text(
+                "Историко-религиозный справочник, а не персональная медицинская инструкция.",
+                modifier = Modifier.padding(14.dp),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            leadingIcon = { Icon(Icons.Default.Search, null) },
+            placeholder = { Text("Состояние или средство") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)
+        )
+        ScrollableTabRow(
+            selectedTabIndex = categories.indexOf(category).coerceAtLeast(0),
+            edgePadding = 10.dp,
+            divider = {}
+        ) {
+            categories.forEach { value ->
+                Tab(selected = value == category, onClick = { category = value }, text = { Text(value) })
+            }
+        }
+        LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            items(visible, key = { it.id }) { treatment ->
+                Card(Modifier.fillMaxWidth().clickable { open(treatment.chapterId) }) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (treatment.category.isNotBlank()) {
+                            Text(treatment.category, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Text(treatment.condition, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                        val mentioned = (treatment.methods + treatment.remedies).distinct()
+                        if (mentioned.isNotEmpty()) {
+                            Text("Что упоминается", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(mentioned.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text("Открыть полный текст →", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun GlossaryScreen(book: BookData, modifier: Modifier, back: () -> Unit, open: (String) -> Unit) {
     Column(modifier.fillMaxSize()) {
-        PageHeader("Словарь", "${book.remedies.size} терминов", back)
+        PageHeader("Словарь терминов", "${book.glossary.size} терминов", back)
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            items(book.remedies.sortedBy { it.title }, key = { it.id }) { r ->
-                ListItem(
-                    headlineContent = { Text(r.title, fontWeight = FontWeight.SemiBold) },
-                    supportingContent = { Text(if (r.aliases.isEmpty()) "Упоминания в книге" else r.aliases.joinToString(", ")) },
-                    trailingContent = { Icon(Icons.Default.ChevronRight, null) },
-                    modifier = Modifier.clickable { open(r.id) }
-                )
+            items(book.glossary, key = { it.id }) { term ->
+                Card(Modifier.fillMaxWidth().clickable { open(term.id) }) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(term.term, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                        Text(term.definition, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Все упоминания →", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+fun GlossaryDetailScreen(
+    book: BookData,
+    id: String,
+    modifier: Modifier,
+    back: () -> Unit,
+    open: (String, String?) -> Unit,
+) {
+    val term = remember(book, id) { book.glossary.firstOrNull { it.id == id } }
+    val hits = remember(book, term) {
+        term?.let { searchBook(book, it.query, SearchFilter.ALL) }.orEmpty()
+    }
+    Column(modifier.fillMaxSize()) {
+        PageHeader(term?.term ?: "Термин", "${hits.size} упоминаний", back)
+        LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            if (term != null) {
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Text(term.term, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                            Text(term.definition)
+                            if (term.aliases.isNotEmpty()) {
+                                Text(term.aliases.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+            itemsIndexed(hits, key = { index, hit -> "${hit.chapterId}-${hit.anchor}-$index" }) { _, hit ->
+                Card(Modifier.fillMaxWidth().clickable { open(hit.chapterId, hit.anchor) }) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(hit.chapterTitle, fontWeight = FontWeight.SemiBold)
+                        Text(hit.snippet, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SourceScreen(book: BookData, modifier: Modifier, back: () -> Unit) {
+    val blocks = if (book.stats.blocks > 0) book.stats.blocks else book.chapters.sumOf { it.blocks.size }
+    val words = book.stats.sourceWords
+    Column(modifier.fillMaxSize()) {
+        PageHeader("Об источнике текста", null, back)
+        Column(
+            Modifier.verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text("Полный русский текст", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+            Text("Один источник данных", fontWeight = FontWeight.Bold, fontSize = 24.sp)
+            Text("Главы, темы, средства, поиск и справочники строятся из одной локальной копии текста, встроенной в приложение.")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MetricCard("Глав", (if (book.stats.chapters > 0) book.stats.chapters else book.chapters.size).toString(), Modifier.weight(1f)) {}
+                MetricCard("Блоков", blocks.toString(), Modifier.weight(1f)) {}
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MetricCard("Слов", if (words > 0) words.toString() else "—", Modifier.weight(1f)) {}
+                MetricCard("Средств", (if (book.stats.remedies > 0) book.stats.remedies else book.remedies.size).toString(), Modifier.weight(1f)) {}
+            }
+            Text("Текст упакован в APK/AAB и не требует сети для чтения.", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
         }
     }
 }

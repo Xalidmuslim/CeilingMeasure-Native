@@ -75,6 +75,7 @@ fun MedicinaApp(book: BookData, store: AppStore) {
             )
             Route.More -> MoreScreen(modifier, ::navigate)
             Route.Remedies -> RemediesScreen(book, modifier, ::goBack) { navigate(Route.RemedyDetail(it)) }
+            Route.Treatments -> TreatmentsScreen(book, modifier, ::goBack) { navigate(Route.Reader(it)) }
             Route.Notes -> NotesScreen(book, store, modifier, ::goBack) { id, anchor -> navigate(Route.Reader(id, anchor)) }
             Route.Settings -> SettingsScreen(store, modifier, ::goBack)
             Route.Hadiths -> HadithsScreen(book, modifier, ::goBack) { id, anchor -> navigate(Route.Reader(id, anchor)) }
@@ -82,7 +83,9 @@ fun MedicinaApp(book: BookData, store: AppStore) {
             Route.Offline -> OfflineScreen(book, modifier, ::goBack)
             Route.About -> AboutScreen(book, modifier, ::goBack)
             Route.Collections -> CollectionsScreen(book, modifier, ::goBack) { navigate(Route.CollectionDetail(it)) }
-            Route.Glossary -> GlossaryScreen(book, modifier, ::goBack) { navigate(Route.RemedyDetail(it)) }
+            Route.Glossary -> GlossaryScreen(book, modifier, ::goBack) { navigate(Route.GlossaryDetail(it)) }
+            Route.Source -> SourceScreen(book, modifier, ::goBack)
+            is Route.GlossaryDetail -> GlossaryDetailScreen(book, route.id, modifier, ::goBack) { id, anchor -> navigate(Route.Reader(id, anchor)) }
             is Route.TopicDetail -> TopicDetailScreen(book, route.id, modifier, ::goBack) { navigate(Route.Reader(it)) }
             is Route.RemedyDetail -> RemedyDetailScreen(book, route.id, modifier, ::goBack) { id, anchor -> navigate(Route.Reader(id, anchor)) }
             is Route.CollectionDetail -> CollectionDetailScreen(book, route.id, modifier, ::goBack) { navigate(Route.Reader(it)) }
@@ -112,9 +115,9 @@ private fun BottomNav(
         Route.Topics, is Route.TopicDetail -> 1
         Route.Search -> 2
         Route.Bookmarks -> 3
-        Route.More, Route.Remedies, Route.Notes, Route.Settings, Route.Hadiths, Route.History,
-        Route.Offline, Route.About, Route.Collections, Route.Glossary, is Route.RemedyDetail,
-        is Route.CollectionDetail -> 4
+        Route.More, Route.Remedies, Route.Treatments, Route.Notes, Route.Settings, Route.Hadiths, Route.History,
+        Route.Offline, Route.About, Route.Collections, Route.Glossary, Route.Source, is Route.RemedyDetail,
+        is Route.CollectionDetail, is Route.GlossaryDetail -> 4
         else -> -1
     }
     NavigationBar {

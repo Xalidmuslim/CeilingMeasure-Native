@@ -10,6 +10,9 @@ data class BookData(
     val topics: List<Topic>,
     val remedies: List<Remedy>,
     val collections: List<BookCollection>,
+    val treatments: List<Treatment> = emptyList(),
+    val glossary: List<GlossaryTerm> = emptyList(),
+    val stats: BookStats = BookStats(),
 )
 
 data class Chapter(
@@ -42,7 +45,35 @@ data class Remedy(
     val chapterIds: List<String>,
     val anchors: List<String>,
 )
-data class BookCollection(val id: String, val title: String, val chapterIds: List<String>)
+data class BookCollection(
+    val id: String,
+    val title: String,
+    val chapterIds: List<String>,
+    val description: String = "",
+)
+data class Treatment(
+    val id: String,
+    val condition: String,
+    val chapterId: String,
+    val section: String,
+    val category: String,
+    val remedies: List<String>,
+    val methods: List<String>,
+)
+data class GlossaryTerm(
+    val id: String,
+    val term: String,
+    val aliases: List<String>,
+    val definition: String,
+    val query: String,
+)
+data class BookStats(
+    val sourceWords: Int = 0,
+    val blocks: Int = 0,
+    val chapters: Int = 0,
+    val remedies: Int = 0,
+    val treatments: Int = 0,
+)
 
 data class SearchHit(
     val chapterId: String,
@@ -61,6 +92,9 @@ fun parseBook(json: String): BookData {
         topics = root.optJSONArray("topics").toObjects { topicFromJson(it) },
         remedies = root.optJSONArray("remedies").toObjects { remedyFromJson(it) },
         collections = root.optJSONArray("collections").toObjects { collectionFromJson(it) },
+        treatments = root.optJSONArray("treatments").toObjects { treatmentFromJson(it) },
+        glossary = root.optJSONArray("glossary").toObjects { glossaryFromJson(it) },
+        stats = statsFromJson(root.optJSONObject("stats")),
     )
 }
 
@@ -107,6 +141,33 @@ private fun collectionFromJson(o: JSONObject) = BookCollection(
     id = o.optString("id"),
     title = o.optString("title"),
     chapterIds = o.optJSONArray("chapterIds").toStrings(),
+    description = o.optString("description"),
+)
+
+private fun treatmentFromJson(o: JSONObject) = Treatment(
+    id = o.optString("id"),
+    condition = o.optString("condition"),
+    chapterId = o.optString("chapterId"),
+    section = o.optString("section"),
+    category = o.optString("category"),
+    remedies = o.optJSONArray("remedies").toObjects { it.optString("title") }.filter { it.isNotBlank() },
+    methods = o.optJSONArray("methods").toStrings(),
+)
+
+private fun glossaryFromJson(o: JSONObject) = GlossaryTerm(
+    id = o.optString("id"),
+    term = o.optString("term"),
+    aliases = o.optJSONArray("aliases").toStrings(),
+    definition = o.optString("definition"),
+    query = o.optString("query").ifBlank { o.optString("term") },
+)
+
+private fun statsFromJson(o: JSONObject?) = BookStats(
+    sourceWords = o?.optInt("sourceWords") ?: 0,
+    blocks = o?.optInt("blocks") ?: 0,
+    chapters = o?.optInt("chapters") ?: 0,
+    remedies = o?.optInt("remedies") ?: 0,
+    treatments = o?.optInt("treatments") ?: 0,
 )
 
 private inline fun <T> JSONArray?.toObjects(block: (JSONObject) -> T): List<T> {
