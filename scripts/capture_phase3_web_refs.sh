@@ -50,8 +50,8 @@ f.addEventListener('load',async()=>{
   if(handled)return;
   handled=true;
   await sleep(320);
-  const d=f.contentDocument;
-  const w=f.contentWindow;
+  let d=f.contentDocument;
+  let w=f.contentWindow;
 
   const click=selector=>d.querySelector(selector)?.click();
   const setInput=(selector,value)=>{
@@ -79,31 +79,68 @@ f.addEventListener('load',async()=>{
     const list=d.querySelectorAll('[data-r]');
     list[i]?.click();
   };
-  const makeReady=()=>{
-    const r=w.curRoom?.();
-    if(!r)return;
+  const reloadGolden=async()=>{
+    await new Promise(resolve=>{
+      f.addEventListener('load',resolve,{once:true});
+      w.location.reload();
+    });
+    await sleep(420);
+    d=f.contentDocument;
+    w=f.contentWindow;
+  };
+  const makeReadyAt=async i=>{
+    const raw=w.localStorage.getItem('ceilingMeasureData');
+    if(!raw)return;
+    const data=JSON.parse(raw);
+    const order=data.orders?.[0];
+    const room=order?.rooms?.[i];
+    if(!room)return;
     const p=[
       {id:'p_phase3_a',x:100,y:100},
       {id:'p_phase3_b',x:300,y:100},
       {id:'p_phase3_c',x:300,y:300},
       {id:'p_phase3_d',x:100,y:300}
     ];
-    r.points=p;
-    r.edges=[
+    room.points=p;
+    room.edges=[
       {id:'e_phase3_ab',a:p[0].id,b:p[1].id,mm:'500'},
       {id:'e_phase3_bc',a:p[1].id,b:p[2].id,mm:'500'},
       {id:'e_phase3_cd',a:p[2].id,b:p[3].id,mm:'500'},
       {id:'e_phase3_da',a:p[3].id,b:p[0].id,mm:'500'}
     ];
-    r.diagList=[];
-    w.save?.();
-    w.renderRooms?.();
-    w.renderRoom?.();
+    room.diagList=[];
+    w.localStorage.setItem('ceilingMeasureData',JSON.stringify(data));
+    await reloadGolden();
+    click('#homeDrawing');
+    await sleep(180);
+    selectIndex(i);
+    await sleep(120);
   };
-  const openActions=i=>{
-    const list=d.querySelectorAll('[data-r]');
-    const id=list[i]?.dataset?.r;
-    if(id)w.openRoomActions?.(id);
+  const longPressRoom=async i=>{
+    const b=d.querySelectorAll('[data-r]')[i];
+    if(!b)return;
+    const down={
+      pointerType:'touch',
+      button:0,
+      pointerId:91,
+      clientX:12,
+      clientY:12,
+      stopPropagation(){},
+      preventDefault(){}
+    };
+    b.onpointerdown?.(down);
+    await sleep(380);
+    const up={
+      pointerType:'touch',
+      button:0,
+      pointerId:91,
+      clientX:12,
+      clientY:12,
+      stopPropagation(){},
+      preventDefault(){}
+    };
+    b.onpointerup?.(up);
+    await sleep(120);
   };
 
   fresh();
@@ -117,33 +154,51 @@ f.addEventListener('load',async()=>{
   }else if(state==='04_active_non_first'){
     fill(); severalRooms(); selectIndex(2);
   }else if(state==='05_room_ready'){
-    fill(); severalRooms(); selectIndex(2); makeReady();
+    fill(); severalRooms(); await makeReadyAt(2);
   }else if(state==='06_room_picker'){
     fill(); severalRooms(); click('#addRoom');
   }else if(state==='07_room_action_sheet'){
-    fill(); severalRooms(); openActions(1);
+    fill(); severalRooms(); await longPressRoom(1);
   }else if(state==='08_room_rename_keyboard'){
-    fill(); severalRooms(); openActions(1);
-    await sleep(80);
+    fill(); severalRooms(); await longPressRoom(1);
     click('[data-alpha-action="clear"]');
     click('[data-alpha-key="з"]');
     click('[data-alpha-key="а"]');
     click('[data-alpha-key="л"]');
   }else if(state==='09_order_collapsed'){
     fill(); severalRooms();
-    w.setCollapseBlockState?.('order',true,{animate:false});
+    click('[data-collapse-toggle="order"]');
+    await sleep(220);
   }else if(state==='10_rooms_collapsed'){
     fill(); severalRooms();
-    w.setCollapseBlockState?.('rooms',true,{animate:false});
+    click('[data-collapse-toggle="rooms"]');
+    await sleep(220);
   }else if(state==='11_delete_order_confirm'){
     fill(); severalRooms(); click('#delOrder');
   }else if(state==='12_delete_room_confirm'){
-    fill(); severalRooms(); openActions(1);
-    await sleep(80);
+    fill(); severalRooms(); await longPressRoom(1);
     click('#roomDeleteFromMenu');
   }
 
   await sleep(300);
+
+  const required={
+    '05_room_ready':()=>!!d.querySelector('.room-ready'),
+    '06_room_picker':()=>d.querySelector('#roomPicker')?.getAttribute('aria-hidden')==='false',
+    '07_room_action_sheet':()=>d.querySelector('#roomActionSheet')?.getAttribute('aria-hidden')==='false',
+    '08_room_rename_keyboard':()=>d.querySelector('#roomActionSheet')?.getAttribute('aria-hidden')==='false'
+      && d.querySelector('#roomRenameValue')?.value==='Зал',
+    '09_order_collapsed':()=>d.querySelector('[data-collapse-block="order"]')?.classList.contains('collapsed'),
+    '10_rooms_collapsed':()=>d.querySelector('[data-collapse-block="rooms"]')?.classList.contains('collapsed'),
+    '11_delete_order_confirm':()=>d.querySelector('#miniConfirm')?.getAttribute('aria-hidden')==='false'
+      && d.querySelector('#miniConfirmTitle')?.textContent?.includes('Удалить заказ?'),
+    '12_delete_room_confirm':()=>d.querySelector('#miniConfirm')?.getAttribute('aria-hidden')==='false'
+      && d.querySelector('#miniConfirmTitle')?.textContent?.includes('Удалить комнату')
+  };
+  const check=required[state];
+  if(check&&!check()){
+    document.documentElement.dataset.phase3ReferenceError='state-not-realized-'+state;
+  }
 });
 </script>
 EOF
@@ -168,6 +223,22 @@ capture() {
     --screenshot="$OUT/web-$width-x-$height-$state.png" \
     "file://$file" >/tmp/phase3-chrome.log 2>&1
   test -s "$OUT/web-$width-x-$height-$state.png"
+  local dom="$OUT/web-$width-x-$height-$state-dom.txt"
+  "$CHROME" \
+    --headless=new \
+    --no-sandbox \
+    --disable-gpu \
+    --allow-file-access-from-files \
+    --force-device-scale-factor=1 \
+    --virtual-time-budget=4500 \
+    --window-size="$width,$height" \
+    --dump-dom "file://$file" > "$dom" 2>/tmp/phase3-chrome-dom.log
+  if grep -q 'phase3ReferenceError' "$dom"; then
+    echo "Phase-3 golden state was not realized: $state at $width px"
+    grep -o 'phase3ReferenceError="[^"]*"' "$dom" || true
+    exit 1
+  fi
+  rm -f "$dom"
 }
 
 states=(
