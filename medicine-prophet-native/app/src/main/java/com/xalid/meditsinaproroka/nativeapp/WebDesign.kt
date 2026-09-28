@@ -26,24 +26,25 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.res.ResourcesCompat
 import kotlin.math.abs
 
-val WebSerifFont = FontFamily(Font(R.font.literata_variable))
 val WebSansFont = FontFamily(Font(R.font.manrope_variable))
-val WebClassicFont = FontFamily(
+val WebLiterataFont = FontFamily(Font(R.font.literata_variable))
+val WebSerifFont = FontFamily(
     Font(R.font.pt_serif_regular, FontWeight.Normal),
     Font(R.font.pt_serif_bold, FontWeight.Bold),
 )
+val WebClassicFont = WebSerifFont
 
 fun readerComposeFontFamily(value: String): FontFamily = when (value) {
-    "classic" -> WebClassicFont
+    "classic" -> WebLiterataFont
     "modern" -> WebSansFont
     else -> WebSerifFont
 }
 
 fun readerTypeface(context: Context, value: String): Typeface {
     val font = when (value) {
-        "classic" -> R.font.pt_serif_regular
+        "classic" -> R.font.literata_variable
         "modern" -> R.font.manrope_variable
-        else -> R.font.literata_variable
+        else -> R.font.pt_serif_regular
     }
     return ResourcesCompat.getFont(context, font) ?: Typeface.DEFAULT
 }
@@ -144,8 +145,8 @@ fun WebHomeScreen(
                         "Книга, разбитая на главы, темы и средства",
                         fontFamily = WebSerifFont,
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 30.sp,
-                        lineHeight = 33.sp,
+                        fontSize = 28.sp,
+                        lineHeight = 32.sp,
                     )
                     Spacer(Modifier.height(11.dp))
                     Text(
@@ -585,10 +586,10 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
             item {
                 WebSettingCard("Шрифт книги") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        WebFontOption("Книжный", "Literata", "book", store.settings.fontFamily) {
+                        WebFontOption("Книжный", "PT Serif", "book", store.settings.fontFamily) {
                             store.updateSettings { it.copy(fontFamily = "book") }
                         }
-                        WebFontOption("Классический", "PT Serif", "classic", store.settings.fontFamily) {
+                        WebFontOption("Literata", "Literata", "classic", store.settings.fontFamily) {
                             store.updateSettings { it.copy(fontFamily = "classic") }
                         }
                         WebFontOption("Современный", "Manrope", "modern", store.settings.fontFamily) {
@@ -715,10 +716,10 @@ fun WebReaderSettingsSheet(store: AppStore, onDone: () -> Unit) {
         Text("Шрифт", fontWeight = FontWeight.SemiBold)
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            WebFontOption("Книжный", "Literata", "book", settings.fontFamily) {
+            WebFontOption("Книжный", "PT Serif", "book", settings.fontFamily) {
                 store.updateSettings { it.copy(fontFamily = "book") }
             }
-            WebFontOption("Классический", "PT Serif", "classic", settings.fontFamily) {
+            WebFontOption("Literata", "Literata", "classic", settings.fontFamily) {
                 store.updateSettings { it.copy(fontFamily = "classic") }
             }
             WebFontOption("Современный", "Manrope", "modern", settings.fontFamily) {
@@ -815,9 +816,9 @@ private fun WebSettingsPreview(settings: ReaderSettings) {
                 ) {
                     Text(
                         when (settings.fontFamily) {
-                            "classic" -> "PT Serif"
+                            "classic" -> "Literata"
                             "modern" -> "Manrope"
-                            else -> "Literata"
+                            else -> "PT Serif"
                         },
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                         color = MaterialTheme.colorScheme.primary,
