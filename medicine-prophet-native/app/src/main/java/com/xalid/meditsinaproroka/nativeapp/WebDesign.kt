@@ -50,16 +50,19 @@ val WebClassicFont = WebSerifFont
 fun readerComposeFontFamily(value: String): FontFamily = when (value) {
     "classic" -> WebLiterataFont
     "modern" -> WebModernFont
+    "compact" -> WebSansFont
+    "system" -> FontFamily.SansSerif
+    "system_serif" -> FontFamily.Serif
     else -> WebSerifFont
 }
 
-fun readerTypeface(context: Context, value: String): Typeface {
-    val font = when (value) {
-        "classic" -> R.font.literata_variable
-        "modern" -> R.font.inter_variable
-        else -> R.font.pt_serif_regular
-    }
-    return ResourcesCompat.getFont(context, font) ?: Typeface.DEFAULT
+fun readerTypeface(context: Context, value: String): Typeface = when (value) {
+    "classic" -> ResourcesCompat.getFont(context, R.font.literata_variable) ?: Typeface.SERIF
+    "modern" -> ResourcesCompat.getFont(context, R.font.inter_variable) ?: Typeface.SANS_SERIF
+    "compact" -> ResourcesCompat.getFont(context, R.font.manrope_variable) ?: Typeface.SANS_SERIF
+    "system" -> Typeface.SANS_SERIF
+    "system_serif" -> Typeface.SERIF
+    else -> ResourcesCompat.getFont(context, R.font.pt_serif_regular) ?: Typeface.SERIF
 }
 
 @Composable
@@ -670,14 +673,19 @@ fun WebMoreScreen(modifier: Modifier, navigate: (Route) -> Unit) {
 }
 
 private val readerSizeOptions = listOf(
-    16f to "Малый",
+    13f to "Очень мелкий",
+    14f to "Мелкий",
+    15f to "Компактный",
+    16f to "Средний",
     17f to "Обычный",
-    19f to "Крупный",
-    21f to "Очень крупный",
+    18f to "Увеличенный",
+    20f to "Крупный",
+    22f to "Очень крупный",
 )
 
 private val readerLineOptions = listOf(
-    1.35f to "Плотный",
+    1.28f to "Очень плотный",
+    1.38f to "Плотный",
     1.48f to "Обычный",
     1.60f to "Свободный",
 )
@@ -725,14 +733,23 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
             item {
                 WebSettingCard("Шрифт книги") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        WebFontOption("Книжный", "PT Serif", "book", store.settings.fontFamily) {
-                            store.updateSettings { it.copy(fontFamily = "book") }
-                        }
-                        WebFontOption("Literata", "Literata", "classic", store.settings.fontFamily) {
+                        WebFontOption("Literata", "Мягкий книжный", "classic", store.settings.fontFamily) {
                             store.updateSettings { it.copy(fontFamily = "classic") }
                         }
-                        WebFontOption("Современный", "Inter", "modern", store.settings.fontFamily) {
+                        WebFontOption("PT Serif", "Классический", "book", store.settings.fontFamily) {
+                            store.updateSettings { it.copy(fontFamily = "book") }
+                        }
+                        WebFontOption("Inter", "Современный", "modern", store.settings.fontFamily) {
                             store.updateSettings { it.copy(fontFamily = "modern") }
+                        }
+                        WebFontOption("Manrope", "Компактный и чистый", "compact", store.settings.fontFamily) {
+                            store.updateSettings { it.copy(fontFamily = "compact") }
+                        }
+                        WebFontOption("Android Sans", "Системный", "system", store.settings.fontFamily) {
+                            store.updateSettings { it.copy(fontFamily = "system") }
+                        }
+                        WebFontOption("Android Serif", "Системный книжный", "system_serif", store.settings.fontFamily) {
+                            store.updateSettings { it.copy(fontFamily = "system_serif") }
                         }
                     }
                 }
@@ -855,14 +872,23 @@ fun WebReaderSettingsSheet(store: AppStore, onDone: () -> Unit) {
         Text("Шрифт", fontWeight = FontWeight.SemiBold)
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            WebFontOption("Книжный", "PT Serif", "book", settings.fontFamily) {
-                store.updateSettings { it.copy(fontFamily = "book") }
-            }
-            WebFontOption("Literata", "Literata", "classic", settings.fontFamily) {
+            WebFontOption("Literata", "Мягкий книжный", "classic", settings.fontFamily) {
                 store.updateSettings { it.copy(fontFamily = "classic") }
             }
-            WebFontOption("Современный", "Inter", "modern", settings.fontFamily) {
+            WebFontOption("PT Serif", "Классический", "book", settings.fontFamily) {
+                store.updateSettings { it.copy(fontFamily = "book") }
+            }
+            WebFontOption("Inter", "Современный", "modern", settings.fontFamily) {
                 store.updateSettings { it.copy(fontFamily = "modern") }
+            }
+            WebFontOption("Manrope", "Компактный и чистый", "compact", settings.fontFamily) {
+                store.updateSettings { it.copy(fontFamily = "compact") }
+            }
+            WebFontOption("Android Sans", "Системный", "system", settings.fontFamily) {
+                store.updateSettings { it.copy(fontFamily = "system") }
+            }
+            WebFontOption("Android Serif", "Системный книжный", "system_serif", settings.fontFamily) {
+                store.updateSettings { it.copy(fontFamily = "system_serif") }
             }
         }
 
@@ -958,6 +984,9 @@ private fun WebSettingsPreview(settings: ReaderSettings) {
                         when (settings.fontFamily) {
                             "classic" -> "Literata"
                             "modern" -> "Inter"
+                            "compact" -> "Manrope"
+                            "system" -> "Android Sans"
+                            "system_serif" -> "Android Serif"
                             else -> "PT Serif"
                         },
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
