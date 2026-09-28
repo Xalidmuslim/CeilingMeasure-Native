@@ -215,18 +215,14 @@ public class MainActivity extends Activity {
                 break;
             case SPOT:
                 addKelvinOptions();
-                String[] sp={"Встр. белый","Встр. чёрный","Цилиндр белый","Цилиндр чёрный","Поворотный белый","Поворотный чёрный"};
-                for(int i=0;i<sp.length;i++){ final int k=i; addOption(sp[i],editor.getSpotStyle()==k,()->{editor.setSpotStyle(k);rebuildOptions();}); }
+                addOption("Белый",editor.getSpotStyle()==0,()->{editor.setSpotStyle(0);rebuildOptions();});
+                addOption("Чёрный",editor.getSpotStyle()==1,()->{editor.setSpotStyle(1);rebuildOptions();});
                 addScaleOptions();
                 break;
             case CHANDELIER:
-                String[] ch={"Кольцо","Два кольца","Линия","3 плафона","5 плафонов","Каскад","Плоская","Точки"};
-                for(int i=0;i<ch.length;i++){ final int k=i; addOption(ch[i],editor.getChandelierStyle()==k,()->{editor.setChandelierStyle(k);rebuildOptions();}); }
+                addOption("Кольцо",editor.getChandelierStyle()==0,()->{editor.setChandelierStyle(0);rebuildOptions();});
+                addOption("3 плафона",editor.getChandelierStyle()==3,()->{editor.setChandelierStyle(3);rebuildOptions();});
                 addScaleOptions();
-                addOption("0°",editor.getFixtureRotation()==0,()->{editor.setFixtureRotation(0);rebuildOptions();});
-                addOption("45°",editor.getFixtureRotation()==45,()->{editor.setFixtureRotation(45);rebuildOptions();});
-                addOption("90°",editor.getFixtureRotation()==90,()->{editor.setFixtureRotation(90);rebuildOptions();});
-                addOption("135°",editor.getFixtureRotation()==135,()->{editor.setFixtureRotation(135);rebuildOptions();});
                 break;
             default: break;
         }
@@ -243,9 +239,9 @@ public class MainActivity extends Activity {
         addOption("50 мм",editor.getLineMm()==50,()->{editor.setLineMm(50);rebuildOptions();});
     }
     private void addScaleOptions(){
-        addOption("80%",editor.getFixtureScale()==0.8f,()->{editor.setFixtureScale(0.8f);rebuildOptions();});
+        addOption("70%",editor.getFixtureScale()==0.7f,()->{editor.setFixtureScale(0.7f);rebuildOptions();});
+        addOption("85%",editor.getFixtureScale()==0.85f,()->{editor.setFixtureScale(0.85f);rebuildOptions();});
         addOption("100%",editor.getFixtureScale()==1f,()->{editor.setFixtureScale(1f);rebuildOptions();});
-        addOption("120%",editor.getFixtureScale()==1.2f,()->{editor.setFixtureScale(1.2f);rebuildOptions();});
     }
 
     private void addOption(String label,boolean selected,Runnable action){
@@ -372,7 +368,7 @@ public class MainActivity extends Activity {
         private int trackHeadStyle=0;
         private int spotStyle=0;
         private int chandelierStyle=0;
-        private float fixtureScale=1f;
+        private float fixtureScale=0.85f;
         private int fixtureRotation=0;
 
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -489,12 +485,12 @@ public class MainActivity extends Activity {
             }else drawLightCore(c,s);
         }
         private void drawLightCore(Canvas c,PlaneSegment s){
-            float base=s.widthMm<=20?5f:s.widthMm>=50?11f:7f;
+            float base=s.widthMm<=20?2.2f:s.widthMm>=50?5.0f:3.2f;
             int lc=lightColor(s.kelvin);
-            drawPlaneStrip(c,s.a,s.b,base*4.5f,withAlpha(lc,22));
-            drawPlaneStrip(c,s.a,s.b,base*2.3f,withAlpha(lc,56));
-            drawPlaneStrip(c,s.a,s.b,base,withAlpha(Color.WHITE,238));
-            drawPlaneStrip(c,s.a,s.b,Math.max(2f,base*0.35f),withAlpha(lc,250));
+            drawPlaneStrip(c,s.a,s.b,base*3.0f,withAlpha(lc,16));
+            drawPlaneStrip(c,s.a,s.b,base*1.7f,withAlpha(lc,42));
+            drawPlaneStrip(c,s.a,s.b,base,withAlpha(Color.WHITE,228));
+            drawPlaneStrip(c,s.a,s.b,Math.max(1.2f,base*0.42f),withAlpha(lc,248));
         }
 
         private void drawTrack(Canvas c,PlaneSegment s){
@@ -508,8 +504,8 @@ public class MainActivity extends Activity {
         private void drawTrackCore(Canvas c,PlaneSegment s){
             int base=s.black?Color.rgb(22,22,22):Color.rgb(238,238,236);
             int edge=s.black?Color.rgb(80,82,83):Color.rgb(165,168,170);
-            drawPlaneStrip(c,s.a,s.b,12f,withAlpha(edge,230));
-            drawPlaneStrip(c,s.a,s.b,8f,withAlpha(base,250));
+            drawPlaneStrip(c,s.a,s.b,7f,withAlpha(edge,220));
+            drawPlaneStrip(c,s.a,s.b,5f,withAlpha(base,250));
 
             float d=planeDistance(s.a,s.b);
             int count=Math.max(1,Math.min(6,(int)(d/190f)));
@@ -521,53 +517,42 @@ public class MainActivity extends Activity {
         }
 
         private void drawTrackHead(Canvas c,PointF p,PointF a,PointF b,int style,boolean black){
-            String key;
-            if(style==0) key=black?"track_compact_black":"track_compact_white";
-            else if(style==1) key=black?"track_long_black":"track_long_white";
-            else if(style==2) key="track_linear_black";
-            else if(style==4) key="track_pendant_black";
-            else key=null;
-            Bitmap real=key==null?null:remoteAssets.get(key);
-            if(real!=null){
-                PointF sa=planeToScreen(a), sb=planeToScreen(b);
-                float screenAngle=(float)Math.toDegrees(Math.atan2(sb.y-sa.y,sb.x-sa.x))+90f;
-                float width=(style==2?100f:(style==4?82f:92f));
-                float anchor=(style==4?0.12f:0.50f);
-                drawBillboardAtPlane(c,real,p,width,screenAngle,250,anchor);
-                return;
-            }
+            PointF s=planeToScreen(p);
+            PointF sx=planeToScreen(add(p,100,0));
+            PointF sy=planeToScreen(add(p,0,100));
+            float local=(distance(s,sx)+distance(s,sy))/200f;
+            local=Math.max(0.42f,Math.min(1.35f,local));
 
-            float dx=b.x-a.x,dy=b.y-a.y,len=Math.max(1f,(float)Math.hypot(dx,dy));
-            float nx=-dy/len, ny=dx/len;
-            int body=black?Color.rgb(26,27,27):Color.rgb(235,236,233);
-            int rim=black?Color.rgb(86,88,89):Color.rgb(170,172,171);
-            if(style==2){
-                drawPlaneRect(c,p,dx/len,dy/len,46,18,body);
-                drawPlaneRect(c,add(p,nx*4,ny*4),dx/len,dy/len,30,8,lightColor(kelvin));
-                return;
-            }
-            if(style==3){
-                drawPlaneRect(c,p,dx/len,dy/len,64,16,body);
-                drawPlaneRect(c,p,dx/len,dy/len,48,7,lightColor(kelvin));
-                return;
-            }
-            if(style==4){
-                PointF q=add(p,nx*42,ny*42);
-                drawPlaneLine(c,p,q,5,body);
-                drawPlaneCircle(c,q,15,rim);drawPlaneCircle(c,q,11,body);drawPlaneCircle(c,add(q,nx*2,ny*2),6,lightColor(kelvin));
-                drawPlaneCircle(c,add(q,nx*22,ny*22),30,withAlpha(lightColor(kelvin),18));
-                return;
-            }
-            int heads=style==5?2:1;
-            for(int h=0;h<heads;h++){
-                float along=(h-(heads-1)/2f)*36f;
-                PointF q=add(p,(dx/len)*along+nx*30,(dy/len)*along+ny*30);
-                drawPlaneLine(c,add(p,(dx/len)*along,(dy/len)*along),q,5,body);
-                float r=style==1?11:15;
-                drawPlaneCircle(c,q,r+3,rim);drawPlaneCircle(c,q,r,body);
-                drawPlaneCircle(c,add(q,nx*2,ny*2),r*0.48f,lightColor(kelvin));
-                drawPlaneCircle(c,add(q,nx*24,ny*24),r*2.2f,withAlpha(lightColor(kelvin),16));
-            }
+            int body=black?Color.rgb(29,30,30):Color.rgb(235,236,233);
+            int rim=black?Color.rgb(84,86,87):Color.rgb(175,177,176);
+            int lens=lightColor(kelvin);
+
+            float stem=dpF(7f)*local;
+            float bw=dpF(10f)*local;
+            float bh=dpF(17f)*local;
+
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dpF(2.2f)*local);
+            paint.setColor(body);
+            c.drawLine(s.x,s.y,s.x,s.y+stem,paint);
+
+            RectF bodyRect=new RectF(s.x-bw/2f,s.y+stem-bh*0.12f,s.x+bw/2f,s.y+stem+bh*0.88f);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(body);
+            c.drawRoundRect(bodyRect,bw*0.45f,bw*0.45f,paint);
+
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dpF(1f)*local);
+            paint.setColor(rim);
+            c.drawOval(new RectF(s.x-bw*0.38f,s.y+stem+bh*0.58f,s.x+bw*0.38f,s.y+stem+bh*0.88f),paint);
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(lens);
+            c.drawOval(new RectF(s.x-bw*0.26f,s.y+stem+bh*0.64f,s.x+bw*0.26f,s.y+stem+bh*0.83f),paint);
+
+            paint.setColor(withAlpha(lens,18));
+            c.drawCircle(s.x,s.y+stem+bh*1.05f,bw*1.35f,paint);
         }
 
         private void drawSpot(Canvas c,Fixture f){
@@ -582,9 +567,8 @@ public class MainActivity extends Activity {
             }
             Bitmap real=remoteAssets.get(spotKey);
             if(real!=null){
-                float size=(f.style<=1?74f:90f)*f.scale;
-                if(f.style<=1) drawBitmapOnPlane(c,real,f.p,size,size,0f,250);
-                else drawBillboardAtPlane(c,real,f.p,size,0f,250,0.46f);
+                float size=48f*f.scale;
+                drawBitmapOnPlane(c,real,f.p,size,size,0f,250);
                 PointF glowCenter=add(f.p,0,7f*f.scale);
                 drawPlaneCircle(c,glowCenter,size*0.50f,withAlpha(lightColor(f.kelvin),11));
                 return;
@@ -633,10 +617,9 @@ public class MainActivity extends Activity {
             Bitmap real=chKey==null?null:remoteAssets.get(chKey);
             if(real!=null){
                 float planeWidth;
-                if(f.style==2) planeWidth=245f;
-                else if(f.style==5) planeWidth=180f;
-                else if(f.style==6) planeWidth=165f;
-                else planeWidth=210f;
+                if(f.style==0) planeWidth=150f;
+                else if(f.style==3) planeWidth=165f;
+                else planeWidth=150f;
                 drawPendantBitmap(c,real,f.p,planeWidth*f.scale,f.rotation,252);
                 return;
             }
