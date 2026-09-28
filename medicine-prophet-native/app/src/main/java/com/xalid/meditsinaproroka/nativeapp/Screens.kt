@@ -178,19 +178,89 @@ fun BookScreen(book: BookData, modifier: Modifier, back: () -> Unit, open: (Stri
 @Composable
 fun TopicsScreen(book: BookData, modifier: Modifier, open: (String) -> Unit) {
     Column(modifier.fillMaxSize()) {
-        PageHeader("Темы", "${book.topics.size} разделов")
-        LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            items(book.topics, key = { it.id }) { topic ->
-                Card(Modifier.fillMaxWidth().clickable { open(topic.id) }) {
-                    Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(topic.title, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                            Text("${topic.chapterIds.size} глав", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Icon(Icons.Default.ChevronRight, null)
+        WebHeader("Темы", "Изучение поверх полного текста")
+        LazyColumn(
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item {
+                Column(Modifier.padding(horizontal = 2.dp)) {
+                    Text(
+                        "ТЕМАТИЧЕСКАЯ НАВИГАЦИЯ",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = WebSansFont,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "По смыслу, не только по порядку",
+                        fontFamily = WebSerifFont,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 29.sp,
+                        lineHeight = 32.sp,
+                    )
+                    Spacer(Modifier.height(9.dp))
+                    Text(
+                        "Одна глава может входить сразу в несколько тем.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = WebSansFont,
+                        fontSize = 14.sp,
+                        lineHeight = 21.sp,
+                    )
+                }
+            }
+            items((book.topics.size + 1) / 2) { rowIndex ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val first = book.topics.getOrNull(rowIndex * 2)
+                    val second = book.topics.getOrNull(rowIndex * 2 + 1)
+                    if (first != null) {
+                        WebTopicCard(first, Modifier.weight(1f)) { open(first.id) }
+                    }
+                    if (second != null) {
+                        WebTopicCard(second, Modifier.weight(1f)) { open(second.id) }
+                    } else {
+                        Spacer(Modifier.weight(1f))
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun WebTopicCard(topic: Topic, modifier: Modifier, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 152.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Column(Modifier.padding(15.dp)) {
+            Text(
+                topic.title,
+                fontFamily = WebSerifFont,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 17.sp,
+                lineHeight = 20.sp,
+            )
+            Spacer(Modifier.height(7.dp))
+            Text(
+                "Связанные главы полного текста",
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontFamily = WebSansFont,
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+            )
+            Text(
+                "${topic.chapterIds.size} глав →",
+                color = MaterialTheme.colorScheme.primary,
+                fontFamily = WebSansFont,
+                fontSize = 11.sp,
+            )
         }
     }
 }

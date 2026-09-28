@@ -75,7 +75,7 @@ fun WebHeader(
                     Text(
                         title,
                         fontFamily = WebSerifFont,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         lineHeight = 21.sp,
                         maxLines = 1,
@@ -192,8 +192,8 @@ fun WebHomeScreen(
                             }
                         }
                         Box(
-                            Modifier.fillMaxWidth().height(5.dp).clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                            Modifier.fillMaxWidth().height(6.dp).clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.42f))
                         ) {
                             if (pct > 0) {
                                 Box(
@@ -557,6 +557,14 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item {
+                Text(
+                    "Все изменения ниже сразу видны в этом образце.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = WebSansFont,
+                    fontSize = 12.sp,
+                )
+            }
             item { WebSettingsPreview(store.settings) }
 
             item {
@@ -799,6 +807,35 @@ private fun WebSettingsPreview(settings: ReaderSettings) {
                 fontSize = settings.fontSizeSp.sp,
                 lineHeight = (settings.fontSizeSp * settings.lineSpacing).sp,
             )
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = CircleShape,
+                ) {
+                    Text(
+                        when (settings.fontFamily) {
+                            "classic" -> "PT Serif"
+                            "modern" -> "Manrope"
+                            else -> "Literata"
+                        },
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 10.sp,
+                    )
+                }
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = CircleShape,
+                ) {
+                    Text(
+                        "${settings.fontSizeSp.toInt()} sp · ×${"%.2f".format(settings.lineSpacing)}",
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 10.sp,
+                    )
+                }
+            }
         }
     }
 }
@@ -880,7 +917,7 @@ private fun WebFontOption(
             if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
         ),
     ) {
-        Column(Modifier.fillMaxWidth().padding(13.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp)) {
             Text(
                 label,
                 fontFamily = readerComposeFontFamily(value),
@@ -892,9 +929,9 @@ private fun WebFontOption(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 10.sp,
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(5.dp))
             Text(
-                "Аль-Фатиха — исцеление",
+                "Пример текста книги",
                 fontFamily = readerComposeFontFamily(value),
                 fontSize = 16.sp,
             )
