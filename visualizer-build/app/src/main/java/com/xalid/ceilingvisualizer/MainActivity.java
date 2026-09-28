@@ -196,10 +196,12 @@ public class MainActivity extends Activity {
         switch(selectedMode){
             case VIEW:
                 if(editor.hasSelection()){
-                    addOption("− размер",false,()->{editor.scaleSelectedBy(0.88f);rebuildOptions();});
-                    addOption("+ размер",false,()->{editor.scaleSelectedBy(1.14f);rebuildOptions();});
-                    addOption("↺ 15°",false,()->{editor.rotateSelected(-15);rebuildOptions();});
-                    addOption("↻ 15°",false,()->{editor.rotateSelected(15);rebuildOptions();});
+                    if(editor.selectedIsFixture()){
+                        addOption("− размер",false,()->{editor.scaleSelectedBy(0.88f);rebuildOptions();});
+                        addOption("+ размер",false,()->{editor.scaleSelectedBy(1.14f);rebuildOptions();});
+                        addOption("↺ 15°",false,()->{editor.rotateSelected(-15);rebuildOptions();});
+                        addOption("↻ 15°",false,()->{editor.rotateSelected(15);rebuildOptions();});
+                    }
                     addOption("Удалить",false,()->{editor.deleteSelected();rebuildOptions();});
                     addOption("Снять выбор",false,()->{editor.deselect();rebuildOptions();});
                 }else{
@@ -1064,7 +1066,7 @@ public class MainActivity extends Activity {
                 beginPinch(e);draftMask.clear();startPlane=null;currentPlane=null;suppressSingleTouch=true;invalidate();return true;
             }
             if(pinching&&e.getPointerCount()>=2&&action==MotionEvent.ACTION_MOVE){applyPinch(e);return true;}
-            if(pinching&&action==MotionEvent.ACTION_POINTER_UP){pinching=false;return true;}
+            if(pinching&&action==MotionEvent.ACTION_POINTER_UP){pinching=false;pinchSelection=false;notifySelectionChanged();return true;}
             if(suppressSingleTouch){if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_CANCEL)suppressSingleTouch=false;return true;}
 
             float x=e.getX(),y=e.getY();
