@@ -16,6 +16,10 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      MEDICINA_KEYSTORE: /tmp/medicina-proroka-release.jks
+      MEDICINA_STORE_PASSWORD: MP-Release-2026-StrongKey
+      MEDICINA_KEY_ALIAS: medicina
+      MEDICINA_KEY_PASSWORD: MP-Release-2026-StrongKey
 
     steps:
       - name: Checkout
@@ -34,18 +38,23 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Restore stable signing key
+        run: |
+          base64 -d medicine-prophet-apk/signing/medicina-release.jks.b64 > "$MEDICINA_KEYSTORE"
+          keytool -list -keystore "$MEDICINA_KEYSTORE" -storepass "$MEDICINA_STORE_PASSWORD" -alias "$MEDICINA_KEY_ALIAS" >/dev/null
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
 
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: medicine-prophet-apk
-        run: gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon :app:assembleRelease
 
       - name: Verify APK
         run: |
-          cp medicine-prophet-apk/app/build/outputs/apk/debug/app-debug.apk medicina-proroka.apk
+          cp medicine-prophet-apk/app/build/outputs/apk/release/app-release.apk medicina-proroka.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs medicina-proroka.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging medicina-proroka.apk | grep -E "^package:|application-label|sdkVersion|targetSdkVersion"
           sha256sum medicina-proroka.apk
