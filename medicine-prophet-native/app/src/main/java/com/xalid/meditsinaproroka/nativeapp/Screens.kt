@@ -42,7 +42,7 @@ private fun ChapterRow(chapter: Chapter, onClick: () -> Unit, trailing: String? 
                 modifier = Modifier.width(34.dp)
             )
             Column(Modifier.weight(1f)) {
-                Text(chapter.title, fontFamily = WebSerifFont, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 20.sp)
+                Text(chapter.title, fontFamily = WebSansFont, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 20.sp)
                 if (chapter.section.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(chapter.section, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -83,7 +83,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            Text("Медицина Пророка ﷺ", fontFamily = FontFamily.Serif, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold)
+            Text("Медицина Пророка ﷺ", fontFamily = WebSansFont, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold)
             Text(book.author, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
             Spacer(Modifier.height(8.dp))
             Text("Полный текст · чтение и изучение", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
@@ -95,7 +95,7 @@ fun HomeScreen(
                     Column(Modifier.padding(18.dp)) {
                         Text("Продолжить чтение", style = MaterialTheme.typography.labelLarge)
                         Spacer(Modifier.height(5.dp))
-                        Text(last.title, fontFamily = FontFamily.Serif, fontSize = 23.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold)
+                        Text(last.title, fontFamily = WebSansFont, fontSize = 23.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(12.dp))
                         Button(onClick = { navigate(Route.Reader(last.id, resume = true)) }, modifier = Modifier.fillMaxWidth()) { Text("Продолжить") }
                     }
@@ -199,10 +199,10 @@ fun TopicsScreen(book: BookData, modifier: Modifier, open: (String) -> Unit) {
                     Spacer(Modifier.height(10.dp))
                     Text(
                         "По смыслу, не только по порядку",
-                        fontFamily = WebSerifFont,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 29.sp,
-                        lineHeight = 32.sp,
+                        fontFamily = WebSansFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 27.sp,
+                        lineHeight = 30.sp,
                     )
                     Spacer(Modifier.height(9.dp))
                     Text(
@@ -244,10 +244,10 @@ private fun WebTopicCard(topic: Topic, modifier: Modifier, onClick: () -> Unit) 
         Column(Modifier.padding(15.dp)) {
             Text(
                 topic.title,
-                fontFamily = WebSerifFont,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 17.sp,
-                lineHeight = 20.sp,
+                fontFamily = WebSansFont,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                lineHeight = 19.sp,
             )
             Spacer(Modifier.height(7.dp))
             Text(
@@ -429,7 +429,7 @@ fun RemediesScreen(book: BookData, modifier: Modifier, back: () -> Unit, open: (
                 ) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(remedy.title, fontFamily = WebSerifFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                            Text(remedy.title, fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                             if (remedy.aliases.isNotEmpty()) Text(remedy.aliases.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("${remedy.chapterIds.size} связанных глав", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                         }
@@ -561,7 +561,7 @@ fun CollectionsScreen(book: BookData, modifier: Modifier, back: () -> Unit, open
             item {
                 Text(
                     "Подборки по смыслу и состояниям",
-                    fontFamily = WebSerifFont,
+                    fontFamily = WebSansFont,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 23.sp,
                     lineHeight = 27.sp,
@@ -597,7 +597,7 @@ private fun CollectionGridCard(col: BookCollection, modifier: Modifier, onClick:
         Column(Modifier.padding(15.dp)) {
             Text(
                 col.title,
-                fontFamily = WebSerifFont,
+                fontFamily = WebSansFont,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 17.sp,
                 lineHeight = 20.sp,
@@ -705,7 +705,7 @@ fun TreatmentsScreen(book: BookData, modifier: Modifier, back: () -> Unit, open:
                         if (treatment.category.isNotBlank()) {
                             Text(treatment.category, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         }
-                        Text(treatment.condition, fontFamily = WebSerifFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                        Text(treatment.condition, fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                         val mentioned = (treatment.methods + treatment.remedies).distinct()
                         if (mentioned.isNotEmpty()) {
                             Text("Что упоминается", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -733,7 +733,7 @@ fun GlossaryScreen(book: BookData, modifier: Modifier, back: () -> Unit, open: (
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(term.term, fontFamily = WebSerifFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                        Text(term.term, fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                         Text(term.definition, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("Все упоминания →", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     }
@@ -827,7 +827,7 @@ fun AboutScreen(book: BookData, modifier: Modifier, back: () -> Unit) {
     Column(modifier.fillMaxSize()) {
         PageHeader("О книге", null, back)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(book.title, fontFamily = FontFamily.Serif, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text(book.title, fontFamily = WebSansFont, fontSize = 28.sp, fontWeight = FontWeight.Bold)
             Text(book.author, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("В приложении сохранён полный текущий текст издания, используемый в веб-версии, с исходным порядком глав и дополнительной тематической навигацией.")
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
