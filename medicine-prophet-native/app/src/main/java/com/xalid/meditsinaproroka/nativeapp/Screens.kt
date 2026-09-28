@@ -29,7 +29,10 @@ fun PageHeader(title: String, subtitle: String? = null, back: (() -> Unit)? = nu
 private fun ChapterRow(chapter: Chapter, onClick: () -> Unit, trailing: String? = null) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -39,7 +42,7 @@ private fun ChapterRow(chapter: Chapter, onClick: () -> Unit, trailing: String? 
                 modifier = Modifier.width(34.dp)
             )
             Column(Modifier.weight(1f)) {
-                Text(chapter.title, fontWeight = FontWeight.SemiBold, lineHeight = 20.sp)
+                Text(chapter.title, fontFamily = WebSerifFont, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 20.sp)
                 if (chapter.section.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(chapter.section, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -417,10 +420,16 @@ fun RemediesScreen(book: BookData, modifier: Modifier, back: () -> Unit, open: (
         PageHeader("Средства", book.remedies.size.toString(), back)
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(book.remedies.sortedBy { it.title }, key = { it.id }) { remedy ->
-                Card(Modifier.fillMaxWidth().clickable { open(remedy.id) }) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { open(remedy.id) },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+                ) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(remedy.title, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                            Text(remedy.title, fontFamily = WebSerifFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                             if (remedy.aliases.isNotEmpty()) Text(remedy.aliases.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("${remedy.chapterIds.size} связанных глав", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                         }
@@ -544,22 +553,73 @@ private fun effectiveCollections(book: BookData): List<BookCollection> =
 fun CollectionsScreen(book: BookData, modifier: Modifier, back: () -> Unit, open: (String) -> Unit) {
     val cols = remember(book) { effectiveCollections(book) }
     Column(modifier.fillMaxSize()) {
-        PageHeader("Быстрые подборки", "${cols.size} подборок", back)
-        LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            items(cols, key = { it.id }) { col ->
-                Card(Modifier.fillMaxWidth().clickable { open(col.id) }) {
-                    Row(Modifier.padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.MedicalServices, null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(col.title, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                            if (col.description.isNotBlank()) Text(col.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${col.chapterIds.size} глав", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                        }
-                        Icon(Icons.Default.ChevronRight, null)
+        WebHeader("Быстрые подборки", "${cols.size} подборок", back)
+        LazyColumn(
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Text(
+                    "Подборки по смыслу и состояниям",
+                    fontFamily = WebSerifFont,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 23.sp,
+                    lineHeight = 27.sp,
+                )
+            }
+            items((cols.size + 1) / 2) { rowIndex ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val first = cols.getOrNull(rowIndex * 2)
+                    val second = cols.getOrNull(rowIndex * 2 + 1)
+                    if (first != null) {
+                        CollectionGridCard(first, Modifier.weight(1f)) { open(first.id) }
+                    }
+                    if (second != null) {
+                        CollectionGridCard(second, Modifier.weight(1f)) { open(second.id) }
+                    } else {
+                        Spacer(Modifier.weight(1f))
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CollectionGridCard(col: BookCollection, modifier: Modifier, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 150.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Column(Modifier.padding(15.dp)) {
+            Text(
+                col.title,
+                fontFamily = WebSerifFont,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 17.sp,
+                lineHeight = 20.sp,
+            )
+            if (col.description.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    col.description,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+            Text(
+                "${col.chapterIds.size} глав →",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelMedium,
+            )
         }
     }
 }
@@ -605,7 +665,9 @@ fun TreatmentsScreen(book: BookData, modifier: Modifier, back: () -> Unit, open:
         PageHeader("Как лечили", "${book.treatments.size} состояний", back)
         Card(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Text(
                 "Историко-религиозный справочник, а не персональная медицинская инструкция.",
@@ -632,12 +694,18 @@ fun TreatmentsScreen(book: BookData, modifier: Modifier, back: () -> Unit, open:
         }
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             items(visible, key = { it.id }) { treatment ->
-                Card(Modifier.fillMaxWidth().clickable { open(treatment.chapterId) }) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { open(treatment.chapterId) },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+                ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (treatment.category.isNotBlank()) {
                             Text(treatment.category, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         }
-                        Text(treatment.condition, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                        Text(treatment.condition, fontFamily = WebSerifFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                         val mentioned = (treatment.methods + treatment.remedies).distinct()
                         if (mentioned.isNotEmpty()) {
                             Text("Что упоминается", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -657,9 +725,15 @@ fun GlossaryScreen(book: BookData, modifier: Modifier, back: () -> Unit, open: (
         PageHeader("Словарь терминов", "${book.glossary.size} терминов", back)
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             items(book.glossary, key = { it.id }) { term ->
-                Card(Modifier.fillMaxWidth().clickable { open(term.id) }) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { open(term.id) },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+                ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(term.term, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                        Text(term.term, fontFamily = WebSerifFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                         Text(term.definition, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("Все упоминания →", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     }
