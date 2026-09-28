@@ -25,8 +25,8 @@ internal fun canonicalBookmarkFolder(folder: String): String {
 data class ReaderSettings(
     val theme: String = "system",
     val fontFamily: String = "book",
-    val fontSizeSp: Float = 18f,
-    val lineSpacing: Float = 1.62f,
+    val fontSizeSp: Float = 17f,
+    val lineSpacing: Float = 1.82f,
     val showHistoricalLabels: Boolean = true,
 )
 
@@ -76,6 +76,7 @@ class AppStore(context: Context) {
         history.addAll(loadHistory())
         loadProgress()
         loadFolders()
+        migrateWebReaderDefaultsIfNeeded()
         if (!prefs.getBoolean("bookmarkFoldersV2Migrated", false)) {
             persistBookmarks()
             persistFolders()
@@ -151,6 +152,17 @@ class AppStore(context: Context) {
     fun isChapterBookmarked(chapterId: String) = bookmarks.any { it.chapterId == chapterId && it.anchor == null }
     fun highlightsFor(chapterId: String, blockId: String) = highlights.filter { it.chapterId == chapterId && it.blockId == blockId }
     fun notesFor(chapterId: String, blockId: String) = notes.filter { it.chapterId == chapterId && it.blockId == blockId }
+
+    private fun migrateWebReaderDefaultsIfNeeded() {
+        if (prefs.getBoolean("webReaderDefaultsV1", false)) return
+        if (kotlin.math.abs(settings.fontSizeSp - 18f) < 0.01f &&
+            kotlin.math.abs(settings.lineSpacing - 1.62f) < 0.01f
+        ) {
+            settings = settings.copy(fontSizeSp = 17f, lineSpacing = 1.82f)
+            persistSettings()
+        }
+        prefs.edit().putBoolean("webReaderDefaultsV1", true).apply()
+    }
 
     fun clearProgress() {
         progress.clear()

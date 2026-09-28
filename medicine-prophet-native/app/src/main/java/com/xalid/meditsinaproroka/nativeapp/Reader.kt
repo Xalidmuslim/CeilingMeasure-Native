@@ -89,7 +89,7 @@ fun ReaderScreen(
                 item(key = "header") {
                     Text(chapter.section, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                     Spacer(Modifier.height(8.dp))
-                    Text(chapter.title, fontFamily = FontFamily.Serif, fontSize = 30.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold)
+                    Text(chapter.title, fontFamily = WebSerifFont, fontSize = 30.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(15.dp))
                     HorizontalDivider()
                     Spacer(Modifier.height(10.dp))
@@ -188,14 +188,13 @@ fun ReaderScreen(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ) {
-            Text("Aa", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold)
+            Text("Aa", fontFamily = WebSerifFont, fontWeight = FontWeight.Bold)
         }
     }
 
     if (settingsOpen) {
         ModalBottomSheet(onDismissRequest = { settingsOpen = false }) {
-            ReaderSettingsContent(store = store, compact = true)
-            Spacer(Modifier.height(20.dp))
+            WebReaderSettingsSheet(store = store, onDone = { settingsOpen = false })
         }
     }
 
@@ -240,7 +239,7 @@ private fun ReaderBlock(chapter: Chapter, block: BookBlock, store: AppStore) {
         Spacer(Modifier.height(20.dp))
         Text(
             block.text,
-            fontFamily = FontFamily.Serif,
+            fontFamily = readerComposeFontFamily(settings.fontFamily),
             fontSize = (settings.fontSizeSp + 7).sp,
             lineHeight = ((settings.fontSizeSp + 7) * 1.15f).sp,
             fontWeight = FontWeight.Bold,
@@ -352,14 +351,7 @@ private fun SelectableNativeText(chapter: Chapter, block: BookBlock, store: AppS
             tv.setTextColor(textColor)
             tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, settings.fontSizeSp)
             tv.setLineSpacing(0f, settings.lineSpacing)
-            tv.typeface = Typeface.create(
-                when (settings.fontFamily) {
-                    "classic" -> "sans-serif-condensed"
-                    "modern" -> "sans-serif"
-                    else -> "serif"
-                },
-                Typeface.NORMAL
-            )
+            tv.typeface = readerTypeface(tv.context, settings.fontFamily)
 
             val span = SpannableString(block.text)
             highlights.forEach { h ->
@@ -493,13 +485,7 @@ private fun NativePreviewText(settings: ReaderSettings) {
             tv.setTextColor(color)
             tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, settings.fontSizeSp)
             tv.setLineSpacing(0f, settings.lineSpacing)
-            tv.typeface = Typeface.create(
-                when (settings.fontFamily) {
-                    "classic" -> "sans-serif-condensed"
-                    "modern" -> "sans-serif"
-                    else -> "serif"
-                }, Typeface.NORMAL
-            )
+            tv.typeface = readerTypeface(tv.context, settings.fontFamily)
         }
     )
 }

@@ -2,21 +2,17 @@ package com.xalid.meditsinaproroka.nativeapp
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun MedicinaApp(book: BookData, store: AppStore) {
@@ -30,9 +26,11 @@ fun MedicinaApp(book: BookData, store: AppStore) {
         if (push && current != route) backStack.add(current)
         current = route
     }
+
     fun goBack() {
         if (backStack.isNotEmpty()) current = backStack.removeAt(backStack.lastIndex)
     }
+
     fun root(route: Route) {
         backStack.clear()
         current = route
@@ -41,6 +39,7 @@ fun MedicinaApp(book: BookData, store: AppStore) {
     BackHandler(enabled = backStack.isNotEmpty()) { goBack() }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             BottomNav(
                 current = current,
@@ -50,14 +49,11 @@ fun MedicinaApp(book: BookData, store: AppStore) {
                 onBookmarks = { root(Route.Bookmarks) },
                 onMore = { root(Route.More) },
             )
-        }
+        },
     ) { insets ->
         val modifier = Modifier.padding(insets)
         when (val route = current) {
-            Route.Home -> HomeScreen(book, store, modifier, ::navigate) {
-                searchQuery = it
-                navigate(Route.Search)
-            }
+            Route.Home -> WebHomeScreen(book, store, modifier, ::navigate)
             Route.Book -> BookScreen(book, modifier, ::goBack) { navigate(Route.Reader(it)) }
             Route.Topics -> TopicsScreen(book, modifier) { navigate(Route.TopicDetail(it)) }
             Route.Search -> SearchScreen(
@@ -67,17 +63,21 @@ fun MedicinaApp(book: BookData, store: AppStore) {
                 filter = searchFilter,
                 onFilter = { searchFilter = it },
                 modifier = modifier,
-                onOpen = { chapterId, anchor -> navigate(Route.Reader(chapterId, anchor)) }
+                onOpen = { chapterId, anchor -> navigate(Route.Reader(chapterId, anchor)) },
             )
             Route.Bookmarks -> BookmarksScreen(
-                book, store, bookmarkFolder, { bookmarkFolder = it }, modifier,
+                book = book,
+                store = store,
+                folder = bookmarkFolder,
+                onFolder = { bookmarkFolder = it },
+                modifier = modifier,
                 onOpen = { id, anchor -> navigate(Route.Reader(id, anchor)) },
             )
-            Route.More -> MoreScreen(modifier, ::navigate)
+            Route.More -> WebMoreScreen(modifier, ::navigate)
             Route.Remedies -> RemediesScreen(book, modifier, ::goBack) { navigate(Route.RemedyDetail(it)) }
             Route.Treatments -> TreatmentsScreen(book, modifier, ::goBack) { navigate(Route.Reader(it)) }
             Route.Notes -> NotesScreen(book, store, modifier, ::goBack) { id, anchor -> navigate(Route.Reader(id, anchor)) }
-            Route.Settings -> SettingsScreen(store, modifier, ::goBack)
+            Route.Settings -> WebSettingsScreen(store, modifier, ::goBack)
             Route.Hadiths -> HadithsScreen(book, modifier, ::goBack) { id, anchor -> navigate(Route.Reader(id, anchor)) }
             Route.History -> HistoryScreen(book, store, modifier, ::goBack) { id, anchor -> navigate(Route.Reader(id, anchor)) }
             Route.Offline -> OfflineScreen(book, modifier, ::goBack)
@@ -85,11 +85,21 @@ fun MedicinaApp(book: BookData, store: AppStore) {
             Route.Collections -> CollectionsScreen(book, modifier, ::goBack) { navigate(Route.CollectionDetail(it)) }
             Route.Glossary -> GlossaryScreen(book, modifier, ::goBack) { navigate(Route.GlossaryDetail(it)) }
             Route.Source -> SourceScreen(book, modifier, ::goBack)
-            is Route.GlossaryDetail -> GlossaryDetailScreen(book, route.id, modifier, ::goBack) { id, anchor -> navigate(Route.Reader(id, anchor)) }
-            is Route.TopicDetail -> TopicDetailScreen(book, route.id, modifier, ::goBack) { navigate(Route.Reader(it)) }
-            is Route.RemedyDetail -> RemedyDetailScreen(book, route.id, modifier, ::goBack) { id, anchor -> navigate(Route.Reader(id, anchor)) }
-            is Route.CollectionDetail -> CollectionDetailScreen(book, route.id, modifier, ::goBack) { navigate(Route.Reader(it)) }
-            is Route.Reader -> ReaderScreen(book, store, route, modifier, ::goBack) { next -> navigate(next) }
+            is Route.GlossaryDetail -> GlossaryDetailScreen(book, route.id, modifier, ::goBack) { id, anchor ->
+                navigate(Route.Reader(id, anchor))
+            }
+            is Route.TopicDetail -> TopicDetailScreen(book, route.id, modifier, ::goBack) {
+                navigate(Route.Reader(it))
+            }
+            is Route.RemedyDetail -> RemedyDetailScreen(book, route.id, modifier, ::goBack) { id, anchor ->
+                navigate(Route.Reader(id, anchor))
+            }
+            is Route.CollectionDetail -> CollectionDetailScreen(book, route.id, modifier, ::goBack) {
+                navigate(Route.Reader(it))
+            }
+            is Route.Reader -> ReaderScreen(book, store, route, modifier, ::goBack) { next ->
+                navigate(next)
+            }
         }
     }
 }
@@ -104,30 +114,43 @@ private fun BottomNav(
     onMore: () -> Unit,
 ) {
     val items = listOf(
-        Triple("Главная", Icons.Default.Home, onHome),
-        Triple("Темы", Icons.Default.Book, onTopics),
-        Triple("Поиск", Icons.Default.Search, onSearch),
-        Triple("Закладки", Icons.Default.Bookmark, onBookmarks),
-        Triple("Ещё", Icons.Default.MoreHoriz, onMore),
+        Triple("Главная", "⌂", onHome),
+        Triple("Темы", "▦", onTopics),
+        Triple("Поиск", "⌕", onSearch),
+        Triple("Закладки", "★", onBookmarks),
+        Triple("Ещё", "⋯", onMore),
     )
+
     val selectedIndex = when (current) {
         Route.Home -> 0
         Route.Topics, is Route.TopicDetail -> 1
         Route.Search -> 2
         Route.Bookmarks -> 3
-        Route.More, Route.Remedies, Route.Treatments, Route.Notes, Route.Settings, Route.Hadiths, Route.History,
-        Route.Offline, Route.About, Route.Collections, Route.Glossary, Route.Source, is Route.RemedyDetail,
-        is Route.CollectionDetail, is Route.GlossaryDetail -> 4
+        Route.More, Route.Remedies, Route.Treatments, Route.Notes, Route.Settings,
+        Route.Hadiths, Route.History, Route.Offline, Route.About, Route.Collections,
+        Route.Glossary, Route.Source, is Route.RemedyDetail, is Route.CollectionDetail,
+        is Route.GlossaryDetail -> 4
         else -> -1
     }
-    NavigationBar {
-        items.forEachIndexed { index, (label, icon, action) ->
+
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+    ) {
+        items.forEachIndexed { index, (label, glyph, action) ->
             NavigationBarItem(
                 selected = selectedIndex == index,
                 onClick = action,
-                icon = { Icon(icon, contentDescription = label) },
-                label = { Text(label) },
-                colors = NavigationBarItemDefaults.colors(),
+                icon = { Text(glyph, fontSize = 22.sp) },
+                label = { Text(label, fontSize = 11.sp, maxLines = 1) },
+                alwaysShowLabel = true,
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = Color.Transparent,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
             )
         }
     }

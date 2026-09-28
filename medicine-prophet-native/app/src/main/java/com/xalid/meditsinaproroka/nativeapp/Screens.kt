@@ -22,19 +22,7 @@ import androidx.compose.ui.unit.sp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PageHeader(title: String, subtitle: String? = null, back: (() -> Unit)? = null) {
-    TopAppBar(
-        title = {
-            Column {
-                Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
-                if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        },
-        navigationIcon = {
-            if (back != null) {
-                IconButton(onClick = back) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад") }
-            }
-        }
-    )
+    WebHeader(title = title, subtitle = subtitle, back = back)
 }
 
 @Composable
