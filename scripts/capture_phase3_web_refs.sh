@@ -233,9 +233,9 @@ capture() {
     --virtual-time-budget=4500 \
     --window-size="$width,$height" \
     --dump-dom "file://$file" > "$dom" 2>/tmp/phase3-chrome-dom.log
-  if grep -q 'phase3ReferenceError' "$dom"; then
+  if grep -q 'data-phase3-reference-error=' "$dom"; then
     echo "Phase-3 golden state was not realized: $state at $width px"
-    grep -o 'phase3ReferenceError="[^"]*"' "$dom" || true
+    grep -o 'data-phase3-reference-error="[^"]*"' "$dom" || true
     exit 1
   fi
   rm -f "$dom"
