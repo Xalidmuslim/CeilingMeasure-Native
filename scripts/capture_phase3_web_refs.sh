@@ -120,30 +120,39 @@ f.addEventListener('load',async()=>{
     const b=d.querySelectorAll('[data-r]')[i];
     if(!b)return;
     const EventCtor=w.PointerEvent||w.MouseEvent;
-    b.dispatchEvent(new EventCtor('pointerdown',{
-      bubbles:true,
-      cancelable:true,
-      pointerId:91,
-      pointerType:'touch',
-      isPrimary:true,
-      button:0,
-      buttons:1,
-      clientX:12,
-      clientY:12
-    }));
-    await sleep(380);
-    b.dispatchEvent(new EventCtor('pointerup',{
-      bubbles:true,
-      cancelable:true,
-      pointerId:91,
-      pointerType:'touch',
-      isPrimary:true,
-      button:0,
-      buttons:0,
-      clientX:12,
-      clientY:12
-    }));
-    await sleep(160);
+    const originalRaf=w.requestAnimationFrame;
+    w.requestAnimationFrame=cb=>{
+      Promise.resolve().then(()=>cb(w.performance.now()));
+      return 1;
+    };
+    try{
+      b.dispatchEvent(new EventCtor('pointerdown',{
+        bubbles:true,
+        cancelable:true,
+        pointerId:91,
+        pointerType:'touch',
+        isPrimary:true,
+        button:0,
+        buttons:1,
+        clientX:12,
+        clientY:12
+      }));
+      await sleep(380);
+      b.dispatchEvent(new EventCtor('pointerup',{
+        bubbles:true,
+        cancelable:true,
+        pointerId:91,
+        pointerType:'touch',
+        isPrimary:true,
+        button:0,
+        buttons:0,
+        clientX:12,
+        clientY:12
+      }));
+      await sleep(160);
+    }finally{
+      w.requestAnimationFrame=originalRaf;
+    }
   };
 
   fresh();
