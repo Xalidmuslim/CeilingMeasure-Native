@@ -75,6 +75,24 @@ def key_background(cell: Image.Image, mode: str) -> Image.Image:
         img = img.crop((max(0,l-pad), max(0,t-pad), min(w,r+pad), min(h,b+pad)))
     return img
 
+def neutralize_green_foreground(img: Image.Image) -> Image.Image:
+    out = img.copy()
+    pix = out.load()
+    w, h = out.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = pix[x, y]
+            if a <= 16:
+                continue
+            mx = max(r, b)
+            if g > mx + 14:
+                if mx < 150:
+                    v = max(12, min(115, int((r + b) * 0.48)))
+                    pix[x, y] = (v, v, v, a)
+                else:
+                    pix[x, y] = (r, min(255, mx + 4), b, a)
+    return out
+
 def crop_cell(sheet: Image.Image, cols: int, rows: int, col: int, row: int):
     cw = sheet.width // cols
     ch = sheet.height // rows
@@ -95,7 +113,7 @@ selection = [
 assets = []
 for name, col, row in selection:
     cell = crop_cell(main, 4, 4, col, row)
-    keyed = key_green(cell)
+    keyed = neutralize_green_foreground(key_green(cell))
     keyed.thumbnail((480, 480), Image.Resampling.LANCZOS)
     path = OUT / f"{name}.png"
     keyed.save(path, "PNG", optimize=True)
