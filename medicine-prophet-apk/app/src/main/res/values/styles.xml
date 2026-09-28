@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MedicinaProroka" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#141D18</item>
+        <item name="android:statusBarColor">#141D18</item>
+        <item name="android:navigationBarColor">#141D18</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:colorAccent">#8FB8A0</item>
+    </style>
+</resources>
