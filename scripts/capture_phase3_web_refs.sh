@@ -75,9 +75,34 @@ f.addEventListener('load',async()=>{
     addRoom('Ванная');
     addRoom('Другое');
   };
-  const selectIndex=i=>{
-    const list=d.querySelectorAll('[data-r]');
-    list[i]?.click();
+  const selectIndex=async i=>{
+    const b=d.querySelectorAll('[data-r]')[i];
+    if(!b)return;
+    const EventCtor=w.PointerEvent||w.MouseEvent;
+    b.dispatchEvent(new EventCtor('pointerdown',{
+      bubbles:true,
+      cancelable:true,
+      pointerId:71,
+      pointerType:'touch',
+      isPrimary:true,
+      button:0,
+      buttons:1,
+      clientX:12,
+      clientY:12
+    }));
+    await sleep(45);
+    b.dispatchEvent(new EventCtor('pointerup',{
+      bubbles:true,
+      cancelable:true,
+      pointerId:71,
+      pointerType:'touch',
+      isPrimary:true,
+      button:0,
+      buttons:0,
+      clientX:12,
+      clientY:12
+    }));
+    await sleep(120);
   };
   const reloadGolden=async()=>{
     await new Promise(resolve=>{
@@ -113,7 +138,7 @@ f.addEventListener('load',async()=>{
     await reloadGolden();
     click('#homeDrawing');
     await sleep(180);
-    selectIndex(i);
+    await selectIndex(i);
     await sleep(120);
   };
   const longPressRoom=async i=>{
@@ -164,7 +189,7 @@ f.addEventListener('load',async()=>{
   }else if(state==='03_four_rooms'){
     fill(); severalRooms();
   }else if(state==='04_active_non_first'){
-    fill(); severalRooms(); selectIndex(2);
+    fill(); severalRooms(); await selectIndex(2);
   }else if(state==='05_room_ready'){
     fill(); severalRooms(); await makeReadyAt(2);
   }else if(state==='06_room_picker'){
