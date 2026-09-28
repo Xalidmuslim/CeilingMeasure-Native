@@ -206,7 +206,7 @@ public class MainActivity extends Activity {
                     addOption("Снять выбор",false,()->{editor.deselect();rebuildOptions();});
                 }else{
                     addOption("Сбросить вид",false,()->editor.resetView());
-                    addOption("Тап по объекту",true,()->{});
+                    addOption("Выберите объект",false,()->{});
                 }
                 break;
             case PERSPECTIVE:
@@ -562,10 +562,16 @@ public class MainActivity extends Activity {
         private void drawLightCore(Canvas c,PlaneSegment s){
             float base=s.widthMm<=20?2.2f:s.widthMm>=50?5.0f:3.2f;
             int lc=lightColor(s.kelvin);
-            drawPlaneStrip(c,s.a,s.b,base*3.0f,withAlpha(lc,16));
-            drawPlaneStrip(c,s.a,s.b,base*1.7f,withAlpha(lc,42));
-            drawPlaneStrip(c,s.a,s.b,base,withAlpha(Color.WHITE,228));
-            drawPlaneStrip(c,s.a,s.b,Math.max(1.2f,base*0.42f),withAlpha(lc,248));
+            float glow1=base*3.0f, glow2=base*1.7f, core=base, hot=Math.max(1.2f,base*0.42f);
+            int glow1c=withAlpha(lc,16), glow2c=withAlpha(lc,42), corec=withAlpha(Color.WHITE,228), hotc=withAlpha(lc,248);
+            drawPlaneStrip(c,s.a,s.b,glow1,glow1c);
+            drawPlaneCircle(c,s.a,glow1/2f,glow1c); drawPlaneCircle(c,s.b,glow1/2f,glow1c);
+            drawPlaneStrip(c,s.a,s.b,glow2,glow2c);
+            drawPlaneCircle(c,s.a,glow2/2f,glow2c); drawPlaneCircle(c,s.b,glow2/2f,glow2c);
+            drawPlaneStrip(c,s.a,s.b,core,corec);
+            drawPlaneCircle(c,s.a,core/2f,corec); drawPlaneCircle(c,s.b,core/2f,corec);
+            drawPlaneStrip(c,s.a,s.b,hot,hotc);
+            drawPlaneCircle(c,s.a,hot/2f,hotc); drawPlaneCircle(c,s.b,hot/2f,hotc);
         }
 
         private void drawTrack(Canvas c,PlaneSegment s){
@@ -579,8 +585,11 @@ public class MainActivity extends Activity {
         private void drawTrackCore(Canvas c,PlaneSegment s){
             int base=s.black?Color.rgb(22,22,22):Color.rgb(238,238,236);
             int edge=s.black?Color.rgb(80,82,83):Color.rgb(165,168,170);
-            drawPlaneStrip(c,s.a,s.b,7f,withAlpha(edge,220));
-            drawPlaneStrip(c,s.a,s.b,5f,withAlpha(base,250));
+            int edgeC=withAlpha(edge,220), baseC=withAlpha(base,250);
+            drawPlaneStrip(c,s.a,s.b,7f,edgeC);
+            drawPlaneCircle(c,s.a,3.5f,edgeC); drawPlaneCircle(c,s.b,3.5f,edgeC);
+            drawPlaneStrip(c,s.a,s.b,5f,baseC);
+            drawPlaneCircle(c,s.a,2.5f,baseC); drawPlaneCircle(c,s.b,2.5f,baseC);
 
             float d=planeDistance(s.a,s.b);
             int count=Math.max(1,Math.min(6,(int)(d/190f)));
@@ -642,10 +651,10 @@ public class MainActivity extends Activity {
             }
             Bitmap real=remoteAssets.get(spotKey);
             if(real!=null){
-                float size=48f*f.scale;
-                drawBitmapOnPlane(c,real,f.p,size,size,0f,250);
-                PointF glowCenter=add(f.p,0,7f*f.scale);
-                drawPlaneCircle(c,glowCenter,size*0.50f,withAlpha(lightColor(f.kelvin),11));
+                float size=43f*f.scale;
+                drawBillboardAtPlane(c,real,f.p,size,0f,250,0.50f);
+                PointF glowCenter=add(f.p,0,5f*f.scale);
+                drawPlaneCircle(c,glowCenter,size*0.42f,withAlpha(lightColor(f.kelvin),9));
                 return;
             }
 
