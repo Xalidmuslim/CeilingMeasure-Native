@@ -2,6 +2,9 @@ package com.xalid.meditsinaproroka.nativeapp
 
 import android.content.Context
 import android.graphics.Typeface
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -782,6 +785,7 @@ fun WebReaderSettingsSheet(store: AppStore, onDone: () -> Unit) {
 @Composable
 private fun WebSettingsPreview(settings: ReaderSettings) {
     Surface(
+        modifier = Modifier.animateContentSize(animationSpec = tween(160)),
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(13.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
@@ -847,6 +851,7 @@ private fun WebSettingCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
+        modifier = Modifier.animateContentSize(animationSpec = tween(160)),
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(13.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
@@ -878,15 +883,27 @@ private fun WebChoiceRow(
     ) {
         options.forEach { (value, label) ->
             val active = value == selected
+            val containerColor by animateColorAsState(
+                targetValue = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                animationSpec = tween(140),
+                label = "choiceContainer",
+            )
+            val contentColor by animateColorAsState(
+                targetValue = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                animationSpec = tween(140),
+                label = "choiceContent",
+            )
+            val borderColor by animateColorAsState(
+                targetValue = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                animationSpec = tween(140),
+                label = "choiceBorder",
+            )
             Surface(
                 onClick = { onSelect(value) },
-                color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                color = containerColor,
+                contentColor = contentColor,
                 shape = RoundedCornerShape(9.dp),
-                border = BorderStroke(
-                    1.dp,
-                    if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                ),
+                border = BorderStroke(1.dp, borderColor),
             ) {
                 Text(
                     label,
@@ -908,15 +925,23 @@ private fun WebFontOption(
     onClick: () -> Unit,
 ) {
     val active = value == selected
+    val containerColor by animateColorAsState(
+        targetValue = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+            else MaterialTheme.colorScheme.surface,
+        animationSpec = tween(150),
+        label = "fontContainer",
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+        animationSpec = tween(150),
+        label = "fontBorder",
+    )
     Surface(
         onClick = onClick,
-        color = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
-            else MaterialTheme.colorScheme.surface,
+        modifier = Modifier.animateContentSize(animationSpec = tween(160)),
+        color = containerColor,
         shape = RoundedCornerShape(11.dp),
-        border = BorderStroke(
-            if (active) 2.dp else 1.dp,
-            if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-        ),
+        border = BorderStroke(if (active) 2.dp else 1.dp, borderColor),
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp)) {
             Text(
