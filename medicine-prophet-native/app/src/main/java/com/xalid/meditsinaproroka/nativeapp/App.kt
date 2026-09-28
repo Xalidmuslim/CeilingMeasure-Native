@@ -1,5 +1,8 @@
 package com.xalid.meditsinaproroka.nativeapp
 
+import android.app.Activity
+import android.os.SystemClock
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -11,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -21,6 +25,9 @@ fun MedicinaApp(book: BookData, store: AppStore) {
     var searchQuery by remember { mutableStateOf("") }
     var searchFilter by remember { mutableStateOf(SearchFilter.ALL) }
     var bookmarkFolder by remember { mutableStateOf("Все") }
+    var lastExitAttemptAt by remember { mutableLongStateOf(0L) }
+    val context = LocalContext.current
+    val activity = context as? Activity
 
     fun navigate(route: Route, push: Boolean = true) {
         if (push && current != route) backStack.add(current)
@@ -36,7 +43,21 @@ fun MedicinaApp(book: BookData, store: AppStore) {
         current = route
     }
 
-    BackHandler(enabled = backStack.isNotEmpty()) { goBack() }
+    BackHandler(enabled = true) {
+        when {
+            backStack.isNotEmpty() -> goBack()
+            current != Route.Home -> root(Route.Home)
+            else -> {
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastExitAttemptAt <= 1800L) {
+                    activity?.finish()
+                } else {
+                    lastExitAttemptAt = now
+                    Toast.makeText(context, "Ещё раз назад — выйти", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
