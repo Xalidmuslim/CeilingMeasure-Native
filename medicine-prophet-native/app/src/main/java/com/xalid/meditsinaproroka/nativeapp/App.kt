@@ -13,7 +13,22 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmarks
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -158,12 +173,18 @@ private fun BottomNav(
     onBookmarks: () -> Unit,
     onMore: () -> Unit,
 ) {
+    data class NavItem(
+        val label: String,
+        val icon: androidx.compose.ui.graphics.vector.ImageVector,
+        val action: () -> Unit,
+    )
+
     val items = listOf(
-        Triple("Главная", "⌂", onHome),
-        Triple("Темы", "▦", onTopics),
-        Triple("Поиск", "⌕", onSearch),
-        Triple("Закладки", "★", onBookmarks),
-        Triple("Ещё", "⋯", onMore),
+        NavItem("Главная", Icons.Default.Home, onHome),
+        NavItem("Темы", Icons.Default.GridView, onTopics),
+        NavItem("Поиск", Icons.Default.Search, onSearch),
+        NavItem("Закладки", Icons.Default.Bookmarks, onBookmarks),
+        NavItem("Ещё", Icons.Default.MoreHoriz, onMore),
     )
 
     val selectedIndex = when (current) {
@@ -182,26 +203,40 @@ private fun BottomNav(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
     ) {
-        items.forEachIndexed { index, (label, glyph, action) ->
+        items.forEachIndexed { index, item ->
             val selected = selectedIndex == index
             val scale by animateFloatAsState(
-                targetValue = if (selected) 1.08f else 1f,
+                targetValue = if (selected) 1.06f else 1f,
                 animationSpec = tween(140),
                 label = "bottomNavScale",
             )
             NavigationBarItem(
                 selected = selected,
-                onClick = action,
+                onClick = item.action,
                 icon = {
-                    Text(
-                        glyph,
-                        modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale),
-                        fontSize = 22.sp,
-                    )
+                    Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = item.label,
+                            modifier = Modifier.size(23.dp).graphicsLayer(scaleX = scale, scaleY = scale),
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        if (selected) {
+                            Box(
+                                Modifier.width(22.dp).height(3.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.primary,
+                                        RoundedCornerShape(999.dp),
+                                    )
+                            )
+                        } else {
+                            Spacer(Modifier.height(3.dp))
+                        }
+                    }
                 },
                 label = {
                     Text(
-                        label,
+                        item.label,
                         modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale),
                         fontSize = 11.sp,
                         maxLines = 1,
