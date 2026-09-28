@@ -85,16 +85,28 @@ fun ReaderScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 110.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 104.dp),
+                verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
                 item(key = "header") {
-                    Text(chapter.section, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-                    Spacer(Modifier.height(8.dp))
-                    Text(chapter.title, fontFamily = WebSerifFont, fontSize = 30.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(15.dp))
-                    HorizontalDivider()
-                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        chapter.section,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = WebSansFont,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        chapter.title,
+                        fontFamily = WebLiterataFont,
+                        fontSize = 28.sp,
+                        lineHeight = 31.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(11.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.72f))
+                    Spacer(Modifier.height(7.dp))
                 }
 
                 items(
@@ -240,15 +252,15 @@ private fun ReaderBlock(chapter: Chapter, block: BookBlock, store: AppStore) {
     }
 
     if (block.type == "subheading") {
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(12.dp))
         Text(
             block.text,
             fontFamily = readerComposeFontFamily(settings.fontFamily),
-            fontSize = (settings.fontSizeSp + 7).sp,
-            lineHeight = ((settings.fontSizeSp + 7) * 1.10f).sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = (settings.fontSizeSp + 5).sp,
+            lineHeight = ((settings.fontSizeSp + 5) * 1.12f).sp,
+            fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(5.dp))
         return
     }
 
@@ -257,7 +269,7 @@ private fun ReaderBlock(chapter: Chapter, block: BookBlock, store: AppStore) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(IntrinsicSize.Min)
-                .padding(vertical = 10.dp),
+                .padding(vertical = 7.dp),
         ) {
             Box(
                 Modifier
@@ -265,7 +277,7 @@ private fun ReaderBlock(chapter: Chapter, block: BookBlock, store: AppStore) {
                     .fillMaxHeight()
                     .background(MaterialTheme.colorScheme.primary)
             )
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(13.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     "ХАДИС",
@@ -401,10 +413,10 @@ private fun ReaderBlock(chapter: Chapter, block: BookBlock, store: AppStore) {
     val isSpecial = block.type == "quran" || block.type == "historical_note"
     if (isSpecial) {
         Card(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            Column(Modifier.padding(15.dp)) {
+            Column(Modifier.padding(13.dp)) {
                 if (label != null) {
                     Text(
                         label.uppercase(),
@@ -418,7 +430,7 @@ private fun ReaderBlock(chapter: Chapter, block: BookBlock, store: AppStore) {
             }
         }
     } else {
-        Box(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Box(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
             SelectableNativeText(chapter, block, store)
         }
     }
@@ -550,22 +562,29 @@ private fun ReaderSettingsContent(store: AppStore, compact: Boolean) {
     }
 
     Text("Шрифт", fontWeight = FontWeight.Bold)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        FontChoice("Книжный", "book", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "book") } }
-        FontChoice("Классический", "classic", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "classic") } }
-        FontChoice("Современный", "modern", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "modern") } }
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            FontChoice("Literata", "classic", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "classic") } }
+            FontChoice("PT Serif", "book", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "book") } }
+            FontChoice("Inter", "modern", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "modern") } }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            FontChoice("Manrope", "compact", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "compact") } }
+            FontChoice("Android", "system", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "system") } }
+            FontChoice("Serif", "system_serif", s.fontFamily, Modifier.weight(1f)) { store.updateSettings { it.copy(fontFamily = "system_serif") } }
+        }
     }
 
     Text("Размер текста", fontWeight = FontWeight.Bold)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedButton(onClick = { store.updateSettings { it.copy(fontSizeSp = (it.fontSizeSp - 1).coerceAtLeast(14f)) } }) { Text("A−") }
+        OutlinedButton(onClick = { store.updateSettings { it.copy(fontSizeSp = (it.fontSizeSp - 1).coerceAtLeast(13f)) } }) { Text("A−") }
         Text("${s.fontSizeSp.toInt()} sp", modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        OutlinedButton(onClick = { store.updateSettings { it.copy(fontSizeSp = (it.fontSizeSp + 1).coerceAtMost(30f)) } }) { Text("A+") }
+        OutlinedButton(onClick = { store.updateSettings { it.copy(fontSizeSp = (it.fontSizeSp + 1).coerceAtMost(24f)) } }) { Text("A+") }
     }
 
     Text("Межстрочный интервал", fontWeight = FontWeight.Bold)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf(1.42f to "Плотный", 1.62f to "Обычный", 1.88f to "Свободный").forEach { (value, label) ->
+        listOf(1.28f to "Очень плотный", 1.38f to "Плотный", 1.48f to "Обычный", 1.60f to "Свободный").forEach { (value, label) ->
             FilterChip(
                 selected = kotlin.math.abs(s.lineSpacing - value) < 0.05f,
                 onClick = { store.updateSettings { it.copy(lineSpacing = value) } },
@@ -603,11 +622,7 @@ private fun ReaderSettingsContent(store: AppStore, compact: Boolean) {
 
 @Composable
 private fun FontChoice(label: String, value: String, selected: String, modifier: Modifier, onClick: () -> Unit) {
-    val family = when (value) {
-        "modern" -> FontFamily.SansSerif
-        "classic" -> FontFamily.Monospace
-        else -> FontFamily.Serif
-    }
+    val family = readerComposeFontFamily(value)
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.heightIn(min = 72.dp),
