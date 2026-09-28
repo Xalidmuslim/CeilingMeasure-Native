@@ -64,7 +64,7 @@ jobs:
 
       - name: Build release APK and Play AAB
         working-directory: medicine-prophet-native
-        run: gradle --no-daemon :app:lintRelease :app:testReleaseUnitTest :app:assembleRelease :app:bundleRelease
+        run: gradle --no-daemon :app:lintRelease :app:testDebugUnitTest :app:assembleRelease :app:bundleRelease
 
       - name: Verify artifacts
         run: |
