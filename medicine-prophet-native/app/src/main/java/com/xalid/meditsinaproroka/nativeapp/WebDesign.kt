@@ -91,10 +91,10 @@ fun WebHeader(
                 ) {
                     Text(
                         title,
-                        fontFamily = WebSansFont,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        lineHeight = 21.sp,
+                        fontFamily = WebModernFont,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 18.5.sp,
+                        lineHeight = 22.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -148,8 +148,8 @@ private fun WebHomeHeader(
                 Column(Modifier.weight(1f)) {
                     Text(
                         title,
-                        fontFamily = WebSansFont,
-                        fontWeight = FontWeight.Bold,
+                        fontFamily = WebModernFont,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 20.sp,
                         lineHeight = 23.sp,
                         maxLines = 1,
@@ -560,8 +560,8 @@ private fun WebCollectionCard(
         Column(Modifier.padding(15.dp)) {
             Text(
                 collection.title,
-                fontFamily = WebSansFont,
-                fontWeight = FontWeight.Bold,
+                fontFamily = WebModernFont,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 17.sp,
                 lineHeight = 20.sp,
             )
@@ -691,10 +691,12 @@ private val readerSizeOptions = listOf(
 )
 
 private val readerLineOptions = listOf(
-    1.28f to "Очень плотный",
-    1.38f to "Плотный",
-    1.48f to "Обычный",
-    1.60f to "Свободный",
+    1.08f to "Минимальный",
+    1.14f to "Очень плотный",
+    1.20f to "Плотный",
+    1.28f to "Компактный",
+    1.38f to "Обычный",
+    1.48f to "Свободный",
 )
 
 private fun closestSizeIndex(value: Float): Int =
@@ -1053,8 +1055,8 @@ private fun WebSettingCard(
         ) {
             Text(
                 title,
-                fontFamily = WebSansFont,
-                fontWeight = FontWeight.Bold,
+                fontFamily = WebModernFont,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 15.5.sp,
             )
             content()
