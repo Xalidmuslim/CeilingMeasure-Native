@@ -727,7 +727,7 @@ public class MainActivity extends Activity {
             int w=b.getWidth(),h=b.getHeight(),n=w*h;
             int[] px=new int[n]; b.getPixels(px,0,w,0,0,w,h);
             boolean[] seen=new boolean[n];
-            int[] q=new int[n]; int head=0,tail=0;
+            int[] q=new int[Math.max(16,n*4+2*w+2*h)]; int head=0,tail=0;
             int bg=averageCorners(px,w,h);
             for(int x=0;x<w;x++){q[tail++]=x;q[tail++]=(h-1)*w+x;}
             for(int y=1;y<h-1;y++){q[tail++]=y*w;q[tail++]=y*w+w-1;}
