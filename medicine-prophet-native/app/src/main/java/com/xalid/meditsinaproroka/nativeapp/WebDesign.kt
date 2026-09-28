@@ -160,7 +160,8 @@ private fun WebHomeHeader(
                         fontFamily = WebSansFont,
                         fontSize = 13.sp,
                         lineHeight = 17.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -196,14 +197,19 @@ fun WebHomeScreen(
     val pct = if (book.chapters.isEmpty()) 0 else
         ((completed * 100f) / book.chapters.size).toInt().coerceIn(0, 100)
     val quickCollections = book.collections.take(4)
+    val continueTitle = when {
+        last == null -> "Начать с первой главы"
+        last.title.trim().startsWith("Глава:", ignoreCase = true) -> last.title.trim()
+        else -> "Глава: ${last.title.trim()}"
+    }
 
     Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         WebHomeHeader(book.title, book.author) { navigate(Route.Settings) }
 
         androidx.compose.foundation.lazy.LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 9.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp),
         ) {
             item {
                 Column(Modifier.padding(horizontal = 1.dp, vertical = 2.dp)) {
@@ -211,18 +217,18 @@ fun WebHomeScreen(
                         "Книга, разбитая на главы,\nтемы и средства",
                         fontFamily = WebLiterataFont,
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 29.sp,
-                        lineHeight = 33.sp,
+                        fontSize = 28.sp,
+                        lineHeight = 31.sp,
                         letterSpacing = (-0.25).sp,
                     )
-                    Spacer(Modifier.height(9.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         "Полный русский текст с поиском, заметками, источниками и офлайн-доступом.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontFamily = WebSansFont,
                         fontWeight = FontWeight.Medium,
-                        fontSize = 14.5.sp,
-                        lineHeight = 21.sp,
+                        fontSize = 14.sp,
+                        lineHeight = 19.sp,
                     )
                 }
             }
@@ -235,15 +241,15 @@ fun WebHomeScreen(
                     shadowElevation = 1.dp,
                 ) {
                     Column(
-                        Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
-                        verticalArrangement = Arrangement.spacedBy(11.dp),
+                        Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
                                 shape = RoundedCornerShape(9.dp),
                             ) {
-                                Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
                                     Icon(
                                         Icons.Default.MenuBook,
                                         contentDescription = null,
@@ -252,11 +258,11 @@ fun WebHomeScreen(
                                     )
                                 }
                             }
-                            Spacer(Modifier.width(9.dp))
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 "Продолжить чтение",
                                 modifier = Modifier.weight(1f),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontFamily = WebSansFont,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 13.sp,
@@ -267,7 +273,7 @@ fun WebHomeScreen(
                             ) {
                                 Text(
                                     "$pct%",
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                     color = MaterialTheme.colorScheme.primary,
                                     fontFamily = WebSansFont,
                                     fontWeight = FontWeight.Bold,
@@ -277,11 +283,11 @@ fun WebHomeScreen(
                         }
 
                         Text(
-                            if (last != null) "Глава: ${last.title}" else "Начать с первой главы",
+                            continueTitle,
                             fontFamily = WebSansFont,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            lineHeight = 24.sp,
+                            fontSize = 18.5.sp,
+                            lineHeight = 22.sp,
                         )
 
                         Box(
@@ -301,7 +307,7 @@ fun WebHomeScreen(
                                 val chapter = last ?: book.chapters.firstOrNull()
                                 if (chapter != null) navigate(Route.Reader(chapter.id, resume = last != null))
                             },
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = RoundedCornerShape(11.dp),
                         ) {
                             Text(
@@ -323,20 +329,20 @@ fun WebHomeScreen(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 15.dp),
+                        Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 13.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
                             Icons.Default.Search,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(25.dp),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(23.dp),
                         )
-                        Spacer(Modifier.width(12.dp))
+                        Spacer(Modifier.width(10.dp))
                         Text(
                             "Поиск по всей книге",
                             modifier = Modifier.weight(1f),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontFamily = WebSansFont,
                             fontWeight = FontWeight.Medium,
                             fontSize = 15.sp,
@@ -358,11 +364,11 @@ fun WebHomeScreen(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)),
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Surface(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(11.dp)) {
-                            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
                                 Text(
                                     "✚",
                                     color = MaterialTheme.colorScheme.onPrimary,
@@ -371,7 +377,7 @@ fun WebHomeScreen(
                                 )
                             }
                         }
-                        Spacer(Modifier.width(13.dp))
+                        Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
                                 "Как лечили / что применялось",
@@ -380,10 +386,10 @@ fun WebHomeScreen(
                                 fontSize = 16.sp,
                                 lineHeight = 20.sp,
                             )
-                            Spacer(Modifier.height(3.dp))
+                            Spacer(Modifier.height(2.dp))
                             Text(
                                 "Состояние → средства → полный текст",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontFamily = WebSansFont,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 11.5.sp,
@@ -396,7 +402,7 @@ fun WebHomeScreen(
             }
 
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     WebQuickCard("▤", "Читать книгу", "${book.chapters.size} глав", Modifier.weight(1f)) {
                         navigate(Route.Book)
                     }
@@ -407,7 +413,7 @@ fun WebHomeScreen(
             }
 
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     WebQuickCard("⚗", "Средства", "${book.remedies.size} позиций", Modifier.weight(1f)) {
                         navigate(Route.Remedies)
                     }
@@ -434,7 +440,7 @@ fun WebHomeScreen(
                 }
                 for (rowIndex in 0 until ((quickCollections.size + 1) / 2)) {
                     item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                             val first = quickCollections.getOrNull(rowIndex * 2)
                             val second = quickCollections.getOrNull(rowIndex * 2 + 1)
                             if (first != null) {
@@ -487,24 +493,24 @@ private fun WebQuickCard(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 116.dp),
+        modifier = modifier.heightIn(min = 104.dp),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(13.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
-        Column(Modifier.padding(14.dp)) {
+        Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Surface(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f),
                     shape = RoundedCornerShape(9.dp),
                 ) {
-                    Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
                         Text(
                             icon,
                             color = MaterialTheme.colorScheme.primary,
                             fontFamily = WebSansFont,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 17.sp,
+                            fontSize = 16.sp,
                         )
                     }
                 }
@@ -513,25 +519,25 @@ private fun WebQuickCard(
                     Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(21.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
-            Spacer(Modifier.height(11.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 title,
                 fontFamily = WebSansFont,
                 fontWeight = FontWeight.Bold,
-                fontSize = 15.5.sp,
-                lineHeight = 19.sp,
+                fontSize = 15.sp,
+                lineHeight = 18.sp,
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(1.dp))
             Text(
                 subtitle,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontFamily = WebSansFont,
                 fontWeight = FontWeight.Medium,
                 fontSize = 11.5.sp,
-                lineHeight = 15.sp,
+                lineHeight = 14.sp,
             )
         }
     }
@@ -702,28 +708,30 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
         WebHeader("Настройки чтения", back = back)
         androidx.compose.foundation.lazy.LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
                 Text(
-                    "Все изменения ниже сразу видны в этом образце.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    "Изменения сразу видны в образце.",
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontFamily = WebSansFont,
-                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 11.5.sp,
                 )
             }
             item { WebSettingsPreview(store.settings) }
 
             item {
                 WebSettingCard("Тема") {
-                    WebChoiceRow(
+                    WebChoiceGrid(
                         options = listOf(
                             "system" to "Система",
                             "light" to "Светлая",
                             "dark" to "Тёмная",
                         ),
                         selected = store.settings.theme,
+                        columns = 3,
                     ) { value ->
                         store.updateSettings { it.copy(theme = value) }
                     }
@@ -732,24 +740,30 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
 
             item {
                 WebSettingCard("Шрифт книги") {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        WebFontOption("Literata", "Мягкий книжный", "classic", store.settings.fontFamily) {
-                            store.updateSettings { it.copy(fontFamily = "classic") }
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            WebFontOption("Literata", "Книжный", "classic", store.settings.fontFamily, Modifier.weight(1f)) {
+                                store.updateSettings { it.copy(fontFamily = "classic") }
+                            }
+                            WebFontOption("PT Serif", "Классика", "book", store.settings.fontFamily, Modifier.weight(1f)) {
+                                store.updateSettings { it.copy(fontFamily = "book") }
+                            }
                         }
-                        WebFontOption("PT Serif", "Классический", "book", store.settings.fontFamily) {
-                            store.updateSettings { it.copy(fontFamily = "book") }
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            WebFontOption("Inter", "Современный", "modern", store.settings.fontFamily, Modifier.weight(1f)) {
+                                store.updateSettings { it.copy(fontFamily = "modern") }
+                            }
+                            WebFontOption("Manrope", "Компактный", "compact", store.settings.fontFamily, Modifier.weight(1f)) {
+                                store.updateSettings { it.copy(fontFamily = "compact") }
+                            }
                         }
-                        WebFontOption("Inter", "Современный", "modern", store.settings.fontFamily) {
-                            store.updateSettings { it.copy(fontFamily = "modern") }
-                        }
-                        WebFontOption("Manrope", "Компактный и чистый", "compact", store.settings.fontFamily) {
-                            store.updateSettings { it.copy(fontFamily = "compact") }
-                        }
-                        WebFontOption("Android Sans", "Системный", "system", store.settings.fontFamily) {
-                            store.updateSettings { it.copy(fontFamily = "system") }
-                        }
-                        WebFontOption("Android Serif", "Системный книжный", "system_serif", store.settings.fontFamily) {
-                            store.updateSettings { it.copy(fontFamily = "system_serif") }
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            WebFontOption("Android Sans", "Системный", "system", store.settings.fontFamily, Modifier.weight(1f)) {
+                                store.updateSettings { it.copy(fontFamily = "system") }
+                            }
+                            WebFontOption("Android Serif", "Книжный", "system_serif", store.settings.fontFamily, Modifier.weight(1f)) {
+                                store.updateSettings { it.copy(fontFamily = "system_serif") }
+                            }
                         }
                     }
                 }
@@ -758,9 +772,10 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
             item {
                 WebSettingCard("Размер текста") {
                     val selected = readerSizeOptions[closestSizeIndex(store.settings.fontSizeSp)].first.toString()
-                    WebChoiceRow(
-                        options = readerSizeOptions.map { it.first.toString() to it.second },
+                    WebChoiceGrid(
+                        options = readerSizeOptions.map { it.first.toString() to "${it.first.toInt()} sp" },
                         selected = selected,
+                        columns = 4,
                     ) { value ->
                         store.updateSettings { it.copy(fontSizeSp = value.toFloat()) }
                     }
@@ -769,9 +784,10 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
 
             item {
                 WebSettingCard("Межстрочный интервал") {
-                    WebChoiceRow(
+                    WebChoiceGrid(
                         options = readerLineOptions.map { it.first.toString() to it.second },
                         selected = closestLine(store.settings.lineSpacing).toString(),
+                        columns = 2,
                     ) { value ->
                         store.updateSettings { it.copy(lineSpacing = value.toFloat()) }
                     }
@@ -781,28 +797,37 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
             item {
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(13.dp),
+                    shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(14.dp),
+                        Modifier.fillMaxWidth().padding(11.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text("Метки медицины эпохи", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Метки медицины эпохи",
+                                fontFamily = WebSansFont,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.5.sp,
+                            )
+                            Spacer(Modifier.height(1.dp))
                             Text(
                                 "Показывать редакционную маркировку",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontFamily = WebSansFont,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                         }
-                        Button(
+                        FilledTonalButton(
                             onClick = {
                                 store.updateSettings {
                                     it.copy(showHistoricalLabels = !it.showHistoricalLabels)
                                 }
                             },
                             shape = RoundedCornerShape(9.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         ) {
                             Text(if (store.settings.showHistoricalLabels) "Вкл." else "Выкл.")
                         }
@@ -814,10 +839,10 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
                 WebSettingCard("Данные чтения") {
                     OutlinedButton(
                         onClick = { store.clearProgress() },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(9.dp),
                     ) {
-                        Text("Сбросить прогресс и историю")
+                        Text("Сбросить прогресс и историю", fontSize = 13.sp)
                     }
                 }
             }
@@ -828,118 +853,135 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
 @Composable
 fun WebReaderSettingsSheet(store: AppStore, onDone: () -> Unit) {
     val settings = store.settings
-    Column(
-        Modifier.fillMaxWidth()
-            .heightIn(max = 720.dp)
-            .verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 26.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+    androidx.compose.foundation.lazy.LazyColumn(
+        modifier = Modifier.fillMaxWidth().heightIn(max = 680.dp),
+        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
-        Row(verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) {
+        item {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "НАСТРОЙКИ ЧТЕНИЯ",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp,
+                    )
+                    Text(
+                        "Текст прямо в этой главе",
+                        fontFamily = WebLiterataFont,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 20.sp,
+                    )
+                }
+                IconButton(onClick = onDone, modifier = Modifier.size(40.dp)) {
+                    Text("×", fontSize = 22.sp)
+                }
+            }
+        }
+
+        item {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            ) {
                 Text(
-                    "НАСТРОЙКИ ЧТЕНИЯ",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
+                    "Так будет выглядеть основной текст книги после изменения настроек.",
+                    modifier = Modifier.padding(11.dp),
+                    fontFamily = readerComposeFontFamily(settings.fontFamily),
+                    fontSize = settings.fontSizeSp.sp,
+                    lineHeight = (settings.fontSizeSp * settings.lineSpacing).sp,
                 )
+            }
+        }
+
+        item { Text("Шрифт", fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    WebFontOption("Literata", "Книжный", "classic", settings.fontFamily, Modifier.weight(1f)) {
+                        store.updateSettings { it.copy(fontFamily = "classic") }
+                    }
+                    WebFontOption("PT Serif", "Классика", "book", settings.fontFamily, Modifier.weight(1f)) {
+                        store.updateSettings { it.copy(fontFamily = "book") }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    WebFontOption("Inter", "Современный", "modern", settings.fontFamily, Modifier.weight(1f)) {
+                        store.updateSettings { it.copy(fontFamily = "modern") }
+                    }
+                    WebFontOption("Manrope", "Компактный", "compact", settings.fontFamily, Modifier.weight(1f)) {
+                        store.updateSettings { it.copy(fontFamily = "compact") }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    WebFontOption("Android Sans", "Системный", "system", settings.fontFamily, Modifier.weight(1f)) {
+                        store.updateSettings { it.copy(fontFamily = "system") }
+                    }
+                    WebFontOption("Android Serif", "Книжный", "system_serif", settings.fontFamily, Modifier.weight(1f)) {
+                        store.updateSettings { it.copy(fontFamily = "system_serif") }
+                    }
+                }
+            }
+        }
+
+        item { Text("Размер", fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
+        item {
+            val sizeIndex = closestSizeIndex(settings.fontSizeSp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        val next = readerSizeOptions[(sizeIndex - 1).coerceAtLeast(0)].first
+                        store.updateSettings { it.copy(fontSizeSp = next) }
+                    },
+                    modifier = Modifier.width(58.dp).height(42.dp),
+                    contentPadding = PaddingValues(0.dp),
+                ) { Text("A−") }
+
                 Text(
-                    "Текст прямо в этой главе",
-                    fontFamily = WebSerifFont,
+                    "${readerSizeOptions[sizeIndex].second} · ${settings.fontSizeSp.toInt()} sp",
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    fontFamily = WebSansFont,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 22.sp,
+                    fontSize = 12.5.sp,
                 )
-            }
-            IconButton(onClick = onDone) { Text("×", fontSize = 24.sp) }
-        }
 
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(13.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        ) {
-            Text(
-                "Так будет выглядеть основной текст книги после изменения настроек.",
-                modifier = Modifier.padding(14.dp),
-                fontFamily = readerComposeFontFamily(settings.fontFamily),
-                fontSize = settings.fontSizeSp.sp,
-                lineHeight = (settings.fontSizeSp * settings.lineSpacing).sp,
-            )
-        }
-
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-        Text("Шрифт", fontWeight = FontWeight.SemiBold)
-
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            WebFontOption("Literata", "Мягкий книжный", "classic", settings.fontFamily) {
-                store.updateSettings { it.copy(fontFamily = "classic") }
-            }
-            WebFontOption("PT Serif", "Классический", "book", settings.fontFamily) {
-                store.updateSettings { it.copy(fontFamily = "book") }
-            }
-            WebFontOption("Inter", "Современный", "modern", settings.fontFamily) {
-                store.updateSettings { it.copy(fontFamily = "modern") }
-            }
-            WebFontOption("Manrope", "Компактный и чистый", "compact", settings.fontFamily) {
-                store.updateSettings { it.copy(fontFamily = "compact") }
-            }
-            WebFontOption("Android Sans", "Системный", "system", settings.fontFamily) {
-                store.updateSettings { it.copy(fontFamily = "system") }
-            }
-            WebFontOption("Android Serif", "Системный книжный", "system_serif", settings.fontFamily) {
-                store.updateSettings { it.copy(fontFamily = "system_serif") }
+                OutlinedButton(
+                    onClick = {
+                        val next = readerSizeOptions[(sizeIndex + 1).coerceAtMost(readerSizeOptions.lastIndex)].first
+                        store.updateSettings { it.copy(fontSizeSp = next) }
+                    },
+                    modifier = Modifier.width(58.dp).height(42.dp),
+                    contentPadding = PaddingValues(0.dp),
+                ) { Text("A+") }
             }
         }
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-        Text("Размер", fontWeight = FontWeight.SemiBold)
-
-        val sizeIndex = closestSizeIndex(settings.fontSizeSp)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedButton(
-                onClick = {
-                    val next = readerSizeOptions[(sizeIndex - 1).coerceAtLeast(0)].first
-                    store.updateSettings { it.copy(fontSizeSp = next) }
-                },
-                modifier = Modifier.width(58.dp),
-            ) { Text("A−") }
-
-            Text(
-                readerSizeOptions[sizeIndex].second,
-                modifier = Modifier.weight(1f),
-                textAlign = TextAlign.Center,
-                fontWeight = FontWeight.SemiBold,
-            )
-
-            OutlinedButton(
-                onClick = {
-                    val next = readerSizeOptions[(sizeIndex + 1).coerceAtMost(readerSizeOptions.lastIndex)].first
-                    store.updateSettings { it.copy(fontSizeSp = next) }
-                },
-                modifier = Modifier.width(58.dp),
-            ) { Text("A+") }
+        item { Text("Интервал", fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
+        item {
+            WebChoiceGrid(
+                options = readerLineOptions.map { it.first.toString() to it.second },
+                selected = closestLine(settings.lineSpacing).toString(),
+                columns = 2,
+            ) { value ->
+                store.updateSettings { it.copy(lineSpacing = value.toFloat()) }
+            }
         }
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-        Text("Интервал", fontWeight = FontWeight.SemiBold)
-
-        WebChoiceRow(
-            options = readerLineOptions.map { it.first.toString() to it.second },
-            selected = closestLine(settings.lineSpacing).toString(),
-        ) { value ->
-            store.updateSettings { it.copy(lineSpacing = value.toFloat()) }
-        }
-
-        Button(
-            onClick = onDone,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-        ) {
-            Text("Готово")
+        item {
+            Button(
+                onClick = onDone,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                Text("Готово")
+            }
         }
     }
 }
@@ -947,65 +989,49 @@ fun WebReaderSettingsSheet(store: AppStore, onDone: () -> Unit) {
 @Composable
 private fun WebSettingsPreview(settings: ReaderSettings) {
     Surface(
-        modifier = Modifier.animateContentSize(animationSpec = tween(160)),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(13.dp),
+        shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
-        Column(Modifier.padding(15.dp)) {
+        Column(Modifier.padding(12.dp)) {
             Text(
                 "ПРЕДПРОСМОТР",
                 color = MaterialTheme.colorScheme.primary,
-                fontSize = 10.sp,
+                fontSize = 9.5.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp,
+                letterSpacing = 0.8.sp,
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(5.dp))
             Text(
                 "Руководство Пророка ﷺ в лечении",
                 fontFamily = readerComposeFontFamily(settings.fontFamily),
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 18.sp,
+                fontSize = 16.5.sp,
             )
-            Spacer(Modifier.height(7.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
-                "Полезное знание требует спокойного и внимательного чтения. Здесь сразу видно выбранный шрифт, размер текста и межстрочный интервал.",
+                "Полезное знание требует спокойного и внимательного чтения.",
                 fontFamily = readerComposeFontFamily(settings.fontFamily),
                 fontSize = settings.fontSizeSp.sp,
                 lineHeight = (settings.fontSizeSp * settings.lineSpacing).sp,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = CircleShape,
-                ) {
-                    Text(
-                        when (settings.fontFamily) {
-                            "classic" -> "Literata"
-                            "modern" -> "Inter"
-                            "compact" -> "Manrope"
-                            "system" -> "Android Sans"
-                            "system_serif" -> "Android Serif"
-                            else -> "PT Serif"
-                        },
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 10.sp,
-                    )
-                }
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = CircleShape,
-                ) {
-                    Text(
-                        "${settings.fontSizeSp.toInt()} sp · ×${"%.2f".format(settings.lineSpacing)}",
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 10.sp,
-                    )
-                }
-            }
+            Spacer(Modifier.height(7.dp))
+            Text(
+                when (settings.fontFamily) {
+                    "classic" -> "Literata"
+                    "modern" -> "Inter"
+                    "compact" -> "Manrope"
+                    "system" -> "Android Sans"
+                    "system_serif" -> "Android Serif"
+                    else -> "PT Serif"
+                } + " · " + settings.fontSizeSp.toInt() + " sp · ×" + "%.2f".format(settings.lineSpacing),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontFamily = WebSansFont,
+                fontWeight = FontWeight.Medium,
+                fontSize = 10.5.sp,
+            )
         }
     }
 }
@@ -1016,20 +1042,19 @@ private fun WebSettingCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
-        modifier = Modifier.animateContentSize(animationSpec = tween(160)),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(13.dp),
+        shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Column(
-            Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            Modifier.padding(11.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Text(
                 title,
-                fontFamily = WebSerifFont,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 18.sp,
+                fontFamily = WebSansFont,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.5.sp,
             )
             content()
         }
@@ -1037,45 +1062,49 @@ private fun WebSettingCard(
 }
 
 @Composable
-private fun WebChoiceRow(
+private fun WebChoiceGrid(
     options: List<Pair<String, String>>,
     selected: String,
+    columns: Int,
     onSelect: (String) -> Unit,
 ) {
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        options.forEach { (value, label) ->
-            val active = value == selected
-            val containerColor by animateColorAsState(
-                targetValue = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                animationSpec = tween(140),
-                label = "choiceContainer",
-            )
-            val contentColor by animateColorAsState(
-                targetValue = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                animationSpec = tween(140),
-                label = "choiceContent",
-            )
-            val borderColor by animateColorAsState(
-                targetValue = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                animationSpec = tween(140),
-                label = "choiceBorder",
-            )
-            Surface(
-                onClick = { onSelect(value) },
-                color = containerColor,
-                contentColor = contentColor,
-                shape = RoundedCornerShape(9.dp),
-                border = BorderStroke(1.dp, borderColor),
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        options.chunked(columns).forEach { rowOptions ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(
-                    label,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                )
+                rowOptions.forEach { (value, label) ->
+                    val active = value == selected
+                    Surface(
+                        onClick = { onSelect(value) },
+                        modifier = Modifier.weight(1f),
+                        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        shape = RoundedCornerShape(9.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        ),
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                label,
+                                fontFamily = WebSansFont,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+                repeat(columns - rowOptions.size) {
+                    Spacer(Modifier.weight(1f))
+                }
             }
         }
     }
@@ -1087,44 +1116,45 @@ private fun WebFontOption(
     fontName: String,
     value: String,
     selected: String,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val active = value == selected
-    val containerColor by animateColorAsState(
-        targetValue = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
-            else MaterialTheme.colorScheme.surface,
-        animationSpec = tween(150),
-        label = "fontContainer",
-    )
-    val borderColor by animateColorAsState(
-        targetValue = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-        animationSpec = tween(150),
-        label = "fontBorder",
-    )
     Surface(
         onClick = onClick,
-        modifier = Modifier.animateContentSize(animationSpec = tween(160)),
-        color = containerColor,
-        shape = RoundedCornerShape(11.dp),
-        border = BorderStroke(if (active) 2.dp else 1.dp, borderColor),
+        modifier = modifier,
+        color = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+            else MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(
+            if (active) 2.dp else 1.dp,
+            if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+        ),
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 7.dp)) {
             Text(
                 label,
                 fontFamily = readerComposeFontFamily(value),
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 fontName,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontFamily = WebSansFont,
+                fontWeight = FontWeight.Medium,
+                fontSize = 9.5.sp,
+                maxLines = 1,
             )
-            Spacer(Modifier.height(5.dp))
+            Spacer(Modifier.height(2.dp))
             Text(
-                "Пример текста книги",
+                "Пример текста",
                 fontFamily = readerComposeFontFamily(value),
-                fontSize = 16.sp,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
