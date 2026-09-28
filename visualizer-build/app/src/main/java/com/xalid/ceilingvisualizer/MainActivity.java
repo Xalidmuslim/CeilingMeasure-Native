@@ -690,15 +690,23 @@ public class MainActivity extends Activity {
         }
 
         private void preloadAssets(){
-            String[] mainNames={
-                    "spot_recessed_white","spot_recessed_black","spot_surface_white","spot_surface_black",
-                    "spot_gimbal_white","spot_gimbal_black","track_compact_black","track_compact_white",
-                    "track_long_black","track_long_white","track_linear_black","track_pendant_black",
-                    "ch_ring_black","ch_double_gold","ch_linear","ch_three_globes"
-            };
-            String[] extraNames={"ch_five_globes","ch_cascade","ch_flush","ch_cluster"};
-            loadAssetSheet("main7",ASSET_SHEET_MAIN,4,4,mainNames);
-            loadAssetSheet("extra7",ASSET_SHEET_EXTRA,2,2,extraNames);
+            putLocalAsset("spot_recessed_white", R.drawable.spot_white);
+            putLocalAsset("spot_surface_white", R.drawable.spot_white);
+            putLocalAsset("spot_gimbal_white", R.drawable.spot_white);
+
+            putLocalAsset("spot_recessed_black", R.drawable.spot_black);
+            putLocalAsset("spot_surface_black", R.drawable.spot_black);
+            putLocalAsset("spot_gimbal_black", R.drawable.spot_black);
+
+            putLocalAsset("ch_ring_black", R.drawable.ring_black);
+            putLocalAsset("ch_three_globes", R.drawable.three_globes);
+        }
+
+        private void putLocalAsset(String key,int resId){
+            try{
+                Bitmap b=BitmapFactory.decodeResource(getResources(),resId);
+                if(b!=null) remoteAssets.put(key,b.copy(Bitmap.Config.ARGB_8888,false));
+            }catch(Exception ignored){}
         }
 
         private void loadAssetSheet(String cachePrefix,String url,int cols,int rows,String[] names){
