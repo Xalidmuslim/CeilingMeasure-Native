@@ -120,9 +120,11 @@ public class MainActivity extends Activity {
         tools.setGravity(Gravity.CENTER_VERTICAL);
         tools.setPadding(dp(7), dp(6), dp(7), dp(7));
 
-        String[] names = {"Рука", "Потолок", "Линия", "Трек", "Споты", "Люстра"};
+        String[] names = {"Просмотр", "Рука", "Перспектива", "Потолок", "Линия", "Трек", "Споты", "Люстра"};
         EditorView.Mode[] modes = {
+                EditorView.Mode.PREVIEW,
                 EditorView.Mode.VIEW,
+                EditorView.Mode.PERSPECTIVE,
                 EditorView.Mode.CEILING,
                 EditorView.Mode.LINE,
                 EditorView.Mode.TRACK,
@@ -156,7 +158,7 @@ public class MainActivity extends Activity {
         });
 
         setContentView(root);
-        selectMode(EditorView.Mode.CEILING, 1);
+        selectMode(EditorView.Mode.CEILING, 3);
     }
 
     private void applySystemInsets(View root) {
@@ -193,8 +195,16 @@ public class MainActivity extends Activity {
         optionRow.removeAllViews();
 
         switch (selectedMode) {
+            case PREVIEW:
+                addOption("Чистый результат", true, () -> {});
+                break;
+
             case VIEW:
                 addOption("Сбросить вид", false, () -> editor.resetView());
+                break;
+
+            case PERSPECTIVE:
+                addOption("Сбросить 4 точки", false, () -> editor.clearPerspective());
                 break;
 
             case CEILING:
@@ -229,6 +239,12 @@ public class MainActivity extends Activity {
 
             case CHANDELIER:
                 addScaleOptions();
+                addOption("Кольцо", editor.getChandelierStyle() == 0,
+                        () -> { editor.setChandelierStyle(0); rebuildOptions(); });
+                addOption("Группа", editor.getChandelierStyle() == 1,
+                        () -> { editor.setChandelierStyle(1); rebuildOptions(); });
+                addOption("Линия", editor.getChandelierStyle() == 2,
+                        () -> { editor.setChandelierStyle(2); rebuildOptions(); });
                 break;
         }
     }
@@ -310,7 +326,7 @@ public class MainActivity extends Activity {
                     throw new IllegalStateException("Bitmap decode failed");
                 }
                 editor.setBitmap(bitmap);
-                selectMode(EditorView.Mode.CEILING, 1);
+                selectMode(EditorView.Mode.CEILING, 3);
             }
         } catch (Exception error) {
             Toast.makeText(this, "Не удалось открыть фотографию", Toast.LENGTH_LONG).show();
@@ -367,7 +383,7 @@ public class MainActivity extends Activity {
     }
 
     public static class EditorView extends View {
-        enum Mode { VIEW, CEILING, LINE, TRACK, SPOT, CHANDELIER }
+        enum Mode { PREVIEW, VIEW, PERSPECTIVE, CEILING, LINE, TRACK, SPOT, CHANDELIER }
 
         static class Segment {
             PointF a;
@@ -420,6 +436,7 @@ public class MainActivity extends Activity {
         private boolean hideCeilingPreview = false;
 
         private final ArrayList<PointF> mask = new ArrayList<>();
+        private final ArrayList<PointF> perspective = new ArrayList<>();
         private final ArrayList<PointF> draft = new ArrayList<>();
         private final ArrayList<PointF> spots = new ArrayList<>();
         private final ArrayList<PointF> chandeliers = new ArrayList<>();
@@ -452,6 +469,7 @@ public class MainActivity extends Activity {
         private boolean ortho = false;
         private boolean trackBlack = true;
         private float fixtureScale = 1f;
+        private int chandelierStyle = 0;
 
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final float density;
@@ -480,8 +498,12 @@ public class MainActivity extends Activity {
 
         String helpText() {
             switch (mode) {
+                case PREVIEW:
+                    return "Чистый просмотр: без технических меток";
                 case VIEW:
                     return "Рука: двигайте одним пальцем, масштабируйте двумя";
+                case PERSPECTIVE:
+                    return "Перспектива: коснитесь 4 углов потолочной плоскости по кругу";
                 case CEILING:
                     return "Потолок: обведите границу одним движением";
                 case LINE:
@@ -578,6 +600,11 @@ public class MainActivity extends Activity {
         float getFixtureScale() { return fixtureScale; }
         void setFixtureScale(float value) { fixtureScale = value; invalidate(); }
 
+        int getChandelierStyle() { return chandelierStyle; }
+        void setChandelierStyle(int value) { chandelierStyle = value; invalidate(); }
+
+        void clearPerspective() { perspective.clear(); invalidate(); }
+
         boolean isCeilingPreviewHidden() { return hideCeilingPreview; }
         void toggleCeilingPreview() { hideCeilingPreview = !hideCeilingPreview; invalidate(); }
 
@@ -608,6 +635,23 @@ public class MainActivity extends Activity {
                     paint.setStrokeWidth(dpF(1.5f));
                     paint.setColor(Color.rgb(167, 224, 75));
                     canvas.drawPath(maskPath, paint);
+                }
+            }
+
+            if (mode == Mode.PERSPECTIVE && !perspective.isEmpty()) {
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(dpF(1.6f));
+                paint.setColor(Color.rgb(167, 224, 75));
+                if (perspective.size() >= 2) canvas.drawPath(pathFor(perspective, perspective.size() == 4), paint);
+                paint.setStyle(Paint.Style.FILL);
+                for (int i = 0; i < perspective.size(); i++) {
+                    PointF s = toScreen(perspective.get(i));
+                    paint.setColor(Color.rgb(167, 224, 75));
+                    canvas.drawCircle(s.x, s.y, dpF(7), paint);
+                    paint.setColor(Color.rgb(20, 24, 22));
+                    paint.setTextSize(dpF(10));
+                    paint.setTextAlign(Paint.Align.CENTER);
+                    canvas.drawText(String.valueOf(i + 1), s.x, s.y + dpF(3.5f), paint);
                 }
             }
 
@@ -687,83 +731,116 @@ public class MainActivity extends Activity {
         }
 
         private void drawTrack(Canvas canvas, PointF imageA, PointF imageB) {
-            int base = trackBlack ? Color.rgb(22, 22, 22) : Color.rgb(238, 238, 236);
-            int edge = trackBlack ? Color.rgb(90, 94, 96) : Color.rgb(165, 168, 170);
+            int base = trackBlack ? Color.rgb(24, 24, 24) : Color.rgb(236, 236, 233);
+            int edge = trackBlack ? Color.rgb(66, 68, 69) : Color.rgb(175, 177, 176);
 
-            drawPerspectiveStrip(canvas, imageA, imageB, dpF(7.2f), withAlpha(edge, 230));
-            drawPerspectiveStrip(canvas, imageA, imageB, dpF(5.8f), withAlpha(base, 245));
+            drawPerspectiveStrip(canvas, imageA, imageB, dpF(6.0f), withAlpha(edge, 235));
+            drawPerspectiveStrip(canvas, imageA, imageB, dpF(4.6f), withAlpha(base, 250));
 
             PointF a = toScreen(imageA);
             PointF b = toScreen(imageB);
             float length = distance(a, b);
-            int count = Math.max(1, (int) (length / dpF(75)));
+            int count = Math.max(1, Math.min(6, (int)(length / dpF(115))));
+
+            float dx = b.x - a.x, dy = b.y - a.y;
+            float len = Math.max(1f, (float)Math.hypot(dx, dy));
+            float nx = -dy / len, ny = dx / len;
 
             for (int i = 0; i <= count; i++) {
-                float t = count == 0 ? 0f : i / (float) count;
+                float t = (i + 0.5f) / (count + 1f);
                 PointF imagePoint = interpolate(imageA, imageB, t);
-                PointF screenPoint = toScreen(imagePoint);
+                PointF screen = toScreen(imagePoint);
                 float scale = depthFactor(imagePoint);
-                float radius = dpF(5.4f) * scale;
+                float body = dpF(8f) * scale;
 
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(dpF(3.5f) * scale);
+                paint.setStrokeCap(Paint.Cap.ROUND);
+                paint.setColor(base);
+                canvas.drawLine(screen.x, screen.y,
+                        screen.x + nx * body * 1.6f, screen.y + ny * body * 1.6f, paint);
+
+                float hx = screen.x + nx * body * 1.9f;
+                float hy = screen.y + ny * body * 1.9f;
                 paint.setStyle(Paint.Style.FILL);
-                paint.setColor(trackBlack ? Color.rgb(230, 232, 233) : Color.rgb(45, 47, 48));
-                canvas.drawCircle(screenPoint.x, screenPoint.y, radius, paint);
-
-                paint.setColor(trackBlack ? Color.rgb(30, 30, 30) : Color.rgb(235, 235, 233));
-                canvas.drawCircle(screenPoint.x, screenPoint.y, radius * 0.58f, paint);
+                paint.setColor(base);
+                canvas.drawCircle(hx, hy, body * 0.72f, paint);
+                paint.setColor(lightColor());
+                canvas.drawCircle(hx + nx * body * 0.18f, hy + ny * body * 0.18f, body * 0.30f, paint);
+                paint.setColor(withAlpha(lightColor(), 28));
+                canvas.drawCircle(hx + nx * body * 1.2f, hy + ny * body * 1.2f, body * 2.0f, paint);
             }
         }
 
         private void drawSpot(Canvas canvas, PointF imagePoint) {
             PointF screen = toScreen(imagePoint);
-            float radius = dpF(8.3f) * depthFactor(imagePoint) * fixtureScale;
+            float radius = dpF(7.2f) * depthFactor(imagePoint) * fixtureScale;
             int light = lightColor();
 
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(withAlpha(light, 35));
-            canvas.drawCircle(screen.x, screen.y, radius * 3.2f, paint);
-
-            paint.setColor(Color.rgb(245, 245, 242));
+            paint.setColor(withAlpha(light, 22));
+            canvas.drawCircle(screen.x, screen.y, radius * 3.0f, paint);
+            paint.setColor(Color.rgb(238, 239, 237));
             canvas.drawCircle(screen.x, screen.y, radius, paint);
-
-            paint.setColor(Color.rgb(72, 76, 78));
-            canvas.drawCircle(screen.x, screen.y, radius * 0.42f, paint);
-
+            paint.setColor(Color.rgb(80, 82, 82));
+            canvas.drawCircle(screen.x, screen.y, radius * 0.58f, paint);
             paint.setColor(light);
-            canvas.drawCircle(screen.x, screen.y, radius * 0.23f, paint);
+            canvas.drawCircle(screen.x, screen.y, radius * 0.34f, paint);
         }
 
         private void drawChandelier(Canvas canvas, PointF imagePoint) {
-            PointF screen = toScreen(imagePoint);
+            PointF s = toScreen(imagePoint);
             float scale = depthFactor(imagePoint) * fixtureScale;
-            float ring = dpF(22) * scale;
+            int light = lightColor();
 
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.argb(38, 255, 244, 210));
-            canvas.drawCircle(screen.x, screen.y, ring * 1.8f, paint);
-
+            paint.setStrokeCap(Paint.Cap.ROUND);
             paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dpF(2.2f) * scale);
-            paint.setColor(Color.rgb(225, 225, 222));
-            canvas.drawCircle(screen.x, screen.y, ring, paint);
+            paint.setColor(Color.rgb(224, 224, 220));
 
-            paint.setStrokeWidth(dpF(1.6f) * scale);
-            for (int i = 0; i < 4; i++) {
-                double angle = i * Math.PI / 2.0;
-                float x = screen.x + (float) Math.cos(angle) * ring * 1.5f;
-                float y = screen.y + (float) Math.sin(angle) * ring * 1.5f;
-                canvas.drawLine(screen.x, screen.y, x, y, paint);
-
-                paint.setStyle(Paint.Style.FILL);
-                paint.setColor(lightColor());
-                canvas.drawCircle(x, y, dpF(4f) * scale, paint);
-                paint.setStyle(Paint.Style.STROKE);
-                paint.setColor(Color.rgb(225, 225, 222));
+            if (chandelierStyle == 2) {
+                float w = dpF(46) * scale;
+                paint.setStrokeWidth(dpF(2.5f) * scale);
+                canvas.drawLine(s.x - w, s.y, s.x + w, s.y, paint);
+                for (int i = -2; i <= 2; i++) {
+                    float x = s.x + i * w / 2f;
+                    paint.setStyle(Paint.Style.FILL);
+                    paint.setColor(light);
+                    canvas.drawCircle(x, s.y, dpF(4) * scale, paint);
+                    paint.setColor(withAlpha(light, 25));
+                    canvas.drawCircle(x, s.y, dpF(14) * scale, paint);
+                }
+                return;
             }
 
+            if (chandelierStyle == 1) {
+                float r = dpF(28) * scale;
+                paint.setStrokeWidth(dpF(1.7f) * scale);
+                for (int i = 0; i < 5; i++) {
+                    double a = i * Math.PI * 2 / 5.0 - Math.PI / 2;
+                    float x = s.x + (float)Math.cos(a) * r;
+                    float y = s.y + (float)Math.sin(a) * r;
+                    canvas.drawLine(s.x, s.y, x, y, paint);
+                    paint.setStyle(Paint.Style.FILL);
+                    paint.setColor(Color.rgb(245, 245, 242));
+                    canvas.drawCircle(x, y, dpF(6) * scale, paint);
+                    paint.setColor(light);
+                    canvas.drawCircle(x, y, dpF(3) * scale, paint);
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setColor(Color.rgb(224, 224, 220));
+                }
+                return;
+            }
+
+            float ring = dpF(27) * scale;
+            paint.setStrokeWidth(dpF(2.5f) * scale);
+            canvas.drawCircle(s.x, s.y, ring, paint);
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(lightColor());
-            canvas.drawCircle(screen.x, screen.y, dpF(5f) * scale, paint);
+            paint.setColor(withAlpha(light, 24));
+            canvas.drawCircle(s.x, s.y, ring * 1.45f, paint);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dpF(5.0f) * scale);
+            paint.setColor(withAlpha(light, 220));
+            canvas.drawCircle(s.x, s.y, ring, paint);
         }
 
         private void drawPerspectiveStrip(Canvas canvas, PointF imageA, PointF imageB, float baseWidth, int color) {
@@ -814,11 +891,11 @@ public class MainActivity extends Activity {
             float minY = 0f;
             float maxY = bitmap.getHeight();
 
-            if (mask.size() >= 3) {
+            List<PointF> plane = perspective.size() == 4 ? perspective : mask;
+            if (plane.size() >= 3) {
                 minY = Float.MAX_VALUE;
                 maxY = -Float.MAX_VALUE;
-
-                for (PointF p : mask) {
+                for (PointF p : plane) {
                     minY = Math.min(minY, p.y);
                     maxY = Math.max(maxY, p.y);
                 }
@@ -891,7 +968,7 @@ public class MainActivity extends Activity {
             float x = event.getX();
             float y = event.getY();
 
-            if (mode == Mode.VIEW) {
+            if (mode == Mode.VIEW || mode == Mode.PREVIEW) {
                 handleViewPan(event, x, y);
                 return true;
             }
@@ -899,6 +976,15 @@ public class MainActivity extends Activity {
             PointF imagePoint = toImage(x, y);
 
             if (imagePoint == null) {
+                return true;
+            }
+
+            if (mode == Mode.PERSPECTIVE) {
+                if (action == MotionEvent.ACTION_UP) {
+                    if (perspective.size() == 4) perspective.clear();
+                    perspective.add(imagePoint);
+                    invalidate();
+                }
                 return true;
             }
 
