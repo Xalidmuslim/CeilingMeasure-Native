@@ -215,13 +215,6 @@ fun TopicDetailScreen(book: BookData, id: String, modifier: Modifier, back: () -
     Column(modifier.fillMaxSize()) {
         PageHeader(topic?.title ?: "Тема", "${chapters.size} глав", back)
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            if (!col?.description.isNullOrBlank()) {
-                item {
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                        Text(col?.description.orEmpty(), modifier = Modifier.padding(16.dp))
-                    }
-                }
-            }
             items(chapters, key = { it.id }) { ChapterRow(it, { open(it.id) }) }
         }
     }
@@ -521,6 +514,13 @@ fun CollectionDetailScreen(book: BookData, id: String, modifier: Modifier, back:
     Column(modifier.fillMaxSize()) {
         PageHeader(col?.title ?: "Подборка", "${chapters.size} глав", back)
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            if (!col?.description.isNullOrBlank()) {
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Text(col?.description.orEmpty(), modifier = Modifier.padding(16.dp))
+                    }
+                }
+            }
             items(chapters, key = { it.id }) { ChapterRow(it, { open(it.id) }) }
         }
     }
