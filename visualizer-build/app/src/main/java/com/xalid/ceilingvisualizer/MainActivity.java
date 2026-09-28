@@ -527,10 +527,10 @@ public class MainActivity extends Activity {
 
         private void drawTrackHead(Canvas c,PointF p,PointF a,PointF b,int style,boolean black){
             Bitmap real=remoteAssets.get(black?"track_black":"track_white");
-            if(real!=null && style<=1){
-                float dx=b.x-a.x,dy=b.y-a.y;
-                float angle=(float)Math.atan2(dy,dx);
-                drawBitmapOnPlane(c,real,p,120f,160f,angle+(float)Math.PI/2f,255);
+            if(real!=null && style<=1 && (black || hasUsefulTransparency(real))){
+                PointF sa=planeToScreen(a), sb=planeToScreen(b);
+                float screenAngle=(float)Math.toDegrees(Math.atan2(sb.y-sa.y,sb.x-sa.x))+90f;
+                drawBillboardAtPlane(c,real,p,118f,screenAngle,250,0.50f);
                 return;
             }
 
@@ -568,12 +568,17 @@ public class MainActivity extends Activity {
         }
 
         private void drawSpot(Canvas c,Fixture f){
-            Bitmap real=remoteAssets.get((f.style==1||f.style==3||f.style==5)?"spot_black":"spot_white");
-            if(real!=null){
-                float size=(f.style<=1?86f:104f)*f.scale;
-                drawBitmapOnPlane(c,real,f.p,size,size,0f,245);
-                PointF glowCenter=add(f.p,0,10f*f.scale);
-                drawPlaneCircle(c,glowCenter,size*0.68f,withAlpha(lightColor(f.kelvin),16));
+            boolean blackFixture=(f.style==1||f.style==3||f.style==5);
+            Bitmap real=remoteAssets.get(blackFixture?"spot_black":"spot_white");
+            if(real!=null && (blackFixture || hasUsefulTransparency(real))){
+                float size=(f.style<=1?82f:98f)*f.scale;
+                if(f.style<=1){
+                    drawBitmapOnPlane(c,real,f.p,size,size,0f,245);
+                }else{
+                    drawBillboardAtPlane(c,real,f.p,size,0f,245,0.52f);
+                }
+                PointF glowCenter=add(f.p,0,8f*f.scale);
+                drawPlaneCircle(c,glowCenter,size*0.58f,withAlpha(lightColor(f.kelvin),13));
                 return;
             }
 
@@ -611,8 +616,8 @@ public class MainActivity extends Activity {
             else if(f.style==1) real=remoteAssets.get("ring_gold");
             else if(f.style==3) real=remoteAssets.get("three_globes");
 
-            if(real!=null){
-                float planeWidth=(f.style==3?300f:280f)*f.scale;
+            if(real!=null && (f.style!=3 || hasUsefulTransparency(real))){
+                float planeWidth=(f.style==3?235f:205f)*f.scale;
                 drawPendantBitmap(c,real,f.p,planeWidth,f.rotation,250);
                 return;
             }
@@ -666,19 +671,19 @@ public class MainActivity extends Activity {
         }
 
         private void preloadAssets(){
-            loadRemoteAsset("track_black",ASSET_TRACK_BLACK,true,true);
-            loadRemoteAsset("track_white",ASSET_TRACK_WHITE,true,true);
-            loadRemoteAsset("spot_white",ASSET_SPOT_WHITE,true,false);
-            loadRemoteAsset("spot_black",ASSET_SPOT_BLACK,true,false);
-            loadRemoteAsset("ring_black",ASSET_RING_BLACK,true,false);
-            loadRemoteAsset("ring_gold",ASSET_RING_GOLD,true,false);
-            loadRemoteAsset("three_globes",ASSET_THREE_GLOBES,true,false);
+            loadRemoteAsset("track_black",ASSET_TRACK_BLACK,true,true,true);
+            loadRemoteAsset("track_white",ASSET_TRACK_WHITE,true,true,false);
+            loadRemoteAsset("spot_white",ASSET_SPOT_WHITE,true,false,false);
+            loadRemoteAsset("spot_black",ASSET_SPOT_BLACK,true,false,true);
+            loadRemoteAsset("ring_black",ASSET_RING_BLACK,true,false,true);
+            loadRemoteAsset("ring_gold",ASSET_RING_GOLD,true,false,false);
+            loadRemoteAsset("three_globes",ASSET_THREE_GLOBES,true,false,false);
         }
 
-        private void loadRemoteAsset(String key,String url,boolean removeBackground,boolean trackCrop){
+        private void loadRemoteAsset(String key,String url,boolean removeBackground,boolean trackCrop,boolean aggressiveWhite){
             assetPool.execute(()->{
                 try{
-                    File cache=new File(getContext().getCacheDir(),"cv_"+key+".png");
+                    File cache=new File(getContext().getCacheDir(),"cv6_"+key+".png");
                     Bitmap bmp=null;
                     if(cache.exists()){
                         try(FileInputStream in=new FileInputStream(cache)){ bmp=BitmapFactory.decodeStream(in); }
@@ -694,6 +699,9 @@ public class MainActivity extends Activity {
                             bmp=scaleDown(bmp,720);
                             if(trackCrop) bmp=cropTrackHead(bmp);
                             if(removeBackground) bmp=removeEdgeBackground(bmp);
+                            if(aggressiveWhite) bmp=removeWhiteMatte(bmp);
+                            bmp=cropTransparent(bmp);
+                            if(!hasUsefulTransparency(bmp) && aggressiveWhite) bmp=removeWhiteMatte(bmp);
                             bmp=cropTransparent(bmp);
                             try(FileOutputStream out=new FileOutputStream(cache)){ bmp.compress(Bitmap.CompressFormat.PNG,100,out); }
                         }
@@ -760,6 +768,38 @@ public class MainActivity extends Activity {
             return d<2800 || (Color.red(c)>235&&Color.green(c)>235&&Color.blue(c)>235&&spread<18);
         }
 
+        private Bitmap removeWhiteMatte(Bitmap src){
+            Bitmap b=src.copy(Bitmap.Config.ARGB_8888,true);
+            int w=b.getWidth(),h=b.getHeight();
+            int[] px=new int[w*h]; b.getPixels(px,0,w,0,0,w,h);
+            for(int i=0;i<px.length;i++){
+                int c=px[i],a=Color.alpha(c),r=Color.red(c),g=Color.green(c),bl=Color.blue(c);
+                int mn=Math.min(r,Math.min(g,bl));
+                int mx=Math.max(r,Math.max(g,bl));
+                int spread=mx-mn;
+                if(mn>=246 && spread<=18){
+                    px[i]=c&0x00FFFFFF;
+                }else if(mn>=224 && spread<=24){
+                    int na=Math.min(a,Math.max(0,(246-mn)*12));
+                    px[i]=Color.argb(na,r,g,bl);
+                }
+            }
+            b.setPixels(px,0,w,0,0,w,h);
+            return b;
+        }
+
+        private boolean hasUsefulTransparency(Bitmap b){
+            int w=b.getWidth(),h=b.getHeight(),step=Math.max(1,Math.min(w,h)/80);
+            int total=0,transparent=0;
+            for(int y=0;y<h;y+=step){
+                for(int x=0;x<w;x+=step){
+                    total++;
+                    if(Color.alpha(b.getPixel(x,y))<32)transparent++;
+                }
+            }
+            return total>0 && transparent>total/20;
+        }
+
         private Bitmap cropTransparent(Bitmap b){
             int w=b.getWidth(),h=b.getHeight(),minX=w,minY=h,maxX=-1,maxY=-1;
             int[] row=new int[w];
@@ -785,17 +825,26 @@ public class MainActivity extends Activity {
             paint.setAlpha(alpha); c.drawBitmap(bmp,m,paint); paint.setAlpha(255);
         }
 
-        private void drawPendantBitmap(Canvas c,Bitmap bmp,PointF anchor,float planeWidth,int rotation,int alpha){
+        private void drawBillboardAtPlane(Canvas c,Bitmap bmp,PointF anchor,float planeWidth,float rotationDeg,int alpha,float anchorYFraction){
             PointF s=planeToScreen(anchor);
             PointF x2=planeToScreen(add(anchor,100,0));
-            float pxPerPlane=Math.max(0.08f,distance(s,x2)/100f);
-            float w=planeWidth*pxPerPlane;
+            PointF y2=planeToScreen(add(anchor,0,100));
+            float localScale=(distance(s,x2)+distance(s,y2))/200f;
+            localScale=Math.max(0.06f,Math.min(2.8f,localScale));
+            float w=planeWidth*localScale;
             float h=w*bmp.getHeight()/Math.max(1f,bmp.getWidth());
-            RectF dst=new RectF(s.x-w/2f,s.y-dpF(8),s.x+w/2f,s.y-dpF(8)+h);
+            float top=s.y-h*anchorYFraction;
+            RectF dst=new RectF(s.x-w/2f,top,s.x+w/2f,top+h);
             c.save();
-            c.rotate(rotation,s.x,s.y);
-            paint.setAlpha(alpha); c.drawBitmap(bmp,null,dst,paint); paint.setAlpha(255);
+            c.rotate(rotationDeg,s.x,s.y);
+            paint.setAlpha(alpha);
+            c.drawBitmap(bmp,null,dst,paint);
+            paint.setAlpha(255);
             c.restore();
+        }
+
+        private void drawPendantBitmap(Canvas c,Bitmap bmp,PointF anchor,float planeWidth,int rotation,int alpha){
+            drawBillboardAtPlane(c,bmp,anchor,planeWidth,rotation,alpha,0.10f);
         }
 
         private void drawPlaneStrip(Canvas c,PointF a,PointF b,float width,int color){
