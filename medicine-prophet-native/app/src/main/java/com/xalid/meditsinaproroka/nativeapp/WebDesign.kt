@@ -3,7 +3,7 @@ package com.xalid.meditsinaproroka.nativeapp
 import android.content.Context
 import android.graphics.Typeface
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -30,6 +30,7 @@ import androidx.core.content.res.ResourcesCompat
 import kotlin.math.abs
 
 val WebSansFont = FontFamily(Font(R.font.manrope_variable))
+val WebModernFont = FontFamily(Font(R.font.inter_variable))
 val WebLiterataFont = FontFamily(Font(R.font.literata_variable))
 val WebSerifFont = FontFamily(
     Font(R.font.pt_serif_regular, FontWeight.Normal),
@@ -39,14 +40,14 @@ val WebClassicFont = WebSerifFont
 
 fun readerComposeFontFamily(value: String): FontFamily = when (value) {
     "classic" -> WebLiterataFont
-    "modern" -> WebSansFont
+    "modern" -> WebModernFont
     else -> WebSerifFont
 }
 
 fun readerTypeface(context: Context, value: String): Typeface {
     val font = when (value) {
         "classic" -> R.font.literata_variable
-        "modern" -> R.font.manrope_variable
+        "modern" -> R.font.inter_variable
         else -> R.font.pt_serif_regular
     }
     return ResourcesCompat.getFont(context, font) ?: Typeface.DEFAULT
@@ -541,16 +542,16 @@ private val readerSizeOptions = listOf(
 )
 
 private val readerLineOptions = listOf(
-    1.62f to "Плотный",
-    1.82f to "Обычный",
-    2.00f to "Свободный",
+    1.35f to "Плотный",
+    1.48f to "Обычный",
+    1.60f to "Свободный",
 )
 
 private fun closestSizeIndex(value: Float): Int =
     readerSizeOptions.indices.minByOrNull { abs(readerSizeOptions[it].first - value) } ?: 1
 
 private fun closestLine(value: Float): Float =
-    readerLineOptions.minByOrNull { abs(it.first - value) }?.first ?: 1.82f
+    readerLineOptions.minByOrNull { abs(it.first - value) }?.first ?: 1.48f
 
 @Composable
 fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
@@ -595,7 +596,7 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
                         WebFontOption("Literata", "Literata", "classic", store.settings.fontFamily) {
                             store.updateSettings { it.copy(fontFamily = "classic") }
                         }
-                        WebFontOption("Современный", "Manrope", "modern", store.settings.fontFamily) {
+                        WebFontOption("Современный", "Inter", "modern", store.settings.fontFamily) {
                             store.updateSettings { it.copy(fontFamily = "modern") }
                         }
                     }
@@ -725,7 +726,7 @@ fun WebReaderSettingsSheet(store: AppStore, onDone: () -> Unit) {
             WebFontOption("Literata", "Literata", "classic", settings.fontFamily) {
                 store.updateSettings { it.copy(fontFamily = "classic") }
             }
-            WebFontOption("Современный", "Manrope", "modern", settings.fontFamily) {
+            WebFontOption("Современный", "Inter", "modern", settings.fontFamily) {
                 store.updateSettings { it.copy(fontFamily = "modern") }
             }
         }
@@ -821,7 +822,7 @@ private fun WebSettingsPreview(settings: ReaderSettings) {
                     Text(
                         when (settings.fontFamily) {
                             "classic" -> "Literata"
-                            "modern" -> "Manrope"
+                            "modern" -> "Inter"
                             else -> "PT Serif"
                         },
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),

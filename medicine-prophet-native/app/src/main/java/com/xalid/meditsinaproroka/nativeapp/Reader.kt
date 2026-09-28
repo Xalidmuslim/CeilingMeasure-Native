@@ -12,6 +12,8 @@ import android.view.Menu
 import android.view.MenuItem
 import android.widget.EditText
 import android.widget.TextView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -225,9 +227,11 @@ fun ReaderScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReaderBlock(chapter: Chapter, block: BookBlock, store: AppStore) {
     val settings = store.settings
+    var hadithSourceOpen by remember(block.id) { mutableStateOf(false) }
     val label = when (block.type) {
         "quran" -> "Коран"
         "hadith" -> "Хадис"
@@ -236,19 +240,165 @@ private fun ReaderBlock(chapter: Chapter, block: BookBlock, store: AppStore) {
     }
 
     if (block.type == "subheading") {
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(18.dp))
         Text(
             block.text,
             fontFamily = readerComposeFontFamily(settings.fontFamily),
             fontSize = (settings.fontSizeSp + 7).sp,
-            lineHeight = ((settings.fontSizeSp + 7) * 1.15f).sp,
+            lineHeight = ((settings.fontSizeSp + 7) * 1.10f).sp,
             fontWeight = FontWeight.Bold,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(7.dp))
         return
     }
 
-    val isSpecial = block.type == "quran" || block.type == "hadith" || block.type == "historical_note"
+    if (block.type == "hadith") {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .padding(vertical = 10.dp),
+        ) {
+            Box(
+                Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.primary)
+            )
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "ХАДИС",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.1.sp,
+                )
+                Spacer(Modifier.height(8.dp))
+                SelectableNativeText(chapter, block, store)
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f),
+                    thickness = 1.dp,
+                )
+                val sourceText = if (block.hadithSources.isEmpty()) {
+                    "Требует ручного тахриджа"
+                } else {
+                    block.hadithSources.joinToString(" · ")
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { hadithSourceOpen = true }
+                        .padding(vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "Источник / Тахридж",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = WebSansFont,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 11.sp,
+                    )
+                    Text(
+                        " · $sourceText",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = WebSansFont,
+                        fontSize = 11.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text("›", color = MaterialTheme.colorScheme.primary, fontSize = 18.sp)
+                }
+            }
+        }
+
+        if (hadithSourceOpen) {
+            ModalBottomSheet(onDismissRequest = { hadithSourceOpen = false }) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 690.dp)
+                        .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                        .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 26.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Text(
+                        "Источник хадиса",
+                        fontFamily = WebSerifFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 25.sp,
+                    )
+                    Text(
+                        block.text,
+                        fontFamily = readerComposeFontFamily(settings.fontFamily),
+                        fontSize = 14.sp,
+                        lineHeight = (14f * 1.45f).sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                    ) {
+                        Text(
+                            if (block.hadithSources.isEmpty()) "Источник не указан" else block.hadithSources.joinToString(" · "),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            fontFamily = WebSansFont,
+                            fontSize = 11.sp,
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(
+                            "Формулировка исходного текста:",
+                            fontFamily = WebSansFont,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                        )
+                        Text(
+                            if (block.hadithSources.isEmpty()) {
+                                "В данных книги источник для этого фрагмента не указан."
+                            } else {
+                                "В тексте книги указан источник: " + block.hadithSources.joinToString(" · ")
+                            },
+                            fontFamily = WebSansFont,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    ) {
+                        Row(Modifier.fillMaxWidth()) {
+                            Box(
+                                Modifier
+                                    .width(3.dp)
+                                    .heightIn(min = 92.dp)
+                                    .background(MaterialTheme.colorScheme.secondary)
+                            )
+                            Text(
+                                "Приложение не присваивает хадису степень достоверности самостоятельно. Для проверенного статуса нужен ручной тахридж по первоисточнику.",
+                                modifier = Modifier.padding(14.dp),
+                                fontFamily = WebSansFont,
+                                fontSize = 12.sp,
+                                lineHeight = 18.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = { hadithSourceOpen = false },
+                        modifier = Modifier.align(Alignment.End),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                    ) {
+                        Text("Закрыть")
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    val isSpecial = block.type == "quran" || block.type == "historical_note"
     if (isSpecial) {
         Card(
             modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
@@ -256,22 +406,19 @@ private fun ReaderBlock(chapter: Chapter, block: BookBlock, store: AppStore) {
         ) {
             Column(Modifier.padding(15.dp)) {
                 if (label != null) {
-                    Text(label.uppercase(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Text(
+                        label.uppercase(),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
                     Spacer(Modifier.height(6.dp))
                 }
                 SelectableNativeText(chapter, block, store)
-                if (block.type == "hadith") {
-                    Spacer(Modifier.height(7.dp))
-                    Text(
-                        if (block.hadithSources.isEmpty()) "Источник требует ручного тахриджа" else block.hadithSources.joinToString(" · "),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         }
     } else {
-        Box(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
+        Box(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             SelectableNativeText(chapter, block, store)
         }
     }

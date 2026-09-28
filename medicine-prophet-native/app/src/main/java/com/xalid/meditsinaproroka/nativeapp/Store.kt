@@ -26,7 +26,7 @@ data class ReaderSettings(
     val theme: String = "system",
     val fontFamily: String = "book",
     val fontSizeSp: Float = 17f,
-    val lineSpacing: Float = 1.82f,
+    val lineSpacing: Float = 1.48f,
     val showHistoricalLabels: Boolean = true,
 )
 
@@ -77,6 +77,7 @@ class AppStore(context: Context) {
         loadProgress()
         loadFolders()
         migrateWebReaderDefaultsIfNeeded()
+        migrateCompactLineSpacingIfNeeded()
         if (!prefs.getBoolean("bookmarkFoldersV2Migrated", false)) {
             persistBookmarks()
             persistFolders()
@@ -158,10 +159,24 @@ class AppStore(context: Context) {
         if (kotlin.math.abs(settings.fontSizeSp - 18f) < 0.01f &&
             kotlin.math.abs(settings.lineSpacing - 1.62f) < 0.01f
         ) {
-            settings = settings.copy(fontSizeSp = 17f, lineSpacing = 1.82f)
+            settings = settings.copy(fontSizeSp = 17f, lineSpacing = 1.48f)
             persistSettings()
         }
         prefs.edit().putBoolean("webReaderDefaultsV1", true).apply()
+    }
+
+    private fun migrateCompactLineSpacingIfNeeded() {
+        if (prefs.getBoolean("compactLineSpacingV2", false)) return
+        val compact = when {
+            settings.lineSpacing <= 1.66f -> 1.35f
+            settings.lineSpacing <= 1.90f -> 1.48f
+            else -> 1.60f
+        }
+        if (kotlin.math.abs(settings.lineSpacing - compact) > 0.01f) {
+            settings = settings.copy(lineSpacing = compact)
+            persistSettings()
+        }
+        prefs.edit().putBoolean("compactLineSpacingV2", true).apply()
     }
 
     fun clearProgress() {
@@ -179,8 +194,8 @@ class AppStore(context: Context) {
                 ReaderSettings(
                     theme = it.optString("theme", "system"),
                     fontFamily = it.optString("fontFamily", "book"),
-                    fontSizeSp = it.optDouble("fontSizeSp", 18.0).toFloat(),
-                    lineSpacing = it.optDouble("lineSpacing", 1.62).toFloat(),
+                    fontSizeSp = it.optDouble("fontSizeSp", 17.0).toFloat(),
+                    lineSpacing = it.optDouble("lineSpacing", 1.48).toFloat(),
                     showHistoricalLabels = it.optBoolean("showHistoricalLabels", true),
                 )
             }
