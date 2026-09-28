@@ -1,0 +1,85 @@
+name: Build Medicine Prophet Native
+
+on:
+  push:
+    branches:
+      - medicine-prophet-native-play
+    paths:
+      - "medicine-prophet-native/**"
+      - ".github/workflows/medicine-prophet-native.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      MEDICINA_NATIVE_KEYSTORE: /tmp/medicina-native-upload.jks
+      MEDICINA_NATIVE_STORE_PASSWORD: MPNative-2026-UploadKey
+      MEDICINA_NATIVE_KEY_ALIAS: medicina_native
+      MEDICINA_NATIVE_KEY_PASSWORD: MPNative-2026-UploadKey
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android 16 SDK
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -path "*/bin/sdkmanager" | sort -V | tail -1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Bundle complete book for offline use
+        run: |
+          mkdir -p medicine-prophet-native/app/src/main/assets
+          curl -fsSL https://medicina-proroka.netlify.app/data/book.json             -o medicine-prophet-native/app/src/main/assets/book.json
+          python - <<'PY'
+          import json
+          p="medicine-prophet-native/app/src/main/assets/book.json"
+          d=json.load(open(p,encoding="utf-8"))
+          assert len(d["chapters"]) == 111, len(d["chapters"])
+          assert d["stats"]["blocks"] == 2548, d["stats"]["blocks"]
+          assert len(d["remedies"]) == 98, len(d["remedies"])
+          print("book-ok", len(d["chapters"]), d["stats"]["blocks"], len(d["remedies"]))
+          PY
+
+      - name: Restore Play upload key
+        run: |
+          base64 -d medicine-prophet-native/signing/medicina-native-upload.jks.b64 > "$MEDICINA_NATIVE_KEYSTORE"
+          keytool -list -keystore "$MEDICINA_NATIVE_KEYSTORE"             -storepass "$MEDICINA_NATIVE_STORE_PASSWORD"             -alias "$MEDICINA_NATIVE_KEY_ALIAS" >/dev/null
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.1.0"
+
+      - name: Build release APK and Play AAB
+        working-directory: medicine-prophet-native
+        run: gradle --no-daemon :app:assembleRelease :app:bundleRelease
+
+      - name: Verify artifacts
+        run: |
+          cp medicine-prophet-native/app/build/outputs/apk/release/app-release.apk medicina-proroka-native.apk
+          cp medicine-prophet-native/app/build/outputs/bundle/release/app-release.aab medicina-proroka-native.aab
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs medicina-proroka-native.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging medicina-proroka-native.apk | grep -E "^package:|application-label|sdkVersion|targetSdkVersion"
+          jarsigner -verify -certs medicina-proroka-native.aab
+          sha256sum medicina-proroka-native.apk medicina-proroka-native.aab
+
+      - name: Upload APK and AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: medicina-proroka-native-play
+          path: |
+            medicina-proroka-native.apk
+            medicina-proroka-native.aab
+          if-no-files-found: error
+          retention-days: 30
