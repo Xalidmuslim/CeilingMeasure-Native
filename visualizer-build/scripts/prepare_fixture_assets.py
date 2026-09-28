@@ -8,9 +8,6 @@ from statistics import median
 from PIL import Image, ImageDraw, ImageFont
 
 MAIN_URL = "https://cdn.openart.ai/watermarked_images/wwKL72mZPzCRR9UDPBp1/thumbnail_8678e3e8_1790620789465.webp"
-TRACK_BLACK_URL = "https://cdn.openart.ai/watermarked_images/wwKL72mZPzCRR9UDPBp1/thumbnail_c97160c5_1790623301099.webp"
-TRACK_WHITE_URL = "https://cdn.openart.ai/watermarked_images/wwKL72mZPzCRR9UDPBp1/thumbnail_73257293_1790623303105.webp"
-RING_BLACK_URL = "https://cdn.openart.ai/watermarked_images/wwKL72mZPzCRR9UDPBp1/thumbnail_0379484b_1790623305738.webp"
 
 OUT = Path("visualizer-build/generated-fixtures")
 OUT.mkdir(parents=True, exist_ok=True)
@@ -91,6 +88,7 @@ main = fetch(MAIN_URL)
 selection = [
     ("spot_white", 0, 0),
     ("spot_black", 1, 0),
+    ("ring_black", 0, 3),
     ("three_globes", 3, 3),
 ]
 
@@ -98,18 +96,6 @@ assets = []
 for name, col, row in selection:
     cell = crop_cell(main, 4, 4, col, row)
     keyed = key_green(cell)
-    keyed.thumbnail((480, 480), Image.Resampling.LANCZOS)
-    path = OUT / f"{name}.png"
-    keyed.save(path, "PNG", optimize=True)
-    assets.append((name, keyed))
-
-for name, url in [
-    ("track_black", TRACK_BLACK_URL),
-    ("track_white", TRACK_WHITE_URL),
-    ("ring_black", RING_BLACK_URL),
-]:
-    raw = fetch(url)
-    keyed = key_magenta(raw)
     keyed.thumbnail((480, 480), Image.Resampling.LANCZOS)
     path = OUT / f"{name}.png"
     keyed.save(path, "PNG", optimize=True)
