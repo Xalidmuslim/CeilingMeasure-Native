@@ -124,6 +124,12 @@ public class MainActivity extends Activity {
         });
 
         editor.setOnTapInPreview(()->exitCleanPreview());
+        editor.setOnSelectionChanged(()->{
+            if(selectedMode==EditorView.Mode.VIEW){
+                rebuildOptions();
+                setHint(editor.selectionHelpText());
+            }
+        });
 
         setContentView(root);
         selectMode(EditorView.Mode.CEILING,3);
@@ -189,7 +195,17 @@ public class MainActivity extends Activity {
         optionRow.removeAllViews();
         switch(selectedMode){
             case VIEW:
-                addOption("Сбросить вид",false,()->editor.resetView());
+                if(editor.hasSelection()){
+                    addOption("− размер",false,()->{editor.scaleSelectedBy(0.88f);rebuildOptions();});
+                    addOption("+ размер",false,()->{editor.scaleSelectedBy(1.14f);rebuildOptions();});
+                    addOption("↺ 15°",false,()->{editor.rotateSelected(-15);rebuildOptions();});
+                    addOption("↻ 15°",false,()->{editor.rotateSelected(15);rebuildOptions();});
+                    addOption("Удалить",false,()->{editor.deleteSelected();rebuildOptions();});
+                    addOption("Снять выбор",false,()->{editor.deselect();rebuildOptions();});
+                }else{
+                    addOption("Сбросить вид",false,()->editor.resetView());
+                    addOption("Тап по объекту",true,()->{});
+                }
                 break;
             case PERSPECTIVE:
                 addOption(editor.hasPerspective()?"Перспектива ✓":"4 точки",editor.hasPerspective(),()->{});
@@ -355,10 +371,17 @@ public class MainActivity extends Activity {
         private final Matrix imageToPlane=new Matrix();
         private boolean perspectiveReady=false;
 
+        private static final int SEL_NONE=0, SEL_SPOT=1, SEL_CHANDELIER=2, SEL_LINE=3, SEL_TRACK=4;
+        private int selectedType=SEL_NONE, selectedIndex=-1;
+        private boolean draggingSelection=false;
+        private PointF dragLastPlane;
+        private Runnable selectionChanged;
+
         private PointF startPlane,currentPlane;
         private float zoom=1f,panX=0f,panY=0f,lastX,lastY;
-        private boolean moving=false,pinching=false,suppressSingleTouch=false;
+        private boolean moving=false,pinching=false,suppressSingleTouch=false,pinchSelection=false;
         private float pinchStartDistance,pinchStartZoom,pinchStartPanX,pinchStartPanY,pinchStartMidX,pinchStartMidY;
+        private float pinchSelectedStartScale=1f;
 
         private int ceilingColor=Color.rgb(248,248,246);
         private int kelvin=3500;
@@ -390,11 +413,16 @@ public class MainActivity extends Activity {
         }
 
         void setOnTapInPreview(Runnable r){previewTap=r;}
+        void setOnSelectionChanged(Runnable r){selectionChanged=r;}
         void setBitmap(Bitmap b){bitmap=b;clearAllInternal();history.clear();clearPerspective();resetView();invalidate();}
-        void setMode(Mode m){mode=m;draftMask.clear();startPlane=null;currentPlane=null;invalidate();}
+        void setMode(Mode m){
+            mode=m;draftMask.clear();startPlane=null;currentPlane=null;
+            if(m!=Mode.VIEW) clearSelection(false);
+            invalidate();
+        }
         String helpText(){
             switch(mode){
-                case VIEW:return "Рука: перемещение одним пальцем, масштаб двумя";
+                case VIEW:return "Рука: тап по объекту — редактировать; пустое место — двигать фото";
                 case PERSPECTIVE:return perspectiveReady?"Перспектива готова":"Коснитесь 4 углов потолочной плоскости";
                 case CEILING:return "Потолок: обведите область одним движением";
                 case LINE:return "Линия: проведите на потолке; 90° создаёт Г-образную";
@@ -407,15 +435,58 @@ public class MainActivity extends Activity {
 
         boolean toggleAfter(){showAfter=!showAfter;invalidate();return showAfter;}
         void push(){if(history.size()>=30)history.removeFirst();history.addLast(new Snapshot(this));}
-        void undo(){if(history.isEmpty())return;restore(history.removeLast());invalidate();}
+        void undo(){
+            if(history.isEmpty())return;
+            restore(history.removeLast());
+            clearSelection(true);
+            invalidate();
+        }
         private void restore(Snapshot s){
             mask.clear();mask.addAll(s.mask);
             perspective.clear();perspective.addAll(s.perspective);rebuildPerspective();
             lines.clear();lines.addAll(s.lines);tracks.clear();tracks.addAll(s.tracks);spots.clear();spots.addAll(s.spots);chandeliers.clear();chandeliers.addAll(s.chandeliers);
         }
         void clearAll(){if(lines.isEmpty()&&tracks.isEmpty()&&spots.isEmpty()&&chandeliers.isEmpty()&&mask.isEmpty())return;push();clearAllInternal();invalidate();}
-        private void clearAllInternal(){mask.clear();draftMask.clear();lines.clear();tracks.clear();spots.clear();chandeliers.clear();startPlane=null;currentPlane=null;}
-        void resetView(){zoom=1f;panX=0f;panY=0f;invalidate();}
+        private void clearAllInternal(){
+            mask.clear();draftMask.clear();lines.clear();tracks.clear();spots.clear();chandeliers.clear();startPlane=null;currentPlane=null;
+            clearSelection(false);
+        }
+        void resetView(){zoom=1f;panX=0f;panY=0f;constrainPan();invalidate();}
+
+        boolean hasSelection(){return selectedType!=SEL_NONE && selectedIndex>=0;}
+        boolean selectedIsFixture(){return selectedType==SEL_SPOT || selectedType==SEL_CHANDELIER;}
+        String selectionHelpText(){
+            if(!hasSelection()) return helpText();
+            if(selectedType==SEL_SPOT) return "Выбран спот: тяните пальцем; двумя пальцами меняйте размер";
+            if(selectedType==SEL_CHANDELIER) return "Выбрана люстра: тяните пальцем; двумя пальцами меняйте размер";
+            if(selectedType==SEL_LINE) return "Выбрана световая линия: перетащите или удалите";
+            return "Выбран трек: перетащите или удалите";
+        }
+        void deselect(){clearSelection(true);invalidate();}
+        void scaleSelectedBy(float factor){
+            Fixture f=getSelectedFixture(); if(f==null)return;
+            push(); f.scale=clamp(f.scale*factor,0.35f,1.60f); invalidate(); notifySelectionChanged();
+        }
+        void rotateSelected(int degrees){
+            Fixture f=getSelectedFixture(); if(f==null)return;
+            push(); f.rotation=(f.rotation+degrees)%360; if(f.rotation<0)f.rotation+=360; invalidate(); notifySelectionChanged();
+        }
+        void deleteSelected(){
+            if(!hasSelection())return;
+            push();
+            if(selectedType==SEL_SPOT && selectedIndex<spots.size()) spots.remove(selectedIndex);
+            else if(selectedType==SEL_CHANDELIER && selectedIndex<chandeliers.size()) chandeliers.remove(selectedIndex);
+            else if(selectedType==SEL_LINE && selectedIndex<lines.size()) lines.remove(selectedIndex);
+            else if(selectedType==SEL_TRACK && selectedIndex<tracks.size()) tracks.remove(selectedIndex);
+            clearSelection(true); invalidate();
+        }
+        private Fixture getSelectedFixture(){
+            if(selectedType==SEL_SPOT && selectedIndex>=0 && selectedIndex<spots.size())return spots.get(selectedIndex);
+            if(selectedType==SEL_CHANDELIER && selectedIndex>=0 && selectedIndex<chandeliers.size())return chandeliers.get(selectedIndex);
+            return null;
+        }
+        private void clearSelection(boolean notify){selectedType=SEL_NONE;selectedIndex=-1;draggingSelection=false;dragLastPlane=null;if(notify)notifySelectionChanged();}
+        private void notifySelectionChanged(){if(selectionChanged!=null)selectionChanged.run();}
 
         boolean hasPerspective(){return perspectiveReady;}
         void clearPerspective(){perspective.clear();perspectiveReady=false;planeToImage.reset();imageToPlane.reset();invalidate();}
@@ -461,6 +532,8 @@ public class MainActivity extends Activity {
             for(PlaneSegment s:tracks)drawTrack(c,s);
             for(Fixture f:spots)drawSpot(c,f);
             for(Fixture f:chandeliers)drawChandelier(c,f);
+
+            if(mode==Mode.VIEW && hasSelection()) drawSelectionOverlay(c);
 
             if(startPlane!=null&&currentPlane!=null){
                 PlaneSegment tmp=new PlaneSegment(startPlane,currentPlane);
@@ -995,7 +1068,10 @@ public class MainActivity extends Activity {
             if(suppressSingleTouch){if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_CANCEL)suppressSingleTouch=false;return true;}
 
             float x=e.getX(),y=e.getY();
-            if(mode==Mode.VIEW){handlePan(e,x,y);return true;}
+            if(mode==Mode.VIEW){
+                handleViewEdit(e,x,y);
+                return true;
+            }
             PointF img=toImage(x,y);if(img==null)return true;
 
             if(mode==Mode.PERSPECTIVE){
@@ -1054,19 +1130,157 @@ public class MainActivity extends Activity {
 
         private void beginPinch(MotionEvent e){
             float dx=e.getX(0)-e.getX(1),dy=e.getY(0)-e.getY(1);
-            pinchStartDistance=(float)Math.hypot(dx,dy);pinchStartZoom=zoom;pinchStartPanX=panX;pinchStartPanY=panY;
-            pinchStartMidX=(e.getX(0)+e.getX(1))/2f;pinchStartMidY=(e.getY(0)+e.getY(1))/2f;pinching=true;
+            pinchStartDistance=(float)Math.hypot(dx,dy);
+            pinchSelection=(mode==Mode.VIEW && selectedIsFixture());
+            if(pinchSelection){
+                Fixture f=getSelectedFixture();
+                pinchSelectedStartScale=f==null?1f:f.scale;
+                push();
+            }else{
+                pinchStartZoom=zoom;pinchStartPanX=panX;pinchStartPanY=panY;
+                pinchStartMidX=(e.getX(0)+e.getX(1))/2f;pinchStartMidY=(e.getY(0)+e.getY(1))/2f;
+            }
+            pinching=true;
         }
         private void applyPinch(MotionEvent e){
             float dx=e.getX(0)-e.getX(1),dy=e.getY(0)-e.getY(1),d=(float)Math.hypot(dx,dy);if(pinchStartDistance<=0)return;
+            float ratio=d/pinchStartDistance;
+            if(pinchSelection){
+                Fixture f=getSelectedFixture();
+                if(f!=null){f.scale=clamp(pinchSelectedStartScale*ratio,0.35f,1.60f);invalidate();}
+                return;
+            }
             float mx=(e.getX(0)+e.getX(1))/2f,my=(e.getY(0)+e.getY(1))/2f;
-            zoom=clamp(pinchStartZoom*d/pinchStartDistance,1f,6f);panX=pinchStartPanX+(mx-pinchStartMidX);panY=pinchStartPanY+(my-pinchStartMidY);invalidate();
+            zoom=clamp(pinchStartZoom*ratio,1f,6f);panX=pinchStartPanX+(mx-pinchStartMidX);panY=pinchStartPanY+(my-pinchStartMidY);
+            constrainPan();invalidate();
         }
         private void handlePan(MotionEvent e,float x,float y){
             int a=e.getActionMasked();
             if(a==MotionEvent.ACTION_DOWN){lastX=x;lastY=y;moving=true;}
-            else if(a==MotionEvent.ACTION_MOVE&&moving){panX+=x-lastX;panY+=y-lastY;lastX=x;lastY=y;invalidate();}
+            else if(a==MotionEvent.ACTION_MOVE&&moving){panX+=x-lastX;panY+=y-lastY;lastX=x;lastY=y;constrainPan();invalidate();}
             else if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL)moving=false;
+        }
+
+        private void constrainPan(){
+            if(bitmap==null||getWidth()<=0||getHeight()<=0)return;
+            float iw=bitmap.getWidth(),ih=bitmap.getHeight();
+            float base=Math.max(getWidth()/iw,getHeight()/ih);
+            float w=iw*base*zoom,h=ih*base*zoom;
+            float maxX=Math.max(0f,(w-getWidth())/2f);
+            float maxY=Math.max(0f,(h-getHeight())/2f);
+            panX=clamp(panX,-maxX,maxX);
+            panY=clamp(panY,-maxY,maxY);
+        }
+        @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);constrainPan();}
+        private void handleViewEdit(MotionEvent e,float x,float y){
+            int a=e.getActionMasked();
+            PointF img=toImage(x,y);
+            PointF plane=img==null?null:imageToPlanePoint(img);
+
+            if(a==MotionEvent.ACTION_DOWN){
+                int[] hit=hitTest(x,y);
+                if(hit[0]!=SEL_NONE){
+                    boolean changed=selectedType!=hit[0]||selectedIndex!=hit[1];
+                    selectedType=hit[0];selectedIndex=hit[1];
+                    draggingSelection=true;moving=false;dragLastPlane=plane;
+                    push();
+                    if(changed)notifySelectionChanged();
+                    invalidate();
+                }else{
+                    clearSelection(true);
+                    handlePan(e,x,y);
+                }
+                return;
+            }
+
+            if(a==MotionEvent.ACTION_MOVE && draggingSelection && plane!=null && dragLastPlane!=null){
+                float dx=plane.x-dragLastPlane.x,dy=plane.y-dragLastPlane.y;
+                moveSelectedBy(dx,dy);
+                dragLastPlane=plane;
+                invalidate();
+                return;
+            }
+
+            if((a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL) && draggingSelection){
+                draggingSelection=false;dragLastPlane=null;invalidate();return;
+            }
+
+            handlePan(e,x,y);
+        }
+
+        private int[] hitTest(float x,float y){
+            float fixtureHit=dpF(30);
+            for(int i=chandeliers.size()-1;i>=0;i--){
+                PointF s=planeToScreen(chandeliers.get(i).p);
+                float r=Math.max(fixtureHit,dpF(42)*chandeliers.get(i).scale);
+                if((float)Math.hypot(x-s.x,y-s.y)<=r)return new int[]{SEL_CHANDELIER,i};
+            }
+            for(int i=spots.size()-1;i>=0;i--){
+                PointF s=planeToScreen(spots.get(i).p);
+                float r=Math.max(dpF(22),dpF(26)*spots.get(i).scale);
+                if((float)Math.hypot(x-s.x,y-s.y)<=r)return new int[]{SEL_SPOT,i};
+            }
+            float segHit=dpF(18);
+            for(int i=tracks.size()-1;i>=0;i--){
+                PointF a=planeToScreen(tracks.get(i).a),b=planeToScreen(tracks.get(i).b);
+                if(distanceToSegment(x,y,a,b)<=segHit)return new int[]{SEL_TRACK,i};
+            }
+            for(int i=lines.size()-1;i>=0;i--){
+                PointF a=planeToScreen(lines.get(i).a),b=planeToScreen(lines.get(i).b);
+                if(distanceToSegment(x,y,a,b)<=segHit)return new int[]{SEL_LINE,i};
+            }
+            return new int[]{SEL_NONE,-1};
+        }
+
+        private float distanceToSegment(float x,float y,PointF a,PointF b){
+            float vx=b.x-a.x,vy=b.y-a.y,wx=x-a.x,wy=y-a.y;
+            float vv=vx*vx+vy*vy;if(vv<0.001f)return (float)Math.hypot(wx,wy);
+            float t=clamp((wx*vx+wy*vy)/vv,0f,1f);
+            float px=a.x+t*vx,py=a.y+t*vy;
+            return (float)Math.hypot(x-px,y-py);
+        }
+
+        private void moveSelectedBy(float dx,float dy){
+            if(selectedType==SEL_SPOT && selectedIndex<spots.size()){
+                Fixture f=spots.get(selectedIndex);f.p=clampPlane(add(f.p,dx,dy));return;
+            }
+            if(selectedType==SEL_CHANDELIER && selectedIndex<chandeliers.size()){
+                Fixture f=chandeliers.get(selectedIndex);f.p=clampPlane(add(f.p,dx,dy));return;
+            }
+            PlaneSegment s=null;
+            if(selectedType==SEL_LINE && selectedIndex<lines.size())s=lines.get(selectedIndex);
+            if(selectedType==SEL_TRACK && selectedIndex<tracks.size())s=tracks.get(selectedIndex);
+            if(s!=null){
+                float minX=Math.min(s.a.x,s.b.x),maxX=Math.max(s.a.x,s.b.x);
+                float minY=Math.min(s.a.y,s.b.y),maxY=Math.max(s.a.y,s.b.y);
+                dx=clamp(dx,-minX,1000f-maxX);dy=clamp(dy,-minY,1000f-maxY);
+                s.a=add(s.a,dx,dy);s.b=add(s.b,dx,dy);
+            }
+        }
+
+        private void drawSelectionOverlay(Canvas c){
+            paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(dpF(1.8f));paint.setColor(Color.rgb(167,224,75));
+            if(selectedType==SEL_SPOT && selectedIndex<spots.size()){
+                PointF s=planeToScreen(spots.get(selectedIndex).p);float r=dpF(24)*spots.get(selectedIndex).scale;
+                c.drawCircle(s.x,s.y,Math.max(dpF(18),r),paint);
+                c.drawLine(s.x,s.y-r-dpF(12),s.x,s.y-r,paint);
+                c.drawCircle(s.x,s.y-r-dpF(15),dpF(4),paint);
+            }else if(selectedType==SEL_CHANDELIER && selectedIndex<chandeliers.size()){
+                PointF s=planeToScreen(chandeliers.get(selectedIndex).p);float r=dpF(42)*chandeliers.get(selectedIndex).scale;
+                c.drawCircle(s.x,s.y,Math.max(dpF(28),r),paint);
+                c.drawLine(s.x,s.y-r-dpF(14),s.x,s.y-r,paint);
+                c.drawCircle(s.x,s.y-r-dpF(17),dpF(4),paint);
+            }else{
+                PlaneSegment seg=null;
+                if(selectedType==SEL_LINE && selectedIndex<lines.size())seg=lines.get(selectedIndex);
+                if(selectedType==SEL_TRACK && selectedIndex<tracks.size())seg=tracks.get(selectedIndex);
+                if(seg!=null){
+                    PointF a=planeToScreen(seg.a),b=planeToScreen(seg.b);
+                    c.drawLine(a.x,a.y,b.x,b.y,paint);
+                    paint.setStyle(Paint.Style.FILL);
+                    c.drawCircle(a.x,a.y,dpF(5),paint);c.drawCircle(b.x,b.y,dpF(5),paint);
+                }
+            }
         }
 
         private RectF imageRect(){
