@@ -50,9 +50,9 @@ fun searchBook(book: BookData, query: String, filter: SearchFilter): List<Search
                     r.aliases.any { it.lowercase(Locale.getDefault()).contains(q) }
             }
             .flatMap { remedy ->
-                remedy.chapterIds.mapNotNull { id ->
+                remedy.chapterIds.mapIndexedNotNull { index, id ->
                     chaptersById[id]?.let {
-                        SearchHit(it.id, remedy.anchors.firstOrNull(), it.title, remedy.title, "remedy")
+                        SearchHit(it.id, remedy.anchors.getOrNull(index), it.title, remedy.title, "remedy")
                     }
                 }
             }
