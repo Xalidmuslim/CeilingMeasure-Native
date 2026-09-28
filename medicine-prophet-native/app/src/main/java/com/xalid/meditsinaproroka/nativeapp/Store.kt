@@ -85,7 +85,7 @@ class AppStore(context: Context) {
     fun addHistory(chapterId: String, anchor: String?) {
         history.removeAll { it.chapterId == chapterId && it.anchor == anchor }
         history.add(0, HistoryEntry(chapterId, anchor, System.currentTimeMillis()))
-        while (history.size > 60) history.removeLast()
+        while (history.size > 60) history.removeAt(history.lastIndex)
         persistHistory()
     }
 
