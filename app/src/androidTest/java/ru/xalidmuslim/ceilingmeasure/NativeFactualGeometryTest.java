@@ -18,25 +18,42 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public final class NativeFactualGeometryTest {
     @Test
-    public void factualGeometryRequiresFieldMeasuredDiagonal() {
+    public void factualGeometryPreservesSketchWithoutRequiringMeasuredDiagonal() {
         NativeProjectStore.RoomData room = rectangleRoom();
+
+        // Deliberately skew the sketch while keeping the same overall room topology.
+        room.points.get(2).x = 430f;
+        room.points.get(2).y = 480f;
+        room.points.get(3).x = 90f;
+        room.points.get(3).y = 520f;
+
         NativeProjectStore.DiagonalData diagonal =
                 new NativeProjectStore.DiagonalData("p0", "p2");
         diagonal.value = 500f;
         room.diagonals.add(diagonal);
 
+        // An automatically calculated diagonal is not factual input. The solver
+        // must still work from measured walls and preserve the sketch as shape prior.
         NativeGeometry.markDiagonalAuto(diagonal);
         NativeMeasurementSolver.Result autoOnly =
                 NativeMeasurementSolver.solveFactual(room);
-        assertFalse(autoOnly.ok);
-        assertTrue(autoOnly.message.contains("измеренных диагоналей"));
+        assertTrue(autoOnly.ok);
+        assertFalse(autoOnly.uniquelySupported);
+        assertTrue(autoOnly.message.contains("сохранением общей формы эскиза"));
+        assertTrue(autoOnly.maxError <= NativeMeasurementSolver.FACTUAL_CONFLICT_TOL);
+        assertDistance(autoOnly.positions, "p0", "p1", 300f);
+        assertDistance(autoOnly.positions, "p1", "p2", 400f);
+        assertDistance(autoOnly.positions, "p2", "p3", 300f);
+        assertDistance(autoOnly.positions, "p3", "p0", 400f);
 
+        // Once the diagonal is measured in the field it becomes a hard factual
+        // constraint and makes this four-corner shape uniquely supported.
         NativeGeometry.markDiagonalMeasured(diagonal);
         NativeMeasurementSolver.Result measured =
                 NativeMeasurementSolver.solveFactual(room);
         assertTrue(measured.ok);
         assertTrue(measured.uniquelySupported);
-        assertEquals(0f, measured.maxError, .01f);
+        assertTrue(measured.maxError <= NativeMeasurementSolver.FACTUAL_CONFLICT_TOL);
         assertDistance(measured.positions, "p0", "p2", 500f);
     }
 
