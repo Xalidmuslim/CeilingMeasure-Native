@@ -38,15 +38,15 @@ private val LightScheme = lightColorScheme(
     primaryContainer = Color(0xFFE8EEE9),
     onPrimaryContainer = Color(0xFF203D2E),
     background = Color(0xFFF4EFE5),
-    onBackground = Color(0xFF161616),
+    onBackground = Color(0xFF101010),
     surface = Color(0xFFFBF7EF),
-    onSurface = Color(0xFF161616),
+    onSurface = Color(0xFF101010),
     surfaceVariant = Color(0xFFEAE3D7),
-    onSurfaceVariant = Color(0xFF111111),
+    onSurfaceVariant = Color(0xFF050505),
     outline = Color(0xFFD8CEBD),
     outlineVariant = Color(0xFFD8CEBD),
     secondary = Color(0xFFB99A62),
-    onSecondary = Color(0xFF161616),
+    onSecondary = Color(0xFF101010),
     error = Color(0xFF9B4940),
 )
 
@@ -62,10 +62,10 @@ private val WebTypography = Typography(
     titleSmall = TextStyle(fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 19.sp),
     bodyLarge = TextStyle(fontFamily = WebSansFont, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 25.sp),
     bodyMedium = TextStyle(fontFamily = WebSansFont, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 21.sp),
-    bodySmall = TextStyle(fontFamily = WebSansFont, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 17.sp),
+    bodySmall = TextStyle(fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 17.sp),
     labelLarge = TextStyle(fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 18.sp),
     labelMedium = TextStyle(fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 16.sp),
-    labelSmall = TextStyle(fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, lineHeight = 13.sp),
+    labelSmall = TextStyle(fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 10.5.sp, lineHeight = 13.sp),
 )
 
 private val WebShapes = Shapes(
