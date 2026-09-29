@@ -104,6 +104,41 @@ public final class NativeFactualGeometryTest {
     }
 
     @Test
+    public void orthogonalMismatchDoesNotCollapseTinyReturn() {
+        NativeProjectStore.RoomData room = new NativeProjectStore.RoomData();
+        room.points.add(new NativeProjectStore.PointData("p0", 100f, 100f));
+        room.points.add(new NativeProjectStore.PointData("p1", 356f, 100f));
+        room.points.add(new NativeProjectStore.PointData("p2", 356f, 130f));
+        room.points.add(new NativeProjectStore.PointData("p3", 397f, 130f));
+        room.points.add(new NativeProjectStore.PointData("p4", 397f, 555f));
+        room.points.add(new NativeProjectStore.PointData("p5", 100f, 555f));
+
+        room.edges.add(edge("p0", "p1", 256f));
+        room.edges.add(edge("p1", "p2", 2f));
+        room.edges.add(edge("p2", "p3", 41f));
+        room.edges.add(edge("p3", "p4", 425f));
+        room.edges.add(edge("p4", "p5", 304f));
+        room.edges.add(edge("p5", "p0", 430f));
+
+        NativeMeasurementSolver.Result result =
+                NativeMeasurementSolver.solveFactual(room);
+
+        assertTrue(result.ok);
+        assertTrue(result.maxError > NativeMeasurementSolver.FACTUAL_CONFLICT_TOL);
+
+        double tiny = distance(result.positions, "p1", "p2");
+        assertTrue("2-unit return must not collapse", tiny > 1.8d);
+        assertTrue("2-unit return must stay close to sketch size", tiny < 2.2d);
+
+        assertNearRightAngle(result.positions, "p0", "p1", "p2");
+        assertNearRightAngle(result.positions, "p1", "p2", "p3");
+        assertNearRightAngle(result.positions, "p2", "p3", "p4");
+        assertNearRightAngle(result.positions, "p3", "p4", "p5");
+        assertNearRightAngle(result.positions, "p4", "p5", "p0");
+        assertNearRightAngle(result.positions, "p5", "p0", "p1");
+    }
+
+    @Test
     public void sketchGeometryCanBeRestoredExactlyAfterFactualShape() {
         NativeProjectStore.RoomData room = rectangleRoom();
         assertTrue(NativeGeometry.captureSketchGeometry(room));
@@ -194,6 +229,17 @@ public final class NativeFactualGeometryTest {
         NativeProjectStore.EdgeData edge = new NativeProjectStore.EdgeData(a, b);
         edge.value = value;
         return edge;
+    }
+
+    private static double distance(
+            Map<String, PointF> positions,
+            String a,
+            String b) {
+        PointF pa = positions.get(a);
+        PointF pb = positions.get(b);
+        assertNotNull(pa);
+        assertNotNull(pb);
+        return Math.hypot(pb.x - pa.x, pb.y - pa.y);
     }
 
     private static void assertDistance(
