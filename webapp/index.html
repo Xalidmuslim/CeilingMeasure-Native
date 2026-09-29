@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f4f7fb">
-<title>Замер потолков — Touch v176</title>
+<title>Замер потолков</title>
 
 
 <style id="app-styles-v129">
@@ -5461,15 +5461,119 @@ body.drawing-focus .quick-draw-modes{
   }
 }
 </style>
+
+<style id="v183-home-dashboard">
+.home-screen{display:none}
+body.app-home .home-screen{min-height:100%;display:flex;align-items:flex-start;justify-content:center;padding:clamp(28px,7vh,68px) 14px 28px;background:radial-gradient(circle at 85% 4%,rgba(62,151,193,.10),transparent 34%),linear-gradient(180deg,#f7f9fb 0%,#eef3f7 100%)}
+body.app-home .topbar,body.app-home .layout{display:none!important}
+body.app-home #historyNav{display:none!important;visibility:hidden!important;pointer-events:none!important}
+.home-shell{width:min(520px,100%);margin:0 auto}
+.home-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:8px 2px 24px}
+.home-kicker{display:block;margin-bottom:6px;color:#7890a1;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+.home-hero h1{margin:0;color:#20384a;font-size:29px;line-height:1.08;letter-spacing:-.02em}
+.home-hero p{margin:7px 0 0;color:#738695;font-size:14px}
+.home-settings-btn{margin-top:2px!important;width:42px!important;min-width:42px!important;height:42px!important;border:1px solid #dce5eb!important;border-radius:14px!important}
+.home-actions{display:grid;gap:10px}
+.home-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.home-action{width:100%;min-width:0;min-height:112px;padding:16px;display:grid;grid-template-columns:46px minmax(0,1fr) 18px;align-items:center;gap:12px;text-align:left;border:1px solid #dbe4eb;border-radius:22px;background:#fff;color:#243b4d;box-shadow:0 9px 28px rgba(31,58,81,.07);touch-action:manipulation}
+.home-action:active{transform:scale(.985);background:#f8fbfd}
+.home-action-primary{min-height:122px;border-color:#2d8fbe;background:linear-gradient(145deg,#3599c7,#2b83b0);color:#fff;box-shadow:0 13px 30px rgba(43,136,191,.22)}
+.home-action-primary:active{background:linear-gradient(145deg,#318fbb,#287ca7)}
+.home-action-icon{width:46px;height:46px;border-radius:15px;display:flex;align-items:center;justify-content:center;background:#edf5f9;color:#2d7fa9}
+.home-action-primary .home-action-icon{background:rgba(255,255,255,.16);color:#fff}
+.home-action-icon svg{width:25px;height:25px;fill:currentColor}
+.home-action-copy{min-width:0;display:grid;gap:4px}
+.home-action-copy b{font-size:17px;line-height:1.15}
+.home-action-copy small{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#7a8d9c;font-size:11.5px}
+.home-action-primary .home-action-copy small{color:rgba(255,255,255,.80)}
+.home-chevron{justify-self:end;font-size:30px;line-height:1;color:#9aabb7}
+.home-action-primary .home-chevron{color:rgba(255,255,255,.80)}
+@media(max-width:430px){
+  body.app-home .home-screen{padding:32px 12px 24px}
+  .home-hero{padding-bottom:20px}.home-hero h1{font-size:26px}
+  .home-action-grid{grid-template-columns:1fr}
+  .home-action{min-height:94px;padding:14px;border-radius:19px}
+  .home-action-primary{min-height:108px}
+}
+</style>
+
+<style id="test-v188-readonly-measure-audit">
+.measure-audit-card{margin-top:8px;border:1px solid #dbe4e9;border-radius:11px;padding:8px 9px;background:#fbfcfd}
+.measure-audit-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.measure-audit-head b{font-size:13px}
+.measure-audit-head small{color:#7a8b97;font-size:9.5px;text-align:right;line-height:1.25}
+.measure-audit-reliability{display:grid;grid-template-columns:auto 1fr;column-gap:7px;row-gap:1px;align-items:start;margin-top:7px;padding:7px 8px;border:1px solid #e2e8ec;border-radius:9px;background:#fff}
+.measure-audit-dot{width:9px;height:9px;border-radius:50%;margin-top:4px;background:#9aa8b2}
+.measure-audit-reliability.green .measure-audit-dot{background:#2f9b62}
+.measure-audit-reliability.yellow .measure-audit-dot{background:#d6a21d}
+.measure-audit-reliability.red .measure-audit-dot{background:#c94e55}
+.measure-audit-reliability b{font-size:11.5px;line-height:1.2}
+.measure-audit-reliability small{grid-column:2;color:#718391;font-size:10px;line-height:1.3}
+.measure-audit-conflicts{display:grid;gap:4px;margin-top:7px}
+.measure-audit-conflict{padding:6px 7px;border-radius:8px;background:#fff3f3;color:#a84349;font-size:10.5px;line-height:1.35}
+.measure-audit-ok{margin-top:6px;color:#607784;font-size:10px;line-height:1.3}
+</style>
+<style id="test-v189-client-qty-longpress">
+.ce-qty-longpress{
+  touch-action:none;
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+  cursor:pointer;
+}
+.ce-qty-longpress:active{transform:scale(.97)}
+</style>
+<style id="test-v191-room-material-button">
+.ce-room-add-material{
+  width:100%;
+  margin-top:8px;
+  min-height:38px;
+  border-style:dashed;
+}
+</style>
 </head>
 <body>
 <div class="app" id="appScroll">
+<section class="home-screen" id="homeScreen" aria-label="Главная">
+  <div class="home-shell">
+    <div class="home-hero">
+      <div class="home-hero-copy">
+        <span class="home-kicker">Рабочее приложение</span>
+        <h1>Замер потолков</h1>
+        <p>Замер · чертёж · смета</p>
+      </div>
+      <button class="ui-settings-btn home-settings-btn" id="homeSettingsBtn" type="button" aria-label="Настройки" title="Настройки">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h8v2H4V6Zm12 0h4v2h-4V6Zm-2-2h2v6h-2V4ZM4 11h3v2H4v-2Zm7 0h9v2h-9v-2ZM9 9h2v6H9V9Zm-5 7h10v2H4v-2Zm14 0h2v2h-2v-2Zm-2-2h2v6h-2v-6Z"/></svg>
+      </button>
+    </div>
+    <div class="home-actions">
+      <button class="home-action home-action-primary" id="homeNewOrder" type="button">
+        <span class="home-action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4Z"/></svg></span>
+        <span class="home-action-copy"><b>Новый заказ</b><small>Создать новый замер</small></span><span class="home-chevron">›</span>
+      </button>
+      <div class="home-action-grid">
+        <button class="home-action" id="homeSaved" type="button">
+          <span class="home-action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6l2 2h8v12H4V5Zm2 2v10h12V9h-6.8l-2-2H6Z"/></svg></span>
+          <span class="home-action-copy"><b>Замеры</b><small id="homeSavedMeta">Сохранённые замеры</small></span><span class="home-chevron">›</span>
+        </button>
+        <button class="home-action" id="homeDrawing" type="button">
+          <span class="home-action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h5v2H7v3H5V5Zm9 0h5v5h-2V7h-3V5ZM5 14h2v3h3v2H5v-5Zm12 0h2v5h-5v-2h3v-3ZM9 9h6v6H9V9Zm2 2v2h2v-2h-2Z"/></svg></span>
+          <span class="home-action-copy"><b>Чертёж</b><small id="homeDrawingMeta">Открыть текущий чертёж</small></span><span class="home-chevron">›</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <header class="topbar">
   <div class="brand">
     <div class="brand-main-row"><b>Натяжные потолки</b></div>
     <small>замер · расчёт · смета</small>
   </div>
   <div class="topbar-actions">
+    <button class="ui-settings-btn app-home-btn" id="homeBtn" type="button" aria-label="Главная" title="Главная">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.2 12 4l8 7.2v8.3h-6v-5h-4v5H4v-8.3Zm2 1v5.3h2v-5h8v5h2v-5.3l-6-5.4-6 5.4Z"/></svg>
+    </button>
     <button class="btn top-action top-action-saved" id="savedBtn" type="button" aria-label="Замеры">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.75h9.3L19 7.45v12.8H6V3.75Zm2 2v12.5h9V8.3l-2.55-2.55H8Zm2 4h5v1.7h-5v-1.7Zm0 3.6h5v1.7h-5v-1.7Z"/></svg>
       <span>Замеры</span>
@@ -5938,7 +6042,7 @@ const fmtM2=rawArea=>Number.isFinite(+rawArea)?(+rawArea/10000).toLocaleString("
 
 const APP_STORAGE_KEY="ceilingMeasureData";
 const APP_SCHEMA_VERSION=165;
-const APP_BUILD_VERSION="182-readable-default-font";
+const APP_BUILD_VERSION="196-cleanup-performance";
 const LEGACY_STORAGE_KEYS=[...Array.from({length:111},(_,i)=>`ceilingTouchV${125-i}`)];
 const volatileStorage=new Map();
 let storagePersistent=true;
@@ -5987,6 +6091,7 @@ let mode="draw", magnet=true, undo=[],redo=[];
 let activeVertexId=null, dragVertexId=null, drawState=null, diagDraw=null;
 let selectedLabel=null,labelDrag=null,labelRotate=null;
 let drawingFocusMode=false;
+let redrawFrame=0;
 let pointers=new Map(),pinch=null,point90SnapActive=false,wallGuideSnapActive=false;
 const LONG_PRESS_MS=330;
 let wallEditId=null,wallSequenceMode=false,wallSequenceHistoryArmed=false,wallSequenceHistoryCleanup=false,diagEditId=null,vertexMenuId=null,roomActionId=null,savedActionId=null,savedFilterMode="recent",longPressTimer=null,longPressFired=false,longPressKind=null,startPlacementMode=false,roomHoldTimer=null,roomHoldFired=false,keypadGuardUntil=0;
@@ -6395,7 +6500,7 @@ function makeRoom(name){
     notes:"",
     pricing:newRoomPricing(),
     clientPricing:newRoomClientPricing(),
-    clientEstimateQty:{insert:0,light:0,cornice:0,corner:0,pipe:0,lightline:0,shadow:0,porcelain:0},
+    clientEstimateQty:{canvas:0,insert:0,light:0,cornice:0,corner:0,pipe:0,lightline:0,shadow:0,porcelain:0},
     clientEstimateOverride:{},
     clientCustomItems:newRoomClientCustomItems(),
     customItems:newRoomPurchaseCustomItems(),
@@ -6427,7 +6532,7 @@ function normRoom(r){
   }
   r.clientEstimateQty=(r.clientEstimateQty&&typeof r.clientEstimateQty==="object")?r.clientEstimateQty:{};
   r.clientEstimateOverride=(r.clientEstimateOverride&&typeof r.clientEstimateOverride==="object")?r.clientEstimateOverride:{};
-  for(const key of ["insert","light","cornice","corner","pipe","lightline","shadow","porcelain"]){
+  for(const key of ["canvas","insert","light","cornice","corner","pipe","lightline","shadow","porcelain"]){
     r.clientEstimateQty[key]=Math.max(0,+r.clientEstimateQty[key]||0);
     r.clientEstimateOverride[key]=!!r.clientEstimateOverride[key]
   }
@@ -6764,6 +6869,34 @@ function ensureRoomExtras(r){
   r.extraQty.pipe=Math.max(0,+r.extraQty.pipe||0);
   return r.extraQty
 }
+/* TEST v189 — client insert default.
+   One-time data migration only for estimate settings:
+   - show Insert in every existing room using automatic perimeter quantity;
+   - reset its client price to 0;
+   - future rooms inherit a 0 default price.
+   This never changes room points, walls, diagonals, area or factual geometry. */
+function migrateClientInsertAutoV189(){
+  if(db.clientInsertAutoV189===true)return;
+
+  ensureDefaultClientPricing().insert=0;
+  db.hiddenDefaultClientKeys=ensureHiddenDefaultClientKeys().filter(k=>k!=="insert");
+
+  for(const o of db.orders||[]){
+    for(const r of o.rooms||[]){
+      normRoom(r);
+      const p=ensureClientPricing(r);
+      p.insert=0;
+      r.clientEstimateQty=r.clientEstimateQty||{};
+      r.clientEstimateOverride=r.clientEstimateOverride||{};
+      r.clientEstimateQty.insert=0;
+      r.clientEstimateOverride.insert=false
+    }
+  }
+
+  db.clientInsertAutoV189=true;
+  persistDbRaw()
+}
+
 function migratePricingToRooms(){
   let changed=false;
   for(const o of db.orders||[]){
@@ -6871,6 +7004,197 @@ function drawingValidationState(r){
   if(v.errors.length)return{cls:"error",icon:"!",label:`Ошибок ${v.errors.length}`};
   if(v.warnings.length)return{cls:"warn",icon:"!",label:`Замечаний ${v.warnings.length}`};
   return{cls:"ok",icon:"✓",label:"Проверено"}
+}
+
+/* TEST v188 — ADDITIONAL READ-ONLY measurement audit.
+   IMPORTANT: this layer must never write r.points, r.edges, r.diagList,
+   geometry source/state, factual geometry, calculated area or solver output.
+   Existing factual-size / geometry behavior stays untouched. */
+function auditPairKey(a,b){
+  return String(a)<String(b)?String(a)+"|"+String(b):String(b)+"|"+String(a)
+}
+function auditConstraintName(c){
+  return `${c.kind==="diag"?"диагональ":"сторона"} ${c.label}`
+}
+function auditMeasuredConstraints(r){
+  const out=[];
+  for(const e of r.edges||[]){
+    const target=mm(e.mm);
+    if(target)out.push({a:e.a,b:e.b,target,kind:"wall",label:edgeLabel(r,e),sourceId:e.id})
+  }
+  for(const d of r.diagList||[]){
+    const target=mm(d.mm);
+    if(target)out.push({a:d.a,b:d.b,target,kind:"diag",label:diagLabel(r,d),sourceId:d.id})
+  }
+  return out
+}
+function auditMeasurementConflicts(r){
+  const constraints=auditMeasuredConstraints(r);
+  const byPair=new Map();
+  const conflicts=[];
+
+  // Same two points must not carry two materially different measured distances.
+  for(const c of constraints){
+    const key=auditPairKey(c.a,c.b);
+    const list=byPair.get(key)||[];
+    for(const prev of list){
+      if(Math.abs(prev.target-c.target)>FIELD_MEASURE_TOL){
+        conflicts.push(
+          `${auditConstraintName(prev)} и ${auditConstraintName(c)} задают разные расстояния между одними и теми же углами (${fmtWallMeters(prev.target)} м и ${fmtWallMeters(c.target)} м).`
+        )
+      }
+    }
+    list.push(c);byPair.set(key,list)
+  }
+
+  // Use one measured distance for each pair for triangle-consistency checks.
+  const one=new Map();
+  for(const [key,list] of byPair)one.set(key,list[0]);
+
+  const ids=[...new Set((r.points||[]).map(p=>p.id))];
+  for(let i=0;i<ids.length;i++){
+    for(let j=i+1;j<ids.length;j++){
+      for(let k=j+1;k<ids.length;k++){
+        const ab=one.get(auditPairKey(ids[i],ids[j]));
+        const ac=one.get(auditPairKey(ids[i],ids[k]));
+        const bc=one.get(auditPairKey(ids[j],ids[k]));
+        if(!ab||!ac||!bc)continue;
+
+        const trio=[ab,ac,bc].sort((x,y)=>y.target-x.target);
+        const longest=trio[0],p=trio[1],q=trio[2];
+
+        // Field tolerance is respected. We warn only when the impossibility is
+        // larger than the existing measurement tolerance; nothing is corrected.
+        if(longest.target>(p.target+q.target+FIELD_MEASURE_TOL)){
+          conflicts.push(
+            `Размеры ${auditConstraintName(ab)}, ${auditConstraintName(ac)} и ${auditConstraintName(bc)} не могут одновременно существовать: ${auditConstraintName(longest)} слишком велика относительно двух остальных.`
+          )
+        }
+      }
+    }
+  }
+
+  return [...new Set(conflicts)]
+}
+function auditCircularLongestRun(flags,value){
+  const n=flags.length;if(!n)return 0;
+  if(flags.every(x=>x===value))return n;
+  let best=0,cur=0;
+  for(let i=0;i<n*2;i++){
+    if(flags[i%n]===value){
+      cur++;best=Math.max(best,Math.min(cur,n))
+    }else cur=0
+  }
+  return best
+}
+function measurementReliabilityReadOnly(r,conflicts=[]){
+  const order=cycleOrder(r);
+  const missing=(r.edges||[]).filter(e=>!mm(e.mm));
+
+  if(conflicts.length){
+    return{
+      level:"red",
+      label:"Красный · есть конфликт",
+      detail:"Часть введённых измерений математически несовместима. Это только предупреждение: приложение ничего не исправляет автоматически."
+    }
+  }
+  if(!order){
+    return{
+      level:"red",
+      label:"Красный · контур не завершён",
+      detail:"Надёжность пока нельзя оценить: контур не замкнут."
+    }
+  }
+  if(missing.length){
+    return{
+      level:"red",
+      label:"Красный · не все стороны измерены",
+      detail:`Без размера ${missing.map(e=>edgeLabel(r,e)).join(", ")} геометрия остаётся неполной.`
+    }
+  }
+
+  const measuredDiags=(r.diagList||[]).filter(d=>mm(d.mm));
+  const n=order.length;
+  if(n<=3){
+    return{
+      level:"green",
+      label:"Зелёный · геометрия определена",
+      detail:"Три измеренные стороны задают треугольник; дополнительная диагональ для него не требуется."
+    }
+  }
+
+  if(!measuredDiags.length){
+    return{
+      level:"red",
+      label:"Красный · нет диагонального контроля",
+      detail:"Форма определяется только последовательными сторонами. Ошибка одного угла или размера может накопиться по контуру."
+    }
+  }
+
+  const pairSet=new Set(auditMeasuredConstraints(r).map(c=>auditPairKey(c.a,c.b)));
+  const controlled=[];
+
+  // A boundary wall is independently controlled when it belongs to at least
+  // one fully measured triangle (two sides plus a measured diagonal, or an
+  // equivalent three-distance triangle).
+  for(let i=0;i<n;i++){
+    const a=order[i],b=order[(i+1)%n];
+    let covered=false;
+    for(const c of order){
+      if(c===a||c===b)continue;
+      if(pairSet.has(auditPairKey(a,c))&&pairSet.has(auditPairKey(b,c))){
+        covered=true;break
+      }
+    }
+    controlled.push(covered)
+  }
+
+  const uncontrolled=controlled.filter(x=>!x).length;
+  const longestGap=auditCircularLongestRun(controlled,false);
+  const triangulationTarget=Math.max(1,n-3);
+
+  if(longestGap>=2){
+    return{
+      level:"red",
+      label:"Красный · есть неконтролируемый участок",
+      detail:`Есть цепочка из ${longestGap} последовательных сторон без независимой проверки диагональю. На этом участке ошибка может накапливаться.`
+    }
+  }
+
+  if(uncontrolled>0||measuredDiags.length<triangulationTarget){
+    const parts=[];
+    if(uncontrolled>0)parts.push(`без независимого контроля сторон: ${uncontrolled}`);
+    if(measuredDiags.length<triangulationTarget)parts.push(`измерено диагоналей: ${measuredDiags.length}, ориентир для полного связывания: ${triangulationTarget}`);
+    return{
+      level:"yellow",
+      label:"Жёлтый · частичный контроль",
+      detail:parts.join("; ")+". Фактический размер и существующий расчёт не изменяются."
+    }
+  }
+
+  return{
+    level:"green",
+    label:"Зелёный · хороший контроль",
+    detail:`Измеренные диагонали связывают весь контур; все стороны входят в проверяемые треугольники. Диагоналей: ${measuredDiags.length}.`
+  }
+}
+function measurementAuditPanelHtml(r){
+  const conflicts=auditMeasurementConflicts(r);
+  const reliability=measurementReliabilityReadOnly(r,conflicts);
+  return `<div class="measure-audit-card">
+    <div class="measure-audit-head">
+      <b>Доп. контроль замера</b>
+      <small>Только проверка · фактический размер не изменяется</small>
+    </div>
+    <div class="measure-audit-reliability ${reliability.level}">
+      <span class="measure-audit-dot"></span>
+      <b>${esc(reliability.label)}</b>
+      <small>${esc(reliability.detail)}</small>
+    </div>
+    ${conflicts.length
+      ?`<div class="measure-audit-conflicts">${conflicts.slice(0,5).map(x=>`<div class="measure-audit-conflict">${esc(x)}</div>`).join("")}</div>`
+      :`<div class="measure-audit-ok">Явных конфликтов между полностью измеренными треугольниками не найдено. Эта проверка не заменяет фактическую геометрию и ничего в ней не меняет.</div>`}
+  </div>`
 }
 
 function openDrawingValidation(){
@@ -7469,6 +7793,29 @@ function newOrder(){
 }
 function ensureOrder(){if(!db.orders.length){newOrder();return false}return true}
 
+function refreshHomeScreen(){
+  const saved=(db.orders||[]).filter(o=>o.savedAt).length;
+  const savedMeta=$("#homeSavedMeta");
+  if(savedMeta)savedMeta.textContent=saved?`${saved} сохранённых`:"Сохранённых пока нет";
+  const o=curOrder(),r=curRoom(),drawingMeta=$("#homeDrawingMeta");
+  if(drawingMeta){
+    const orderName=String(o?.name||"").trim()||"Текущий заказ";
+    drawingMeta.textContent=o?`${orderName} · ${r?.name||"Комната 1"}`:"Открыть текущий чертёж"
+  }
+}
+function showHomeScreen(){
+  if(drawingFocusMode)setDrawingFocus(false);
+  document.body.classList.add("app-home");
+  const scroller=$("#appScroll");if(scroller)scroller.scrollTop=0;
+  refreshHomeScreen();
+  updateHistoryNav()
+}
+function showWorkspace(){document.body.classList.remove("app-home");updateHistoryNav()}
+function openHomeDrawing(){
+  showWorkspace();
+  const state=ensureCollapseState();state.drawing=false;persistDbRaw();render();
+  requestAnimationFrame(()=>document.querySelector('[data-collapse-block="drawing"]')?.scrollIntoView({block:"start",behavior:"smooth"}))
+}
 
 function syncFocusDrawingViewport(){
   const svg=$("#drawSvg");
@@ -7588,6 +7935,10 @@ function ceilingHandleAndroidBack(){
       close();
       return true
     }
+  }
+  if(!document.body.classList.contains("app-home")){
+    showHomeScreen();
+    return true
   }
   return false
 }
@@ -8285,6 +8636,7 @@ function renderRoom(){
     </div>
 
     ${validationPanelHtml(r)}
+    ${measurementAuditPanelHtml(r)}
 
     ${clientMainEstimateHtml()}
 
@@ -8440,6 +8792,7 @@ const CLIENT_ESTIMATE_MATERIALS=[
 function clientEstimateSourceQuantities(r,c=null){
   c=c||roomCost(r,ensureClientPricing(r));
   return{
+    canvas:c.areaM2||0,
     insert:c.perimeterM||0,
     light:c.qty.light||0,
     cornice:c.qty.cornice||0,
@@ -8459,21 +8812,20 @@ function estimateRoomLines(r){
   const effectiveQty=key=>overrides[key]?Math.max(0,+cq[key]||0):Math.max(0,+source[key]||0);
   const overridden=key=>!!overrides[key];
 
-  const squareQty=c.areaM2||0;
-  const line=(key,qty,price,qtyEditable=false)=>{
+  const line=(key,qty,price,qtyEditable=true)=>{
     const meta=clientStandardMaterialMeta(key);
     return{key,name:meta.name,qty,unit:meta.unit,price,sum:qty*price,qtyEditable}
   };
   const lines=[
-    line("canvas",squareQty,+p.canvas||0,false),
-    line("insert",effectiveQty("insert"),+p.insert||0,overridden("insert")),
-    line("light",effectiveQty("light"),+p.light||0,overridden("light")),
-    line("cornice",effectiveQty("cornice"),+p.cornice||0,overridden("cornice")),
-    line("corner",effectiveQty("corner"),+p.corner||0,overridden("corner")),
-    line("pipe",effectiveQty("pipe"),+p.pipe||0,overridden("pipe")),
-    line("lightline",effectiveQty("lightline"),+p.lightline||0,overridden("lightline")),
-    line("shadow",effectiveQty("shadow"),+p.shadow||0,overridden("shadow")),
-    line("porcelain",effectiveQty("porcelain"),+p.porcelain||0,overridden("porcelain"))
+    line("canvas",effectiveQty("canvas"),+p.canvas||0,true),
+    line("insert",effectiveQty("insert"),+p.insert||0,true),
+    line("light",effectiveQty("light"),+p.light||0,true),
+    line("cornice",effectiveQty("cornice"),+p.cornice||0,true),
+    line("corner",effectiveQty("corner"),+p.corner||0,true),
+    line("pipe",effectiveQty("pipe"),+p.pipe||0,true),
+    line("lightline",effectiveQty("lightline"),+p.lightline||0,true),
+    line("shadow",effectiveQty("shadow"),+p.shadow||0,true),
+    line("porcelain",effectiveQty("porcelain"),+p.porcelain||0,true)
   ].filter(x=>x.qty>0);
 
   for(const item of r.clientCustomItems||[]){
@@ -8705,11 +9057,14 @@ function clientEstimateBodyHtml(data,editable=false){
               : esc(x.name))
           }</td>
           <td>${editable&&x.qtyEditable
-            ? `<button class="ce-qty-plain" type="button"
+            ? `<button class="ce-qty-plain ce-qty-longpress" type="button"
                  ${x.custom?`data-client-custom-qty-id="${esc(x.customId)}"`:`data-client-qty-key="${esc(x.key)}"`}
                  data-client-room-id="${esc(id)}"
                  data-client-order-id="${esc(orderId||data.order.id)}"
-                 data-calc-label="${esc(x.name)}">${fmtQty(x.qty)}</button>`
+                 data-calc-label="${esc(x.name)}"
+                 value="${String(Math.max(0,+x.qty||0))}"
+                 title="Зажмите, чтобы изменить количество"
+                 aria-label="${esc(x.name)}: зажмите, чтобы изменить количество">${fmtQty(x.qty)}</button>`
             : fmtQty(x.qty)
           }</td>
           <td>${esc(x.unit)}</td>
@@ -8726,6 +9081,9 @@ function clientEstimateBodyHtml(data,editable=false){
         </tr>`).join("")}</tbody>
       </table>
       <div class="ce-subtotal"><span>Итого по помещению</span><b>${fmtMoney(cost.total)} ₽</b></div>
+      ${editable?`<button type="button" class="btn ce-room-add-material no-print"
+        data-client-add-material-room="${esc(id)}"
+        data-client-add-material-order="${esc(orderId||data.order.id)}">+ Добавить материал</button>`:""}
       ${notes?`<div class="ce-note"><b>Примечание:</b> ${esc(notes)}</div>`:""}
     </section>`).join(""):`<div class="ce-empty">${editable?"Для этой комнаты пока не добавлено ни одной позиции для сметы.":"В смете нет позиций с указанной ценой."}</div>`;
 
@@ -8766,9 +9124,41 @@ function clientEstimateBodyHtml(data,editable=false){
   `
 }
 function bindClientEstimatePriceInputs(){
-  $$('[data-client-price-key],[data-client-qty-key],[data-client-custom-price-id],[data-client-custom-qty-id]').forEach(input=>{
+  // Prices keep the existing single-tap edit behavior.
+  $$('[data-client-price-key],[data-client-custom-price-id]').forEach(input=>{
     input.onpointerdown=e=>{e.preventDefault();e.stopPropagation()};
     input.onclick=e=>{e.preventDefault();e.stopPropagation();openCalcKeypad(input)};
+    input.onfocus=e=>e.target.blur?.()
+  });
+
+  // TEST v189: every displayed client-estimate quantity is editable by LONG PRESS.
+  // This creates/updates only an estimate quantity override; factual room geometry
+  // and the calculated room dimensions remain untouched.
+  $$('[data-client-qty-key],[data-client-custom-qty-id]').forEach(input=>{
+    let timer=null,startX=0,startY=0,opened=false;
+    const clear=()=>{if(timer){clearTimeout(timer);timer=null}};
+    input.onpointerdown=e=>{
+      e.preventDefault();e.stopPropagation();
+      clear();opened=false;startX=e.clientX||0;startY=e.clientY||0;
+      timer=setTimeout(()=>{
+        timer=null;opened=true;
+        try{navigator.vibrate?.(18)}catch{}
+        openCalcKeypad(input)
+      },520)
+    };
+    input.onpointermove=e=>{
+      if(!timer)return;
+      if(Math.hypot((e.clientX||0)-startX,(e.clientY||0)-startY)>10)clear()
+    };
+    input.onpointerup=e=>{e.preventDefault();e.stopPropagation();clear()};
+    input.onpointercancel=clear;
+    input.onpointerleave=clear;
+    input.onclick=e=>{
+      e.preventDefault();e.stopPropagation();
+      // A normal tap intentionally does nothing: quantity editing is long-press only.
+      if(opened)opened=false
+    };
+    input.oncontextmenu=e=>{e.preventDefault();e.stopPropagation()};
     input.onfocus=e=>e.target.blur?.()
   });
   $$('[data-client-custom-delete]').forEach(btn=>{
@@ -8799,6 +9189,16 @@ function bindClientEstimatePriceInputs(){
       showToast("Материал убран из сметы")
     }
   })
+  $$('[data-client-add-material-room]').forEach(btn=>{
+    btn.onclick=e=>{
+      e.preventDefault();e.stopPropagation();
+      openClientMaterialForRoom(
+        btn.dataset.clientAddMaterialOrder||orderId,
+        btn.dataset.clientAddMaterialRoom
+      )
+    }
+  });
+
   $$('[data-room-sketch-room]').forEach(btn=>{
     btn.onclick=e=>{
       e.preventDefault();e.stopPropagation();
@@ -8931,6 +9331,17 @@ function renderClientMaterialRoomChooser(){
     }
   })
 }
+function openClientMaterialForRoom(targetOrderId,targetRoomId){
+  const room=findOrderRoom(targetOrderId||orderId,targetRoomId);
+  if(!room){showToast("Помещение не найдено");return}
+
+  clientMaterialTargetAllRooms=false;
+  clientMaterialTargetOrderId=targetOrderId||orderId||curOrder()?.id||null;
+  clientMaterialTargetRoomId=targetRoomId;
+
+  openClientMaterialSheet()
+}
+
 function openClientMaterialRoomChooser(){
   const choices=clientMaterialSelectableRooms();
   if(!choices.length){showToast("Нет помещений для добавления материала");return}
@@ -9716,7 +10127,7 @@ function bindSavedItemActions(list){
       if(moved){moved=false;return}
       const o=db.orders.find(x=>x.id===id);if(!o)return;
       orderId=o.id;roomId=o.rooms?.[0]?.id||null;activeVertexId=null;startPlacementMode=false;undo=[];redo=[];
-      closeSavedMeasurements();render()
+      closeSavedMeasurements();showWorkspace();render()
     };
     b.onpointercancel=()=>{clearTimer();longDone=false;moved=true};
     b.oncontextmenu=e=>e.preventDefault()
@@ -9754,7 +10165,8 @@ function openSavedMeasurements(){
   smoothOpenOverlay($("#savedMeasurements"))
 }
 function closeSavedMeasurements(){
-  smoothCloseOverlay($("#savedMeasurements"))
+  smoothCloseOverlay($("#savedMeasurements"));
+  if(document.body.classList.contains("app-home"))refreshHomeScreen()
 }
 
 function formatSavedAt(value){
@@ -9803,7 +10215,7 @@ function renderDrawToolsMenu(){
     <button class="draw-tool ${magnet?"active":""}" data-draw-action="magnet" ${r.geometryLocked?"disabled":""}><span>⌁</span><b>45°/90° стены</b></button>
     <button class="draw-tool ${r.point90Magnet!==false?"active":""}" data-draw-action="point90" ${r.geometryLocked?"disabled":""}><span>∟</span><b>90° точки</b></button>
     <button class="draw-tool ${r.showAutoLetters===false?"":"active"}" data-draw-action="letters"><span>A</span><b>${r.showAutoLetters===false?"Показать":"Скрыть"} буквы</b></button>
-    <button class="draw-tool" data-draw-action="autoGeometry" ${r.geometryLocked?"disabled":""} title="Сохраняет нарисованную форму и уточняет её по стенам и диагоналям"><span>↗</span><b>По размерам</b></button>
+    <button class="draw-tool" data-draw-action="autoGeometry" ${r.geometryLocked?"disabled":""} title="Строит геометрию по введённым сторонам и диагоналям"><span>◇</span><b>Фактическая геометрия</b></button>
     <button class="draw-tool" data-draw-action="auto90" ${r.geometryLocked?"disabled":""}><span>∟</span><b>Авто 90°</b></button>
     <button class="draw-tool" data-draw-action="autoDiags" ${r.geometryLocked?"disabled":""}><span>⌁</span><b>Авто диагонали</b></button>
     <button class="draw-tool" data-draw-action="validate"><span>✓</span><b>Проверить замер</b></button>
@@ -10283,7 +10695,7 @@ function diagLabel(r,d){return pointLabel(r,d.a)+pointLabel(r,d.b)}
 function rectsOverlap(a,b,pad=0){
   return !(a.x2+pad<b.x1 || b.x2+pad<a.x1 || a.y2+pad<b.y1 || b.y2+pad<a.y1)
 }
-function pointSegmentDistance(px,py,a,b){
+function pointToSegmentDistanceXY(px,py,a,b){
   const dx=b.x-a.x,dy=b.y-a.y;
   const d2=dx*dx+dy*dy;
   if(d2<1e-9)return Math.hypot(px-a.x,py-a.y);
@@ -10327,7 +10739,7 @@ function pickDiagLabelPlacement(a,b,di,textLen,inv,boxes=[],segments=[],currentI
       // Also keep a label away from OTHER diagonal strokes.
       for(const seg of segments){
         if(seg.id===currentId)continue;
-        const dist=pointSegmentDistance(x,y,seg.a,seg.b);
+        const dist=pointToSegmentDistanceXY(x,y,seg.a,seg.b);
         const safe=42*inv;
         if(dist<safe)penalty+=(safe-dist)*480
       }
@@ -11358,27 +11770,62 @@ function solveFreeGeometry(r){
     })
   }
 
-  // Position Based Dynamics.
-  // 1) длины стен и измеренные диагонали — основные ограничения;
-  // 2) направление стен из нарисованной формы — мягкий приоритет;
-  // 3) последние итерации идут без мягкой привязки, чтобы измеренные цифры
-  //    получили приоритет и не были изменены ради красивого эскиза.
-  const totalIterations=3200;
-  const guidedIterations=2700;
+  // Preserve the user's overall drawn room shape while applying the entered
+  // measurements. Wall lengths and measured diagonals remain the hard constraints.
+  // The sketch is a persistent direction prior, not a second set of dimensions.
+  // When there are not enough measured diagonals to uniquely determine the polygon,
+  // that prior is deliberately stronger so the solver cannot fold the room into a
+  // different-looking shape that merely satisfies the same side lengths.
+  const measuredDiagSupport=(r.diagList||[]).filter(d=>mm(d.mm)).length;
+  const neededDiagSupport=Math.max(0,order.length-3);
+  const hasFullDiagSupport=order.length<=3||measuredDiagSupport>=neededDiagSupport;
+  const totalIterations=3600;
+  const guideStart=hasFullDiagSupport?0.024:0.090;
+  const guideFloor=hasFullDiagSupport?0.0025:0.018;
 
   for(let iter=0;iter<totalIterations;iter++){
-    let maxErr=0;
+    const progress=iter/Math.max(1,totalIterations-1);
+    const guideWeight=guideStart*(1-progress)+guideFloor*progress;
 
-    // Жёсткие ограничения фактических размеров.
-    for(const c of constraints){
-      const a=pos.get(c.a),b=pos.get(c.b);
+    // First keep the local direction of every wall close to the field sketch.
+    // This affects only the solution branch/general shape; it does not overwrite
+    // any entered millimetres.
+    for(const g of directionGuides){
+      const a=pos.get(g.a),b=pos.get(g.b);
+      if(!a||!b)continue;
+      const desiredDx=g.ux*g.target;
+      const desiredDy=g.uy*g.target;
+      const diffX=(b.x-a.x)-desiredDx;
+      const diffY=(b.y-a.y)-desiredDy;
+      const af=isFixed(g.a),bf=isFixed(g.b);
+
+      if(af&&bf)continue;
+      if(af){
+        b.x-=diffX*guideWeight;
+        b.y-=diffY*guideWeight
+      }else if(bf){
+        a.x+=diffX*guideWeight;
+        a.y+=diffY*guideWeight
+      }else{
+        const w=guideWeight*0.5;
+        a.x+=diffX*w;a.y+=diffY*w;
+        b.x-=diffX*w;b.y-=diffY*w
+      }
+    }
+
+    // Apply the actual field measurements LAST on every iteration. This makes
+    // the entered sides/diagonals authoritative while the sketch only decides
+    // how the compatible geometry should be oriented/laid out.
+    let maxErr=0;
+    for(const constraint of constraints){
+      const a=pos.get(constraint.a),b=pos.get(constraint.b);
       if(!a||!b)continue;
       let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
       if(d<1e-9){dx=1;dy=0;d=1}
-      const err=d-c.target;
+      const err=d-constraint.target;
       maxErr=Math.max(maxErr,Math.abs(err));
       const nx=dx/d,ny=dy/d;
-      const af=isFixed(c.a),bf=isFixed(c.b);
+      const af=isFixed(constraint.a),bf=isFixed(constraint.b);
       if(af&&bf)continue;
       if(af){
         b.x-=nx*err;b.y-=ny*err
@@ -11391,41 +11838,10 @@ function solveFreeGeometry(r){
       }
     }
 
-    // Мягко возвращаем направления стен к исходной форме.
-    // Чем дальше идёт расчёт, тем слабее эта привязка: реальные диагонали
-    // должны иметь возможность показать фактическую кривизну помещения.
-    if(iter<guidedIterations){
-      const progress=iter/guidedIterations;
-      const guideWeight=0.075*(1-progress)+0.012*progress;
-
-      for(const g of directionGuides){
-        const a=pos.get(g.a),b=pos.get(g.b);
-        if(!a||!b)continue;
-        const desiredDx=g.ux*g.target;
-        const desiredDy=g.uy*g.target;
-        const diffX=(b.x-a.x)-desiredDx;
-        const diffY=(b.y-a.y)-desiredDy;
-        const af=isFixed(g.a),bf=isFixed(g.b);
-
-        if(af&&bf)continue;
-        if(af){
-          b.x-=diffX*guideWeight;
-          b.y-=diffY*guideWeight
-        }else if(bf){
-          a.x+=diffX*guideWeight;
-          a.y+=diffY*guideWeight
-        }else{
-          const w=guideWeight*0.5;
-          a.x+=diffX*w;a.y+=diffY*w;
-          b.x-=diffX*w;b.y-=diffY*w
-        }
-      }
-    }
-
     pos.set(fixedA,{...fixedPosA});
     pos.set(fixedB,{...fixedPosB});
 
-    if(iter>=guidedIterations&&maxErr<0.03)break
+    if(iter>2200&&maxErr<0.02)break
   }
 
   let maxErr=0,sumSq=0,count=0;
@@ -11649,11 +12065,28 @@ function solveOrthogonalGeometry(r){
       : "Авто 90° построено точно. Исходный чертёж мог быть повернут — экранное направление стен не важно."
   }
 }
+let autoGeometrySolveCache={roomId:null,signature:null,result:null};
+function autoGeometrySolveSignature(r){
+  if(!r)return"";
+  return JSON.stringify({
+    p:(r.points||[]).map(p=>[p.id,+p.x||0,+p.y||0]),
+    e:(r.edges||[]).map(e=>[e.id,e.a,e.b,String(e.mm??"")]),
+    d:(r.diagList||[]).map(d=>[d.id,d.a,d.b,String(d.mm??"")])
+  })
+}
 function solveAutoGeometry(r){
-  // Real-shape mode is independent of the drawing magnet.
-  // Entered wall lengths + measured diagonals define the geometry.
-  // The rough sketch is only a starting shape when measurements are insufficient.
-  return solveFreeGeometry(r)
+  // Same solver as before, but reuse the result while the room state is unchanged.
+  // This prevents one SVG redraw from solving the same geometry once per diagonal.
+  const signature=autoGeometrySolveSignature(r);
+  if(
+    autoGeometrySolveCache.roomId===r?.id &&
+    autoGeometrySolveCache.signature===signature &&
+    autoGeometrySolveCache.result
+  )return autoGeometrySolveCache.result;
+
+  const result=solveFreeGeometry(r);
+  autoGeometrySolveCache={roomId:r?.id||null,signature,result};
+  return result
 }
 
 function applyGeometrySolution(kind="free"){
@@ -11757,7 +12190,7 @@ function roomCalc(r){
     }
   }
 
-  const solved=solveFreeGeometry(r);
+  const solved=solveAutoGeometry(r);
   if(!solved.ok){
     return{ok:false,area:0,perimeter,perimeterComplete:true,exact:false,message:solved.message}
   }
@@ -11840,12 +12273,7 @@ function generateAutoDiagonals(){
   save();
   renderRoom();
 
-  const solved=solveAutoGeometry(r);
-  if(solved.ok&&solved.uniquelySupported){
-    showToast(`Добавлено диагоналей: ${toAdd.length}. Назад удалит только их`);
-  }else{
-    showToast(`Добавлено диагоналей: ${toAdd.length}. Назад удалит только их`)
-  }
+  showToast(`Добавлено диагоналей: ${toAdd.length}. Назад удалит только их`)
 }
 
 
@@ -11941,6 +12369,65 @@ function liveLabelTransform(kind,id,x,y,angle){
   if(a)a.textContent=`${Math.round(normalizedLabelAngle(angle))}°`
 }
 
+/* TEST v186 — wall dimensions may move only toward the geometrically open end
+   of their own wall. A narrowing/concave end is a forbidden tangential direction. */
+function wallLabelEndpointSpace(r,e,endpointId,out,inv){
+  const a=pointById(r,e.a),b=pointById(r,e.b),p=pointById(r,endpointId);
+  if(!a||!b||!p)return{sign:0,narrow:true,intrusion:1,clearancePx:0,score:-Infinity};
+
+  const dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy)||1;
+  const tx=dx/L,ty=dy/L;
+  const sign=endpointId===e.a?-1:1;
+
+  // If a neighbouring wall runs into THIS wall's outside half-plane, that
+  // endpoint is a narrowing corner for this dimension and must not receive it.
+  let intrusion=0;
+  for(const other of edgesAt(r,endpointId)){
+    if(other.id===e.id)continue;
+    const q=pointById(r,edgeOther(other,endpointId));if(!q)continue;
+    const qx=q.x-p.x,qy=q.y-p.y,QL=Math.hypot(qx,qy)||1;
+    const outsideDot=(qx/QL)*out.x+(qy/QL)*out.y;
+    intrusion=Math.max(intrusion,Math.max(0,outsideDot))
+  }
+
+  // Measure actual free geometry near this endpoint on the outside of the wall.
+  // This is independent of e.a/e.b ordering: sign only says which geometric end
+  // is being inspected.
+  const along=Math.min(L*.24,24*inv);
+  const probeOut=34*inv;
+  const px=(a.x+b.x)/2+out.x*probeOut+tx*sign*along;
+  const py=(a.y+b.y)/2+out.y*probeOut+ty*sign*along;
+  let clearance=Infinity;
+  for(const other of r.edges||[]){
+    if(other.id===e.id)continue;
+    const p1=pointById(r,other.a),p2=pointById(r,other.b);
+    if(!p1||!p2)continue;
+    clearance=Math.min(clearance,pointToSegmentDistanceXY(px,py,p1,p2))
+  }
+  if(!Number.isFinite(clearance))clearance=120*inv;
+
+  const clearancePx=clearance/Math.max(inv,1e-9);
+  const narrow=intrusion>.12;
+  return{
+    sign,
+    narrow,
+    intrusion,
+    clearancePx,
+    // Open exterior space dominates. Intrusion is deliberately expensive so
+    // a concave/narrow end cannot win merely because another label is nearby.
+    score:clearancePx-intrusion*180
+  }
+}
+function wallLabelGeometryClearance(r,e,x,y,inv){
+  let d=Infinity;
+  for(const other of r.edges||[]){
+    if(other.id===e.id)continue;
+    const a=pointById(r,other.a),b=pointById(r,other.b);
+    if(!a||!b)continue;
+    d=Math.min(d,pointToSegmentDistanceXY(x,y,a,b))
+  }
+  return Number.isFinite(d)?d:120*inv
+}
 function pickWallLabelPlacement(r,e,text,inv,occupied=[]){
   const a=pointById(r,e.a),b=pointById(r,e.b);
   if(!a||!b)return null;
@@ -11950,25 +12437,34 @@ function pickWallLabelPlacement(r,e,text,inv,occupied=[]){
   const tx=dx/L,ty=dy/L;
   const out=edgeOutwardNormal(r,e);
 
-  // Estimate the label box in world coordinates. The displayed size stays
-  // approximately constant on screen because dimensions are multiplied by inv.
   const chars=Math.max(1,String(text||"").length);
   const fontPx=(L*Math.max(.45,r.view?.scale||1)<28)?19:
                (L*Math.max(.45,r.view?.scale||1)<55)?21:24;
   const width=Math.max(26*inv,chars*(fontPx*.62)*inv+8*inv);
   const height=(fontPx+12)*inv;
 
-  // Tiny walls need the value farther from the corner cluster.
   const screenLen=L*Math.max(.45,r.view?.scale||1);
   const baseOffset=(screenLen<28?48:(screenLen<55?40:30))*inv;
-  const outwardSteps=[0,12,24,38,54].map(v=>baseOffset+v*inv);
+  // More outward levels are safer than entering a narrowing corner.
+  const outwardSteps=[0,12,24,38,54,72].map(v=>baseOffset+v*inv);
 
-  // Never slide a value beyond its own wall. This prevents two adjacent short
-  // dimensions from looking as though their numbers have swapped places.
-  const maxShift=Math.min(L*.18,14*inv);
-  const tangentShifts=maxShift>1
-    ? [0,maxShift,-maxShift,maxShift*.55,-maxShift*.55]
-    : [0];
+  const sideA=wallLabelEndpointSpace(r,e,e.a,out,inv);
+  const sideB=wallLabelEndpointSpace(r,e,e.b,out,inv);
+  const openSides=[sideA,sideB].filter(x=>!x.narrow).sort((x,y)=>y.score-x.score);
+
+  // Hard rule: never generate a tangential candidate toward a narrowing end.
+  // If both ends narrow, stay centred and solve collisions only by moving outward.
+  const maxShift=Math.min(L*.28,24*inv);
+  let tangentShifts=[0];
+  if(maxShift>1&&openSides.length){
+    const preferred=openSides[0].sign;
+    tangentShifts=[
+      preferred*maxShift,
+      preferred*maxShift*.72,
+      preferred*maxShift*.45,
+      0
+    ]
+  }
 
   let best=null;
 
@@ -11985,12 +12481,19 @@ function pickWallLabelPlacement(r,e,text,inv,occupied=[]){
         y2:y+height/2
       };
 
-      let penalty=oi*12+si*2;
+      let penalty=oi*14+si*3;
 
-      // Strong collision avoidance against already placed wall dimensions.
+      // First priority: real free space around the number.
+      const geometryClearance=wallLabelGeometryClearance(r,e,x,y,inv);
+      const clearancePx=geometryClearance/Math.max(inv,1e-9);
+      if(clearancePx<30)penalty+=250000+(30-clearancePx)*6000;
+      else penalty-=Math.min(clearancePx,120)*18;
+
+      // Existing wall dimensions are obstacles, but they may never force this
+      // label into the forbidden narrowing direction because such candidates
+      // simply do not exist.
       for(const prev of occupied){
         if(rectsOverlap(box,prev,7*inv))penalty+=1000000;
-
         const pcx=(prev.x1+prev.x2)/2;
         const pcy=(prev.y1+prev.y2)/2;
         const d=Math.hypot(x-pcx,y-pcy);
@@ -11998,20 +12501,25 @@ function pickWallLabelPlacement(r,e,text,inv,occupied=[]){
         if(d<safe)penalty+=(safe-d)*1200
       }
 
-      // Keep the label away from the two wall endpoints/corners.
+      // Keep clear of its own two corners.
       for(const p of [a,b]){
         const d=Math.hypot(x-p.x,y-p.y);
         const safe=(22+chars*2)*inv;
         if(d<safe)penalty+=(safe-d)*900
       }
 
-      // Stay on the outside of THIS wall. No opposite-side candidates are used.
-      // This makes the placement visually stable across rerenders.
+      // Prefer the geometrically more open endpoint before using the centre.
+      if(openSides.length&&shift!==0){
+        const chosenSign=Math.sign(shift);
+        const side=openSides.find(z=>z.sign===chosenSign);
+        if(side)penalty-=Math.min(side.clearancePx,100)*12
+      }else if(openSides.length&&shift===0){
+        penalty+=90
+      }
+
       if(!best||penalty<best.penalty){
         best={x,y,box,fontPx,penalty}
       }
-
-      if(penalty<1)return best
     }
   }
 
@@ -12021,18 +12529,12 @@ function pickWallLabelPlacement(r,e,text,inv,occupied=[]){
 function svgScene(r){
   const inv=1/r.view.scale;
   const wallMode=mode==="draw";
-  // v171: in Wall mode the far-right 108/760 of the canvas is a dedicated
-  // native page-scroll strip. Everywhere else the drawing owns one-finger gestures.
-  const wallScrollX=652;
-  const wallScrollW=108;
   const bg=wallMode
     ? `<rect data-wall-work-zone="1" x="0" y="0" width="760" height="560" fill="#fbfdff" pointer-events="all"/>`
     : `<rect width="760" height="560" fill="#fbfdff"/>`;
-  // v172: right-side page scrolling is provided by an HTML overlay, not an SVG node.
-  const scrollZone=``;
   return `<defs><pattern id="micro" width="2" height="2" patternUnits="userSpaceOnUse"><path d="M2 0H0V2" fill="none" stroke="#f1f4f7" stroke-width="${0.28*inv}"/></pattern><pattern id="minor" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="url(#micro)"/><path d="M10 0H0V10" fill="none" stroke="#e7edf3" stroke-width="${0.65*inv}"/></pattern><pattern id="major" width="50" height="50" patternUnits="userSpaceOnUse"><rect width="50" height="50" fill="url(#minor)"/><path d="M50 0H0V50" fill="none" stroke="#cfd9e3" stroke-width="${1*inv}"/></pattern></defs>
   ${bg}
-  <g id="world" transform="translate(${r.view.panX} ${r.view.panY}) scale(${r.view.scale})"><rect x="-2500" y="-2200" width="5700" height="4900" fill="url(#major)" pointer-events="none"/>${svgGeometry(r)}</g>${scrollZone}`
+  <g id="world" transform="translate(${r.view.panX} ${r.view.panY}) scale(${r.view.scale})"><rect x="-2500" y="-2200" width="5700" height="4900" fill="url(#major)" pointer-events="none"/>${svgGeometry(r)}</g>`
 }
 function svgGeometry(r){
   let s="";const inv=1/r.view.scale;
@@ -12497,7 +12999,7 @@ function nearestVertex(r,w,maxPx=34){
   for(const p of r.points){const d=Math.hypot(w.x-p.x,w.y-p.y);if(d<bestD){bestD=d;best=p}}
   return best
 }
-function pointSegmentDistance(p,a,b){
+function pointToSegmentDistance(p,a,b){
   const dx=b.x-a.x,dy=b.y-a.y,L2=dx*dx+dy*dy;
   if(!L2)return Math.hypot(p.x-a.x,p.y-a.y);
   const t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/L2,0,1);
@@ -12508,7 +13010,7 @@ function nearestEdge(r,w,maxPx=80){
   let best=null,bestD=maxPx/r.view.scale;
   for(const e of r.edges){
     const a=pointById(r,e.a),b=pointById(r,e.b);if(!a||!b)continue;
-    const d=pointSegmentDistance(w,a,b);if(d<bestD){bestD=d;best=e}
+    const d=pointToSegmentDistance(w,a,b);if(d<bestD){bestD=d;best=e}
   }
   return best
 }
@@ -12632,10 +13134,13 @@ function bindSvg(){
     const drawGuard=!!svgData(e.target,"data-draw-guard",svg);
     const wallScrollZone=!!svgData(e.target,"data-wall-scroll-zone",svg);
     const directInteractive=!!(directVid||directEidRaw||directDidRaw||labelId||rotateId||sizeId);
-    // Open contour: preserve the current drawing contract exactly.
-    // Closed contour in Wall mode: one-finger vertical swipes anywhere on the
-    // drawing belong to the page, so the user can scroll up/down naturally.
-    const nativePageScroll=closedAtDown&&mode==="draw";
+    // Keep the browser out of the SVG gesture stream. Closed-contour scrolling
+    // is handled manually below only in Wall mode, so Points / Diagonal / Numbers
+    // always retain their drawing gestures.
+    // Once the wall contour is closed, one-finger vertical movement belongs to
+    // the page exactly like it does outside the drawing. Do not synthesize scrollTop:
+    // Android/WebView must provide its native pan/fling/inertia.
+    const nativePageScroll=mode==="draw"&&closedAtDown;
 
     if(!nativePageScroll){
       e.preventDefault();
@@ -12675,6 +13180,7 @@ function bindSvg(){
       blankScroll:mode==="draw"?false:(!drawGuard&&!vid&&!eid&&!did&&!labelId&&!rotateId&&!sizeId),
       drawGuard,
       pageScroll:false,
+      closedContourScroll:mode==="draw"&&closed,
       cornerToolLock:!!vid&&(mode==="diag"||mode==="move"),
       elementScrollAllowed:mode==="draw"?false:(closed&&!(!!vid&&(mode==="diag"||mode==="move"))),
       scrollStartY:e.clientY,
@@ -12892,17 +13398,42 @@ function bindSvg(){
         cancelVertexLongPress()
       }
 
-      // Native page scrolling must not be mixed with our old manual scrollTop path.
+      // Native page scrolling must not be mixed with our manual scrollTop path.
       if(down.nativePageScroll){
         return
       }
+
+      // Closed contour + Wall mode: vertical one-finger motion scrolls the page.
+      // This is deliberately isolated from Points / Diagonal / Numbers.
+      if(
+        down.closedContourScroll &&
+        !down.pageScroll &&
+        Math.abs(dy)>8 &&
+        Math.abs(dy)>=Math.abs(dx)*0.72
+      ){
+        down.pageScroll=true;
+        cancelVertexLongPress();
+        longPressFired=false;
+        longPressKind=null;
+        drawState=null;
+        diagDraw=null;
+        dragVertexId=null;
+        wallGuideSnapActive=false;
+        pending=null;
+        hideDrawMagnifier()
+      }
+      if(down.closedContourScroll&&down.pageScroll){
+        const scroller=$("#appScroll");
+        const delta=(down.scrollStartY-e.clientY)*1.35;
+        if(scroller)scroller.scrollTop=down.scrollStartTop+delta;
+        return
+      }
+
       // In Wall mode the invisible guard deliberately owns this gesture.
       if(down.drawGuard){
         return
       }
 
-      // In Wall mode v171 never converts a gesture from the drawing into
-      // page scrolling; only the dedicated right-side strip may scroll.
       // Other modes retain the legacy element-to-page-scroll behavior.
       if(
         down.elementScrollAllowed &&
@@ -13275,10 +13806,23 @@ function updateWorld(){
 function zoomBy(f){const r=curRoom(),cx=380,cy=280,old=r.view.scale,ns=clamp(old*f,.45,12),wx=(cx-r.view.panX)/old,wy=(cy-r.view.panY)/old;r.view.scale=ns;r.view.panX=cx-wx*ns;r.view.panY=cy-wy*ns;save();renderRoom()}
 function fitView(){const r=curRoom(),pts=[...(r.points||[])];if(!pts.length){r.view={scale:1,panX:0,panY:0};save();renderRoom();return}const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y),minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys),w=Math.max(80,maxx-minx),h=Math.max(80,maxy-miny),s=clamp(Math.min(570/w,370/h),.45,3);r.view.scale=s;r.view.panX=380-(minx+maxx)/2*s;r.view.panY=280-(miny+maxy)/2*s;save();renderRoom()}
 function redrawOnly(){
-  const r=curRoom(),svg=$("#drawSvg");if(!svg)return;
-  svg.innerHTML=svgScene(r);
-  const st=$("#statusText");if(st)st.textContent=statusText(r,roomCalc(r));
-  const z=$("#zoomText");if(z)z.textContent=Math.round(r.view.scale*100)+"%"
+  if(redrawFrame)return;
+  redrawFrame=requestAnimationFrame(()=>{
+    redrawFrame=0;
+    const r=curRoom(),svg=$("#drawSvg");if(!r||!svg)return;
+    svg.innerHTML=svgScene(r);
+
+    // Solver/status refresh is not useful on every pointer-move. The final
+    // pointer-up/renderRoom() refreshes it with the committed geometry.
+    const activeGesture=!!(drawState||diagDraw||dragVertexId||labelDrag||labelRotate);
+    if(!activeGesture){
+      const st=$("#statusText");
+      if(st)st.textContent=statusText(r,roomCalc(r))
+    }
+
+    const z=$("#zoomText");
+    if(z)z.textContent=Math.round(r.view.scale*100)+"%"
+  })
 }
 
 /* Размер стены */
@@ -13807,6 +14351,11 @@ $$('[data-saved-filter]').forEach(btn=>btn.onclick=e=>{
 });
 
 $("#newOrder").onclick=newOrder;$("#search").oninput=renderOrders;
+$("#homeBtn").onclick=showHomeScreen;
+$("#homeSettingsBtn").onclick=openUiSettings;
+$("#homeNewOrder").onclick=()=>{showWorkspace();newOrder()};
+$("#homeSaved").onclick=openSavedMeasurements;
+$("#homeDrawing").onclick=openHomeDrawing;
 
 $("#roomPickerClose").onclick=e=>{e.preventDefault();e.stopPropagation();closeRoomPicker()};
 $("#roomPicker").onclick=e=>{if(e.target===$("#roomPicker"))closeRoomPicker()};
@@ -13828,7 +14377,7 @@ $("#drawToolsClose").onclick=e=>{e.preventDefault();e.stopPropagation();closeDra
 $("#drawToolsMenu").onclick=e=>{if(e.target===$("#drawToolsMenu"))closeDrawToolsMenu()};
 $("#globalUndo").onclick=globalBackAction;$("#globalRedo").onclick=redoDo;
 applyUiPrefs();startUiTypographyObserver();
-migrateLegacyUnitsToMm();migratePricingToRooms();migrateDefaultClientPricingV146();migrateInternalAllRoomsV157();migrateHideAutoLettersV64();migrateOtherRoomNamesV66();migrateHintsCollapsedV73();ensureDefaultPricing();ensureDefaultClientPricing();ensureHiddenDefaultPurchaseKeys();ensureHiddenDefaultClientKeys();ensureDefaultClientStandardMeta();ensureDefaultPurchaseCustomItems();ensureDefaultClientCustomItems();persistDbRaw();render();updateHistoryNav();ensureHistoryNavVisible();
+migrateLegacyUnitsToMm();migratePricingToRooms();migrateDefaultClientPricingV146();migrateClientInsertAutoV189();migrateInternalAllRoomsV157();migrateHideAutoLettersV64();migrateOtherRoomNamesV66();migrateHintsCollapsedV73();ensureDefaultPricing();ensureDefaultClientPricing();ensureHiddenDefaultPurchaseKeys();ensureHiddenDefaultClientKeys();ensureDefaultClientStandardMeta();ensureDefaultPurchaseCustomItems();ensureDefaultClientCustomItems();persistDbRaw();render();showHomeScreen();updateHistoryNav();ensureHistoryNavVisible();
 setTimeout(()=>{bindMiniKeypads();applyUiPrefs();if(!storagePersistent)showToast("Постоянное хранилище недоступно: данные сохраняются только до закрытия")},0);
 
 })();
@@ -13925,16 +14474,12 @@ html body .canvas-wrap > #drawSvg.wall-draw-mode *{
   touch-action:none!important;
   -ms-touch-action:none!important;
 }
-/* Once the contour is closed, the whole drawing becomes a vertical page-scroll
-   surface in Wall mode. Taps still work; a vertical move is handed to the browser. */
-html body .canvas-wrap > #drawSvg.wall-draw-mode.closed-contour-scroll{
-  touch-action:pan-y!important;
-  overscroll-behavior-y:auto!important;
-  -ms-touch-action:pan-y!important;
-}
-html body .canvas-wrap > #drawSvg.wall-draw-mode.closed-contour-scroll *{
-  touch-action:pan-y!important;
-  -ms-touch-action:pan-y!important;
+/* Closed contour scrolling is handled by pointer logic, not browser touch-action.
+   Non-Wall edit modes are explicitly locked to drawing gestures. */
+html body .canvas-wrap > #drawSvg:not(.wall-draw-mode),
+html body .canvas-wrap > #drawSvg:not(.wall-draw-mode) *{
+  touch-action:none!important;
+  -ms-touch-action:none!important;
 }
 html body .canvas-wrap > .wall-scroll-strip{
   position:absolute!important;
@@ -14034,6 +14579,141 @@ html body .canvas-wrap > .draw-magnifier{
   window.addEventListener('blur',()=>{locked=false;pointerId=null},{passive:true});
 })();
 </script>
+
+
+<style id="v197-field-geometry-scroll-text-fix">
+/* Closed wall contour: same native vertical pan/fling as the rest of #appScroll. */
+html body .canvas-wrap > #drawSvg.wall-draw-mode.closed-contour-scroll,
+html body .canvas-wrap > #drawSvg.wall-draw-mode.closed-contour-scroll *{
+  touch-action:pan-y!important;
+  -ms-touch-action:pan-y!important;
+  overscroll-behavior-y:auto!important;
+}
+
+/* Dense material/calculator rows: keep every label/value inside its cell. */
+.calc-grid,
+.purchase-room-grid,
+.ce-table{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+.calc-grid-head,
+.calc-row{
+  grid-template-columns:minmax(72px,1.36fr) minmax(43px,.72fr) 23px minmax(52px,.82fr) minmax(54px,.88fr)!important;
+  gap:3px!important;
+  padding-left:5px!important;
+  padding-right:5px!important;
+  min-width:0!important;
+}
+.calc-grid-head>span,
+.calc-row>*,
+.extra-row>*{
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+.calc-grid-head>span{
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  word-break:normal!important;
+  line-height:1.06!important;
+}
+.calc-name,
+.internal-standard-name>span,
+.internal-custom-name>span{
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  word-break:normal!important;
+}
+.calc-row b{
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.calc-row input{
+  max-width:100%!important;
+  box-sizing:border-box!important;
+}
+.extra-row{
+  grid-template-columns:minmax(70px,1.18fr) minmax(42px,.68fr) 22px minmax(52px,.78fr) 31px minmax(53px,.82fr)!important;
+  gap:3px!important;
+}
+.extra-row>span{
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+}
+
+/* Client estimate table: fixed proportional columns, wrapping labels, fluid price input. */
+.ce-table{
+  table-layout:fixed!important;
+}
+.ce-table th:nth-child(1),.ce-table td:nth-child(1){width:39%!important}
+.ce-table th:nth-child(2),.ce-table td:nth-child(2){width:14%!important}
+.ce-table th:nth-child(3),.ce-table td:nth-child(3){width:9%!important}
+.ce-table th:nth-child(4),.ce-table td:nth-child(4){width:18%!important}
+.ce-table th:nth-child(5),.ce-table td:nth-child(5){width:20%!important}
+.ce-table th,
+.ce-table td{
+  min-width:0!important;
+  max-width:100%!important;
+  box-sizing:border-box!important;
+  overflow-wrap:anywhere!important;
+  word-break:normal!important;
+}
+.ce-table th{
+  white-space:normal!important;
+  line-height:1.06!important;
+}
+.ce-custom-name-wrap{
+  min-width:0!important;
+  max-width:100%!important;
+}
+.ce-custom-name-wrap>span{
+  min-width:0!important;
+  overflow-wrap:anywhere!important;
+}
+.ce-client-price{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  box-sizing:border-box!important;
+  padding-left:3px!important;
+  padding-right:3px!important;
+  font-size:13px!important;
+}
+
+@media(max-width:430px){
+  .calc-grid-head{
+    min-height:38px!important;
+  }
+  .calc-grid-head>span{
+    font-size:8.4px!important;
+  }
+  .calc-name{
+    font-size:11.3px!important;
+    line-height:1.12!important;
+  }
+  .calc-row strong,
+  .calc-row b,
+  .calc-row input{
+    font-size:11.5px!important;
+  }
+  .calc-row small{
+    font-size:8.5px!important;
+  }
+  .extra-row>span{font-size:11.2px!important}
+  .extra-row input,.extra-row strong,.extra-row b{font-size:11.5px!important}
+  .ce-table{font-size:9px!important}
+  .ce-table th,.ce-table td{
+    padding-left:2px!important;
+    padding-right:2px!important;
+  }
+  .ce-client-price{
+    height:28px!important;
+    font-size:12px!important;
+  }
+}
+</style>
 
 </body>
 </html>
