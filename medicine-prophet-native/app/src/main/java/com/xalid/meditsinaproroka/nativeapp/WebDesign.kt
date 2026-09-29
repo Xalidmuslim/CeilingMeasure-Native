@@ -38,7 +38,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.res.ResourcesCompat
 import kotlin.math.abs
 
-val WebSansFont = FontFamily(Font(R.font.manrope_variable))
+val WebSansFont = FontFamily.SansSerif
+val WebCompactFont = FontFamily(Font(R.font.manrope_variable))
 val WebModernFont = FontFamily(Font(R.font.inter_variable))
 val WebLiterataFont = FontFamily(Font(R.font.literata_variable))
 val WebSerifFont = FontFamily(
@@ -50,7 +51,7 @@ val WebClassicFont = WebSerifFont
 fun readerComposeFontFamily(value: String): FontFamily = when (value) {
     "classic" -> WebLiterataFont
     "modern" -> WebModernFont
-    "compact" -> WebSansFont
+    "compact" -> WebCompactFont
     "system" -> FontFamily.SansSerif
     "system_serif" -> FontFamily.Serif
     else -> WebSerifFont
@@ -158,7 +159,8 @@ private fun WebHomeHeader(
                     Spacer(Modifier.height(2.dp))
                     Text(
                         author,
-                        fontFamily = WebSansFont,
+                        fontFamily = FontFamily.SansSerif,
+                        fontWeight = FontWeight.Medium,
                         fontSize = 13.sp,
                         lineHeight = 17.sp,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -857,29 +859,24 @@ fun WebSettingsScreen(store: AppStore, modifier: Modifier, back: () -> Unit) {
 fun WebReaderSettingsSheet(store: AppStore, onDone: () -> Unit) {
     val settings = store.settings
     androidx.compose.foundation.lazy.LazyColumn(
-        modifier = Modifier.fillMaxWidth().heightIn(max = 680.dp),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 22.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(max = 540.dp),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         item {
-            Row(verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "НАСТРОЙКИ ЧТЕНИЯ",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp,
-                    )
-                    Text(
-                        "Текст прямо в этой главе",
-                        fontFamily = WebLiterataFont,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 20.sp,
-                    )
-                }
-                IconButton(onClick = onDone, modifier = Modifier.size(40.dp)) {
-                    Text("×", fontSize = 22.sp)
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Настройки чтения",
+                    modifier = Modifier.weight(1f),
+                    fontFamily = WebModernFont,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
+                )
+                IconButton(onClick = onDone, modifier = Modifier.size(36.dp)) {
+                    Text("×", fontSize = 21.sp)
                 }
             }
         }
@@ -887,91 +884,112 @@ fun WebReaderSettingsSheet(store: AppStore, onDone: () -> Unit) {
         item {
             Surface(
                 color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             ) {
                 Text(
                     "Так будет выглядеть основной текст книги после изменения настроек.",
-                    modifier = Modifier.padding(11.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                     fontFamily = readerComposeFontFamily(settings.fontFamily),
                     fontSize = settings.fontSizeSp.sp,
                     lineHeight = (settings.fontSizeSp * settings.lineSpacing).sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
 
-        item { Text("Шрифт", fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    WebFontOption("Literata", "Книжный", "classic", settings.fontFamily, Modifier.weight(1f)) {
+            Text(
+                "Шрифт",
+                fontFamily = WebModernFont,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.5.sp,
+            )
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ReaderFontChip("Literata", "classic", settings.fontFamily, Modifier.weight(1f)) {
                         store.updateSettings { it.copy(fontFamily = "classic") }
                     }
-                    WebFontOption("PT Serif", "Классика", "book", settings.fontFamily, Modifier.weight(1f)) {
+                    ReaderFontChip("PT Serif", "book", settings.fontFamily, Modifier.weight(1f)) {
                         store.updateSettings { it.copy(fontFamily = "book") }
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    WebFontOption("Inter", "Современный", "modern", settings.fontFamily, Modifier.weight(1f)) {
+                    ReaderFontChip("Inter", "modern", settings.fontFamily, Modifier.weight(1f)) {
                         store.updateSettings { it.copy(fontFamily = "modern") }
                     }
-                    WebFontOption("Manrope", "Компактный", "compact", settings.fontFamily, Modifier.weight(1f)) {
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ReaderFontChip("Manrope", "compact", settings.fontFamily, Modifier.weight(1f)) {
                         store.updateSettings { it.copy(fontFamily = "compact") }
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    WebFontOption("Android Sans", "Системный", "system", settings.fontFamily, Modifier.weight(1f)) {
+                    ReaderFontChip("Android", "system", settings.fontFamily, Modifier.weight(1f)) {
                         store.updateSettings { it.copy(fontFamily = "system") }
                     }
-                    WebFontOption("Android Serif", "Книжный", "system_serif", settings.fontFamily, Modifier.weight(1f)) {
+                    ReaderFontChip("Serif", "system_serif", settings.fontFamily, Modifier.weight(1f)) {
                         store.updateSettings { it.copy(fontFamily = "system_serif") }
                     }
                 }
             }
         }
 
-        item { Text("Размер", fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
         item {
             val sizeIndex = closestSizeIndex(settings.fontSizeSp)
             Row(
+                Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                Text(
+                    "Размер",
+                    fontFamily = WebModernFont,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.5.sp,
+                    modifier = Modifier.width(62.dp),
+                )
                 OutlinedButton(
                     onClick = {
                         val next = readerSizeOptions[(sizeIndex - 1).coerceAtLeast(0)].first
                         store.updateSettings { it.copy(fontSizeSp = next) }
                     },
-                    modifier = Modifier.width(58.dp).height(42.dp),
+                    modifier = Modifier.size(width = 50.dp, height = 38.dp),
                     contentPadding = PaddingValues(0.dp),
                 ) { Text("A−") }
-
                 Text(
-                    "${readerSizeOptions[sizeIndex].second} · ${settings.fontSizeSp.toInt()} sp",
+                    "${settings.fontSizeSp.toInt()} sp",
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
                     fontFamily = WebSansFont,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 12.5.sp,
                 )
-
                 OutlinedButton(
                     onClick = {
                         val next = readerSizeOptions[(sizeIndex + 1).coerceAtMost(readerSizeOptions.lastIndex)].first
                         store.updateSettings { it.copy(fontSizeSp = next) }
                     },
-                    modifier = Modifier.width(58.dp).height(42.dp),
+                    modifier = Modifier.size(width = 50.dp, height = 38.dp),
                     contentPadding = PaddingValues(0.dp),
                 ) { Text("A+") }
             }
         }
 
-        item { Text("Интервал", fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
+        item {
+            Text(
+                "Межстрочный интервал",
+                fontFamily = WebModernFont,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.5.sp,
+            )
+        }
+
         item {
             WebChoiceGrid(
-                options = readerLineOptions.map { it.first.toString() to it.second },
+                options = readerLineOptions.map { it.first.toString() to "×${"%.2f".format(it.first)}" },
                 selected = closestLine(settings.lineSpacing).toString(),
-                columns = 2,
+                columns = 3,
             ) { value ->
                 store.updateSettings { it.copy(lineSpacing = value.toFloat()) }
             }
@@ -980,11 +998,43 @@ fun WebReaderSettingsSheet(store: AppStore, onDone: () -> Unit) {
         item {
             Button(
                 onClick = onDone,
-                modifier = Modifier.fillMaxWidth().height(46.dp),
-                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth().height(42.dp),
+                shape = RoundedCornerShape(9.dp),
             ) {
-                Text("Готово")
+                Text("Готово", fontFamily = WebSansFont, fontWeight = FontWeight.SemiBold)
             }
+        }
+    }
+}
+
+@Composable
+private fun ReaderFontChip(
+    label: String,
+    value: String,
+    selected: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val active = value == selected
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(44.dp),
+        color = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(9.dp),
+        border = BorderStroke(
+            if (active) 2.dp else 1.dp,
+            if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+        ),
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                label,
+                fontFamily = readerComposeFontFamily(value),
+                fontWeight = FontWeight.Medium,
+                fontSize = 11.5.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
