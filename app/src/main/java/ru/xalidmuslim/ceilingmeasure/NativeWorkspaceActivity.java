@@ -12,6 +12,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -617,7 +618,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         button.setContentDescription(label);
         button.setOrientation(LinearLayout.HORIZONTAL);
         button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(6),0,dp(6),0);
+        button.setPadding(dp(5),0,dp(5),0);
         button.setClickable(true);
         button.setFocusable(true);
         button.setBackground(primary
@@ -639,10 +640,22 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 11,
                 primary?Color.WHITE:Color.rgb(54,82,103),
                 Typeface.BOLD);
+        // The user can raise the global UI scale to 130%. Keep compact top
+        // actions on one line and let Android shrink only this label when
+        // necessary instead of wrapping "Замеры"/"Заказ" outside the card.
+        text.setSingleLine(true);
+        text.setMaxLines(1);
+        text.setMinWidth(0);
+        text.setAutoSizeTextTypeUniformWithConfiguration(
+                8,
+                11,
+                1,
+                TypedValue.COMPLEX_UNIT_SP);
         LinearLayout.LayoutParams textLp=new LinearLayout.LayoutParams(
+                0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        textLp.leftMargin=dp(4);
+                1f);
+        textLp.leftMargin=dp(3);
         button.addView(text,textLp);
         return button;
     }
