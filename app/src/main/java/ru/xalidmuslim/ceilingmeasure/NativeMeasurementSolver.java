@@ -432,58 +432,49 @@ final class NativeMeasurementSolver {
                     dy / length));
         }
 
-        boolean uniquelySupported = hasExactFactualSupport(room, order);
-        if (uniquelySupported) {
-            // Once field measurements fully determine the polygon, do not leave
-            // an iterative residual. Reconstruct it analytically from circle
-            // intersections, using the sketch only to select the correct mirror
-            // branch and first-wall orientation.
-            return solveFactualExact(room, order);
-        }
+        // A sketch that is clearly orthogonal should remain orthogonal even
+        // when field sizes do not close perfectly. Distribute the mismatch
+        // instead of twisting a visually rectangular room into a crooked one.
+        Result orthogonalSketch = solveFactualOrthogonalSketch(room, order);
+        if (orthogonalSketch != null) return orthogonalSketch;
 
-        // With incomplete diagonals the shape is mathematically underdetermined.
-        // Keep the field sketch as the direction prior while wall lengths and
-        // every manually measured diagonal remain hard constraints.
-        final int totalIterations = 4200;
-        final int guidedIterations = 3500;
-        final float guideStart = .085f;
-        final float guideEnd = .010f;
-
+        // General factual mode is sketch-first: wall directions from the drawn
+        // contour are a strong prior. Measured lengths and measured diagonals
+        // pull the shape toward reality, but are intentionally soft when they
+        // conflict so the contour never collapses or invents sharp angles.
+        final int totalIterations = 3600;
         for (int iter = 0; iter < totalIterations; iter++) {
-            if (iter < guidedIterations) {
-                float progress = iter / (float) Math.max(1, guidedIterations - 1);
-                float weight = guideStart * (1f - progress) + guideEnd * progress;
+            float progress = iter / (float) Math.max(1, totalIterations - 1);
+            float guideWeight = .30f - .08f * progress;
 
-                for (DirectionGuide guide : guides) {
-                    PointF a = positions.get(guide.a);
-                    PointF b = positions.get(guide.b);
-                    if (a == null || b == null) continue;
+            for (DirectionGuide guide : guides) {
+                PointF a = positions.get(guide.a);
+                PointF b = positions.get(guide.b);
+                if (a == null || b == null) continue;
 
-                    float desiredDx = guide.ux * guide.target;
-                    float desiredDy = guide.uy * guide.target;
-                    float diffX = (b.x - a.x) - desiredDx;
-                    float diffY = (b.y - a.y) - desiredDy;
-                    boolean af = guide.a.equals(fixedA);
-                    boolean bf = guide.b.equals(fixedB);
+                float desiredDx = guide.ux * guide.target;
+                float desiredDy = guide.uy * guide.target;
+                float diffX = (b.x - a.x) - desiredDx;
+                float diffY = (b.y - a.y) - desiredDy;
+                boolean af = guide.a.equals(fixedA);
+                boolean bf = guide.b.equals(fixedB);
 
-                    if (af && bf) continue;
-                    if (af) {
-                        b.x -= diffX * weight;
-                        b.y -= diffY * weight;
-                    } else if (bf) {
-                        a.x += diffX * weight;
-                        a.y += diffY * weight;
-                    } else {
-                        float half = weight * .5f;
-                        a.x += diffX * half;
-                        a.y += diffY * half;
-                        b.x -= diffX * half;
-                        b.y -= diffY * half;
-                    }
+                if (af && bf) continue;
+                if (af) {
+                    b.x -= diffX * guideWeight;
+                    b.y -= diffY * guideWeight;
+                } else if (bf) {
+                    a.x += diffX * guideWeight;
+                    a.y += diffY * guideWeight;
+                } else {
+                    float half = guideWeight * .5f;
+                    a.x += diffX * half;
+                    a.y += diffY * half;
+                    b.x -= diffX * half;
+                    b.y -= diffY * half;
                 }
             }
 
-            float maxError = 0f;
             for (Constraint constraint : factual) {
                 PointF a = positions.get(constraint.a);
                 PointF b = positions.get(constraint.b);
@@ -499,21 +490,23 @@ final class NativeMeasurementSolver {
                 }
 
                 float error = distance - constraint.target;
-                maxError = Math.max(maxError, Math.abs(error));
                 float nx = dx / distance;
                 float ny = dy / distance;
                 boolean af = constraint.a.equals(fixedA);
                 boolean bf = constraint.b.equals(fixedB);
+                boolean wallConstraint =
+                        NativeGeometry.edgeBetween(room, constraint.a, constraint.b) != null;
+                float weight = wallConstraint ? .16f : .06f;
 
                 if (af && bf) continue;
                 if (af) {
-                    b.x -= nx * error;
-                    b.y -= ny * error;
+                    b.x -= nx * error * weight;
+                    b.y -= ny * error * weight;
                 } else if (bf) {
-                    a.x += nx * error;
-                    a.y += ny * error;
+                    a.x += nx * error * weight;
+                    a.y += ny * error * weight;
                 } else {
-                    float half = error * .5f;
+                    float half = error * weight * .5f;
                     a.x += nx * half;
                     a.y += ny * half;
                     b.x -= nx * half;
@@ -523,8 +516,6 @@ final class NativeMeasurementSolver {
 
             positions.put(fixedA, new PointF(fixedPosA.x, fixedPosA.y));
             positions.put(fixedB, new PointF(fixedPosB.x, fixedPosB.y));
-
-            if (iter >= guidedIterations && maxError < .02f) break;
         }
 
         float sketchSign = Math.signum(signedArea(raw, order));
@@ -537,34 +528,154 @@ final class NativeMeasurementSolver {
         }
 
         float maxError = maxConstraintError(positions, factual);
-        String message;
-        if (maxError > FACTUAL_CONFLICT_TOL) {
-            message = String.format(
-                    Locale.getDefault(),
-                    "Замеры конфликтуют. Максимальная невязка: %.2f м. "
-                            + "Эскиз оставлен без изменений.",
-                    maxError / 100f);
-        } else if (uniquelySupported) {
-            message = String.format(
-                    Locale.getDefault(),
-                    "Фактические размеры применены. Форма уточнена по измеренным "
-                            + "стенам и диагоналям. Невязка: %.2f м.",
-                    maxError / 100f);
-        } else {
-            message = String.format(
-                    Locale.getDefault(),
-                    "Фактические размеры применены с сохранением общей формы эскиза. "
-                            + "Измеренные диагонали уточняют форму. Невязка: %.2f м.",
-                    maxError / 100f);
-        }
+        String message = maxError > FACTUAL_CONFLICT_TOL
+                ? String.format(
+                        Locale.getDefault(),
+                        "Фактическая геометрия построена по форме эскиза. "
+                                + "Замеры конфликтуют: невязка до %.2f м. "
+                                + "Контур не искажался ради скрытия расхождения.",
+                        maxError / 100f)
+                : String.format(
+                        Locale.getDefault(),
+                        "Фактическая геометрия построена по форме эскиза. "
+                                + "Невязка: %.2f м.",
+                        maxError / 100f);
 
         return new Result(
                 true,
                 message,
                 positions,
                 maxError,
-                uniquelySupported,
-                false);
+                false,
+                maxError > .01f);
+    }
+
+    @Nullable
+    private static Result solveFactualOrthogonalSketch(
+            @NonNull NativeProjectStore.RoomData room,
+            @NonNull List<String> order) {
+        double sx = 0d;
+        double sy = 0d;
+
+        for (int i = 0; i < order.size(); i++) {
+            String aId = order.get(i);
+            String bId = order.get((i + 1) % order.size());
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, aId);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, bId);
+            NativeProjectStore.EdgeData edge = NativeGeometry.edgeBetween(room, aId, bId);
+            if (a == null || b == null || edge == null || edge.value <= 0f) return null;
+
+            double theta = Math.atan2(b.y - a.y, b.x - a.x);
+            double weight = Math.pow(Math.max(1f, edge.value), 1.2d);
+            sx += Math.cos(theta * 4d) * weight;
+            sy += Math.sin(theta * 4d) * weight;
+        }
+
+        if (Math.hypot(sx, sy) < 1e-6d) return null;
+
+        double phi = Math.atan2(sy, sx) / 4d;
+        double cos = Math.cos(phi);
+        double sin = Math.sin(phi);
+        double worstDeviation = 0d;
+        float closureX = 0f;
+        float closureY = 0f;
+        ArrayList<OrthoSegment> segments = new ArrayList<>();
+
+        for (int i = 0; i < order.size(); i++) {
+            String aId = order.get(i);
+            String bId = order.get((i + 1) % order.size());
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, aId);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, bId);
+            NativeProjectStore.EdgeData edge = NativeGeometry.edgeBetween(room, aId, bId);
+            if (a == null || b == null || edge == null) return null;
+
+            double dx = b.x - a.x;
+            double dy = b.y - a.y;
+            double xr = dx * cos + dy * sin;
+            double yr = -dx * sin + dy * cos;
+            double major = Math.max(Math.abs(xr), Math.abs(yr));
+            double minor = Math.min(Math.abs(xr), Math.abs(yr));
+            worstDeviation = Math.max(
+                    worstDeviation,
+                    Math.atan2(minor, Math.max(1e-9d, major)));
+
+            boolean xAxis = Math.abs(xr) >= Math.abs(yr);
+            int sign = (xAxis ? xr : yr) >= 0d ? 1 : -1;
+            OrthoSegment segment =
+                    new OrthoSegment(aId, bId, xAxis, sign, edge.value);
+            segments.add(segment);
+            if (xAxis) closureX += sign * edge.value;
+            else closureY += sign * edge.value;
+        }
+
+        // Only auto-preserve 90 degrees when the sketch itself clearly says 90°.
+        if (worstDeviation > Math.toRadians(16d)) return null;
+
+        int xCount = 0;
+        int yCount = 0;
+        for (OrthoSegment segment : segments) {
+            if (segment.xAxis) xCount++;
+            else yCount++;
+        }
+        if (xCount == 0 || yCount == 0) return null;
+
+        if (Math.abs(closureX) > 1e-6f) {
+            for (OrthoSegment segment : segments) {
+                if (segment.xAxis) {
+                    segment.adjusted =
+                            segment.target - segment.sign * (closureX / xCount);
+                }
+            }
+        }
+        if (Math.abs(closureY) > 1e-6f) {
+            for (OrthoSegment segment : segments) {
+                if (!segment.xAxis) {
+                    segment.adjusted =
+                            segment.target - segment.sign * (closureY / yCount);
+                }
+            }
+        }
+        for (OrthoSegment segment : segments) {
+            if (segment.adjusted <= 1f) return null;
+        }
+
+        Map<String, PointF> positions = new HashMap<>();
+        positions.put(order.get(0), new PointF(0f, 0f));
+        float x = 0f;
+        float y = 0f;
+        for (int i = 0; i < segments.size(); i++) {
+            OrthoSegment segment = segments.get(i);
+            if (segment.xAxis) x += segment.sign * segment.adjusted;
+            else y += segment.sign * segment.adjusted;
+            if (i < segments.size() - 1) {
+                positions.put(segment.b, new PointF(x, y));
+            }
+        }
+
+        ArrayList<Constraint> factual = factualConstraints(room);
+        float maxError = maxConstraintError(positions, factual);
+        boolean adjusted = Math.abs(closureX) > .01f || Math.abs(closureY) > .01f;
+
+        String message = maxError > FACTUAL_CONFLICT_TOL
+                ? String.format(
+                        Locale.getDefault(),
+                        "Фактическая геометрия построена по эскизу 90°. "
+                                + "Замеры конфликтуют: невязка до %.2f м распределена "
+                                + "по контуру без искажения прямых углов.",
+                        maxError / 100f)
+                : String.format(
+                        Locale.getDefault(),
+                        "Фактическая геометрия построена по эскизу с сохранением "
+                                + "прямых углов. Невязка: %.2f м.",
+                        maxError / 100f);
+
+        return new Result(
+                true,
+                message,
+                positions,
+                maxError,
+                false,
+                adjusted);
     }
 
     private static boolean hasExactFactualSupport(
@@ -944,7 +1055,7 @@ final class NativeMeasurementSolver {
 
         if (NativeGeometry.isFactualGeometry(room)) {
             Result factual = solveFactual(room);
-            if (!factual.ok || factual.maxError > FACTUAL_CONFLICT_TOL) return null;
+            if (!factual.ok) return null;
             return (double) Math.abs(signedArea(factual.positions, order));
         }
 
