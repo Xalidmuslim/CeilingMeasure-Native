@@ -168,9 +168,10 @@ class AppStore(context: Context) {
     private fun migrateCompactLineSpacingIfNeeded() {
         if (prefs.getBoolean("compactLineSpacingV2", false)) return
         val compact = when {
-            settings.lineSpacing <= 1.66f -> 1.35f
-            settings.lineSpacing <= 1.90f -> 1.48f
-            else -> 1.60f
+            settings.lineSpacing <= 1.30f -> settings.lineSpacing
+            settings.lineSpacing <= 1.66f -> 1.28f
+            settings.lineSpacing <= 1.90f -> 1.38f
+            else -> 1.48f
         }
         if (kotlin.math.abs(settings.lineSpacing - compact) > 0.01f) {
             settings = settings.copy(lineSpacing = compact)
