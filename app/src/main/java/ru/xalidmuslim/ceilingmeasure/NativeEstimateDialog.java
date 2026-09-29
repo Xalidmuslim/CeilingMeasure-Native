@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -237,42 +238,69 @@ final class NativeEstimateDialog extends Dialog {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0,dp(5),0,dp(5));
+        row.setMinimumHeight(dp(48));
 
         LinearLayout nameBox=new LinearLayout(getContext());
         nameBox.setOrientation(LinearLayout.VERTICAL);
-        nameBox.addView(text(line.name,12,TEXT,true));
-        nameBox.addView(text(qty(line.qty)+" "+line.unit,10,MUTED,false));
-        row.addView(nameBox,new LinearLayout.LayoutParams(0,dp(42),1.2f));
+        TextView name=text(line.name,12,TEXT,true);
+        name.setMaxLines(2);
+        name.setMinWidth(0);
+        nameBox.addView(name);
+        TextView qtyUnit=text(qty(line.qty)+" "+line.unit,10,MUTED,false);
+        qtyUnit.setSingleLine(true);
+        nameBox.addView(qtyUnit);
+        row.addView(nameBox,new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1.55f));
 
         Button qtyButton=button(qty(line.qty),false);
         qtyButton.setTextSize(11);
+        qtyButton.setSingleLine(true);
+        qtyButton.setMinWidth(0);
+        qtyButton.setMinimumWidth(0);
+        qtyButton.setAutoSizeTextTypeUniformWithConfiguration(
+                8,11,1,TypedValue.COMPLEX_UNIT_SP);
         qtyButton.setEnabled(line.custom||line.qtyEditable||(mode==Mode.INTERNAL&&isInternalExtra(line.key)));
         qtyButton.setAlpha(qtyButton.isEnabled()?1f:.55f);
         if(qtyButton.isEnabled()){
             qtyButton.setOnClickListener(v->editQty(owner,room,line));
         }
-        row.addView(qtyButton,new LinearLayout.LayoutParams(dp(68),dp(38)));
+        LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(0,dp(38),.72f);
+        qp.leftMargin=dp(3);
+        row.addView(qtyButton,qp);
 
         Button price=button(money(line.price),false);
         price.setTextSize(11);
+        price.setSingleLine(true);
+        price.setMinWidth(0);
+        price.setMinimumWidth(0);
+        price.setAutoSizeTextTypeUniformWithConfiguration(
+                8,11,1,TypedValue.COMPLEX_UNIT_SP);
         price.setTag("native_estimate_price_"+line.key+"_"+room.id);
         price.setOnClickListener(v->editPrice(owner,room,line));
-        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(dp(76),dp(38));
-        pp.leftMargin=dp(4);
+        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(38),.82f);
+        pp.leftMargin=dp(3);
         row.addView(price,pp);
 
         TextView sum=text(money(line.total)+" ₽",11,TEXT,true);
         sum.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(dp(90),dp(38));
-        sp.leftMargin=dp(4);
+        sum.setSingleLine(true);
+        sum.setMinWidth(0);
+        sum.setAutoSizeTextTypeUniformWithConfiguration(
+                8,11,1,TypedValue.COMPLEX_UNIT_SP);
+        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(38),.90f);
+        sp.leftMargin=dp(3);
         row.addView(sum,sp);
 
         if(line.removable){
             Button remove=button("×",false);
             remove.setTextColor(DANGER);
+            remove.setMinWidth(0);
+            remove.setMinimumWidth(0);
             remove.setOnClickListener(v->removeLine(owner,room,line));
-            LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(38),dp(38));
-            rp.leftMargin=dp(3);
+            LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,dp(38),.34f);
+            rp.leftMargin=dp(2);
             row.addView(remove,rp);
         }
         parent.addView(row);
@@ -615,7 +643,9 @@ final class NativeEstimateDialog extends Dialog {
         b.setTextColor(primary?Color.WHITE:TEXT);
         b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
         b.setGravity(Gravity.CENTER);
-        b.setPadding(dp(5),0,dp(5),0);
+        b.setMinWidth(0);
+        b.setMinimumWidth(0);
+        b.setPadding(dp(4),0,dp(4),0);
         b.setBackground(rounded(primary?BLUE:Color.WHITE,primary?BLUE:LINE,10,1));
         return b;
     }
