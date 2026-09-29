@@ -109,7 +109,7 @@ final class CeilingDrawingView extends View {
         setFocusable(true);
 
         linePaint.setColor(TEXT);
-        linePaint.setStrokeWidth(dp(2.2f));
+        linePaint.setStrokeWidth(dp(1.65f));
         linePaint.setStyle(Paint.Style.STROKE);
         linePaint.setStrokeCap(Paint.Cap.ROUND);
         linePaint.setStrokeJoin(Paint.Join.ROUND);
@@ -127,12 +127,12 @@ final class CeilingDrawingView extends View {
                 android.graphics.Typeface.BOLD));
 
         previewPaint.setColor(BLUE);
-        previewPaint.setStrokeWidth(dp(2.6f));
+        previewPaint.setStrokeWidth(dp(1.9f));
         previewPaint.setStyle(Paint.Style.STROKE);
         previewPaint.setStrokeCap(Paint.Cap.ROUND);
 
         guidePaint.setColor(RED);
-        guidePaint.setStrokeWidth(dp(1.4f));
+        guidePaint.setStrokeWidth(dp(1.15f));
         guidePaint.setStyle(Paint.Style.STROKE);
         guidePaint.setPathEffect(new DashPathEffect(new float[]{dp(6), dp(5)}, 0));
 
@@ -399,21 +399,24 @@ final class CeilingDrawingView extends View {
     }
 
     private void drawEdges(Canvas canvas) {
-        Paint activePaint = null;
+        // Stroke widths are screen-space constants. Previously linePaint was
+        // scaled by Canvas, so zooming to 200–300% made walls look several
+        // times thicker than at 100%.
+        Paint normalPaint = new Paint(linePaint);
+        normalPaint.setStrokeWidth(dp(1.65f) / Math.max(.45f, scale));
+
+        Paint activePaint = new Paint(normalPaint);
+        activePaint.setColor(BLUE);
+        activePaint.setStrokeWidth(dp(2.45f) / Math.max(.45f, scale));
+
         for (NativeProjectStore.EdgeData edge : room.edges) {
             NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
             NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
             if (a == null || b == null) continue;
 
-            Paint paint = linePaint;
-            if (edge.id.equals(editingEdgeId)) {
-                if (activePaint == null) {
-                    activePaint = new Paint(linePaint);
-                    activePaint.setColor(BLUE);
-                    activePaint.setStrokeWidth(dp(3.4f) / Math.max(.45f, scale));
-                }
-                paint = activePaint;
-            }
+            Paint paint = edge.id.equals(editingEdgeId)
+                    ? activePaint
+                    : normalPaint;
             canvas.drawLine(a.x, a.y, b.x, b.y, paint);
         }
     }
@@ -421,7 +424,7 @@ final class CeilingDrawingView extends View {
     private void drawDiagonals(Canvas canvas) {
         Paint paint = new Paint(linePaint);
         paint.setColor(Color.rgb(112, 130, 144));
-        paint.setStrokeWidth(dp(1.5f) / scale);
+        paint.setStrokeWidth(dp(1.15f) / Math.max(.45f, scale));
         paint.setPathEffect(new DashPathEffect(
                 new float[]{dp(7) / scale, dp(5) / scale},
                 0));
@@ -447,28 +450,37 @@ final class CeilingDrawingView extends View {
 
     private void drawWallDraft(Canvas canvas) {
         if (wallDraft == null) return;
+        Paint wallPreview = new Paint(previewPaint);
+        wallPreview.setStrokeWidth(dp(1.9f) / Math.max(.45f, scale));
         canvas.drawLine(
                 wallDraft.start.x,
                 wallDraft.start.y,
                 wallDraft.preview.x,
                 wallDraft.preview.y,
-                previewPaint);
+                wallPreview);
 
         if (activeGuide != null) {
             float half = 1000f / Math.max(.45f, scale);
             float nx = -activeGuide.uy;
             float ny = activeGuide.ux;
+            Paint guide = new Paint(guidePaint);
+            guide.setStrokeWidth(dp(1.15f) / Math.max(.45f, scale));
+            guide.setPathEffect(new DashPathEffect(
+                    new float[]{
+                            dp(6) / Math.max(.45f, scale),
+                            dp(5) / Math.max(.45f, scale)},
+                    0));
             canvas.drawLine(
                     activeGuide.projected.x - nx * half,
                     activeGuide.projected.y - ny * half,
                     activeGuide.projected.x + nx * half,
                     activeGuide.projected.y + ny * half,
-                    guidePaint);
+                    guide);
         }
     }
 
     private void drawPoints(Canvas canvas) {
-        float radius = dp(5.2f) / scale;
+        float radius = dp(4.7f) / Math.max(.45f, scale);
         for (NativeProjectStore.PointData point : room.points) {
             boolean diagStart = diagDraft != null && diagDraft.startId.equals(point.id);
             boolean moving = point.id.equals(draggingPointId);
