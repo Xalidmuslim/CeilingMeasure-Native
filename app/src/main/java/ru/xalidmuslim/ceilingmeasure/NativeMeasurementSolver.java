@@ -609,7 +609,7 @@ final class NativeMeasurementSolver {
         }
 
         // Only auto-preserve 90 degrees when the sketch itself clearly says 90°.
-        if (worstDeviation > Math.toRadians(16d)) return null;
+        if (worstDeviation > Math.toRadians(20d)) return null;
 
         int xCount = 0;
         int yCount = 0;
@@ -619,25 +619,13 @@ final class NativeMeasurementSolver {
         }
         if (xCount == 0 || yCount == 0) return null;
 
-        if (Math.abs(closureX) > 1e-6f) {
-            for (OrthoSegment segment : segments) {
-                if (segment.xAxis) {
-                    segment.adjusted =
-                            segment.target - segment.sign * (closureX / xCount);
-                }
-            }
-        }
-        if (Math.abs(closureY) > 1e-6f) {
-            for (OrthoSegment segment : segments) {
-                if (!segment.xAxis) {
-                    segment.adjusted =
-                            segment.target - segment.sign * (closureY / yCount);
-                }
-            }
-        }
-        for (OrthoSegment segment : segments) {
-            if (segment.adjusted <= 1f) return null;
-        }
+        // Distribute closure mismatch mostly through long walls. Equal
+        // distribution was damaging tiny architectural offsets (for example
+        // a 2-unit return next to a 256-unit wall), sometimes shrinking the
+        // short wall almost to zero and creating a visible broken corner.
+        // Squared-length weighting keeps small returns essentially intact.
+        if (!distributeOrthogonalClosure(segments, true, closureX)) return null;
+        if (!distributeOrthogonalClosure(segments, false, closureY)) return null;
 
         Map<String, PointF> positions = new HashMap<>();
         positions.put(order.get(0), new PointF(0f, 0f));
@@ -676,6 +664,44 @@ final class NativeMeasurementSolver {
                 maxError,
                 false,
                 adjusted);
+    }
+
+    private static boolean distributeOrthogonalClosure(
+            @NonNull List<OrthoSegment> segments,
+            boolean xAxis,
+            float closure) {
+        if (Math.abs(closure) <= 1e-6f) return true;
+
+        double weightSum = 0d;
+        OrthoSegment largest = null;
+        for (OrthoSegment segment : segments) {
+            if (segment.xAxis != xAxis) continue;
+            double length = Math.max(1d, segment.target);
+            weightSum += length * length;
+            if (largest == null || segment.target > largest.target) {
+                largest = segment;
+            }
+        }
+        if (weightSum <= 0d || largest == null) return false;
+
+        float residual = closure;
+        for (OrthoSegment segment : segments) {
+            if (segment.xAxis != xAxis) continue;
+            double length = Math.max(1d, segment.target);
+            float share = (float) ((length * length) / weightSum);
+            float correction = -segment.sign * closure * share;
+            segment.adjusted = segment.target + correction;
+            if (segment.adjusted <= .5f) return false;
+            residual += segment.sign * (segment.adjusted - segment.target);
+        }
+
+        // Eliminate floating-point residue on the longest wall, never on the
+        // tiny return that visually defines the corner.
+        if (Math.abs(residual) > 1e-4f) {
+            largest.adjusted -= largest.sign * residual;
+            if (largest.adjusted <= .5f) return false;
+        }
+        return true;
     }
 
     private static boolean hasExactFactualSupport(
