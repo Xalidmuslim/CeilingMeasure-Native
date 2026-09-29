@@ -164,7 +164,6 @@ private fun WebHomeHeader(
                         fontSize = 13.sp,
                         lineHeight = 17.sp,
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
