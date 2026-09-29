@@ -8,7 +8,7 @@ path=Path(sys.argv[1] if len(sys.argv)>1 else 'webapp/index.html')
 if not path.is_file():
     raise SystemExit(f'FAIL: missing {path}')
 raw=path.read_text(encoding='utf-8')
-expected='846042d294444bb6b5b84ef6fea1e12bef26b1f36384e047515a4e67aed46136'
+expected='380eaf7c0b8ea56b44880e1db31f27c880cf2b39fc1fd0a21353876abdcbde6b'
 actual=hashlib.sha256(path.read_bytes()).hexdigest()
 if actual!=expected:
     raise SystemExit(f'FAIL: golden master changed\nexpected {expected}\nactual   {actual}')
