@@ -95,7 +95,9 @@ final class CeilingDrawingView extends View {
     private float labelRotateCenterX;
     private float labelRotateCenterY;
     private Guide activeGuide;
+    private boolean redGuideSnapActive;
     private boolean point90SnapActive;
+    private String editingEdgeId;
     private String lastWallCornerSnapId;
     private String lastDiagonalSnapId;
     private PointF magnifierFocus;
@@ -163,6 +165,16 @@ final class CeilingDrawingView extends View {
     void setWallSequenceActive(boolean active) {
         wallSequenceActive = active;
         wallSequenceTapEdgeId = null;
+    }
+
+    void setEditingEdgeId(@Nullable String edgeId) {
+        editingEdgeId = edgeId;
+        postInvalidateOnAnimation();
+    }
+
+    @Nullable
+    String getEditingEdgeIdForTest() {
+        return editingEdgeId;
     }
 
     void setListener(@Nullable Listener listener) {
@@ -387,11 +399,22 @@ final class CeilingDrawingView extends View {
     }
 
     private void drawEdges(Canvas canvas) {
+        Paint activePaint = null;
         for (NativeProjectStore.EdgeData edge : room.edges) {
             NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
             NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
             if (a == null || b == null) continue;
-            canvas.drawLine(a.x, a.y, b.x, b.y, linePaint);
+
+            Paint paint = linePaint;
+            if (edge.id.equals(editingEdgeId)) {
+                if (activePaint == null) {
+                    activePaint = new Paint(linePaint);
+                    activePaint.setColor(BLUE);
+                    activePaint.setStrokeWidth(dp(3.4f) / Math.max(.45f, scale));
+                }
+                paint = activePaint;
+            }
+            canvas.drawLine(a.x, a.y, b.x, b.y, paint);
         }
     }
 
@@ -666,6 +689,7 @@ final class CeilingDrawingView extends View {
                 moved = false;
                 longPressFired = false;
                 activeGuide = null;
+                redGuideSnapActive = false;
                 pageScrollActive = false;
                 pageScrollCandidate = false;
 
@@ -1060,6 +1084,7 @@ final class CeilingDrawingView extends View {
         if (cornerSnap && near != null) {
             wallDraft.preview.set(near.x, near.y);
             activeGuide = null;
+            redGuideSnapActive = false;
             if (!near.id.equals(lastWallCornerSnapId)) vibrateSnap();
             lastWallCornerSnapId = near.id;
         } else {
@@ -1069,17 +1094,18 @@ final class CeilingDrawingView extends View {
                 float screenDistance = (float) Math.hypot(
                         finish.x - guide.projected.x,
                         finish.y - guide.projected.y) * Math.max(.45f, scale);
-                if (screenDistance <= dp(26)) {
+                boolean snappedToRedGuide = screenDistance <= dp(26);
+                if (snappedToRedGuide) {
                     finish.set(guide.projected.x, guide.projected.y);
-                    if (activeGuide == null) {
-                        vibrateSnap();
-                    }
-                    activeGuide = guide;
+                    if (!redGuideSnapActive) vibrateSnap();
+                    redGuideSnapActive = true;
                 } else {
-                    activeGuide = guide;
+                    redGuideSnapActive = false;
                 }
+                activeGuide = guide;
             } else {
                 activeGuide = null;
+                redGuideSnapActive = false;
             }
             wallDraft.preview.set(finish.x, finish.y);
         }
@@ -1092,6 +1118,7 @@ final class CeilingDrawingView extends View {
         WallDraft draft = wallDraft;
         wallDraft = null;
         activeGuide = null;
+        redGuideSnapActive = false;
         if (draft == null) return;
 
         float length = (float) Math.hypot(
@@ -1440,6 +1467,7 @@ final class CeilingDrawingView extends View {
         draggingLabel = null;
         rotatingLabel = null;
         activeGuide = null;
+        redGuideSnapActive = false;
         point90SnapActive = false;
         magnifierFocus = null;
         magnifierKind = null;
@@ -1892,8 +1920,8 @@ final class CeilingDrawingView extends View {
             Vibrator vibrator = (Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
             if (vibrator != null && vibrator.hasVibrator()) {
                 vibrator.vibrate(VibrationEffect.createOneShot(
-                        18L,
-                        VibrationEffect.DEFAULT_AMPLITUDE));
+                        28L,
+                        140));
             } else {
                 performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
             }
