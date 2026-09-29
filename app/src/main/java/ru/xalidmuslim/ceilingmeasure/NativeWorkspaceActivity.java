@@ -1659,18 +1659,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             return;
         }
 
-        if(result.maxError>NativeMeasurementSolver.FACTUAL_CONFLICT_TOL){
-            new AlertDialog.Builder(this)
-                    .setTitle("Замеры конфликтуют")
-                    .setMessage(
-                            result.message
-                                    +"\n\nЭскиз оставлен без изменений. "
-                                    +"Проверь размеры и диагонали.")
-                    .setPositiveButton("Понятно",null)
-                    .show();
-            return;
-        }
-
+        // Factual geometry is sketch-first. A measurement mismatch is shown
+        // as a residual, but it must not block applying a usable geometry.
         pushHistory();
         if(!NativeGeometry.captureSketchGeometry(room)){
             Toast.makeText(
@@ -1684,7 +1674,16 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         NativeGeometry.markFactualGeometry(room);
         store.saveCurrent(project);
         updateStats();
-        Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();
+
+        if(result.maxError>NativeMeasurementSolver.FACTUAL_CONFLICT_TOL){
+            new AlertDialog.Builder(this)
+                    .setTitle("Фактическая геометрия построена")
+                    .setMessage(result.message)
+                    .setPositiveButton("Готово",null)
+                    .show();
+        }else{
+            Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();
+        }
     }
 
     private void applyGeometrySolution(boolean orthogonal){
