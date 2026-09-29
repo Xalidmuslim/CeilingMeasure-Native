@@ -24,9 +24,9 @@ internal fun canonicalBookmarkFolder(folder: String): String {
 
 data class ReaderSettings(
     val theme: String = "system",
-    val fontFamily: String = "book",
+    val fontFamily: String = "system",
     val fontSizeSp: Float = 17f,
-    val lineSpacing: Float = 1.48f,
+    val lineSpacing: Float = 1.20f,
     val showHistoricalLabels: Boolean = true,
 )
 
@@ -193,9 +193,9 @@ class AppStore(context: Context) {
             JSONObject(raw).let {
                 ReaderSettings(
                     theme = it.optString("theme", "system"),
-                    fontFamily = it.optString("fontFamily", "book"),
+                    fontFamily = it.optString("fontFamily", "system"),
                     fontSizeSp = it.optDouble("fontSizeSp", 17.0).toFloat(),
-                    lineSpacing = it.optDouble("lineSpacing", 1.48).toFloat(),
+                    lineSpacing = it.optDouble("lineSpacing", 1.20).toFloat(),
                     showHistoricalLabels = it.optBoolean("showHistoricalLabels", true),
                 )
             }
