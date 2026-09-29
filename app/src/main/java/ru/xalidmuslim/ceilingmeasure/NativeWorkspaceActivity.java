@@ -509,18 +509,18 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout brand=new LinearLayout(this);
         brand.setOrientation(LinearLayout.VERTICAL);
         brand.setGravity(Gravity.CENTER_VERTICAL);
-        TextView main=text("Натяжные потолки",18,TEXT,Typeface.BOLD);
+        // Keep header compact, but let NativeTypography own text scaling.
+        // Android auto-size here would override the user's live 85–130% setting.
+        TextView main=text("Натяжные потолки",16,TEXT,Typeface.BOLD);
         main.setTag("native_workspace_brand_title");
         main.setSingleLine(true);
         main.setMinWidth(0);
-        main.setAutoSizeTextTypeUniformWithConfiguration(
-                14,18,1,TypedValue.COMPLEX_UNIT_SP);
-        TextView sub=text("замер · расчёт · смета",11,MUTED,Typeface.NORMAL);
+        main.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        TextView sub=text("замер · расчёт · смета",10,MUTED,Typeface.NORMAL);
         sub.setTag("native_workspace_brand_subtitle");
         sub.setSingleLine(true);
         sub.setMinWidth(0);
-        sub.setAutoSizeTextTypeUniformWithConfiguration(
-                9,11,1,TypedValue.COMPLEX_UNIT_SP);
+        sub.setEllipsize(android.text.TextUtils.TruncateAt.END);
         brand.addView(main);
         LinearLayout.LayoutParams subLp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
