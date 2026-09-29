@@ -1082,8 +1082,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(diagonalMode!=null)diagonalMode.setEnabled(!room.geometryLocked);
         if(labelMode!=null)labelMode.setEnabled(true);
         if(wallScrollStrip!=null){
+            // The 74dp strip is only needed while an OPEN contour reserves
+            // the drawing surface for wall creation. After closure the whole
+            // canvas must behave like the normal page and use native ScrollView
+            // drag/fling, so the overlay is removed completely.
             wallScrollStrip.setVisibility(
                     drawingView.getMode()==CeilingDrawingView.Mode.WALL
+                            && !NativeGeometry.isClosed(room)
                             ?View.VISIBLE
                             :View.GONE);
         }
