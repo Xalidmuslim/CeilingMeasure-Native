@@ -142,8 +142,8 @@ private fun WebHomeHeader(
                 Image(
                     painter = painterResource(R.drawable.medicine_launcher),
                     contentDescription = null,
-                    modifier = Modifier.size(58.dp).clip(RoundedCornerShape(14.dp)),
-                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(62.dp),
+                    contentScale = ContentScale.Fit,
                 )
                 Spacer(Modifier.width(13.dp))
                 Column(Modifier.weight(1f)) {
