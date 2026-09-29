@@ -2,7 +2,7 @@ name: Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, fix/native-full-app-2026-09-29 ]
   pull_request:
   workflow_dispatch:
 
