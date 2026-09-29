@@ -153,7 +153,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         editorScroll.setTag("native_editor_scroll");
         editorScroll.setFillViewport(true);
         editorScroll.setBackgroundColor(Color.TRANSPARENT);
-        editorScroll.setClipToPadding(false);
+        // Keep scrolled content out of the status-bar safe area. With
+        // clipToPadding=false labels could slide underneath the clock/icons.
+        editorScroll.setClipToPadding(true);
         editorScroll.setSmoothScrollingEnabled(true);
         editorScroll.setVerticalScrollBarEnabled(false);
 
@@ -510,9 +512,15 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         TextView main=text("Натяжные потолки",18,TEXT,Typeface.BOLD);
         main.setTag("native_workspace_brand_title");
         main.setSingleLine(true);
-        main.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        main.setMinWidth(0);
+        main.setAutoSizeTextTypeUniformWithConfiguration(
+                14,18,1,TypedValue.COMPLEX_UNIT_SP);
         TextView sub=text("замер · расчёт · смета",11,MUTED,Typeface.NORMAL);
         sub.setTag("native_workspace_brand_subtitle");
+        sub.setSingleLine(true);
+        sub.setMinWidth(0);
+        sub.setAutoSizeTextTypeUniformWithConfiguration(
+                9,11,1,TypedValue.COMPLEX_UNIT_SP);
         brand.addView(main);
         LinearLayout.LayoutParams subLp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -550,7 +558,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             syncProjectFields();
             showSavedMeasurements();
         });
-        LinearLayout.LayoutParams savedLp=new LinearLayout.LayoutParams(dp(64),dp(46));
+        LinearLayout.LayoutParams savedLp=new LinearLayout.LayoutParams(dp(70),dp(46));
         savedLp.leftMargin=dp(3);
         actions.addView(saved,savedLp);
 
@@ -569,7 +577,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     project=store.newProject();
                     showEditor(false);
                 }).show());
-        LinearLayout.LayoutParams freshLp=new LinearLayout.LayoutParams(dp(62),dp(46));
+        LinearLayout.LayoutParams freshLp=new LinearLayout.LayoutParams(dp(68),dp(46));
         freshLp.leftMargin=dp(3);
         actions.addView(fresh,freshLp);
 
@@ -618,7 +626,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         button.setContentDescription(label);
         button.setOrientation(LinearLayout.HORIZONTAL);
         button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(5),0,dp(5),0);
+        button.setPadding(dp(4),0,dp(4),0);
         button.setClickable(true);
         button.setFocusable(true);
         button.setBackground(primary
@@ -633,7 +641,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         icon.setImageResource(iconRes);
         if(!primary)icon.setImageTintList(ColorStateList.valueOf(Color.rgb(54,82,103)));
         icon.setPadding(dp(1),dp(1),dp(1),dp(1));
-        button.addView(icon,new LinearLayout.LayoutParams(dp(15),dp(15)));
+        button.addView(icon,new LinearLayout.LayoutParams(dp(14),dp(14)));
 
         TextView text=text(
                 label,
@@ -648,7 +656,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         text.setMinWidth(0);
         text.setAutoSizeTextTypeUniformWithConfiguration(
                 8,
-                11,
+                10,
                 1,
                 TypedValue.COMPLEX_UNIT_SP);
         LinearLayout.LayoutParams textLp=new LinearLayout.LayoutParams(
@@ -689,9 +697,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             b.setTag("native_room_"+index);
             b.setTextSize(11);
             b.setSingleLine(true);
-            b.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            b.setMinWidth(0);
-            b.setPadding(dp(5),0,dp(5),0);
+            b.setMinWidth(dp(58));
+            b.setMinimumWidth(dp(58));
+            b.setPadding(dp(11),0,dp(11),0);
+            b.setAutoSizeTextTypeUniformWithConfiguration(
+                    9,11,1,TypedValue.COMPLEX_UNIT_SP);
             if(i==project.activeRoom) styleSelected(b);
             b.setOnClickListener(v->{
                 project.activeRoom=index;
@@ -708,7 +718,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 showRoomActions(index);
                 return true;
             });
-            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(dp(58),dp(48));
+            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(48));
             p.rightMargin=dp(5);
             roomRow.addView(b,p);
         }
@@ -833,7 +844,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         Button b=button(text,false);
         b.setTag(tag);
         b.setTextSize(11);
-        b.setPadding(dp(6),0,dp(6),0);
+        b.setSingleLine(true);
+        b.setMinWidth(0);
+        b.setMinimumWidth(0);
+        b.setPadding(dp(4),0,dp(4),0);
+        b.setAutoSizeTextTypeUniformWithConfiguration(
+                8,11,1,TypedValue.COMPLEX_UNIT_SP);
         b.setOnClickListener(v->{
             v.animate().scaleX(.985f).scaleY(.985f).setDuration(70).withEndAction(() ->
                     v.animate().scaleX(1f).scaleY(1f).setDuration(110).start()).start();
@@ -913,10 +929,15 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_BUTTON_RADIUS_DP),
                 0));
         button.setOnClickListener(listener);
-        TextView arrow=text(icon,16,TEXT,Typeface.BOLD);
+        TextView arrow=text(icon,14,TEXT,Typeface.BOLD);
         arrow.setGravity(Gravity.CENTER);
-        TextView small=text(label,11.5f,TEXT,Typeface.BOLD);
+        arrow.setIncludeFontPadding(false);
+        TextView small=text(label,10.5f,TEXT,Typeface.BOLD);
         small.setGravity(Gravity.CENTER);
+        small.setSingleLine(true);
+        small.setMinWidth(0);
+        small.setAutoSizeTextTypeUniformWithConfiguration(
+                9,10,1,TypedValue.COMPLEX_UNIT_SP);
         button.addView(arrow);
         button.addView(small);
         return button;
@@ -1148,10 +1169,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private EditText field(LinearLayout parent,String label,String value,int inputType){
-        TextView l=text(label,12,MUTED,Typeface.NORMAL);
+        TextView l=text(label,11.5f,MUTED,Typeface.NORMAL);
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin=dp(7);
+        lp.topMargin=dp(8);
         parent.addView(l,lp);
 
         EditText e=new EditText(this);
@@ -1164,7 +1185,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         e.setPadding(dp(9),0,dp(9),0);
         e.setBackground(rounded(Color.rgb(249,251,252),LINE,11,1));
         parent.addView(e,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(40)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(42)));
         return e;
     }
 
@@ -2114,7 +2135,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private LinearLayout card(){
         LinearLayout l=new LinearLayout(this);
         l.setOrientation(LinearLayout.VERTICAL);
-        l.setPadding(dp(6),dp(7),dp(6),dp(7));
+        l.setPadding(dp(8),dp(8),dp(8),dp(8));
         l.setBackground(rounded(
                 NativeVisualTokens.SURFACE,
                 NativeVisualTokens.LINE,
