@@ -675,10 +675,13 @@ final class CeilingDrawingView extends View {
                 scheduleMeasurementLongPressIfHit(worldX, worldY);
 
                 if (mode == Mode.WALL) {
-                    // Closed contour: one-finger vertical movement anywhere in
-                    // the drawing scrolls the page. The dedicated right strip
-                    // is handled by the parent Activity and remains native pan-y.
-                    if (NativeGeometry.isClosed(room)) beginPageScrollCandidate(event);
+                    // Open contour keeps one-finger ownership for wall drawing.
+                    // Once the contour is closed, vertical movement is handed
+                    // back to the ancestor ScrollView so Android provides the
+                    // exact same drag/fling/inertia as the rest of the page.
+                    if (NativeGeometry.isClosed(room)) {
+                        getParent().requestDisallowInterceptTouchEvent(false);
+                    }
                     return beginWallGesture(worldX, worldY);
                 }
 
@@ -686,8 +689,7 @@ final class CeilingDrawingView extends View {
                     NativeProjectStore.PointData point =
                             nearestPoint(worldX, worldY, dp(48) / scale);
                     if (point == null) {
-                        beginPageScrollCandidate(event);
-                        getParent().requestDisallowInterceptTouchEvent(true);
+                        getParent().requestDisallowInterceptTouchEvent(false);
                         return true;
                     }
                     getParent().requestDisallowInterceptTouchEvent(true);
@@ -703,21 +705,24 @@ final class CeilingDrawingView extends View {
                     NativeProjectStore.DiagonalData diagonal =
                             nearestDiagonal(worldX, worldY, dp(20) / scale);
                     if (point == null && diagonal == null) {
-                        beginPageScrollCandidate(event);
-                        getParent().requestDisallowInterceptTouchEvent(true);
+                        getParent().requestDisallowInterceptTouchEvent(false);
                         return true;
                     }
-                    getParent().requestDisallowInterceptTouchEvent(true);
                     if (point == null && diagonal != null && NativeGeometry.isClosed(room)) {
-                        beginPageScrollCandidate(event);
+                        // Existing diagonal can still be long-pressed, but a
+                        // vertical drag belongs to the page scroll.
+                        getParent().requestDisallowInterceptTouchEvent(false);
+                    } else {
+                        getParent().requestDisallowInterceptTouchEvent(true);
                     }
                     return beginDiagonalGesture(worldX, worldY);
                 }
 
-                getParent().requestDisallowInterceptTouchEvent(true);
                 beginLabelGesture(worldX, worldY);
                 if (draggingLabel == null && rotatingLabel == null) {
-                    beginPageScrollCandidate(event);
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                } else {
+                    getParent().requestDisallowInterceptTouchEvent(true);
                 }
                 return true;
 
@@ -859,13 +864,15 @@ final class CeilingDrawingView extends View {
         boolean closed = NativeGeometry.isClosed(room);
 
         if (closed) {
+            // Do not disallow ancestor interception here. A stationary press
+            // still reaches the wall/vertex editor, while a vertical drag is
+            // intercepted by ScrollView and receives native fling physics.
+            getParent().requestDisallowInterceptTouchEvent(false);
             if (nearest != null) {
-                getParent().requestDisallowInterceptTouchEvent(true);
                 scheduleLongPress("vertex", nearest.id);
                 return true;
             }
             if (edge != null) {
-                getParent().requestDisallowInterceptTouchEvent(true);
                 if (wallSequenceActive) {
                     wallSequenceTapEdgeId = edge.id;
                 } else {
@@ -873,9 +880,6 @@ final class CeilingDrawingView extends View {
                 }
                 return true;
             }
-            // Keep ownership of the gesture so a vertical move can become a
-            // smooth page scroll even after the contour is closed.
-            getParent().requestDisallowInterceptTouchEvent(true);
             return true;
         }
 
