@@ -2135,7 +2135,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         content.addView(list,marginParams(0,5));
 
         final boolean[] recentMode={true};
-        Runnable render=()->renderSavedList(list,search.getText().toString(),recentMode[0]);
+        final List<NativeProjectStore.ProjectData> savedSnapshot =
+                new java.util.ArrayList<>(store.loadSaved());
+        Runnable render=()->renderSavedList(
+                list,
+                search.getText().toString(),
+                recentMode[0],
+                savedSnapshot);
 
         recent.setOnClickListener(v->{
             recentMode[0]=true;
@@ -2165,12 +2171,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private void renderSavedList(
             LinearLayout list,
             String query,
-            boolean recentMode){
+            boolean recentMode,
+            List<NativeProjectStore.ProjectData> savedSnapshot){
         list.removeAllViews();
         String q=query==null?"":query.trim().toLowerCase(Locale.ROOT);
-        List<NativeProjectStore.ProjectData> saved=new java.util.ArrayList<>(store.loadSaved());
-        saved.sort((a,b)->Long.compare(b.savedAt,b.savedAt==a.savedAt?b.updatedAt:a.savedAt));
-        // Correct deterministic descending save order.
+        List<NativeProjectStore.ProjectData> saved =
+                new java.util.ArrayList<>(savedSnapshot);
         saved.sort((a,b)->Long.compare(
                 b.savedAt>0?b.savedAt:b.updatedAt,
                 a.savedAt>0?a.savedAt:a.updatedAt));
