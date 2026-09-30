@@ -394,7 +394,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         drawingHint.setOnClickListener(v->{
             NativeProjectStore.RoomData r=activeRoom();
             r.hintCollapsed=!r.hintCollapsed;
-            store.saveCurrent(project);
+            scheduleSaveCurrent();
             updateDrawingChrome();
         });
         FrameLayout.LayoutParams hintParams = new FrameLayout.LayoutParams(
@@ -835,7 +835,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         NativeProjectStore.RoomData room=store.createRoom(roomName);
         project.rooms.add(room);
         project.activeRoom=project.rooms.size()-1;
-        store.saveCurrent(project);
+        scheduleSaveCurrent();
         undoRooms.clear();
         redoRooms.clear();
         renderRooms();
@@ -854,7 +854,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         copy.name=source.name+" копия";
         project.rooms.add(index+1,copy);
         project.activeRoom=index+1;
-        store.saveCurrent(project);
+        scheduleSaveCurrent();
         undoRooms.clear();
         redoRooms.clear();
         renderRooms();
@@ -873,7 +873,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 room.name,
                 value->{
                     room.name=value;
-                    store.saveCurrent(project);
+                    scheduleSaveCurrent();
                     renderRooms();
                 });
         dialog.show();
@@ -896,7 +896,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     if(project.activeRoom>index)project.activeRoom--;
                     if(project.activeRoom>=project.rooms.size())project.activeRoom=project.rooms.size()-1;
                     project.activeRoom=Math.max(0,project.activeRoom);
-                    store.saveCurrent(project);
+                    scheduleSaveCurrent();
                     renderRooms();
                     if(drawingView!=null)drawingView.setRoom(activeRoom());
                     updateStats();
@@ -1096,7 +1096,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             default:
                 return;
         }
-        store.saveCurrent(project);
+        scheduleSaveCurrent();
         drawingView.invalidate();
         updateDrawingChrome();
     }
@@ -1121,7 +1121,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 NativeProjectStore.roomFromSnapshot(undoRooms.removeLast());
         project.rooms.set(project.activeRoom,restored);
         drawingView.setRoom(restored);
-        store.saveCurrent(project);
+        scheduleSaveCurrent();
         restoringHistory=false;
         updateStats();
         updateDrawingChrome();
@@ -1138,7 +1138,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 NativeProjectStore.roomFromSnapshot(redoRooms.removeLast());
         project.rooms.set(project.activeRoom,restored);
         drawingView.setRoom(restored);
-        store.saveCurrent(project);
+        scheduleSaveCurrent();
         restoringHistory=false;
         updateStats();
         updateDrawingChrome();
@@ -1329,7 +1329,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                         pushHistory();
                         for(NativeProjectStore.PointData p:r.points)p.customLabel="";
                         point.customLabel="A";
-                        store.saveCurrent(project);
+                        scheduleSaveCurrent();
                         drawingView.invalidate();
                         Toast.makeText(this,"Угол A добавлен",Toast.LENGTH_SHORT).show();
                     }else{
@@ -1355,7 +1355,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     r.points.removeIf(p->p.id.equals(pointId));
                     NativeGeometry.sanitize(r);
                     NativeGeometry.discardFactualGeometrySession(r);
-                    store.saveCurrent(project);
+                    scheduleSaveCurrent();
                     drawingView.invalidate();
                     updateStats();
                 })
@@ -1386,7 +1386,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                         if(current!=null){
                             pushHistory();
                             r.diagonals.remove(current);
-                            store.saveCurrent(project);
+                            scheduleSaveCurrent();
                             drawingView.invalidate();
                             Toast.makeText(this,"Диагональ удалена",Toast.LENGTH_SHORT).show();
                         }
@@ -1396,7 +1396,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     @Override public void onContourClosed(){
-        store.saveCurrent(project);
+        scheduleSaveCurrent();
         updateStats();
         drawingView.postDelayed(this::startWallSequence,120);
     }
@@ -1431,7 +1431,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                         pushHistory();
                         current.value=value;
                         NativeGeometry.markFactualGeometryDirty(activeRoom());
-                        store.saveCurrent(project);
+                        scheduleSaveCurrent();
                         drawingView.invalidate();
                         updateStats();
                         if(wallSequenceMode&&value>0f){
@@ -1538,7 +1538,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             pushHistory();
             edge.value=value;
             NativeGeometry.markFactualGeometryDirty(activeRoom());
-            store.saveCurrent(project);
+            scheduleSaveCurrent();
             drawingView.invalidate();
             updateStats();
         }
@@ -1577,7 +1577,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                             current.value=value;
                             NativeGeometry.markDiagonalMeasured(current);
                             NativeGeometry.markFactualGeometryDirty(activeRoom());
-                            store.saveCurrent(project);
+                            scheduleSaveCurrent();
                             drawingView.invalidate();
                         }
                         holder[0].dismiss();
@@ -1589,7 +1589,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                             pushHistory();
                             current.value=Math.round(value);
                             NativeGeometry.markDiagonalAuto(current);
-                            store.saveCurrent(project);
+                            scheduleSaveCurrent();
                             drawingView.invalidate();
                         }
                         holder[0].dismiss();
@@ -1608,7 +1608,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                                         pushHistory();
                                         activeRoom().diagonals.remove(current);
                                         NativeGeometry.markFactualGeometryDirty(activeRoom());
-                                        store.saveCurrent(project);
+                                        scheduleSaveCurrent();
                                         drawingView.invalidate();
                                     }
                                 }).show();
@@ -1678,7 +1678,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                         ||(d.a.equals(edge.b)&&d.b.equals(edge.a)));
         NativeGeometry.sanitize(room);
         NativeGeometry.discardFactualGeometrySession(room);
-        store.saveCurrent(project);
+        scheduleSaveCurrent();
         drawingView.invalidate();
         updateStats();
         updateDrawingChrome();
@@ -1741,7 +1741,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     Toast.LENGTH_LONG).show();
             return;
         }
-        store.saveCurrent(project);
+        scheduleSaveCurrent();
         updateStats();
         Toast.makeText(
                 this,
@@ -1810,7 +1810,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         }
 
         drawingView.applySolvedGeometry(result.positions);
-        store.saveCurrent(project);
+        scheduleSaveCurrent();
         updateStats();
         Toast.makeText(this,result.message,Toast.LENGTH_SHORT).show();
     }
@@ -1833,7 +1833,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             Toast.makeText(this,"Расчётные диагонали уже добавлены",Toast.LENGTH_SHORT).show();
             return;
         }
-        store.saveCurrent(project);
+        scheduleSaveCurrent();
         drawingView.invalidate();
         Toast.makeText(this,"Добавлено диагоналей: "+added,Toast.LENGTH_SHORT).show();
     }
