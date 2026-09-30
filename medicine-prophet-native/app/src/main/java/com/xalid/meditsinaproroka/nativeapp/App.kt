@@ -36,6 +36,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.sp
 fun MedicinaApp(book: BookData, store: AppStore) {
     var current by remember { mutableStateOf<Route>(Route.Home) }
     val backStack = remember { mutableStateListOf<Route>() }
+    val screenStateHolder = rememberSaveableStateHolder()
     var searchQuery by remember { mutableStateOf("") }
     var searchFilter by remember { mutableStateOf(SearchFilter.ALL) }
     var bookmarkFolder by remember { mutableStateOf("Все") }
@@ -111,7 +113,8 @@ fun MedicinaApp(book: BookData, store: AppStore) {
             },
             label = "sectionTransition",
         ) { route ->
-            when (route) {
+            screenStateHolder.SaveableStateProvider(routeStateKey(route)) {
+                when (route) {
                 Route.Home -> WebHomeScreen(book, store, modifier, ::navigate)
                 Route.Book -> BookScreen(book, modifier, ::goBack) { navigate(Route.Reader(it)) }
                 Route.Topics -> TopicsScreen(book, modifier) { navigate(Route.TopicDetail(it)) }
@@ -159,11 +162,37 @@ fun MedicinaApp(book: BookData, store: AppStore) {
                 is Route.Reader -> ReaderScreen(book, store, route, modifier, ::goBack) { next ->
                     navigate(next)
                 }
+                }
             }
         }
     }
 }
 
+
+private fun routeStateKey(route: Route): String = when (route) {
+    Route.Home -> "home"
+    Route.Book -> "book"
+    Route.Topics -> "topics"
+    Route.Search -> "search"
+    Route.Bookmarks -> "bookmarks"
+    Route.More -> "more"
+    Route.Remedies -> "remedies"
+    Route.Treatments -> "treatments"
+    Route.Notes -> "notes"
+    Route.Settings -> "settings"
+    Route.Hadiths -> "hadiths"
+    Route.History -> "history"
+    Route.Offline -> "offline"
+    Route.About -> "about"
+    Route.Collections -> "collections"
+    Route.Glossary -> "glossary"
+    Route.Source -> "source"
+    is Route.TopicDetail -> "topic:${route.id}"
+    is Route.RemedyDetail -> "remedy:${route.id}"
+    is Route.CollectionDetail -> "collection:${route.id}"
+    is Route.GlossaryDetail -> "glossary:${route.id}"
+    is Route.Reader -> "reader:${route.chapterId}:${route.anchor.orEmpty()}:${route.resume}"
+}
 @Composable
 private fun BottomNav(
     current: Route,
