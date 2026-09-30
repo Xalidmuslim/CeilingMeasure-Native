@@ -50,6 +50,8 @@ import java.util.ArrayDeque;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class NativeWorkspaceActivity extends ComponentActivity implements CeilingDrawingView.Listener {
     public static final String EXTRA_LAUNCH_ACTION = "native_launch_action";
@@ -107,8 +109,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private String wallEditId;
     private NativeWallMeasureDialog wallDialog;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService saveExecutor = Executors.newSingleThreadExecutor();
     private final Runnable deferredSave = () -> {
-        if (store != null && project != null) store.saveCurrent(project);
+        final NativeProjectStore storeNow = store;
+        final NativeProjectStore.ProjectData projectNow = project;
+        if (storeNow == null || projectNow == null) return;
+        saveExecutor.execute(() -> storeNow.saveCurrent(projectNow));
     };
 
     @Override
@@ -150,6 +156,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     protected void onPause() {
         flushDeferredSave();
         super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        uiHandler.removeCallbacks(deferredSave);
+        saveExecutor.shutdown();
+        super.onDestroy();
     }
 
     private void showEditor(boolean jumpToDrawing) {
@@ -252,7 +265,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         check.setTag("native_drawing_check");
         check.setContentDescription("Открыть проверку замера");
         check.setOnClickListener(v->showMeasurementValidation());
-        drawingHead.addView(check,new LinearLayout.LayoutParams(dp(42),dp(38)));
+        drawingHead.addView(check,new LinearLayout.LayoutParams(dp(44),dp(44)));
         drawingCard.addView(drawingHead);
 
         LinearLayout modeBar = new LinearLayout(this);
@@ -339,7 +352,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             if("+".equals(z))zb.setOnClickListener(v->{drawingView.zoomBy(1.16f);updateDrawingChrome();});
             else if("−".equals(z))zb.setOnClickListener(v->{drawingView.zoomBy(1f/1.16f);updateDrawingChrome();});
             else zb.setOnClickListener(v->{drawingView.fitView();updateDrawingChrome();});
-            zoom.addView(zb,new LinearLayout.LayoutParams(dp(42),dp(40)));
+            zoom.addView(zb,new LinearLayout.LayoutParams(dp(44),dp(44)));
         }
         FrameLayout.LayoutParams zoomParams = new FrameLayout.LayoutParams(
                 dp(44),
@@ -375,8 +388,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         statusParams.topMargin=dp(6);
         drawingCard.addView(status,statusParams);
-        drawingStatus=text("",11,MUTED,Typeface.NORMAL);
-        zoomStatus=text("100%",11,TEXT,Typeface.BOLD);
+        drawingStatus=text("",10.5f,MUTED,Typeface.NORMAL);
+        drawingStatus.setMaxLines(2);
+        zoomStatus=text("100%",10.5f,TEXT,Typeface.BOLD);
+        zoomStatus.setSingleLine(true);
         status.addView(drawingStatus,new LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -405,7 +420,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             store.saveSnapshot(project);
             Toast.makeText(this,"Замер завершён",Toast.LENGTH_SHORT).show();
         });
-        saveRow.addView(save,new LinearLayout.LayoutParams(dp(170),dp(44)));
+        saveRow.addView(save,new LinearLayout.LayoutParams(dp(170),dp(52)));
         drawingCard.addView(saveRow);
 
         LinearLayout estimateCard=card();
@@ -453,13 +468,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         clientEstimate.setTag("native_open_client_estimate");
         clientEstimate.setOnClickListener(v->openEstimate(NativeEstimateDialog.Mode.CLIENT));
         estimateCard.addView(clientEstimate,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(44)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(52)));
 
         Button internalEstimate=button("Закупочный расчёт для себя",false);
         internalEstimate.setTag("native_open_internal_estimate");
         internalEstimate.setOnClickListener(v->openEstimate(NativeEstimateDialog.Mode.INTERNAL));
         LinearLayout.LayoutParams internalParams=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(46));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(52));
         internalParams.topMargin=dp(6);
         estimateCard.addView(internalEstimate,internalParams);
 
@@ -514,7 +529,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(dp(8),dp(7),dp(8),dp(7));
-        bar.setMinimumHeight(dp(60));
+        bar.setMinimumHeight(dp(64));
         bar.setBackgroundColor(NativeVisualTokens.SURFACE);
         bar.setElevation(dp(2));
 
@@ -570,7 +585,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             syncProjectFieldsDeferred();
             showSavedMeasurements();
         });
-        LinearLayout.LayoutParams savedLp=new LinearLayout.LayoutParams(dp(70),dp(46));
+        LinearLayout.LayoutParams savedLp=new LinearLayout.LayoutParams(dp(76),dp(48));
         savedLp.leftMargin=dp(3);
         actions.addView(saved,savedLp);
 
@@ -589,7 +604,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     project=store.newProject();
                     showEditor(false);
                 }).show());
-        LinearLayout.LayoutParams freshLp=new LinearLayout.LayoutParams(dp(68),dp(46));
+        LinearLayout.LayoutParams freshLp=new LinearLayout.LayoutParams(dp(72),dp(48));
         freshLp.leftMargin=dp(3);
         actions.addView(fresh,freshLp);
 
@@ -690,7 +705,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         NativeTypography.register(back,24,true,uiPrefs);
         back.setContentDescription("Назад");
         back.setOnClickListener(v->finish());
-        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(48),dp(44));
+        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(50),dp(50));
         bar.addView(back,bp);
 
         TextView t=text(title,18,TEXT,Typeface.BOLD);
@@ -738,7 +753,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 return true;
             });
             LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(48));
+                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(50));
             p.rightMargin=dp(5);
             roomRow.addView(b,p);
         }
@@ -747,7 +762,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         NativeTypography.register(add,20,true,uiPrefs);
         add.setContentDescription("Добавить комнату");
         add.setOnClickListener(v->showRoomPicker());
-        LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(dp(48),dp(48));
+        LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(dp(50),dp(50));
         roomRow.addView(add,addParams);
     }
 
@@ -864,6 +879,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         b.setTag(tag);
         NativeTypography.register(b,11,true,uiPrefs);
         b.setSingleLine(true);
+        b.setMaxLines(1);
         b.setMinWidth(0);
         b.setMinimumWidth(0);
         b.setPadding(dp(4),0,dp(4),0);
@@ -874,7 +890,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private LinearLayout.LayoutParams compactModeParams(){
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(40),1f);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(46),1f);
         p.leftMargin=dp(2);
         p.rightMargin=dp(2);
         return p;
@@ -1172,14 +1188,23 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void styleMode(Button b,boolean active){
-        b.setBackground(active
+        GradientDrawable content = active
                 ?NativeVisualTokens.primaryButton(dp(10),dp(1))
-                :rounded(Color.rgb(248,250,251),LINE,10,1));
+                :rounded(Color.rgb(248,250,251),LINE,10,1);
+        b.setBackground(new RippleDrawable(
+                ColorStateList.valueOf(active
+                        ?Color.argb(45,255,255,255)
+                        :Color.argb(26,30,49,68)),
+                content,
+                NativeVisualTokens.solid(Color.WHITE,dp(10))));
         b.setTextColor(active?Color.WHITE:TEXT);
     }
 
     private void styleSelected(Button b){
-        b.setBackground(rounded(NativeVisualTokens.ACCENT_SOFT,BLUE,10,1));
+        b.setBackground(new RippleDrawable(
+                ColorStateList.valueOf(Color.argb(24,39,125,167)),
+                rounded(NativeVisualTokens.ACCENT_SOFT,BLUE,10,1),
+                NativeVisualTokens.solid(Color.WHITE,dp(10))));
         b.setTextColor(NativeVisualTokens.ACCENT_STRONG);
     }
 
@@ -1200,7 +1225,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         e.setPadding(dp(9),0,dp(9),0);
         e.setBackground(rounded(Color.rgb(249,251,252),LINE,11,1));
         parent.addView(e,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(46)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
         return e;
     }
 
@@ -1901,12 +1926,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         search.setBackground(rounded(Color.WHITE,LINE,11,1));
         search.setPadding(dp(12),0,dp(12),0);
         content.addView(search,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(46)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
 
         LinearLayout filters=new LinearLayout(this);
         filters.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(48));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(54));
         fp.topMargin=dp(8);
         content.addView(filters,fp);
 
@@ -1920,25 +1945,27 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout backup=new LinearLayout(this);
         backup.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(48));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(54));
         bp.topMargin=dp(8);
         content.addView(backup,bp);
 
         Button export=button("Экспорт всех замеров",false);
         export.setTag("native_backup_export");
-        export.setSingleLine(true);
+        export.setSingleLine(false);
+        export.setMaxLines(2);
         export.setMinWidth(0);
         export.setMinimumWidth(0);
         export.setAutoSizeTextTypeUniformWithConfiguration(
-                8,10,1,TypedValue.COMPLEX_UNIT_SP);
+                8,11,1,TypedValue.COMPLEX_UNIT_SP);
         export.setOnClickListener(v->beginBackupExport());
         Button restore=button("Восстановить из файла",false);
         restore.setTag("native_backup_import");
-        restore.setSingleLine(true);
+        restore.setSingleLine(false);
+        restore.setMaxLines(2);
         restore.setMinWidth(0);
         restore.setMinimumWidth(0);
         restore.setAutoSizeTextTypeUniformWithConfiguration(
-                8,10,1,TypedValue.COMPLEX_UNIT_SP);
+                8,11,1,TypedValue.COMPLEX_UNIT_SP);
         restore.setOnClickListener(v->beginBackupImport());
         backup.addView(export,weightParams());
         backup.addView(restore,weightParams());
@@ -2202,16 +2229,25 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         NativeTypography.register(b,13,true,uiPrefs);
         b.setTextColor(primary?Color.WHITE:TEXT);
         b.setGravity(Gravity.CENTER);
-        b.setSingleLine(true);
+        b.setSingleLine(false);
+        b.setMaxLines(2);
+        b.setEllipsize(android.text.TextUtils.TruncateAt.END);
         b.setIncludeFontPadding(false);
         b.setMinWidth(0);
         b.setMinimumWidth(0);
         b.setMinHeight(0);
         b.setMinimumHeight(0);
-        b.setPadding(dp(8),dp(1),dp(8),dp(1));
-        b.setBackground(primary
+        b.setPadding(dp(8),dp(3),dp(8),dp(3));
+        b.setStateListAnimator(null);
+        GradientDrawable content = primary
                 ?NativeVisualTokens.primaryButton(dp(12),dp(1))
-                :rounded(NativeVisualTokens.SURFACE,LINE,12,1));
+                :rounded(NativeVisualTokens.SURFACE,LINE,12,1);
+        b.setBackground(new RippleDrawable(
+                ColorStateList.valueOf(primary
+                        ?Color.argb(45,255,255,255)
+                        :Color.argb(26,30,49,68)),
+                content,
+                NativeVisualTokens.solid(Color.WHITE,dp(12))));
         return b;
     }
 
@@ -2235,7 +2271,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private LinearLayout.LayoutParams weightParams(){
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(44),1f);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(52),1f);
         p.leftMargin=dp(3);p.rightMargin=dp(3);
         return p;
     }
