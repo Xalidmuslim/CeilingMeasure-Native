@@ -577,6 +577,7 @@ final class NativeEstimateDialog extends Dialog {
         ArrayList<NativeProjectStore.ProjectData> out=new ArrayList<>();
         out.add(project);
         if(mode!=Mode.CLIENT)return out;
+        if(project.combinedEstimateOrderIds.isEmpty())return out;
         List<NativeProjectStore.ProjectData> saved=store.loadSaved();
         for(String id:project.combinedEstimateOrderIds){
             if(id.equals(project.id))continue;
@@ -606,8 +607,10 @@ final class NativeEstimateDialog extends Dialog {
     }
 
     private void changed(NativeProjectStore.ProjectData owner){
-        if(owner.id.equals(project.id))store.saveCurrent(owner);
-        else store.updateSavedProject(owner);
+        // Current project is already mutated in memory; the activity persists
+        // it on its background save executor. Only an external combined order
+        // needs its own store update here.
+        if(!owner.id.equals(project.id))store.updateSavedProject(owner);
         listener.onChanged();
         render();
     }
