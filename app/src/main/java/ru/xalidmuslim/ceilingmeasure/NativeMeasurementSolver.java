@@ -476,6 +476,14 @@ final class NativeMeasurementSolver {
             }
         }
 
+        float finalClosureX = 0f;
+        float finalClosureY = 0f;
+        for (int i = 0; i < n; i++) {
+            finalClosureX += target[i] * (float) Math.cos(theta[i]);
+            finalClosureY += target[i] * (float) Math.sin(theta[i]);
+        }
+        closureError = (float) Math.hypot(finalClosureX, finalClosureY);
+
         Map<String, PointF> positions = positionsFromAngles(order, target, theta);
 
         ArrayList<Constraint> wallConstraints = new ArrayList<>();
