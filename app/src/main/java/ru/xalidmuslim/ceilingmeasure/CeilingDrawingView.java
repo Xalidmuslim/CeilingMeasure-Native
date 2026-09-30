@@ -47,6 +47,9 @@ final class CeilingDrawingView extends View {
     private static final int RED = Color.rgb(217, 74, 74);
     private static final int GREEN = Color.rgb(47, 154, 105);
     private static final long LONG_PRESS_MS = 330L;
+    // Complex factual geometry can legitimately require less than the old 45%
+    // floor to fit. Keep a low safety floor so the whole contour is recoverable.
+    private static final float MIN_VIEW_SCALE = .08f;
 
     private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -156,7 +159,7 @@ final class CeilingDrawingView extends View {
                 }
             });
         } else {
-            scale = clamp(room.viewScale, .45f, 12f);
+            scale = clamp(room.viewScale, MIN_VIEW_SCALE, 12f);
             offsetX = room.panX;
             offsetY = room.panY;
             postInvalidateOnAnimation();
@@ -416,11 +419,11 @@ final class CeilingDrawingView extends View {
         // scaled by Canvas, so zooming to 200–300% made walls look several
         // times thicker than at 100%.
         Paint normalPaint = new Paint(linePaint);
-        normalPaint.setStrokeWidth(dp(1.65f) / Math.max(.45f, scale));
+        normalPaint.setStrokeWidth(dp(1.65f) / Math.max(MIN_VIEW_SCALE, scale));
 
         Paint activePaint = new Paint(normalPaint);
         activePaint.setColor(BLUE);
-        activePaint.setStrokeWidth(dp(2.45f) / Math.max(.45f, scale));
+        activePaint.setStrokeWidth(dp(2.45f) / Math.max(MIN_VIEW_SCALE, scale));
 
         for (NativeProjectStore.EdgeData edge : room.edges) {
             NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
@@ -437,7 +440,7 @@ final class CeilingDrawingView extends View {
     private void drawDiagonals(Canvas canvas) {
         Paint paint = new Paint(linePaint);
         paint.setColor(Color.rgb(112, 130, 144));
-        paint.setStrokeWidth(dp(1.15f) / Math.max(.45f, scale));
+        paint.setStrokeWidth(dp(1.15f) / Math.max(MIN_VIEW_SCALE, scale));
         paint.setPathEffect(new DashPathEffect(
                 new float[]{dp(7) / scale, dp(5) / scale},
                 0));
@@ -464,7 +467,7 @@ final class CeilingDrawingView extends View {
     private void drawWallDraft(Canvas canvas) {
         if (wallDraft == null) return;
         Paint wallPreview = new Paint(previewPaint);
-        wallPreview.setStrokeWidth(dp(1.9f) / Math.max(.45f, scale));
+        wallPreview.setStrokeWidth(dp(1.9f) / Math.max(MIN_VIEW_SCALE, scale));
         canvas.drawLine(
                 wallDraft.start.x,
                 wallDraft.start.y,
@@ -473,15 +476,15 @@ final class CeilingDrawingView extends View {
                 wallPreview);
 
         if (activeGuide != null) {
-            float half = 1000f / Math.max(.45f, scale);
+            float half = 1000f / Math.max(MIN_VIEW_SCALE, scale);
             float nx = -activeGuide.uy;
             float ny = activeGuide.ux;
             Paint guide = new Paint(guidePaint);
-            guide.setStrokeWidth(dp(1.15f) / Math.max(.45f, scale));
+            guide.setStrokeWidth(dp(1.15f) / Math.max(MIN_VIEW_SCALE, scale));
             guide.setPathEffect(new DashPathEffect(
                     new float[]{
-                            dp(6) / Math.max(.45f, scale),
-                            dp(5) / Math.max(.45f, scale)},
+                            dp(6) / Math.max(MIN_VIEW_SCALE, scale),
+                            dp(5) / Math.max(MIN_VIEW_SCALE, scale)},
                     0));
             canvas.drawLine(
                     activeGuide.projected.x - nx * half,
@@ -493,7 +496,7 @@ final class CeilingDrawingView extends View {
     }
 
     private void drawPoints(Canvas canvas) {
-        float radius = dp(4.7f) / Math.max(.45f, scale);
+        float radius = dp(4.7f) / Math.max(MIN_VIEW_SCALE, scale);
         for (NativeProjectStore.PointData point : room.points) {
             boolean diagStart = diagDraft != null && diagDraft.startId.equals(point.id);
             boolean moving = point.id.equals(draggingPointId);
@@ -760,7 +763,7 @@ final class CeilingDrawingView extends View {
                 LabelHit heldLabel = nearestLabel(
                         worldX,
                         worldY,
-                        dp(56f) / Math.max(.45f, scale));
+                        dp(56f) / Math.max(MIN_VIEW_SCALE, scale));
                 if (heldLabel != null) {
                     selectedLabel = heldLabel;
                     pendingLabelGesture = heldLabel;
@@ -1093,7 +1096,7 @@ final class CeilingDrawingView extends View {
             if (guide != null) {
                 float screenDistance = (float) Math.hypot(
                         finish.x - guide.projected.x,
-                        finish.y - guide.projected.y) * Math.max(.45f, scale);
+                        finish.y - guide.projected.y) * Math.max(MIN_VIEW_SCALE, scale);
                 boolean snappedToRedGuide = screenDistance <= dp(26);
                 if (snappedToRedGuide) {
                     finish.set(guide.projected.x, guide.projected.y);
@@ -1180,11 +1183,11 @@ final class CeilingDrawingView extends View {
 
         boolean closed = NativeGeometry.repairOvershotClosedContour(
                 room,
-                dp(28) / Math.max(.45f, scale));
+                dp(28) / Math.max(MIN_VIEW_SCALE, scale));
         if (!closed) {
             closed = NativeGeometry.repairNearlyClosedContour(
                     room,
-                    dp(24) / Math.max(.45f, scale));
+                    dp(24) / Math.max(MIN_VIEW_SCALE, scale));
         }
         if (!closed) closed = NativeGeometry.isClosed(room);
 
@@ -1227,7 +1230,7 @@ final class CeilingDrawingView extends View {
         magnifierKind = null;
         NativeGeometry.repairNearlyClosedContour(
                 room,
-                dp(24) / Math.max(.45f, scale));
+                dp(24) / Math.max(MIN_VIEW_SCALE, scale));
         NativeGeometry.discardFactualGeometrySession(room);
         changed();
     }
@@ -1391,7 +1394,7 @@ final class CeilingDrawingView extends View {
         LabelHit label = nearestLabel(
                 x,
                 y,
-                dp(mode == Mode.LABEL ? 56f : 42f) / Math.max(.45f, scale));
+                dp(mode == Mode.LABEL ? 56f : 42f) / Math.max(MIN_VIEW_SCALE, scale));
         if (label != null) {
             scheduleLongPress(label.kind == LabelKind.EDGE ? "edge" : "diag", label.id);
             return;
@@ -1656,7 +1659,7 @@ final class CeilingDrawingView extends View {
                 best = candidate;
             }
         }
-        return bestDistance <= dp(30) / Math.max(.45f, scale) ? best : null;
+        return bestDistance <= dp(30) / Math.max(MIN_VIEW_SCALE, scale) ? best : null;
     }
 
     private boolean isRightAngle(NativeProjectStore.PointData moving) {
@@ -1937,7 +1940,7 @@ final class CeilingDrawingView extends View {
         float cx = getWidth() / 2f;
         float cy = getHeight() / 2f;
         float old = scale;
-        scale = clamp(scale * factor, .45f, 12f);
+        scale = clamp(scale * factor, MIN_VIEW_SCALE, 12f);
         if (old != 0f) {
             offsetX = cx - (cx - offsetX) * (scale / old);
             offsetY = cy - (cy - offsetY) * (scale / old);
@@ -1973,7 +1976,7 @@ final class CeilingDrawingView extends View {
             // history bar. The full contour is always visible on first entry.
             float usableW = Math.max(dp(140f), getWidth() - dp(120f));
             float usableH = Math.max(dp(180f), getHeight() - dp(170f));
-            scale = clamp(Math.min(usableW / bw, usableH / bh), .45f, 12f);
+            scale = clamp(Math.min(usableW / bw, usableH / bh), MIN_VIEW_SCALE, 12f);
             offsetX = getWidth() / 2f - ((minX + maxX) / 2f) * scale;
             offsetY = getHeight() / 2f - ((minY + maxY) / 2f) * scale;
         }
@@ -2068,7 +2071,7 @@ final class CeilingDrawingView extends View {
         // contour cannot teleport off-screen.
         float ratio = distance / Math.max(dp(8), pinchLastDistance);
         ratio = clamp(ratio, .78f, 1.28f);
-        float next = clamp(scale * ratio, .45f, 12f);
+        float next = clamp(scale * ratio, MIN_VIEW_SCALE, 12f);
 
         float worldX = (pinchLastCentroidX - offsetX) / oldScale;
         float worldY = (pinchLastCentroidY - offsetY) / oldScale;
