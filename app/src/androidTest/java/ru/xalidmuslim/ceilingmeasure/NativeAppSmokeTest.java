@@ -11,6 +11,7 @@ import android.content.pm.ResolveInfo;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.GridLayout;
+import android.widget.FrameLayout;
 import android.view.MotionEvent;
 
 import androidx.test.core.app.ActivityScenario;
@@ -21,6 +22,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 @RunWith(AndroidJUnit4.class)
@@ -355,6 +358,138 @@ public class NativeAppSmokeTest {
                 assertTrue(NativeGeometry.isClosed(room));
             });
         }
+    }
+
+    @Test
+    public void nativePinchZoomUsesTwoFingersAndKeepsCentroidStable() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
+        AtomicReference<float[]> beforeRef = new AtomicReference<>();
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            FrameLayout parent = new FrameLayout(context);
+            CeilingDrawingView view = new CeilingDrawingView(context);
+            parent.addView(view, new FrameLayout.LayoutParams(800, 800));
+            parent.layout(0, 0, 800, 800);
+            view.layout(0, 0, 800, 800);
+
+            NativeProjectStore.RoomData room = measuredSquare(500f);
+            view.setRoom(room);
+            view.fitView();
+
+            float scale = view.getScaleForTest();
+            float worldCx = (400f - view.getPanXForTest()) / scale;
+            float worldCy = (400f - view.getPanYForTest()) / scale;
+            beforeRef.set(new float[]{scale, worldCx, worldCy});
+
+            long now = android.os.SystemClock.uptimeMillis();
+            dispatch(view, now, MotionEvent.ACTION_DOWN, 250f, 400f);
+            dispatchTwo(
+                    view,
+                    now,
+                    now + 20,
+                    MotionEvent.ACTION_POINTER_DOWN
+                            | (1 << MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+                    250f, 400f,
+                    550f, 400f);
+            dispatchTwo(
+                    view,
+                    now,
+                    now + 60,
+                    MotionEvent.ACTION_MOVE,
+                    180f, 400f,
+                    620f, 400f);
+            dispatchTwo(
+                    view,
+                    now,
+                    now + 90,
+                    MotionEvent.ACTION_POINTER_UP
+                            | (1 << MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+                    180f, 400f,
+                    620f, 400f);
+            dispatch(view, now, MotionEvent.ACTION_UP, 180f, 400f);
+            viewRef.set(view);
+        });
+
+        CeilingDrawingView view = viewRef.get();
+        float[] before = beforeRef.get();
+        assertNotNull(view);
+        assertNotNull(before);
+        float afterScale = view.getScaleForTest();
+        assertTrue("pinch must zoom in", afterScale > before[0] * 1.25f);
+
+        float afterWorldCx = (400f - view.getPanXForTest()) / afterScale;
+        float afterWorldCy = (400f - view.getPanYForTest()) / afterScale;
+        assertEquals(before[1], afterWorldCx, 1.5f);
+        assertEquals(before[2], afterWorldCy, 1.5f);
+    }
+
+    @Test
+    public void numbersModeLongPressOnDisplayedNumberOpensMeasurementEdit() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        CountDownLatch edited = new CountDownLatch(1);
+        AtomicReference<String> editedEdge = new AtomicReference<>();
+        AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
+        AtomicReference<float[]> touchRef = new AtomicReference<>();
+        AtomicReference<Long> downRef = new AtomicReference<>();
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            FrameLayout parent = new FrameLayout(context);
+            CeilingDrawingView view = new CeilingDrawingView(context);
+            parent.addView(view, new FrameLayout.LayoutParams(800, 800));
+            parent.layout(0, 0, 800, 800);
+            view.layout(0, 0, 800, 800);
+
+            NativeProjectStore.RoomData room = measuredSquare(500f);
+            view.setRoom(room);
+            view.fitView();
+            view.setMode(CeilingDrawingView.Mode.LABEL);
+            view.setListener(new CeilingDrawingView.Listener() {
+                @Override public void onChanged() {}
+                @Override public void onHistoryCheckpoint() {}
+                @Override public void onVertexLongPressed(String pointId) {}
+                @Override public void onWallLongPressed(String edgeId, float currentValue) {
+                    editedEdge.set(edgeId);
+                    edited.countDown();
+                }
+                @Override public void onWallSequencePick(String edgeId) {}
+                @Override public void onDiagonalCreated(String diagonalId, float currentValue) {}
+                @Override public void onDiagonalLongPressed(String diagonalId, float currentValue) {}
+                @Override public void onContourClosed() {}
+            });
+
+            NativeLabelEngine.Placement placement = null;
+            for (NativeLabelEngine.Placement item : view.labelPlacementsForTest()) {
+                if (item.kind == NativeLabelEngine.Kind.EDGE) {
+                    placement = item;
+                    break;
+                }
+            }
+            assertNotNull(placement);
+
+            float sx = placement.x * view.getScaleForTest() + view.getPanXForTest();
+            float sy = placement.y * view.getScaleForTest() + view.getPanYForTest();
+            long now = android.os.SystemClock.uptimeMillis();
+            touchRef.set(new float[]{sx, sy});
+            downRef.set(now);
+            dispatch(view, now, MotionEvent.ACTION_DOWN, sx, sy);
+            viewRef.set(view);
+        });
+
+        assertTrue("holding a number must trigger measurement edit",
+                edited.await(1200, TimeUnit.MILLISECONDS));
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            float[] p = touchRef.get();
+            dispatch(
+                    viewRef.get(),
+                    downRef.get(),
+                    MotionEvent.ACTION_UP,
+                    p[0],
+                    p[1]);
+        });
+
+        assertNotNull(editedEdge.get());
     }
 
     @Test
@@ -808,6 +943,56 @@ public class NativeAppSmokeTest {
         dispatch(view, downTime, MotionEvent.ACTION_DOWN, x1, y1);
         dispatch(view, downTime + 35, MotionEvent.ACTION_MOVE, x2, y2);
         dispatch(view, downTime + 70, MotionEvent.ACTION_UP, x2, y2);
+    }
+
+    private static void dispatchTwo(
+            CeilingDrawingView view,
+            long downTime,
+            long eventTime,
+            int action,
+            float x0,
+            float y0,
+            float x1,
+            float y1) {
+        MotionEvent.PointerProperties[] properties = {
+                new MotionEvent.PointerProperties(),
+                new MotionEvent.PointerProperties()
+        };
+        properties[0].id = 0;
+        properties[0].toolType = MotionEvent.TOOL_TYPE_FINGER;
+        properties[1].id = 1;
+        properties[1].toolType = MotionEvent.TOOL_TYPE_FINGER;
+
+        MotionEvent.PointerCoords[] coords = {
+                new MotionEvent.PointerCoords(),
+                new MotionEvent.PointerCoords()
+        };
+        coords[0].x = x0;
+        coords[0].y = y0;
+        coords[0].pressure = 1f;
+        coords[0].size = 1f;
+        coords[1].x = x1;
+        coords[1].y = y1;
+        coords[1].pressure = 1f;
+        coords[1].size = 1f;
+
+        MotionEvent event = MotionEvent.obtain(
+                downTime,
+                eventTime,
+                action,
+                2,
+                properties,
+                coords,
+                0,
+                0,
+                1f,
+                1f,
+                0,
+                0,
+                0,
+                0);
+        view.dispatchTouchEvent(event);
+        event.recycle();
     }
 
     private static void dispatch(
