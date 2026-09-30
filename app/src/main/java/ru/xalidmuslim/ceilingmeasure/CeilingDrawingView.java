@@ -78,6 +78,7 @@ final class CeilingDrawingView extends View {
 
     private float downScreenX;
     private float downScreenY;
+    private long oneFingerDownTime;
     private boolean moved;
     private boolean longPressFired;
     private Runnable longPressRunnable;
@@ -701,6 +702,7 @@ final class CeilingDrawingView extends View {
             // matches the web pointer-map contract: the gesture ends only when
             // the last finger is lifted.
             pinchActive = false;
+            clampViewportAfterTransform();
             syncViewToRoom();
             postInvalidateOnAnimation();
             return true;
@@ -715,6 +717,7 @@ final class CeilingDrawingView extends View {
                 getParent().requestDisallowInterceptTouchEvent(true);
                 downScreenX = event.getX();
                 downScreenY = event.getY();
+                oneFingerDownTime = event.getEventTime();
                 moved = false;
                 longPressFired = false;
                 activeGuide = null;
@@ -809,8 +812,11 @@ final class CeilingDrawingView extends View {
                                 || diagDraft != null
                                 || draggingLabel != null
                                 || rotatingLabel != null;
+                boolean pinchAcquisitionWindow =
+                        event.getEventTime() - oneFingerDownTime < 120L;
                 if (NativeGeometry.isClosed(room)
                         && !directManipulation
+                        && !pinchAcquisitionWindow
                         && Math.abs(dyScreen) > dp(12)
                         && Math.abs(dyScreen) >= Math.abs(dxScreen) * .82f) {
                     cancelPendingLongPress();
@@ -2004,6 +2010,7 @@ final class CeilingDrawingView extends View {
             offsetX = cx - (cx - offsetX) * (scale / old);
             offsetY = cy - (cy - offsetY) * (scale / old);
         }
+        clampViewportAfterTransform();
         syncViewToRoom();
         postInvalidateOnAnimation();
         if (listener != null) listener.onChanged();
@@ -2123,17 +2130,29 @@ final class CeilingDrawingView extends View {
 
         float cx = centroidX(event);
         float cy = centroidY(event);
-        float distance = Math.max(pointerSpan(event), 1f);
+        float distance = Math.max(pointerSpan(event), dp(8));
         float oldScale = Math.max(.0001f, scale);
-        float next = clamp(scale * (distance / Math.max(1f, pinchLastDistance)), .45f, 12f);
 
-        // Keep the world point under the previous centroid under the new
-        // centroid. This gives natural simultaneous pan + zoom.
+        // Some devices briefly report a noisy pointer span while the second
+        // finger is landing/lifting. Limit a single-frame zoom jump so the
+        // contour cannot teleport off-screen.
+        float ratio = distance / Math.max(dp(8), pinchLastDistance);
+        ratio = clamp(ratio, .78f, 1.28f);
+        float next = clamp(scale * ratio, .45f, 12f);
+
         float worldX = (pinchLastCentroidX - offsetX) / oldScale;
         float worldY = (pinchLastCentroidY - offsetY) / oldScale;
-        scale = next;
-        offsetX = cx - worldX * scale;
-        offsetY = cy - worldY * scale;
+        float nextOffsetX = cx - worldX * next;
+        float nextOffsetY = cy - worldY * next;
+
+        if (Float.isFinite(next)
+                && Float.isFinite(nextOffsetX)
+                && Float.isFinite(nextOffsetY)) {
+            scale = next;
+            offsetX = nextOffsetX;
+            offsetY = nextOffsetY;
+            clampViewportAfterTransform();
+        }
 
         pinchLastCentroidX = cx;
         pinchLastCentroidY = cy;
@@ -2141,6 +2160,36 @@ final class CeilingDrawingView extends View {
 
         syncViewToRoom();
         postInvalidateOnAnimation();
+    }
+
+    private void clampViewportAfterTransform() {
+        if (room == null || room.points.isEmpty() || getWidth() <= 0 || getHeight() <= 0) {
+            return;
+        }
+
+        float minX = Float.MAX_VALUE;
+        float maxX = -Float.MAX_VALUE;
+        float minY = Float.MAX_VALUE;
+        float maxY = -Float.MAX_VALUE;
+        for (NativeProjectStore.PointData point : room.points) {
+            float sx = point.x * scale + offsetX;
+            float sy = point.y * scale + offsetY;
+            minX = Math.min(minX, sx);
+            maxX = Math.max(maxX, sx);
+            minY = Math.min(minY, sy);
+            maxY = Math.max(maxY, sy);
+        }
+
+        float keepVisible = dp(52);
+        if (maxX < keepVisible) offsetX += keepVisible - maxX;
+        else if (minX > getWidth() - keepVisible) {
+            offsetX -= minX - (getWidth() - keepVisible);
+        }
+
+        if (maxY < keepVisible) offsetY += keepVisible - maxY;
+        else if (minY > getHeight() - keepVisible) {
+            offsetY -= minY - (getHeight() - keepVisible);
+        }
     }
 
     private float pointerSpan(MotionEvent event) {
