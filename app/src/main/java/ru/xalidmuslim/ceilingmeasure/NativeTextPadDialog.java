@@ -141,6 +141,7 @@ final class NativeTextPadDialog extends Dialog {
         actions.addView(done, right);
 
         setContentView(shell);
+        NativeMotion.enterCompact(shell);
 
         Window window = getWindow();
         if (window != null) {
