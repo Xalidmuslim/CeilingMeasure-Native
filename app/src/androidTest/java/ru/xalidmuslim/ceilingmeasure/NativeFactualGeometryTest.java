@@ -169,6 +169,7 @@ public final class NativeFactualGeometryTest {
         NativeGeometry.markDiagonalMeasured(diagonal);
         room.diagonals.add(diagonal);
 
+        Map<String, PointF> sketchBefore = roomPositions(room);
         NativeMeasurementSolver.Result result =
                 NativeMeasurementSolver.solveFactual(room);
         assertTrue(result.ok);
@@ -188,7 +189,10 @@ public final class NativeFactualGeometryTest {
         // Applying the factual solution must preserve the sketch directions.
         // Initial screen fit is now intentionally handled when a room is first
         // opened, so this test no longer requires an old saved zoom/pan.
-        assertSketchDirectionsPreserved(room, roomPositions(room));
+        assertDirectionsPreserved(
+                sketchBefore,
+                room.edges,
+                roomPositions(room));
     }
 
     private static NativeProjectStore.RoomData rectangleRoom() {
@@ -226,9 +230,16 @@ public final class NativeFactualGeometryTest {
     private static void assertSketchDirectionsPreserved(
             NativeProjectStore.RoomData room,
             Map<String, PointF> positions) {
-        for (NativeProjectStore.EdgeData edge : room.edges) {
-            NativeProjectStore.PointData sa = NativeGeometry.pointById(room, edge.a);
-            NativeProjectStore.PointData sb = NativeGeometry.pointById(room, edge.b);
+        assertDirectionsPreserved(roomPositions(room), room.edges, positions);
+    }
+
+    private static void assertDirectionsPreserved(
+            Map<String, PointF> sketch,
+            java.util.List<NativeProjectStore.EdgeData> edges,
+            Map<String, PointF> positions) {
+        for (NativeProjectStore.EdgeData edge : edges) {
+            PointF sa = sketch.get(edge.a);
+            PointF sb = sketch.get(edge.b);
             PointF fa = positions.get(edge.a);
             PointF fb = positions.get(edge.b);
             assertNotNull(sa);
