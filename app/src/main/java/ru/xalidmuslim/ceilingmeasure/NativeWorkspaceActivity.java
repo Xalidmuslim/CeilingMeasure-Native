@@ -147,11 +147,29 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     settingsDialog.dismiss();
                     return;
                 }
-                if (showingSavedMeasurements && savedOpenedFromEditor && workspacePage != null) {
-                    returnToEditorFromSaved();
+                if (showingSavedMeasurements) {
+                    if (savedOpenedFromEditor && workspacePage != null) {
+                        returnToEditorFromSaved();
+                    } else {
+                        goHome();
+                    }
                     return;
                 }
-                goHome();
+                if (drawingView != null
+                        && drawingView.getMode() != CeilingDrawingView.Mode.WALL) {
+                    setMode(CeilingDrawingView.Mode.WALL);
+                    return;
+                }
+
+                // Root editor intentionally stays open. "Домой" is now an
+                // explicit bottom-navigation action, so an Android edge-back
+                // gesture must not unexpectedly throw the measurer out of the
+                // current order and all the way to the main screen.
+                Toast.makeText(
+                        NativeWorkspaceActivity.this,
+                        "Для выхода из замера нажми «Домой»",
+                        Toast.LENGTH_SHORT)
+                        .show();
             }
         });
     }
