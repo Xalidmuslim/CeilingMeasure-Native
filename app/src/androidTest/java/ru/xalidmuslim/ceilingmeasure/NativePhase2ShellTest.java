@@ -388,9 +388,9 @@ public final class NativePhase2ShellTest {
         assertEquals(0xFF2F8FBE, NativeVisualTokens.ACCENT);
         assertEquals(13, NativeVisualTokens.CARD_RADIUS_DP);
         assertEquals(7, NativeVisualTokens.APP_COMPACT_GAP_DP);
-        assertEquals(84, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP);
-        // Raised from audited v184 39dp because larger user typography
-        // clipped "Вперёд / Назад / Ещё" at the bottom of the floating bar.
+        // Four actions (Домой / Вперёд / Назад / Ещё) must fit phone widths
+        // without squeezing labels or overflowing the 303dp floating bar.
+        assertEquals(72, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP);
         assertEquals(46, NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP);
         assertEquals(8, NativeVisualTokens.HISTORY_BOTTOM_DP);
         assertEquals(115L, NativeVisualTokens.OVERLAY_MOTION_MS);
