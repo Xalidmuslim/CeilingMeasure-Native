@@ -75,7 +75,7 @@ final class NativeNumberPadDialog extends Dialog {
         display.setBackground(rounded(BG, LINE, 12, 1));
         LinearLayout.LayoutParams displayParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(58));
+                dp(56));
         displayParams.topMargin = dp(12);
         shell.addView(display, displayParams);
 
@@ -90,7 +90,7 @@ final class NativeNumberPadDialog extends Dialog {
         addRow(keypad, "1", "2", "3");
         addRow(keypad, "4", "5", "6");
         addRow(keypad, "7", "8", "9");
-        // 0 deliberately remains in the middle column, directly below 8.
+        // Phone layout: utility / 0 / backspace on the last row.
         addRow(keypad, ",", "0", "⌫");
 
         LinearLayout actions = new LinearLayout(getContext());
@@ -147,7 +147,7 @@ final class NativeNumberPadDialog extends Dialog {
         row.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(54));
+                dp(60));
         rowParams.topMargin = dp(5);
         parent.addView(row, rowParams);
 
@@ -160,18 +160,18 @@ final class NativeNumberPadDialog extends Dialog {
         Button key = new Button(getContext());
         key.setAllCaps(false);
         key.setText(value);
-        key.setTextSize(value.equals("⌫") ? 20 : 22);
+        key.setTextSize(value.equals("⌫") ? 22 : 24);
         key.setTextColor(TEXT);
         key.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
         key.setGravity(Gravity.CENTER);
         key.setPadding(0, 0, 0, 0);
-        key.setBackground(rounded(BG, LINE, 11, 1));
+        key.setBackground(rounded(BG, LINE, 18, 1));
         key.setTag("native_number_pad_" + keyTag(value));
         key.setOnClickListener(v -> press(value));
 
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(54), 1f);
-        params.leftMargin = dp(3);
-        params.rightMargin = dp(3);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(60), 1f);
+        params.leftMargin = dp(4);
+        params.rightMargin = dp(4);
         row.addView(key, params);
     }
 
