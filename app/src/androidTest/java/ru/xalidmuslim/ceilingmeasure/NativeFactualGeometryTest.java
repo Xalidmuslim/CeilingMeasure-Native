@@ -134,6 +134,31 @@ public final class NativeFactualGeometryTest {
     }
 
     @Test
+    public void repeatedFactualSolveUsesOriginalSketchNotPreviousFactualShape() {
+        NativeProjectStore.RoomData room = rectangleRoom();
+        // Make the field sketch slightly non-rectangular on purpose.
+        room.points.get(2).x = 430f;
+        room.points.get(2).y = 470f;
+        room.points.get(3).x = 95f;
+        room.points.get(3).y = 520f;
+
+        Map<String, PointF> originalSketch = roomPositions(room);
+        assertTrue(NativeGeometry.captureSketchGeometry(room));
+
+        // Simulate an older/bad factual result currently visible in the room.
+        room.points.get(1).y += 70f;
+        room.points.get(2).x += 90f;
+        room.points.get(3).y -= 55f;
+        NativeGeometry.markFactualGeometryDirty(room);
+
+        NativeMeasurementSolver.Result result =
+                NativeMeasurementSolver.solveFactual(room);
+
+        assertTrue(result.ok);
+        assertDirectionsPreserved(originalSketch, room.edges, result.positions);
+    }
+
+    @Test
     public void sketchGeometryCanBeRestoredExactlyAfterFactualShape() {
         NativeProjectStore.RoomData room = rectangleRoom();
         assertTrue(NativeGeometry.captureSketchGeometry(room));
