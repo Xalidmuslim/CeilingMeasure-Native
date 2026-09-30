@@ -69,7 +69,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         content.setTag("native_home_content");
         content.setOrientation(LinearLayout.VERTICAL);
         content.setGravity(Gravity.CENTER_HORIZONTAL);
-        content.setPadding(dp(10), dp(24), dp(10), dp(18));
+        content.setPadding(dp(10), dp(32), dp(10), dp(18));
         scroll.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
