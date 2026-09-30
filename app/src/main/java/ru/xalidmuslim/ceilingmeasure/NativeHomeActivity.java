@@ -38,6 +38,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         uiPrefs = NativeUiPrefs.load(this);
         View content = createContent();
         setContentView(content);
+        NativeMotion.enter(content);
         content.requestApplyInsets();
     }
 
