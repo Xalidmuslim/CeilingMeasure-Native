@@ -108,6 +108,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private boolean wallSequenceMode;
     private String wallEditId;
     private NativeWallMeasureDialog wallDialog;
+    private boolean showingSavedMeasurements;
+    private boolean savedOpenedFromEditor;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService saveExecutor = Executors.newSingleThreadExecutor();
     private final Runnable deferredSave = () -> {
@@ -129,6 +131,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         else project = store.loadCurrent();
 
         if (ACTION_SAVED_MEASUREMENTS.equals(action)) {
+            savedOpenedFromEditor = false;
             showSavedMeasurements();
         } else {
             showEditor(ACTION_DRAWING.equals(action));
@@ -144,10 +147,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     settingsDialog.dismiss();
                     return;
                 }
-                // v184 shell-level Back leaves Workspace for Home without changing
-                // active-order/room persistence semantics.
-                if (nameInput != null && project != null) syncProjectFields();
-                finish();
+                if (showingSavedMeasurements && savedOpenedFromEditor && workspacePage != null) {
+                    returnToEditorFromSaved();
+                    return;
+                }
+                goHome();
             }
         });
     }
@@ -166,6 +170,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void showEditor(boolean jumpToDrawing) {
+        showingSavedMeasurements = false;
+        savedOpenedFromEditor = false;
         undoRooms.clear();
         redoRooms.clear();
 
@@ -571,10 +577,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         bar.addView(actions);
 
         ImageView home=topIconButton(R.drawable.ic_shell_home,"native_top_home","Главная");
-        home.setOnClickListener(v->{
-            syncProjectFieldsDeferred();
-            finish();
-        });
+        home.setOnClickListener(v->goHome());
         actions.addView(home,new LinearLayout.LayoutParams(dp(32),dp(32)));
 
         View saved=topActionButton(
@@ -584,6 +587,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 "native_top_saved");
         saved.setOnClickListener(v->{
             syncProjectFieldsDeferred();
+            savedOpenedFromEditor = true;
             showSavedMeasurements();
         });
         LinearLayout.LayoutParams savedLp=new LinearLayout.LayoutParams(dp(76),dp(48));
@@ -932,11 +936,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_RADIUS_DP),
                 dp(1)));
 
+        View home=historyButton("⌂","Домой","native_nav_home",v->goHome());
         View redo=historyButton("↷","Вперёд","native_nav_redo",v->redoRoom());
         View undo=historyButton("↶","Назад","native_nav_undo",v->undoRoom());
         View more=historyButton("⋯","Еще","native_nav_more",v->openDrawTools());
 
-        nav.addView(redo,historyButtonParams(0));
+        nav.addView(home,historyButtonParams(0));
+        nav.addView(redo,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
         nav.addView(undo,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
         nav.addView(more,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
         return nav;
@@ -1751,7 +1757,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         drawingView.applySolvedGeometry(result.positions);
         NativeGeometry.markFactualGeometry(room);
-        store.saveCurrent(project);
+        drawingView.fitView();
+        scheduleSaveCurrent();
         updateStats();
 
         if(result.maxError>NativeMeasurementSolver.FACTUAL_CONFLICT_TOL){
@@ -1907,7 +1914,36 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         startActivityForResult(intent,REQUEST_EXPORT_CLIENT_PDF);
     }
 
+    private void goHome() {
+        if (project != null) {
+            if (nameInput != null) {
+                if(nameInput!=null)project.name=nameInput.getText().toString().trim();
+                if(phoneInput!=null)project.phone=phoneInput.getText().toString().trim();
+                if(addressInput!=null)project.address=addressInput.getText().toString().trim();
+                if(notesInput!=null)activeRoom().notes=notesInput.getText().toString();
+            }
+            scheduleSaveCurrent();
+        }
+        Intent intent = new Intent(this, NativeHomeActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish();
+    }
+
+    private void returnToEditorFromSaved() {
+        if (workspacePage == null) {
+            goHome();
+            return;
+        }
+        showingSavedMeasurements = false;
+        savedOpenedFromEditor = false;
+        setContentView(workspacePage);
+        workspacePage.requestApplyInsets();
+        NativeMotion.enterCompact(workspacePage);
+    }
+
     private void showSavedMeasurements(){
+        showingSavedMeasurements = true;
         ScrollView scroll=new ScrollView(this);
         scroll.setTag("native_saved_scroll");
         scroll.setFillViewport(true);
