@@ -65,10 +65,10 @@ final class CeilingDrawingView extends View {
     private float offsetY = 0f;
     private boolean multiTouch;
     private boolean pinchActive;
-    private float pinchStartDistance;
-    private float pinchStartScale;
-    private float pinchWorldX;
-    private float pinchWorldY;
+    private float pinchLastDistance;
+    private float pinchLastCentroidX;
+    private float pinchLastCentroidY;
+    private String displayedRoomId;
 
     private boolean pageScrollCandidate;
     private boolean pageScrollActive;
@@ -142,12 +142,27 @@ final class CeilingDrawingView extends View {
     void setRoom(@NonNull NativeProjectStore.RoomData room) {
         cancelPendingLongPress();
         cancelTransientGestures();
+
+        boolean changedRoom = displayedRoomId == null
+                || !displayedRoomId.equals(room.id);
         this.room = room;
+        displayedRoomId = room.id;
         NativeGeometry.sanitize(room);
-        scale = clamp(room.viewScale, .45f, 12f);
-        offsetX = room.panX;
-        offsetY = room.panY;
-        postInvalidateOnAnimation();
+
+        if (changedRoom && !room.points.isEmpty()) {
+            // The first frame for a room must show the complete contour.
+            // Do the fit after layout so getWidth()/getHeight() are real.
+            post(() -> {
+                if (this.room == room && getWidth() > 0 && getHeight() > 0) {
+                    fitViewInternal(false);
+                }
+            });
+        } else {
+            scale = clamp(room.viewScale, .45f, 12f);
+            offsetX = room.panX;
+            offsetY = room.panY;
+            postInvalidateOnAnimation();
+        }
     }
 
     void setMode(@NonNull Mode mode) {
@@ -696,6 +711,7 @@ final class CeilingDrawingView extends View {
         switch (action) {
             case MotionEvent.ACTION_DOWN:
                 if (multiTouch) return true;
+                getParent().requestDisallowInterceptTouchEvent(true);
                 downScreenX = event.getX();
                 downScreenY = event.getY();
                 moved = false;
@@ -715,9 +731,6 @@ final class CeilingDrawingView extends View {
                     // Once the contour is closed, vertical movement is handed
                     // back to the ancestor ScrollView so Android provides the
                     // exact same drag/fling/inertia as the rest of the page.
-                    if (NativeGeometry.isClosed(room)) {
-                        getParent().requestDisallowInterceptTouchEvent(false);
-                    }
                     return beginWallGesture(worldX, worldY);
                 }
 
@@ -725,7 +738,6 @@ final class CeilingDrawingView extends View {
                     NativeProjectStore.PointData point =
                             nearestPoint(worldX, worldY, dp(48) / scale);
                     if (point == null) {
-                        getParent().requestDisallowInterceptTouchEvent(false);
                         return true;
                     }
                     getParent().requestDisallowInterceptTouchEvent(true);
@@ -741,25 +753,14 @@ final class CeilingDrawingView extends View {
                     NativeProjectStore.DiagonalData diagonal =
                             nearestDiagonal(worldX, worldY, dp(20) / scale);
                     if (point == null && diagonal == null) {
-                        getParent().requestDisallowInterceptTouchEvent(false);
                         return true;
                     }
-                    if (point == null && diagonal != null && NativeGeometry.isClosed(room)) {
-                        // Existing diagonal can still be long-pressed, but a
-                        // vertical drag belongs to the page scroll.
-                        getParent().requestDisallowInterceptTouchEvent(false);
-                    } else {
-                        getParent().requestDisallowInterceptTouchEvent(true);
-                    }
+                    getParent().requestDisallowInterceptTouchEvent(true);
                     return beginDiagonalGesture(worldX, worldY);
                 }
 
                 beginLabelGesture(worldX, worldY);
-                if (draggingLabel == null && rotatingLabel == null) {
-                    getParent().requestDisallowInterceptTouchEvent(false);
-                } else {
-                    getParent().requestDisallowInterceptTouchEvent(true);
-                }
+                getParent().requestDisallowInterceptTouchEvent(true);
                 return true;
 
             case MotionEvent.ACTION_MOVE:
@@ -768,9 +769,25 @@ final class CeilingDrawingView extends View {
                 float dxScreen = event.getX() - downScreenX;
                 float dyScreen = event.getY() - downScreenY;
                 float distance = (float) Math.hypot(dxScreen, dyScreen);
-                if (distance > dp(9)) {
+                float moveCancelThreshold = mode == Mode.LABEL ? dp(20) : dp(9);
+                if (distance > moveCancelThreshold) {
                     moved = true;
                     cancelPendingLongPress();
+                }
+
+                boolean directManipulation =
+                        wallDraft != null
+                                || draggingPointId != null
+                                || diagDraft != null
+                                || draggingLabel != null
+                                || rotatingLabel != null;
+                if (NativeGeometry.isClosed(room)
+                        && !directManipulation
+                        && Math.abs(dyScreen) > dp(12)
+                        && Math.abs(dyScreen) >= Math.abs(dxScreen) * .82f) {
+                    cancelPendingLongPress();
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                    return true;
                 }
 
                 if (pageScrollCandidate && !pageScrollActive) {
@@ -900,10 +917,6 @@ final class CeilingDrawingView extends View {
         boolean closed = NativeGeometry.isClosed(room);
 
         if (closed) {
-            // Do not disallow ancestor interception here. A stationary press
-            // still reaches the wall/vertex editor, while a vertical drag is
-            // intercepted by ScrollView and receives native fling physics.
-            getParent().requestDisallowInterceptTouchEvent(false);
             if (nearest != null) {
                 scheduleLongPress("vertex", nearest.id);
                 return true;
@@ -1400,7 +1413,10 @@ final class CeilingDrawingView extends View {
     }
 
     private void scheduleMeasurementLongPressIfHit(float x, float y) {
-        LabelHit label = nearestLabel(x, y, dp(42f) / scale);
+        LabelHit label = nearestLabel(
+                x,
+                y,
+                dp(mode == Mode.LABEL ? 56f : 42f) / Math.max(.45f, scale));
         if (label != null) {
             scheduleLongPress(label.kind == LabelKind.EDGE ? "edge" : "diag", label.id);
             return;
@@ -1957,6 +1973,10 @@ final class CeilingDrawingView extends View {
     }
 
     void fitView() {
+        fitViewInternal(true);
+    }
+
+    private void fitViewInternal(boolean notify) {
         if (room == null || room.points.isEmpty()) {
             scale = 1f;
             offsetX = 0f;
@@ -1972,15 +1992,18 @@ final class CeilingDrawingView extends View {
             }
             float bw = Math.max(1f, maxX - minX);
             float bh = Math.max(1f, maxY - minY);
-            scale = clamp(Math.min(
-                    (getWidth() - dp(90f)) / bw,
-                    (getHeight() - dp(110f)) / bh), .45f, 12f);
+
+            // Reserve visible room for labels, zoom controls and the floating
+            // history bar. The full contour is always visible on first entry.
+            float usableW = Math.max(dp(140f), getWidth() - dp(120f));
+            float usableH = Math.max(dp(180f), getHeight() - dp(170f));
+            scale = clamp(Math.min(usableW / bw, usableH / bh), .45f, 12f);
             offsetX = getWidth() / 2f - ((minX + maxX) / 2f) * scale;
             offsetY = getHeight() / 2f - ((minY + maxY) / 2f) * scale;
         }
         syncViewToRoom();
         postInvalidateOnAnimation();
-        if (listener != null) listener.onChanged();
+        if (notify && listener != null) listener.onChanged();
     }
 
     int getZoomPercent() {
@@ -2049,15 +2072,9 @@ final class CeilingDrawingView extends View {
 
     private void beginPinch(MotionEvent event) {
         if (event.getPointerCount() < 2) return;
-        float cx = (event.getX(0) + event.getX(1)) / 2f;
-        float cy = (event.getY(0) + event.getY(1)) / 2f;
-        float distance = (float) Math.hypot(
-                event.getX(1) - event.getX(0),
-                event.getY(1) - event.getY(0));
-        pinchStartDistance = Math.max(distance, 1f);
-        pinchStartScale = scale;
-        pinchWorldX = (cx - offsetX) / scale;
-        pinchWorldY = (cy - offsetY) / scale;
+        pinchLastCentroidX = centroidX(event);
+        pinchLastCentroidY = centroidY(event);
+        pinchLastDistance = Math.max(pointerSpan(event), 1f);
         pinchActive = true;
         multiTouch = true;
         pageScrollCandidate = false;
@@ -2066,20 +2083,34 @@ final class CeilingDrawingView extends View {
 
     private void applyPinch(MotionEvent event) {
         if (!pinchActive || event.getPointerCount() < 2) return;
-        float cx = (event.getX(0) + event.getX(1)) / 2f;
-        float cy = (event.getY(0) + event.getY(1)) / 2f;
-        float distance = (float) Math.hypot(
-                event.getX(1) - event.getX(0),
-                event.getY(1) - event.getY(0));
-        float next = clamp(
-                pinchStartScale * Math.max(distance, 1f) / pinchStartDistance,
-                .45f,
-                12f);
+
+        float cx = centroidX(event);
+        float cy = centroidY(event);
+        float distance = Math.max(pointerSpan(event), 1f);
+        float oldScale = Math.max(.0001f, scale);
+        float next = clamp(scale * (distance / Math.max(1f, pinchLastDistance)), .45f, 12f);
+
+        // Keep the world point under the previous centroid under the new
+        // centroid. This gives natural simultaneous pan + zoom.
+        float worldX = (pinchLastCentroidX - offsetX) / oldScale;
+        float worldY = (pinchLastCentroidY - offsetY) / oldScale;
         scale = next;
-        offsetX = cx - pinchWorldX * scale;
-        offsetY = cy - pinchWorldY * scale;
+        offsetX = cx - worldX * scale;
+        offsetY = cy - worldY * scale;
+
+        pinchLastCentroidX = cx;
+        pinchLastCentroidY = cy;
+        pinchLastDistance = distance;
+
         syncViewToRoom();
         postInvalidateOnAnimation();
+    }
+
+    private float pointerSpan(MotionEvent event) {
+        if (event.getPointerCount() < 2) return 1f;
+        return (float) Math.hypot(
+                event.getX(1) - event.getX(0),
+                event.getY(1) - event.getY(0));
     }
 
     private void beginPageScrollCandidate(MotionEvent event) {
