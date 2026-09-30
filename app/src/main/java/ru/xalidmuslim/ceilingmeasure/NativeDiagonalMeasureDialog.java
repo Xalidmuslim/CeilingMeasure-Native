@@ -145,6 +145,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         shell.addView(useAuto,uap);
 
         setContentView(shell);
+        NativeMotion.enterCompact(shell);
         Window window=getWindow();
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
