@@ -244,6 +244,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         LinearLayout orderCard = card();
         orderCard.setTag("native_order_card");
+        orderCard.setPadding(dp(7),dp(4),dp(7),dp(5));
         root.addView(orderCard, marginParams(0,4));
 
         LinearLayout contactRow = new LinearLayout(this);
@@ -1259,7 +1260,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         TextView l=text(label,10.5f,MUTED,Typeface.NORMAL);
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin=dp(4);
+        lp.topMargin=dp(2);
         parent.addView(l,lp);
 
         EditText e=new EditText(this);
@@ -1274,7 +1275,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         e.setMinimumHeight(0);
         e.setBackground(rounded(Color.rgb(249,251,252),LINE,10,1));
         parent.addView(e,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(42)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(40)));
         return e;
     }
 
