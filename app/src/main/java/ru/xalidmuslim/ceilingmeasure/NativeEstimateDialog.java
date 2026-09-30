@@ -62,6 +62,7 @@ final class NativeEstimateDialog extends Dialog {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         render();
+        if(content!=null)NativeMotion.enter(content);
 
         Window window=getWindow();
         if(window!=null){
