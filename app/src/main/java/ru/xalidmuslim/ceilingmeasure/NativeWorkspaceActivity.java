@@ -494,7 +494,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         notesInput.setOnFocusChangeListener((v,has)->{
             if(!has){
                 activeRoom().notes=notesInput.getText().toString();
-                store.saveCurrent(project);
+                scheduleSaveCurrent();
             }
         });
         estimateCard.addView(notesInput,new LinearLayout.LayoutParams(
@@ -1822,17 +1822,22 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void openEstimate(NativeEstimateDialog.Mode mode){
-        syncProjectFields();
+        // The tap must open the estimate immediately. Updating the project in
+        // memory is cheap; disk/JSON persistence is deferred to the existing
+        // background save path so the button never waits for storage.
+        if(nameInput!=null)project.name=nameInput.getText().toString().trim();
+        if(phoneInput!=null)project.phone=phoneInput.getText().toString().trim();
+        if(addressInput!=null)project.address=addressInput.getText().toString().trim();
         if(notesInput!=null)activeRoom().notes=notesInput.getText().toString();
-        store.saveCurrent(project);
-        new NativeEstimateDialog(
+
+        NativeEstimateDialog dialog=new NativeEstimateDialog(
                 this,
                 store,
                 project,
                 mode,
                 new NativeEstimateDialog.Listener(){
                     @Override public void onChanged(){
-                        store.saveCurrent(project);
+                        scheduleSaveCurrent();
                         updateStats();
                     }
 
@@ -1840,7 +1845,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                             List<NativeProjectStore.ProjectData> projects){
                         beginClientPdfExport(projects);
                     }
-                }).show();
+                });
+        dialog.show();
+        scheduleSaveCurrent();
     }
 
     private void updateStats(){
