@@ -714,7 +714,9 @@ final class CeilingDrawingView extends View {
             case MotionEvent.ACTION_DOWN:
                 if (multiTouch) return true;
                 boolean closedContour = NativeGeometry.isClosed(room);
-                getParent().requestDisallowInterceptTouchEvent(!closedContour);
+                boolean drawingStarted = !room.edges.isEmpty();
+                getParent().requestDisallowInterceptTouchEvent(
+                        !closedContour && drawingStarted);
                 downScreenX = event.getX();
                 downScreenY = event.getY();
                 moved = false;
@@ -910,6 +912,11 @@ final class CeilingDrawingView extends View {
             return true;
         }
 
+        if (room.edges.isEmpty()) {
+            scheduleFirstWallStartLongPress(x, y);
+            return true;
+        }
+
         getParent().requestDisallowInterceptTouchEvent(true);
 
         if (nearest != null) {
@@ -927,16 +934,6 @@ final class CeilingDrawingView extends View {
         if (edge != null) {
             scheduleLongPress("edge", edge.id);
             return true;
-        }
-
-        if (room.edges.isEmpty()) {
-            PointF start = new PointF(roundGrid(x), roundGrid(y));
-            wallDraft = new WallDraft(
-                    NativeProjectStore.newId("p"),
-                    start,
-                    new PointF(start.x, start.y),
-                    new PointF(downScreenX, downScreenY),
-                    true);
         }
         return true;
     }
@@ -1426,6 +1423,36 @@ final class CeilingDrawingView extends View {
         NativeProjectStore.PointData b = NativeGeometry.pointById(room, diagonal.b);
         if (a == null || b == null) return Float.MAX_VALUE;
         return distancePointToSegment(x, y, a.x, a.y, b.x, b.y);
+    }
+
+    private void scheduleFirstWallStartLongPress(float x, float y) {
+        cancelPendingLongPress();
+        final float startX = roundGrid(x);
+        final float startY = roundGrid(y);
+        longPressRunnable = () -> {
+            if (room == null
+                    || mode != Mode.WALL
+                    || !room.edges.isEmpty()
+                    || NativeGeometry.isClosed(room)) {
+                return;
+            }
+
+            // Once the long press is accepted, the gesture changes from normal
+            // page scrolling to first-wall drawing for the rest of this touch.
+            getParent().requestDisallowInterceptTouchEvent(true);
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            PointF start = new PointF(startX, startY);
+            wallDraft = new WallDraft(
+                    NativeProjectStore.newId("p"),
+                    start,
+                    new PointF(start.x, start.y),
+                    new PointF(downScreenX, downScreenY),
+                    true);
+            magnifierFocus = new PointF(start.x, start.y);
+            magnifierKind = MagnifierKind.WALL;
+            postInvalidateOnAnimation();
+        };
+        handler.postDelayed(longPressRunnable, LONG_PRESS_MS);
     }
 
     private void scheduleLongPress(String kind, String id) {
