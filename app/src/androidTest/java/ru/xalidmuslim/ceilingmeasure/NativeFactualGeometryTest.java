@@ -18,7 +18,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public final class NativeFactualGeometryTest {
     @Test
-    public void factualGeometryPreservesSketchWithoutRequiringMeasuredDiagonal() {
+    public void factualGeometryStretchesWallsWithoutRequiringMeasuredDiagonal() {
         NativeProjectStore.RoomData room = rectangleRoom();
 
         // Deliberately skew the sketch while keeping the same overall room topology.
@@ -40,16 +40,43 @@ public final class NativeFactualGeometryTest {
         assertTrue(autoOnly.ok);
         assertFalse(autoOnly.uniquelySupported);
         assertTrue(autoOnly.message.contains("эскиз"));
-        assertSketchDirectionsPreserved(room, autoOnly.positions);
+        assertWallLengthsMatchEntered(room, autoOnly.positions);
+        assertSameWinding(room, autoOnly.positions);
 
-        // A measured diagonal is checked as a factual residual, but it never
-        // gets permission to rotate walls away from the field sketch.
+        // A measured diagonal may influence the bend of the shape, but wall
+        // dimensions remain the hard factual constraints.
         NativeGeometry.markDiagonalMeasured(diagonal);
         NativeMeasurementSolver.Result measured =
                 NativeMeasurementSolver.solveFactual(room);
         assertTrue(measured.ok);
         assertFalse(measured.uniquelySupported);
-        assertSketchDirectionsPreserved(room, measured.positions);
+        assertWallLengthsMatchEntered(room, measured.positions);
+        assertSameWinding(room, measured.positions);
+    }
+
+    @Test
+    public void unequalOppositeWallsWarpSketchButKeepEveryEnteredLength() {
+        NativeProjectStore.RoomData room = rectangleRoom();
+        room.edges.get(0).value = 300f;
+        room.edges.get(1).value = 255f;
+        room.edges.get(2).value = 455f;
+        room.edges.get(3).value = 125f;
+
+        NativeMeasurementSolver.Result result =
+                NativeMeasurementSolver.solveFactual(room);
+
+        assertTrue(result.ok);
+        assertWallLengthsMatchEntered(room, result.positions);
+        assertEquals(455d / 300d,
+                distance(result.positions, "p2", "p3")
+                        / distance(result.positions, "p0", "p1"),
+                .002d);
+        assertEquals(255d / 125d,
+                distance(result.positions, "p1", "p2")
+                        / distance(result.positions, "p3", "p0"),
+                .002d);
+        assertAnyAngleBent(result.positions, new String[]{"p0","p1","p2","p3"});
+        assertSameWinding(room, result.positions);
     }
 
     @Test
@@ -89,13 +116,8 @@ public final class NativeFactualGeometryTest {
                 NativeMeasurementSolver.solveFactual(room);
 
         assertTrue(result.ok);
-        assertTrue(result.maxError > NativeMeasurementSolver.FACTUAL_CONFLICT_TOL);
-        assertTrue(result.message.contains("Замеры конфликтуют"));
-
-        assertNearRightAngle(result.positions, "p0", "p1", "p2");
-        assertNearRightAngle(result.positions, "p1", "p2", "p3");
-        assertNearRightAngle(result.positions, "p2", "p3", "p0");
-        assertNearRightAngle(result.positions, "p3", "p0", "p1");
+        assertWallLengthsMatchEntered(room, result.positions);
+        assertAnyAngleBent(result.positions, new String[]{"p0","p1","p2","p3"});
     }
 
     @Test
@@ -119,18 +141,10 @@ public final class NativeFactualGeometryTest {
                 NativeMeasurementSolver.solveFactual(room);
 
         assertTrue(result.ok);
-        assertTrue(result.maxError > NativeMeasurementSolver.FACTUAL_CONFLICT_TOL);
+        assertWallLengthsMatchEntered(room, result.positions);
 
         double tiny = distance(result.positions, "p1", "p2");
-        assertTrue("2-unit return must not collapse", tiny > 1.8d);
-        assertTrue("2-unit return must stay close to sketch size", tiny < 2.2d);
-
-        assertNearRightAngle(result.positions, "p0", "p1", "p2");
-        assertNearRightAngle(result.positions, "p1", "p2", "p3");
-        assertNearRightAngle(result.positions, "p2", "p3", "p4");
-        assertNearRightAngle(result.positions, "p3", "p4", "p5");
-        assertNearRightAngle(result.positions, "p4", "p5", "p0");
-        assertNearRightAngle(result.positions, "p5", "p0", "p1");
+        assertEquals("2-unit return must stay exactly measured", 2d, tiny, .03d);
     }
 
     @Test
@@ -142,7 +156,9 @@ public final class NativeFactualGeometryTest {
         room.points.get(3).x = 95f;
         room.points.get(3).y = 520f;
 
-        Map<String, PointF> originalSketch = roomPositions(room);
+        NativeMeasurementSolver.Result baseline =
+                NativeMeasurementSolver.solveFactual(room);
+        assertTrue(baseline.ok);
         assertTrue(NativeGeometry.captureSketchGeometry(room));
 
         // Simulate an older/bad factual result currently visible in the room.
@@ -155,7 +171,8 @@ public final class NativeFactualGeometryTest {
                 NativeMeasurementSolver.solveFactual(room);
 
         assertTrue(result.ok);
-        assertDirectionsPreserved(originalSketch, room.edges, result.positions);
+        assertWallLengthsMatchEntered(room, result.positions);
+        assertPositionsNear(baseline.positions, result.positions, .04f);
     }
 
     @Test
@@ -211,13 +228,9 @@ public final class NativeFactualGeometryTest {
         CeilingDrawingView view = ref.get();
         assertNotNull(view);
 
-        // Applying the factual solution must preserve the sketch directions.
-        // Initial screen fit is now intentionally handled when a room is first
-        // opened, so this test no longer requires an old saved zoom/pan.
-        assertDirectionsPreserved(
-                sketchBefore,
-                room.edges,
-                roomPositions(room));
+        // The drawing may bend, but its displayed segment lengths must be a
+        // single uniform visual scale of the entered wall dimensions.
+        assertUniformVisualScaleToMeasurements(room, roomPositions(room));
     }
 
     private static NativeProjectStore.RoomData rectangleRoom() {
@@ -250,6 +263,94 @@ public final class NativeFactualGeometryTest {
             out.put(point.id, new PointF(point.x, point.y));
         }
         return out;
+    }
+
+    private static void assertWallLengthsMatchEntered(
+            NativeProjectStore.RoomData room,
+            Map<String, PointF> positions) {
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            assertEquals(
+                    "displayed wall must follow entered measurement",
+                    edge.value,
+                    distance(positions, edge.a, edge.b),
+                    .06d);
+        }
+    }
+
+    private static void assertSameWinding(
+            NativeProjectStore.RoomData room,
+            Map<String, PointF> positions) {
+        java.util.List<String> order = NativeGeometry.cycleOrder(room);
+        assertNotNull(order);
+        double sketchArea = 0d;
+        double solvedArea = 0d;
+        for (int i = 0; i < order.size(); i++) {
+            NativeProjectStore.PointData sa =
+                    NativeGeometry.pointById(room, order.get(i));
+            NativeProjectStore.PointData sb =
+                    NativeGeometry.pointById(room, order.get((i + 1) % order.size()));
+            PointF fa = positions.get(order.get(i));
+            PointF fb = positions.get(order.get((i + 1) % order.size()));
+            assertNotNull(sa);
+            assertNotNull(sb);
+            assertNotNull(fa);
+            assertNotNull(fb);
+            sketchArea += (double) sa.x * sb.y - (double) sb.x * sa.y;
+            solvedArea += (double) fa.x * fb.y - (double) fb.x * fa.y;
+        }
+        assertTrue("factual geometry must keep sketch winding",
+                Math.signum(sketchArea) == Math.signum(solvedArea));
+    }
+
+    private static void assertAnyAngleBent(
+            Map<String, PointF> positions,
+            String[] order) {
+        boolean bent = false;
+        for (int i = 0; i < order.length; i++) {
+            PointF prev = positions.get(order[(i - 1 + order.length) % order.length]);
+            PointF vertex = positions.get(order[i]);
+            PointF next = positions.get(order[(i + 1) % order.length]);
+            assertNotNull(prev);
+            assertNotNull(vertex);
+            assertNotNull(next);
+            double ax = prev.x - vertex.x;
+            double ay = prev.y - vertex.y;
+            double bx = next.x - vertex.x;
+            double by = next.y - vertex.y;
+            double cosine = Math.abs(
+                    (ax * bx + ay * by)
+                            / (Math.hypot(ax, ay) * Math.hypot(bx, by)));
+            if (cosine > .05d) {
+                bent = true;
+                break;
+            }
+        }
+        assertTrue("incompatible opposite wall sizes must bend the sketch", bent);
+    }
+
+    private static void assertPositionsNear(
+            Map<String, PointF> expected,
+            Map<String, PointF> actual,
+            float tolerance) {
+        assertEquals(expected.size(), actual.size());
+        for (Map.Entry<String, PointF> entry : expected.entrySet()) {
+            PointF other = actual.get(entry.getKey());
+            assertNotNull(other);
+            assertEquals(entry.getValue().x, other.x, tolerance);
+            assertEquals(entry.getValue().y, other.y, tolerance);
+        }
+    }
+
+    private static void assertUniformVisualScaleToMeasurements(
+            NativeProjectStore.RoomData room,
+            Map<String, PointF> positions) {
+        double scale = -1d;
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            double visual = distance(positions, edge.a, edge.b);
+            double current = visual / edge.value;
+            if (scale < 0d) scale = current;
+            else assertEquals(scale, current, .003d);
+        }
     }
 
     private static void assertSketchDirectionsPreserved(
