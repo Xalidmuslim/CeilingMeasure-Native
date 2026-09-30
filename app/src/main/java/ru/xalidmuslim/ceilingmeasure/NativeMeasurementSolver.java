@@ -335,6 +335,7 @@ final class NativeMeasurementSolver {
         float[] ux = new float[n];
         float[] uy = new float[n];
         float[] target = new float[n];
+        float[] sketchLength = new float[n];
         float[] adjusted = new float[n];
         double[] flexibility = new double[n];
 
@@ -374,6 +375,7 @@ final class NativeMeasurementSolver {
             ux[i] = dx / drawn;
             uy[i] = dy / drawn;
             target[i] = edge.value;
+            sketchLength[i] = drawn;
 
             // Long walls absorb most closure mismatch; tiny returns keep their
             // measured size instead of collapsing or creating a micro-kink.
@@ -398,19 +400,30 @@ final class NativeMeasurementSolver {
         double lambdaY = (-mxy * closureX + mxx * closureY) / det;
 
         boolean redistributed = false;
+        boolean fallbackToSketchProportions = false;
         for (int i = 0; i < n; i++) {
             double correction = flexibility[i]
                     * (ux[i] * lambdaX + uy[i] * lambdaY);
             adjusted[i] = (float) (target[i] - correction);
             if (adjusted[i] <= .25f) {
-                // Do not create a zero/negative short wall. In a severely
-                // inconsistent measurement set the sketch itself remains the
-                // safer representation.
-                return Result.fail(
-                        "Замеры слишком сильно конфликтуют: одна из стен "
-                                + "схлопывается при замыкании контура.");
+                fallbackToSketchProportions = true;
             }
             if (Math.abs(adjusted[i] - target[i]) > .01f) redistributed = true;
+        }
+
+        if (fallbackToSketchProportions) {
+            ArrayList<Float> ratios = new ArrayList<>();
+            for (int i = 0; i < n; i++) {
+                if (sketchLength[i] > 1e-6f) {
+                    ratios.add(target[i] / sketchLength[i]);
+                }
+            }
+            float fallbackScale = median(ratios);
+            if (!(fallbackScale > 0f)) fallbackScale = 1f;
+            for (int i = 0; i < n; i++) {
+                adjusted[i] = Math.max(.25f, sketchLength[i] * fallbackScale);
+            }
+            redistributed = true;
         }
 
         Map<String, PointF> positions = new HashMap<>();
@@ -428,9 +441,13 @@ final class NativeMeasurementSolver {
         String message = maxError > FACTUAL_CONFLICT_TOL
                 ? String.format(
                         Locale.getDefault(),
-                        "Фактическая геометрия построена строго по форме эскиза. "
-                                + "Расхождение замеров до %.2f м распределено по "
-                                + "длинам стен без изменения углов.",
+                        fallbackToSketchProportions
+                                ? "Фактическая геометрия построена строго по форме "
+                                        + "эскиза. Замеры сильно конфликтуют: невязка "
+                                        + "до %.2f м. Пропорции и углы эскиза сохранены."
+                                : "Фактическая геометрия построена строго по форме "
+                                        + "эскиза. Расхождение замеров до %.2f м "
+                                        + "распределено по длинам стен без изменения углов.",
                         maxError / 100f)
                 : String.format(
                         Locale.getDefault(),
