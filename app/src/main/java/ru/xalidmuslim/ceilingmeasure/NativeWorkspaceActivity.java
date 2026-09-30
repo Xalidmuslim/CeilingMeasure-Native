@@ -116,9 +116,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private boolean editorOpenedFromSavedMeasurements;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService saveExecutor = Executors.newSingleThreadExecutor();
+    private NativeProjectStore.ProjectData pendingSaveProject;
     private final Runnable deferredSave = () -> {
         final NativeProjectStore storeNow = store;
-        final NativeProjectStore.ProjectData projectNow = project;
+        final NativeProjectStore.ProjectData projectNow = pendingSaveProject;
+        pendingSaveProject = null;
         if (storeNow == null || projectNow == null) return;
         saveExecutor.execute(() -> storeNow.saveCurrent(projectNow));
     };
@@ -640,8 +642,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 .setMessage("Текущий замер сохранён автоматически.")
                 .setNegativeButton("Отмена",null)
                 .setPositiveButton("Создать",(d,w)->{
-                    syncProjectFields();
-                    store.saveCurrent(project);
+                    if(nameInput!=null)project.name=nameInput.getText().toString().trim();
+                    if(phoneInput!=null)project.phone=phoneInput.getText().toString().trim();
+                    if(addressInput!=null)project.address=addressInput.getText().toString().trim();
+                    if(notesInput!=null)activeRoom().notes=notesInput.getText().toString();
+                    NativeProjectStore.ProjectData previous=project;
+                    saveProjectAsync(previous);
                     project=store.newProject();
                     showEditor(false);
                 }).show());
@@ -1324,13 +1330,22 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void scheduleSaveCurrent() {
+        pendingSaveProject = project;
         uiHandler.removeCallbacks(deferredSave);
         uiHandler.postDelayed(deferredSave, 180L);
     }
 
+    private void saveProjectAsync(NativeProjectStore.ProjectData target) {
+        if (target == null || store == null) return;
+        saveExecutor.execute(() -> store.saveCurrent(target));
+    }
+
     private void flushDeferredSave() {
         uiHandler.removeCallbacks(deferredSave);
-        if (store != null && project != null) store.saveCurrent(project);
+        NativeProjectStore.ProjectData target =
+                pendingSaveProject != null ? pendingSaveProject : project;
+        pendingSaveProject = null;
+        if (store != null && target != null) store.saveCurrent(target);
     }
 
     private void syncProjectFieldsDeferred() {
@@ -2053,7 +2068,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout content=new LinearLayout(this);
         content.setTag("native_saved_panel");
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(12),dp(10),dp(12),dp(24));
+        content.setPadding(dp(8),dp(7),dp(8),dp(16));
         scroll.addView(content,new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -2070,13 +2085,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         search.setBackground(rounded(Color.WHITE,LINE,11,1));
         search.setPadding(dp(12),0,dp(12),0);
         content.addView(search,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(44)));
 
         LinearLayout filters=new LinearLayout(this);
         filters.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(54));
-        fp.topMargin=dp(8);
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(46));
+        fp.topMargin=dp(5);
         content.addView(filters,fp);
 
         Button recent=button("Последние",true);
@@ -2089,8 +2104,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout backup=new LinearLayout(this);
         backup.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(54));
-        bp.topMargin=dp(8);
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(46));
+        bp.topMargin=dp(5);
         content.addView(backup,bp);
 
         Button export=button("Экспорт всех замеров",false);
@@ -2117,7 +2132,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout list=new LinearLayout(this);
         list.setTag("native_saved_list");
         list.setOrientation(LinearLayout.VERTICAL);
-        content.addView(list,marginParams(0,8));
+        content.addView(list,marginParams(0,5));
 
         final boolean[] recentMode={true};
         Runnable render=()->renderSavedList(list,search.getText().toString(),recentMode[0]);
@@ -2143,6 +2158,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         render.run();
         setContentView(scroll);
+        NativeMotion.enterCompact(scroll);
         NativeShellInsets.bindHome(scroll,scroll);
     }
 
@@ -2192,21 +2208,21 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             row.setClickable(true);
             row.setOnClickListener(v->{
                 project=p;
-                store.saveCurrent(project);
                 showEditor(false);
                 editorOpenedFromSavedMeasurements = true;
+                saveProjectAsync(p);
             });
             row.setOnLongClickListener(v->{
                 showSavedAction(p);
                 return true;
             });
 
-            row.setPadding(dp(10),dp(10),dp(10),dp(11));
-            row.setMinimumHeight(dp(92));
+            row.setPadding(dp(9),dp(7),dp(9),dp(7));
+            row.setMinimumHeight(dp(76));
 
             TextView title=text(
                     p.name==null||p.name.trim().isEmpty()?"Без имени":p.name.trim(),
-                    15,TEXT,Typeface.BOLD);
+                    14,TEXT,Typeface.BOLD);
             title.setSingleLine(true);
             title.setMinWidth(0);
             title.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -2221,7 +2237,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             addressLine.setSingleLine(true);
             addressLine.setMinWidth(0);
             addressLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            row.addView(addressLine,marginParams(0,4));
+            row.addView(addressLine,marginParams(0,2));
 
             long when=p.savedAt>0?p.savedAt:p.updatedAt;
             TextView completed=text(
@@ -2229,9 +2245,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     10.5f,MUTED,Typeface.NORMAL);
             completed.setSingleLine(true);
             completed.setMinWidth(0);
-            row.addView(completed,marginParams(0,3));
+            row.addView(completed,marginParams(0,2));
 
-            list.addView(row,marginParams(0,7));
+            list.addView(row,marginParams(0,4));
         }
     }
 
