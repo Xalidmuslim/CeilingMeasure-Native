@@ -90,30 +90,14 @@ final class NativeWallMeasureDialog extends Dialog {
                 false);
         shell.addView(sub);
 
-        LinearLayout valueRow=new LinearLayout(getContext());
-        valueRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams vrp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(43));
-        vrp.topMargin=dp(6);
-        shell.addView(valueRow,vrp);
-
-        display=text(buffer,24,TEXT,true);
+        display=text(buffer,26,TEXT,true);
         display.setGravity(Gravity.CENTER);
         display.setTag("native_wall_value");
-        display.setBackground(rounded(Color.rgb(250,252,253),LINE,11,1));
-        LinearLayout.LayoutParams dpv=new LinearLayout.LayoutParams(0,dp(43),1f);
-        dpv.rightMargin=dp(6);
-        valueRow.addView(display,dpv);
-
-        Button decimal=button(",",false);
-        decimal.setTag("native_wall_decimal");
-        decimal.setTextSize(24);
-        decimal.setOnClickListener(v->{
-            if(buffer.contains(",")||buffer.contains("."))return;
-            buffer=("0".equals(buffer)||buffer.isEmpty())?"0,":buffer+",";
-            refresh();
-        });
-        valueRow.addView(decimal,new LinearLayout.LayoutParams(dp(52),dp(43)));
+        display.setBackground(rounded(Color.rgb(250,252,253),LINE,14,1));
+        LinearLayout.LayoutParams dpv=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(52));
+        dpv.topMargin=dp(7);
+        shell.addView(display,dpv);
 
         meterHint=text("",10,MUTED,false);
         meterHint.setTag("native_wall_meter_hint");
@@ -125,14 +109,14 @@ final class NativeWallMeasureDialog extends Dialog {
 
         GridLayout keypad=new GridLayout(getContext());
         keypad.setTag("native_wall_keypad");
-        keypad.setColumnCount(4);
+        keypad.setColumnCount(3);
         LinearLayout.LayoutParams kp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         kp.topMargin=dp(5);
         shell.addView(keypad,kp);
 
-        String[] keys={"1","2","3","4","5","6","7","8","9","Очистить","0","⌫"};
+        String[] keys={"1","2","3","4","5","6","7","8","9",",","0","⌫"};
         for(String key:keys)addKey(keypad,key);
 
         Button delete=button("Удалить стену",false);
@@ -219,22 +203,26 @@ final class NativeWallMeasureDialog extends Dialog {
 
     private void addKey(GridLayout grid,String key){
         Button b=button(key,false);
-        b.setTextSize("Очистить".equals(key)?10:17);
+        b.setTextSize("⌫".equals(key)?22:24);
         b.setTag("native_wall_key_"+key);
+        b.setPadding(0,0,0,0);
+        b.setBackground(rounded(Color.rgb(248,250,252),LINE,18,1));
         b.setOnClickListener(v->press(key));
         GridLayout.LayoutParams p=new GridLayout.LayoutParams();
         p.width=0;
-        p.height=dp(39);
+        p.height=dp(58);
         p.columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f);
-        p.setMargins(dp(2),dp(2),dp(2),dp(2));
+        p.setMargins(dp(4),dp(4),dp(4),dp(4));
         grid.addView(b,p);
     }
 
     private void press(String key){
-        if("Очистить".equals(key)){
-            buffer="0";
-        }else if("⌫".equals(key)){
+        if("⌫".equals(key)){
             buffer=buffer.length()<=1?"0":buffer.substring(0,buffer.length()-1);
+        }else if(",".equals(key)){
+            if(!buffer.contains(",")&&!buffer.contains(".")){
+                buffer=("0".equals(buffer)||buffer.isEmpty())?"0,":buffer+",";
+            }
         }else if(key.matches("\\d")){
             if("0".equals(buffer))buffer="";
             if(buffer.length()<7)buffer+=key;
