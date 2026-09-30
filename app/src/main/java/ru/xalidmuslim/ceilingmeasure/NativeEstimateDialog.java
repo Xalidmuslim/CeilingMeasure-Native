@@ -83,7 +83,7 @@ final class NativeEstimateDialog extends Dialog {
 
         content=new LinearLayout(getContext());
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(12),dp(14),dp(12),dp(28));
+        content.setPadding(dp(8),dp(10),dp(8),dp(16));
         scroll.addView(content,new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -99,11 +99,11 @@ final class NativeEstimateDialog extends Dialog {
                         ?"Цены продажи по помещениям"
                         :"Площадь, периметр и полный закупочный расчёт",
                 10,MUTED,false));
-        head.addView(titleBox,new LinearLayout.LayoutParams(0,dp(52),1f));
+        head.addView(titleBox,new LinearLayout.LayoutParams(0,dp(40),1f));
         Button close=button("Закрыть",false);
         close.setTag("native_estimate_close");
         close.setOnClickListener(v->dismiss());
-        head.addView(close,new LinearLayout.LayoutParams(dp(88),dp(42)));
+        head.addView(close,new LinearLayout.LayoutParams(dp(82),dp(34)));
         content.addView(head);
 
         List<NativeProjectStore.ProjectData> projects=estimateProjects();
@@ -119,8 +119,8 @@ final class NativeEstimateDialog extends Dialog {
                     false);
             merge.setTag("native_merge_orders");
             merge.setOnClickListener(v->openMergeOrders());
-            toolbar.addView(prices,new LinearLayout.LayoutParams(0,dp(44),1f));
-            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(0,dp(44),1f);
+            toolbar.addView(prices,new LinearLayout.LayoutParams(0,dp(40),1f));
+            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(0,dp(40),1f);
             mp.leftMargin=dp(6);
             toolbar.addView(merge,mp);
         }else{
@@ -128,9 +128,9 @@ final class NativeEstimateDialog extends Dialog {
             prices.setTag("native_purchase_price_preset");
             prices.setOnClickListener(v->openPricePreset(false,projects));
             toolbar.addView(prices,new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,dp(44)));
+                    ViewGroup.LayoutParams.MATCH_PARENT,dp(40)));
         }
-        content.addView(toolbar,top(6));
+        content.addView(toolbar,top(4));
 
         NativeEstimateEngine.ProjectCost total=combinedCost(projects);
         int rooms=0;
@@ -146,7 +146,7 @@ final class NativeEstimateDialog extends Dialog {
                 rooms+" помещ. · "+qty(total.areaM2)+" м² · "+qty(total.perimeterM)+" м",
                 11,MUTED,false),
                 top(3));
-        content.addView(summary,top(8));
+        content.addView(summary,top(5));
 
         boolean multi=mode==Mode.CLIENT&&projects.size()>1;
         for(NativeProjectStore.ProjectData owner:projects){
@@ -165,14 +165,14 @@ final class NativeEstimateDialog extends Dialog {
             pdf.setTag("native_client_pdf");
             pdf.setOnClickListener(v->listener.onClientPdfRequested(
                     new ArrayList<>(estimateProjects())));
-            bottom.addView(add,new LinearLayout.LayoutParams(0,dp(46),1f));
-            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(46),1f);
+            bottom.addView(add,new LinearLayout.LayoutParams(0,dp(40),1f));
+            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(40),1f);
             pp.leftMargin=dp(6);
             bottom.addView(pdf,pp);
-            content.addView(bottom,top(10));
+            content.addView(bottom,top(6));
             content.addView(text(
                     "PDF формируется прямо на устройстве и сохраняется готовым файлом. Интернет и окно печати не нужны.",
-                    10,MUTED,false),top(7));
+                    9.5f,MUTED,false),top(4));
         }
 
         setContentView(scroll);
@@ -188,7 +188,7 @@ final class NativeEstimateDialog extends Dialog {
 
         LinearLayout card=card();
         card.setTag((mode==Mode.CLIENT?"native_client_room_":"native_internal_room_")+room.id);
-        content.addView(card,top(8));
+        content.addView(card,top(5));
 
         LinearLayout head=new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
@@ -204,7 +204,7 @@ final class NativeEstimateDialog extends Dialog {
                         +" · "
                         +(cost.metrics.perimeterM>0?qty(cost.metrics.perimeterM)+" м":"Периметр —"),
                 10,MUTED,false));
-        head.addView(left,new LinearLayout.LayoutParams(0,dp(45),1f));
+        head.addView(left,new LinearLayout.LayoutParams(0,dp(34),1f));
         head.addView(text(money(cost.total)+" ₽",14,TEXT,true));
         card.addView(head);
 
@@ -215,7 +215,7 @@ final class NativeEstimateDialog extends Dialog {
             add.setTag("native_internal_add_material_"+room.id);
             add.setOnClickListener(v->openAdhocMaterial(owner,room,false));
             card.addView(add,new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,dp(42)));
+                    ViewGroup.LayoutParams.MATCH_PARENT,dp(38)));
         }
 
         TextView state=text(
@@ -223,10 +223,10 @@ final class NativeEstimateDialog extends Dialog {
                 10,
                 cost.complete?Color.rgb(58,132,94):MUTED,
                 false);
-        card.addView(state,top(6));
+        card.addView(state,top(3));
 
         if(room.notes!=null&&!room.notes.trim().isEmpty()){
-            card.addView(text("Примечание: "+room.notes.trim(),10,MUTED,false),top(5));
+            card.addView(text("Примечание: "+room.notes.trim(),10,MUTED,false),top(3));
         }
     }
 
@@ -238,8 +238,8 @@ final class NativeEstimateDialog extends Dialog {
         LinearLayout row=new LinearLayout(getContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0,dp(5),0,dp(5));
-        row.setMinimumHeight(dp(48));
+        row.setPadding(0,dp(2),0,dp(2));
+        row.setMinimumHeight(dp(40));
 
         LinearLayout nameBox=new LinearLayout(getContext());
         nameBox.setOrientation(LinearLayout.VERTICAL);
@@ -267,7 +267,7 @@ final class NativeEstimateDialog extends Dialog {
         if(qtyButton.isEnabled()){
             qtyButton.setOnClickListener(v->editQty(owner,room,line));
         }
-        LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(0,dp(38),.72f);
+        LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(0,dp(34),.72f);
         qp.leftMargin=dp(3);
         row.addView(qtyButton,qp);
 
@@ -280,7 +280,7 @@ final class NativeEstimateDialog extends Dialog {
                 8,11,1,TypedValue.COMPLEX_UNIT_SP);
         price.setTag("native_estimate_price_"+line.key+"_"+room.id);
         price.setOnClickListener(v->editPrice(owner,room,line));
-        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(38),.82f);
+        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(34),.82f);
         pp.leftMargin=dp(3);
         row.addView(price,pp);
 
@@ -290,7 +290,7 @@ final class NativeEstimateDialog extends Dialog {
         sum.setMinWidth(0);
         sum.setAutoSizeTextTypeUniformWithConfiguration(
                 8,11,1,TypedValue.COMPLEX_UNIT_SP);
-        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(38),.90f);
+        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(34),.90f);
         sp.leftMargin=dp(3);
         row.addView(sum,sp);
 
@@ -300,7 +300,7 @@ final class NativeEstimateDialog extends Dialog {
             remove.setMinWidth(0);
             remove.setMinimumWidth(0);
             remove.setOnClickListener(v->removeLine(owner,room,line));
-            LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,dp(38),.34f);
+            LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,dp(34),.34f);
             rp.leftMargin=dp(2);
             row.addView(remove,rp);
         }
@@ -634,8 +634,8 @@ final class NativeEstimateDialog extends Dialog {
     private LinearLayout card(){
         LinearLayout c=new LinearLayout(getContext());
         c.setOrientation(LinearLayout.VERTICAL);
-        c.setPadding(dp(12),dp(10),dp(12),dp(10));
-        c.setBackground(rounded(Color.WHITE,LINE,14,1));
+        c.setPadding(dp(9),dp(7),dp(9),dp(7));
+        c.setBackground(rounded(Color.WHITE,LINE,12,1));
         return c;
     }
 
@@ -643,12 +643,14 @@ final class NativeEstimateDialog extends Dialog {
         Button b=new Button(getContext());
         b.setAllCaps(false);
         b.setText(value);
-        b.setTextSize(12);
+        b.setTextSize(11.5f);
         b.setTextColor(primary?Color.WHITE:TEXT);
         b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
         b.setGravity(Gravity.CENTER);
         b.setMinWidth(0);
         b.setMinimumWidth(0);
+        b.setMinHeight(0);
+        b.setMinimumHeight(0);
         b.setPadding(dp(4),0,dp(4),0);
         b.setBackground(rounded(primary?BLUE:Color.WHITE,primary?BLUE:LINE,10,1));
         return b;
