@@ -447,7 +447,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         internalEstimate.setTag("native_open_internal_estimate");
         internalEstimate.setOnClickListener(v->openEstimate(NativeEstimateDialog.Mode.INTERNAL));
         LinearLayout.LayoutParams internalParams=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(44));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(46));
         internalParams.topMargin=dp(6);
         estimateCard.addView(internalEstimate,internalParams);
 
@@ -681,8 +681,16 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(48),dp(44));
         bar.addView(back,bp);
 
-        TextView t=text(title,20,TEXT,Typeface.BOLD);
-        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
+        TextView t=text(title,18,TEXT,Typeface.BOLD);
+        t.setSingleLine(true);
+        t.setMinWidth(0);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        t.setAutoSizeTextTypeUniformWithConfiguration(
+                14,18,1,TypedValue.COMPLEX_UNIT_SP);
+        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f);
         tp.leftMargin=dp(8);
         bar.addView(t,tp);
         return bar;
@@ -1875,7 +1883,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout filters=new LinearLayout(this);
         filters.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(42));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(44));
         fp.topMargin=dp(8);
         content.addView(filters,fp);
 
@@ -1895,11 +1903,19 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         Button export=button("Экспорт всех замеров",false);
         export.setTag("native_backup_export");
-        export.setTextSize(uiPrefs.textSize(10));
+        export.setSingleLine(true);
+        export.setMinWidth(0);
+        export.setMinimumWidth(0);
+        export.setAutoSizeTextTypeUniformWithConfiguration(
+                8,10,1,TypedValue.COMPLEX_UNIT_SP);
         export.setOnClickListener(v->beginBackupExport());
         Button restore=button("Восстановить из файла",false);
         restore.setTag("native_backup_import");
-        restore.setTextSize(uiPrefs.textSize(10));
+        restore.setSingleLine(true);
+        restore.setMinWidth(0);
+        restore.setMinimumWidth(0);
+        restore.setAutoSizeTextTypeUniformWithConfiguration(
+                8,10,1,TypedValue.COMPLEX_UNIT_SP);
         restore.setOnClickListener(v->beginBackupImport());
         backup.addView(export,weightParams());
         backup.addView(restore,weightParams());
@@ -1990,24 +2006,35 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 return true;
             });
 
+            row.setPadding(dp(10),dp(10),dp(10),dp(11));
+            row.setMinimumHeight(dp(92));
+
             TextView title=text(
                     p.name==null||p.name.trim().isEmpty()?"Без имени":p.name.trim(),
                     15,TEXT,Typeface.BOLD);
+            title.setSingleLine(true);
+            title.setMinWidth(0);
+            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
             row.addView(title);
 
             String address=p.address==null||p.address.trim().isEmpty()
                     ?"Адрес не указан"
                     :p.address.trim();
-            row.addView(text(
+            TextView addressLine=text(
                     address+" · комнат: "+p.rooms.size(),
-                    11,MUTED,Typeface.NORMAL),
-                    marginParams(0,3));
+                    11,MUTED,Typeface.NORMAL);
+            addressLine.setSingleLine(true);
+            addressLine.setMinWidth(0);
+            addressLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            row.addView(addressLine,marginParams(0,4));
 
             long when=p.savedAt>0?p.savedAt:p.updatedAt;
-            row.addView(text(
+            TextView completed=text(
                     "Завершено: "+df.format(new Date(when)),
-                    11,MUTED,Typeface.NORMAL),
-                    marginParams(0,2));
+                    10.5f,MUTED,Typeface.NORMAL);
+            completed.setSingleLine(true);
+            completed.setMinWidth(0);
+            row.addView(completed,marginParams(0,3));
 
             list.addView(row,marginParams(0,7));
         }
