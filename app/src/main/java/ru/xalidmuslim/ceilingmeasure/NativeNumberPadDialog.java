@@ -126,6 +126,7 @@ final class NativeNumberPadDialog extends Dialog {
         actions.addView(done, right);
 
         setContentView(shell);
+        NativeMotion.enterCompact(shell);
 
         Window window = getWindow();
         if (window != null) {
