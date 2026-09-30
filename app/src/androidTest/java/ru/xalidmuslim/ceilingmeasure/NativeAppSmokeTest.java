@@ -193,7 +193,7 @@ public class NativeAppSmokeTest {
                         android.R.id.content).getRootView()
                         .findViewWithTag("native_wall_keypad");
                 assertNotNull(keypad);
-                assertEquals(4, keypad.getColumnCount());
+                assertEquals(3, keypad.getColumnCount());
 
                 View five = dialog.findViewById(android.R.id.content).getRootView()
                         .findViewWithTag("native_wall_key_5");
@@ -206,11 +206,14 @@ public class NativeAppSmokeTest {
                 assertEquals("58", dialog.rawValueForTest());
                 assertEquals(58f, dialog.currentUnitsOrNull(), .01f);
 
-                View clear = dialog.findViewById(android.R.id.content).getRootView()
-                        .findViewWithTag("native_wall_key_Очистить");
+                View backspace = dialog.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_wall_key_⌫");
                 View decimal = dialog.findViewById(android.R.id.content).getRootView()
                         .findViewWithTag("native_wall_decimal");
-                clear.performClick();
+                assertNotNull(backspace);
+                assertNotNull(decimal);
+                backspace.performClick();
+                backspace.performClick();
                 decimal.performClick();
                 five.performClick();
                 eight.performClick();
