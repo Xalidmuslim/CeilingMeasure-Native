@@ -160,6 +160,7 @@ final class NativeMaterialEditorDialog extends Dialog {
         actions.addView(save,sp);
 
         setContentView(shell);
+        NativeMotion.enterCompact(shell);
         Window window=getWindow();
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
