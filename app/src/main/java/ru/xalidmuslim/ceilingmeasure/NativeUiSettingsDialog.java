@@ -246,12 +246,29 @@ final class NativeUiSettingsDialog extends Dialog {
         head.setGravity(Gravity.CENTER_VERTICAL);
         TextView small = text("Aa", 12, NativeVisualTokens.MUTED, true);
         TextView large = text("Aa", 21, NativeVisualTokens.MUTED, true);
+        head.addView(small, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)));
+        View spacer = new View(activity);
+        head.addView(spacer, new LinearLayout.LayoutParams(0, dp(1), 1f));
+        large.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        head.addView(large, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)));
+        group.addView(head, topMargin(dp(8)));
 
-        sizeValue = text(
-                Math.round(prefs.scale * 100f) + "%",
-                13,
-                Color.rgb(40, 107, 141),
-                true);
+        // Keep the percentage indicator independent of the live text scale.
+        // Previously it was squeezed between the two "Aa" labels and grew with
+        // the global scale, which is why 112% visually drifted out of place.
+        LinearLayout valueRow = new LinearLayout(activity);
+        valueRow.setGravity(Gravity.CENTER);
+        sizeValue = new TextView(activity);
+        sizeValue.setText(Math.round(prefs.scale * 100f) + "%");
+        sizeValue.setTextSize(13);
+        sizeValue.setTextColor(Color.rgb(40, 107, 141));
+        sizeValue.setTypeface(NativeUiPrefs.typefaceFor(
+                NativeUiPrefs.FONT_SYSTEM,
+                NativeUiPrefs.WEIGHT_MEDIUM,
+                true));
+        sizeValue.setIncludeFontPadding(false);
         sizeValue.setTag("native_ui_size_value");
         sizeValue.setGravity(Gravity.CENTER);
         sizeValue.setBackground(NativeVisualTokens.outlined(
@@ -259,11 +276,8 @@ final class NativeUiSettingsDialog extends Dialog {
                 Color.rgb(207, 224, 233),
                 dp(11),
                 dp(1)));
-
-        head.addView(small, new LinearLayout.LayoutParams(dp(36), dp(34)));
-        head.addView(sizeValue, new LinearLayout.LayoutParams(dp(58), dp(34)));
-        head.addView(large, new LinearLayout.LayoutParams(dp(40), dp(34)));
-        group.addView(head, topMargin(dp(8)));
+        valueRow.addView(sizeValue, new LinearLayout.LayoutParams(dp(66), dp(34)));
+        group.addView(valueRow, topMargin(dp(2)));
 
         SeekBar slider = new SeekBar(activity);
         slider.setTag("native_ui_size_slider");
