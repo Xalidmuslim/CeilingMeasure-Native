@@ -110,6 +110,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private NativeWallMeasureDialog wallDialog;
     private boolean showingSavedMeasurements;
     private boolean savedOpenedFromEditor;
+    private boolean editorOpenedFromSavedMeasurements;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService saveExecutor = Executors.newSingleThreadExecutor();
     private final Runnable deferredSave = () -> {
@@ -134,6 +135,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             savedOpenedFromEditor = false;
             showSavedMeasurements();
         } else {
+            editorOpenedFromSavedMeasurements = false;
             showEditor(ACTION_DRAWING.equals(action));
             if (ACTION_SETTINGS.equals(action)) {
                 getWindow().getDecorView().post(this::showNativeSettings);
@@ -155,21 +157,21 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     }
                     return;
                 }
-                if (drawingView != null
-                        && drawingView.getMode() != CeilingDrawingView.Mode.WALL) {
-                    setMode(CeilingDrawingView.Mode.WALL);
+
+                // Back is screen history, not a mode switch. If this drawing
+                // was opened from Saved Measurements, return exactly there.
+                if (editorOpenedFromSavedMeasurements) {
+                    editorOpenedFromSavedMeasurements = false;
+                    savedOpenedFromEditor = false;
+                    scheduleSaveCurrent();
+                    showSavedMeasurements();
                     return;
                 }
 
-                // Root editor intentionally stays open. "Домой" is now an
-                // explicit bottom-navigation action, so an Android edge-back
-                // gesture must not unexpectedly throw the measurer out of the
-                // current order and all the way to the main screen.
-                Toast.makeText(
-                        NativeWorkspaceActivity.this,
-                        "Для выхода из замера нажми «Домой»",
-                        Toast.LENGTH_SHORT)
-                        .show();
+                // Editor launched from Home/New Order/Drawing -> one step back
+                // is Home. The permanent bottom "Домой" button remains the
+                // explicit equivalent action.
+                goHome();
             }
         });
     }
@@ -330,39 +332,16 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // Web v184: the right 74px strip is the only native pan-y entry
-        // while an open contour is being drawn in Wall mode.
+        // Open-contour Wall mode owns the ENTIRE drawing canvas now.
+        // The previous 74dp right-edge strip manually scrolled the page and
+        // could steal a wall stroke near the right edge. Keep a hidden tagged
+        // view only for compatibility with existing UI probes.
         wallScrollStrip = new View(this);
         wallScrollStrip.setTag("native_wall_scroll_strip");
-        wallScrollStrip.setBackgroundColor(Color.TRANSPARENT);
-        wallScrollStrip.setOnTouchListener((v,event)->{
-            switch(event.getActionMasked()){
-                case MotionEvent.ACTION_DOWN:
-                    stripLastY=event.getRawY();
-                    if(editorScroll!=null)editorScroll.requestDisallowInterceptTouchEvent(true);
-                    return true;
-                case MotionEvent.ACTION_MOVE:
-                    if(editorScroll!=null){
-                        float currentY=event.getRawY();
-                        int delta=Math.round(stripLastY-currentY);
-                        if(delta!=0){
-                            editorScroll.scrollBy(0,delta);
-                            editorScroll.postInvalidateOnAnimation();
-                        }
-                        stripLastY=currentY;
-                    }
-                    return true;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    if(editorScroll!=null)editorScroll.requestDisallowInterceptTouchEvent(false);
-                    return true;
-                default:
-                    return true;
-            }
-        });
+        wallScrollStrip.setVisibility(View.GONE);
         FrameLayout.LayoutParams stripParams = new FrameLayout.LayoutParams(
-                dp(74),
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                0,
                 Gravity.END);
         drawingCanvasWrap.addView(wallScrollStrip, stripParams);
 
@@ -1165,15 +1144,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(diagonalMode!=null)diagonalMode.setEnabled(!room.geometryLocked);
         if(labelMode!=null)labelMode.setEnabled(true);
         if(wallScrollStrip!=null){
-            // The 74dp strip is only needed while an OPEN contour reserves
-            // the drawing surface for wall creation. After closure the whole
-            // canvas must behave like the normal page and use native ScrollView
-            // drag/fling, so the overlay is removed completely.
-            wallScrollStrip.setVisibility(
-                    drawingView.getMode()==CeilingDrawingView.Mode.WALL
-                            && !NativeGeometry.isClosed(room)
-                            ?View.VISIBLE
-                            :View.GONE);
+            wallScrollStrip.setVisibility(View.GONE);
         }
     }
 
@@ -1194,7 +1165,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(room.edges.isEmpty()&&room.points.size()<=1){
             return "Режим 45°/90°\nПервую стену можно начать с любого места: нажми, проведи пальцем и отпусти. После первой стены рисование начинается только от существующих углов.";
         }
-        return "Режим 45°/90°\nПустое место листает страницу вверх/вниз. Новая стена начинается только от существующего угла. Двумя пальцами двигай и масштабируй чертёж.";
+        return "Режим 45°/90°\nПока контур не замкнут, всё поле чертежа занято рисованием — вертикальная прокрутка здесь отключена. После замыкания свайп вверх/вниз снова листает страницу.";
     }
 
     private String drawingStatusText(NativeProjectStore.RoomData room){
@@ -2118,6 +2089,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 project=p;
                 store.saveCurrent(project);
                 showEditor(false);
+                editorOpenedFromSavedMeasurements = true;
             });
             row.setOnLongClickListener(v->{
                 showSavedAction(p);
@@ -2277,15 +2249,53 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
 
 
-    private static final class DrawingAwareScrollView extends ScrollView {
+    private final class DrawingAwareScrollView extends ScrollView {
+        private boolean openCanvasOwnsGesture;
+
         DrawingAwareScrollView(android.content.Context context) {
             super(context);
         }
 
         @Override
         public boolean onInterceptTouchEvent(MotionEvent event) {
-            if (event.getPointerCount() >= 2) return false;
-            return super.onInterceptTouchEvent(event);
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_DOWN) {
+                openCanvasOwnsGesture = touchStartsInsideOpenWallCanvas(event);
+            }
+
+            if (event.getPointerCount() >= 2 || openCanvasOwnsGesture) {
+                if (action == MotionEvent.ACTION_UP
+                        || action == MotionEvent.ACTION_CANCEL) {
+                    openCanvasOwnsGesture = false;
+                }
+                return false;
+            }
+
+            boolean intercepted = super.onInterceptTouchEvent(event);
+            if (action == MotionEvent.ACTION_UP
+                    || action == MotionEvent.ACTION_CANCEL) {
+                openCanvasOwnsGesture = false;
+            }
+            return intercepted;
+        }
+
+        private boolean touchStartsInsideOpenWallCanvas(MotionEvent event) {
+            if (drawingCanvasWrap == null
+                    || drawingView == null
+                    || project == null
+                    || drawingView.getMode() != CeilingDrawingView.Mode.WALL
+                    || NativeGeometry.isClosed(activeRoom())) {
+                return false;
+            }
+
+            int[] location = new int[2];
+            drawingCanvasWrap.getLocationOnScreen(location);
+            float rawX = event.getRawX();
+            float rawY = event.getRawY();
+            return rawX >= location[0]
+                    && rawX < location[0] + drawingCanvasWrap.getWidth()
+                    && rawY >= location[1]
+                    && rawY < location[1] + drawingCanvasWrap.getHeight();
         }
     }
 
