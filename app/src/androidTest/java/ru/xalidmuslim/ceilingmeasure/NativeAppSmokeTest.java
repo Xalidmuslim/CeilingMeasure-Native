@@ -91,6 +91,7 @@ public class NativeAppSmokeTest {
             assertNotNull(root.findViewWithTag("native_nav_more"));
             assertNotNull(root.findViewWithTag("native_nav_undo"));
             assertNotNull(root.findViewWithTag("native_drawing_hint"));
+            assertNotNull(root.findViewWithTag("native_drawing_metrics"));
             View retiredScrollStrip = root.findViewWithTag("native_wall_scroll_strip");
             assertNotNull(retiredScrollStrip);
             assertEquals(View.GONE, retiredScrollStrip.getVisibility());
