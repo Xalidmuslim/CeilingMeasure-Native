@@ -336,9 +336,8 @@ final class NativeMeasurementSolver {
         final int n = order.size();
         Map<String, float[]> sketch = NativeGeometry.sketchCoordinates(room);
         float[] target = new float[n];
-        float[] sketchUx = new float[n];
-        float[] sketchUy = new float[n];
-        ArrayList<Float> ratios = new ArrayList<>();
+        float[] sketchTheta = new float[n];
+        float[] theta = new float[n];
 
         float totalLength = 0f;
         float largestLength = 0f;
@@ -359,218 +358,125 @@ final class NativeMeasurementSolver {
 
             float dx = b[0] - a[0];
             float dy = b[1] - a[1];
-            float drawn = (float) Math.hypot(dx, dy);
-            if (drawn < 1e-6f) {
+            if (Math.hypot(dx, dy) < 1e-6d) {
                 return Result.fail("В эскизе есть стена нулевой длины.");
             }
 
             target[i] = edge.value;
-            sketchUx[i] = dx / drawn;
-            sketchUy[i] = dy / drawn;
-            ratios.add(edge.value / drawn);
+            sketchTheta[i] = (float) Math.atan2(dy, dx);
+            theta[i] = sketchTheta[i];
             totalLength += edge.value;
             largestLength = Math.max(largestLength, edge.value);
         }
 
-        // The field dimensions are authoritative. The sketch is only a shape
-        // prior: it supplies topology, winding and preferred wall directions.
-        // Start from a uniformly scaled copy of the original sketch, then use
-        // distance-constraint projection so every wall stretches to its entered
-        // number. Angles are allowed to move when unequal opposite dimensions
-        // make the original 90-degree sketch impossible.
-        float sketchToUnits = median(ratios);
-        if (!(sketchToUnits > 0f) || !Float.isFinite(sketchToUnits)) {
-            sketchToUnits = 1f;
+        // A closed polygon can exist only when no wall is longer than all of
+        // the remaining walls together. Do not invent impossible geometry.
+        if (largestLength > totalLength - largestLength + .01f) {
+            return Result.fail(
+                    "Введённые размеры стен не могут образовать замкнутый контур. "
+                            + "Одна стена длиннее суммы остальных.");
         }
 
-        String fixedA = order.get(0);
-        String fixedB = order.get(1);
-        float[] sketchA = sketch.get(fixedA);
-        if (sketchA == null) return Result.fail("Повреждена первая точка эскиза.");
+        // Measurement-first deformation:
+        // - every wall keeps its entered length;
+        // - the first wall keeps the sketch direction as a visual anchor;
+        // - remaining wall directions rotate by the smallest correction needed
+        //   to close the polygon;
+        // - meaningful convex/concave turns from the sketch may not flip;
+        // - non-neighbour walls may not cross.
+        //
+        // This is the inverse of the old algorithm. The old solver kept angles
+        // fixed and silently changed wall lengths, which looked acceptable for
+        // rectangles but badly distorted stepped/concave rooms with tiny
+        // returns. Here lengths are hard constraints and angles are the part
+        // allowed to become crooked.
+        final int maxIterations = 1200;
+        float closureError = Float.MAX_VALUE;
+        boolean relaxedTurnGuard = false;
 
-        Map<String, PointF> positions = new HashMap<>();
-        for (String id : order) {
-            float[] p = sketch.get(id);
-            if (p == null) return Result.fail("Повреждена геометрия комнаты.");
-            positions.put(id, new PointF(
-                    (p[0] - sketchA[0]) * sketchToUnits,
-                    (p[1] - sketchA[1]) * sketchToUnits));
-        }
-
-        PointF fixedPosA = new PointF(0f, 0f);
-        PointF fixedPosB = new PointF(
-                sketchUx[0] * target[0],
-                sketchUy[0] * target[0]);
-        positions.put(fixedA, new PointF(fixedPosA.x, fixedPosA.y));
-        positions.put(fixedB, new PointF(fixedPosB.x, fixedPosB.y));
-
-        ArrayList<Constraint> measuredDiagonals = new ArrayList<>();
-        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
-            if (NativeGeometry.isMeasuredDiagonal(diagonal) && diagonal.value > 0f) {
-                measuredDiagonals.add(new Constraint(
-                        diagonal.a,
-                        diagonal.b,
-                        diagonal.value));
-            }
-        }
-
-        final int totalIterations = 6200;
-        final int guidedIterations = 1700;
-        float finalWallError = Float.MAX_VALUE;
-
-        for (int iter = 0; iter < totalIterations; iter++) {
-            finalWallError = 0f;
-
-            // Hard wall constraints. These are the primary factual input.
+        for (int iter = 0; iter < maxIterations; iter++) {
+            float closureX = 0f;
+            float closureY = 0f;
             for (int i = 0; i < n; i++) {
-                String aId = order.get(i);
-                String bId = order.get((i + 1) % n);
-                PointF a = positions.get(aId);
-                PointF b = positions.get(bId);
-                if (a == null || b == null) continue;
+                closureX += target[i] * (float) Math.cos(theta[i]);
+                closureY += target[i] * (float) Math.sin(theta[i]);
+            }
+            closureError = (float) Math.hypot(closureX, closureY);
+            if (closureError < .008f) break;
 
-                float dx = b.x - a.x;
-                float dy = b.y - a.y;
-                float distance = (float) Math.hypot(dx, dy);
-                if (distance < 1e-6f) {
-                    dx = sketchUx[i];
-                    dy = sketchUy[i];
-                    distance = 1f;
-                }
+            double mxx = 0d;
+            double mxy = 0d;
+            double myy = 0d;
+            float maxTarget = Math.max(1f, largestLength);
 
-                float error = distance - target[i];
-                finalWallError = Math.max(finalWallError, Math.abs(error));
-                float nx = dx / distance;
-                float ny = dy / distance;
-                boolean af = aId.equals(fixedA) || aId.equals(fixedB);
-                boolean bf = bId.equals(fixedA) || bId.equals(fixedB);
-
-                if (af && bf) {
-                    // First wall is already pinned to its exact entered length.
-                } else if (af) {
-                    b.x -= nx * error;
-                    b.y -= ny * error;
-                } else if (bf) {
-                    a.x += nx * error;
-                    a.y += ny * error;
-                } else {
-                    float half = error * .5f;
-                    a.x += nx * half;
-                    a.y += ny * half;
-                    b.x -= nx * half;
-                    b.y -= ny * half;
-                }
+            // First edge stays anchored. Long walls absorb more angular
+            // correction; tiny architectural returns remain visually stable.
+            for (int i = 1; i < n; i++) {
+                double jx = -target[i] * Math.sin(theta[i]);
+                double jy = target[i] * Math.cos(theta[i]);
+                double flexibility = Math.max(.035d, target[i] / maxTarget);
+                mxx += flexibility * jx * jx;
+                mxy += flexibility * jx * jy;
+                myy += flexibility * jy * jy;
             }
 
-            if (iter < guidedIterations) {
-                float progress = iter / (float) guidedIterations;
+            double det = mxx * myy - mxy * mxy;
+            if (Math.abs(det) < 1e-10d) break;
 
-                // Weakly prefer the directions drawn by the user, but fade the
-                // preference to zero. This keeps "geometry of the sketch"
-                // recognizable while still allowing the room to become crooked
-                // enough to honor unequal measured wall lengths.
-                float directionWeight = .055f * (1f - progress);
+            // Minimum-angle correction satisfying the linearized closure.
+            double lambdaX = (myy * closureX - mxy * closureY) / det;
+            double lambdaY = (-mxy * closureX + mxx * closureY) / det;
+
+            float[] delta = new float[n];
+            float maxDelta = 0f;
+            for (int i = 1; i < n; i++) {
+                double jx = -target[i] * Math.sin(theta[i]);
+                double jy = target[i] * Math.cos(theta[i]);
+                double flexibility = Math.max(.035d, target[i] / maxTarget);
+                delta[i] = (float) (-flexibility
+                        * (jx * lambdaX + jy * lambdaY));
+                maxDelta = Math.max(maxDelta, Math.abs(delta[i]));
+            }
+            if (!(maxDelta > 1e-8f)) break;
+
+            float step = Math.min(1f, .14f / maxDelta);
+            step *= .88f;
+
+            boolean accepted = false;
+            for (int attempt = 0; attempt < 12; attempt++) {
+                float[] proposed = theta.clone();
                 for (int i = 1; i < n; i++) {
-                    String aId = order.get(i);
-                    String bId = order.get((i + 1) % n);
-                    PointF a = positions.get(aId);
-                    PointF b = positions.get(bId);
-                    if (a == null || b == null) continue;
-
-                    float desiredDx = sketchUx[i] * target[i];
-                    float desiredDy = sketchUy[i] * target[i];
-                    float diffX = (b.x - a.x) - desiredDx;
-                    float diffY = (b.y - a.y) - desiredDy;
-                    boolean af = aId.equals(fixedA) || aId.equals(fixedB);
-                    boolean bf = bId.equals(fixedA) || bId.equals(fixedB);
-
-                    if (af && bf) {
-                        continue;
-                    } else if (af) {
-                        b.x -= diffX * directionWeight;
-                        b.y -= diffY * directionWeight;
-                    } else if (bf) {
-                        a.x += diffX * directionWeight;
-                        a.y += diffY * directionWeight;
-                    } else {
-                        float half = directionWeight * .5f;
-                        a.x += diffX * half;
-                        a.y += diffY * half;
-                        b.x -= diffX * half;
-                        b.y -= diffY * half;
-                    }
+                    proposed[i] += delta[i] * step;
                 }
 
-                // Measured diagonals influence the chosen bend/angle branch, but
-                // they never get permission to change wall lengths. If a
-                // diagonal conflicts with the walls, the walls stay exact and
-                // the conflict is reported afterwards.
-                float diagonalWeight = .14f * (1f - progress) + .018f;
-                for (Constraint diagonal : measuredDiagonals) {
-                    PointF a = positions.get(diagonal.a);
-                    PointF b = positions.get(diagonal.b);
-                    if (a == null || b == null) continue;
+                boolean turnOk = relaxedTurnGuard
+                        || preservesMeaningfulTurns(sketchTheta, proposed);
+                Map<String, PointF> proposedPositions =
+                        positionsFromAngles(order, target, proposed);
+                boolean crossing = polygonSelfIntersects(proposedPositions, order);
 
-                    float dx = b.x - a.x;
-                    float dy = b.y - a.y;
-                    float distance = (float) Math.hypot(dx, dy);
-                    if (distance < 1e-6f) continue;
-                    float error = distance - diagonal.target;
-                    float nx = dx / distance;
-                    float ny = dy / distance;
-                    boolean af = diagonal.a.equals(fixedA)
-                            || diagonal.a.equals(fixedB);
-                    boolean bf = diagonal.b.equals(fixedA)
-                            || diagonal.b.equals(fixedB);
-
-                    if (af && bf) {
-                        continue;
-                    } else if (af) {
-                        b.x -= nx * error * diagonalWeight;
-                        b.y -= ny * error * diagonalWeight;
-                    } else if (bf) {
-                        a.x += nx * error * diagonalWeight;
-                        a.y += ny * error * diagonalWeight;
-                    } else {
-                        float half = error * diagonalWeight * .5f;
-                        a.x += nx * half;
-                        a.y += ny * half;
-                        b.x -= nx * half;
-                        b.y -= ny * half;
-                    }
+                if (turnOk && !crossing) {
+                    theta = proposed;
+                    accepted = true;
+                    break;
                 }
+                step *= .5f;
             }
 
-            // Keep the first wall as the visual anchor from the sketch.
-            positions.put(fixedA, new PointF(fixedPosA.x, fixedPosA.y));
-            positions.put(fixedB, new PointF(fixedPosB.x, fixedPosB.y));
-
-            if (iter > guidedIterations
-                    && finalWallError < .006f
-                    && (iter % 20) == 0) {
+            if (!accepted) {
+                // If a highly inconsistent set of dimensions cannot close
+                // without flattening one sketch corner, permit extra bending
+                // only after the strict topology-preserving phase has stalled.
+                // Segment crossing is still forbidden.
+                if (!relaxedTurnGuard && iter > 80) {
+                    relaxedTurnGuard = true;
+                    continue;
+                }
                 break;
             }
         }
 
-        // Keep the same clockwise/counter-clockwise branch as the original
-        // sketch. Reflect around the anchored first wall if iteration found the
-        // mirror solution; distances remain unchanged.
-        float sketchSign = Math.signum(signedAreaFromSketch(sketch, order));
-        float solvedSign = Math.signum(signedArea(positions, order));
-        if (sketchSign != 0f && solvedSign != 0f && sketchSign != solvedSign) {
-            float ux = sketchUx[0];
-            float uy = sketchUy[0];
-            float vx = -uy;
-            float vy = ux;
-            for (String id : order) {
-                PointF p = positions.get(id);
-                if (p == null) continue;
-                float parallel = p.x * ux + p.y * uy;
-                float perpendicular = p.x * vx + p.y * vy;
-                p.x = parallel * ux - perpendicular * vx;
-                p.y = parallel * uy - perpendicular * vy;
-            }
-        }
+        Map<String, PointF> positions = positionsFromAngles(order, target, theta);
 
         ArrayList<Constraint> wallConstraints = new ArrayList<>();
         for (int i = 0; i < n; i++) {
@@ -579,65 +485,125 @@ final class NativeMeasurementSolver {
                     order.get((i + 1) % n),
                     target[i]));
         }
-        finalWallError = maxConstraintError(positions, wallConstraints);
+        float wallError = maxConstraintError(positions, wallConstraints);
 
         ArrayList<Constraint> factual = factualConstraints(room);
         float maxError = maxConstraintError(positions, factual);
-        boolean physicallyClosable =
-                largestLength <= (totalLength - largestLength) + .01f;
 
-        int measuredDiagonalCount = measuredDiagonals.size();
+        int measuredDiagonalCount = 0;
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            if (NativeGeometry.isMeasuredDiagonal(diagonal)) measuredDiagonalCount++;
+        }
         int neededDiagonals = Math.max(0, n - 3);
         boolean unique = n <= 3 || measuredDiagonalCount >= neededDiagonals;
 
+        boolean shapeConflict = closureError > .08f || wallError > .08f;
         String message;
-        if (!physicallyClosable || finalWallError > .08f) {
+        if (shapeConflict) {
             message = String.format(
                     Locale.getDefault(),
-                    "Размеры стен не образуют точный замкнутый контур. "
-                            + "Показана максимально близкая форма по эскизу; "
-                            + "невязка стен до %.2f м. Проверь замеры.",
-                    finalWallError / 100f);
+                    "Размеры стен сильно конфликтуют с формой эскиза. "
+                            + "Показана ближайшая замкнутая форма без пересечения стен; "
+                            + "невязка до %.2f м.",
+                    Math.max(closureError, wallError) / 100f);
         } else if (maxError > FACTUAL_CONFLICT_TOL && measuredDiagonalCount > 0) {
             message = String.format(
                     Locale.getDefault(),
                     "Стены растянуты по введённым размерам. "
-                            + "Контрольные диагонали конфликтуют со стенами: "
-                            + "невязка до %.2f м.",
+                            + "Форма и вогнутые/выпуклые углы сохранены по эскизу. "
+                            + "Контрольные диагонали дают невязку до %.2f м.",
                     maxError / 100f);
         } else {
-            message = measuredDiagonalCount > 0
-                    ? String.format(
-                            Locale.getDefault(),
-                            "Стены растянуты по введённым размерам; форма выбрана "
-                                    + "по эскизу и контрольным диагоналям. Невязка: %.2f м.",
-                            maxError / 100f)
-                    : "Стены растянуты по введённым размерам. "
-                            + "Форма и порядок углов взяты из эскиза.";
+            message = "Стены растянуты по введённым размерам. "
+                    + "Порядок, вогнутые и выпуклые углы взяты из эскиза.";
         }
 
         return new Result(
                 true,
                 message,
                 positions,
-                Math.max(maxError, finalWallError),
+                Math.max(maxError, wallError),
                 unique,
-                !physicallyClosable
-                        || finalWallError > .08f
-                        || maxError > FACTUAL_CONFLICT_TOL);
+                shapeConflict || maxError > FACTUAL_CONFLICT_TOL);
     }
 
-    private static float signedAreaFromSketch(
-            @NonNull Map<String, float[]> sketch,
-            @NonNull List<String> order) {
-        double area = 0d;
-        for (int i = 0; i < order.size(); i++) {
-            float[] a = sketch.get(order.get(i));
-            float[] b = sketch.get(order.get((i + 1) % order.size()));
-            if (a == null || b == null) continue;
-            area += (double) a[0] * b[1] - (double) b[0] * a[1];
+    @NonNull
+    private static Map<String, PointF> positionsFromAngles(
+            @NonNull List<String> order,
+            @NonNull float[] lengths,
+            @NonNull float[] theta) {
+        HashMap<String, PointF> positions = new HashMap<>();
+        float x = 0f;
+        float y = 0f;
+        positions.put(order.get(0), new PointF(x, y));
+        for (int i = 0; i < order.size() - 1; i++) {
+            x += lengths[i] * (float) Math.cos(theta[i]);
+            y += lengths[i] * (float) Math.sin(theta[i]);
+            positions.put(order.get(i + 1), new PointF(x, y));
         }
-        return (float) (area * .5d);
+        return positions;
+    }
+
+    private static boolean preservesMeaningfulTurns(
+            @NonNull float[] sketchTheta,
+            @NonNull float[] theta) {
+        int n = theta.length;
+        for (int i = 0; i < n; i++) {
+            int previous = (i - 1 + n) % n;
+            float sketchTurn = (float) Math.sin(
+                    sketchTheta[i] - sketchTheta[previous]);
+            if (Math.abs(sketchTurn) < .10f) {
+                // Near-straight sketch joins may bend either way.
+                continue;
+            }
+            float solvedTurn = (float) Math.sin(theta[i] - theta[previous]);
+            if (sketchTurn * solvedTurn <= .018f) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean polygonSelfIntersects(
+            @NonNull Map<String, PointF> positions,
+            @NonNull List<String> order) {
+        int n = order.size();
+        for (int i = 0; i < n; i++) {
+            PointF a = positions.get(order.get(i));
+            PointF b = positions.get(order.get((i + 1) % n));
+            if (a == null || b == null) continue;
+
+            for (int j = i + 1; j < n; j++) {
+                if (j == i) continue;
+                if ((i + 1) % n == j) continue;
+                if ((j + 1) % n == i) continue;
+
+                PointF c = positions.get(order.get(j));
+                PointF d = positions.get(order.get((j + 1) % n));
+                if (c == null || d == null) continue;
+                if (segmentsProperlyIntersect(a, b, c, d)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean segmentsProperlyIntersect(
+            PointF a,
+            PointF b,
+            PointF c,
+            PointF d) {
+        float abC = cross(a, b, c);
+        float abD = cross(a, b, d);
+        float cdA = cross(c, d, a);
+        float cdB = cross(c, d, b);
+        final float eps = 1e-4f;
+        return ((abC > eps && abD < -eps) || (abC < -eps && abD > eps))
+                && ((cdA > eps && cdB < -eps) || (cdA < -eps && cdB > eps));
+    }
+
+    private static float cross(PointF a, PointF b, PointF p) {
+        return (b.x - a.x) * (p.y - a.y)
+                - (b.y - a.y) * (p.x - a.x);
     }
 
     @Nullable
