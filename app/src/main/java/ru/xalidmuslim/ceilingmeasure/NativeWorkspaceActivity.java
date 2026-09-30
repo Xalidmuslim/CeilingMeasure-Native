@@ -1163,9 +1163,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             return "Перемещение углов\nЗажми угол и перетащи его.";
         }
         if(room.edges.isEmpty()&&room.points.size()<=1){
-            return "Режим 45°/90°\nПервую стену можно начать с любого места: нажми, проведи пальцем и отпусти. После первой стены рисование начинается только от существующих углов.";
+            return "Режим 45°/90°\nПока чертёж пустой, свайп вверх/вниз листает страницу. Первую стену начни долгим нажатием на пустом месте, затем веди пальцем.";
         }
-        return "Режим 45°/90°\nПока контур не замкнут, всё поле чертежа занято рисованием — вертикальная прокрутка здесь отключена. После замыкания свайп вверх/вниз снова листает страницу.";
+        return "Режим 45°/90°\nЧертёж уже начат: до замыкания контура вертикальная прокрутка по карте отключена. Новая стена начинается только от существующего угла.";
     }
 
     private String drawingStatusText(NativeProjectStore.RoomData room){
@@ -1211,23 +1211,25 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private EditText field(LinearLayout parent,String label,String value,int inputType){
-        TextView l=text(label,11.5f,MUTED,Typeface.NORMAL);
+        TextView l=text(label,10.5f,MUTED,Typeface.NORMAL);
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin=dp(8);
+        lp.topMargin=dp(4);
         parent.addView(l,lp);
 
         EditText e=new EditText(this);
         e.setText(value);
-        NativeTypography.register(e,14,false,uiPrefs);
+        NativeTypography.register(e,13.5f,false,uiPrefs);
         e.setTextColor(TEXT);
         e.setHintTextColor(MUTED);
         e.setSingleLine(true);
         e.setInputType(inputType);
         e.setPadding(dp(9),0,dp(9),0);
-        e.setBackground(rounded(Color.rgb(249,251,252),LINE,11,1));
+        e.setMinHeight(0);
+        e.setMinimumHeight(0);
+        e.setBackground(rounded(Color.rgb(249,251,252),LINE,10,1));
         parent.addView(e,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(42)));
         return e;
     }
 
@@ -2284,7 +2286,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     || drawingView == null
                     || project == null
                     || drawingView.getMode() != CeilingDrawingView.Mode.WALL
-                    || NativeGeometry.isClosed(activeRoom())) {
+                    || NativeGeometry.isClosed(activeRoom())
+                    || activeRoom().edges.isEmpty()) {
                 return false;
             }
 
