@@ -154,6 +154,7 @@ final class NativeWallMeasureDialog extends Dialog {
         actions.addView(done,half2);
 
         setContentView(shell);
+        NativeMotion.enterCompact(shell);
         refresh();
 
         setOnKeyListener((dialog,keyCode,event)->{
