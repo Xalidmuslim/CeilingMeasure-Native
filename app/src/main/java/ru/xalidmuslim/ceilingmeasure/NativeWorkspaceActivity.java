@@ -241,8 +241,30 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         orderCard.setTag("native_order_card");
         root.addView(orderCard, marginParams(0,4));
 
-        nameInput = field(orderCard, "Имя / объект", project.name, InputType.TYPE_CLASS_TEXT);
-        phoneInput = field(orderCard, "Телефон", project.phone, InputType.TYPE_CLASS_PHONE);
+        LinearLayout contactRow = new LinearLayout(this);
+        contactRow.setOrientation(LinearLayout.HORIZONTAL);
+        contactRow.setGravity(Gravity.TOP);
+
+        LinearLayout nameColumn = new LinearLayout(this);
+        nameColumn.setOrientation(LinearLayout.VERTICAL);
+        nameInput = field(nameColumn, "Имя / объект", project.name, InputType.TYPE_CLASS_TEXT);
+        LinearLayout.LayoutParams nameColumnParams = new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,1f);
+        nameColumnParams.rightMargin=dp(3);
+        contactRow.addView(nameColumn,nameColumnParams);
+
+        LinearLayout phoneColumn = new LinearLayout(this);
+        phoneColumn.setOrientation(LinearLayout.VERTICAL);
+        phoneInput = field(phoneColumn, "Телефон", project.phone, InputType.TYPE_CLASS_PHONE);
+        LinearLayout.LayoutParams phoneColumnParams = new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,1f);
+        phoneColumnParams.leftMargin=dp(3);
+        contactRow.addView(phoneColumn,phoneColumnParams);
+
+        orderCard.addView(contactRow,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
         addressInput = field(orderCard, "Адрес", project.address, InputType.TYPE_CLASS_TEXT);
 
         View.OnFocusChangeListener saver=(v,has)->{if(!has)syncProjectFields();};
@@ -252,7 +274,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         LinearLayout roomsCard = card();
         root.addView(roomsCard, marginParams(0,4));
-        TextView roomsTitle = text("Комнаты",17,TEXT,Typeface.BOLD);
+        TextView roomsTitle = text("Комнаты",15.5f,TEXT,Typeface.BOLD);
         roomsCard.addView(roomsTitle);
 
         HorizontalScrollView roomsScroll = new HorizontalScrollView(this);
@@ -265,7 +287,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout.LayoutParams rs = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        rs.topMargin=dp(8);
+        rs.topMargin=dp(5);
         roomsCard.addView(roomsScroll,rs);
         renderRooms();
 
@@ -278,8 +300,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         drawingHead.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout leftHead = new LinearLayout(this);
         leftHead.setOrientation(LinearLayout.VERTICAL);
-        TextView eyebrow = text("Чертёж",11,MUTED,Typeface.BOLD);
-        drawingRoomTitle = text(activeRoom().name,18,TEXT,Typeface.BOLD);
+        TextView eyebrow = text("Чертёж",10.5f,MUTED,Typeface.BOLD);
+        drawingRoomTitle = text(activeRoom().name,17,TEXT,Typeface.BOLD);
         leftHead.addView(eyebrow);
         leftHead.addView(drawingRoomTitle);
         drawingHead.addView(leftHead, new LinearLayout.LayoutParams(
@@ -291,7 +313,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         check.setTag("native_drawing_check");
         check.setContentDescription("Открыть проверку замера");
         check.setOnClickListener(v->showMeasurementValidation());
-        drawingHead.addView(check,new LinearLayout.LayoutParams(dp(44),dp(44)));
+        drawingHead.addView(check,new LinearLayout.LayoutParams(dp(40),dp(40)));
         drawingCard.addView(drawingHead);
 
         LinearLayout modeBar = new LinearLayout(this);
@@ -300,7 +322,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout.LayoutParams mbp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        mbp.topMargin=dp(8);
+        mbp.topMargin=dp(5);
         drawingCard.addView(modeBar,mbp);
 
         wallMode = modeButton("Стена", CeilingDrawingView.Mode.WALL, "native_mode_wall");
@@ -321,7 +343,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout.LayoutParams canvasParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 normalCanvasHeight);
-        canvasParams.topMargin = dp(8);
+        canvasParams.topMargin = dp(5);
         drawingCard.addView(drawingCanvasWrap, canvasParams);
 
         drawingView = new CeilingDrawingView(this);
@@ -740,8 +762,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             b.setTag("native_room_"+index);
             NativeTypography.register(b,11,true,uiPrefs);
             b.setSingleLine(true);
-            b.setMinWidth(dp(58));
-            b.setMinimumWidth(dp(58));
+            b.setMinWidth(dp(54));
+            b.setMinimumWidth(dp(54));
             b.setPadding(dp(11),0,dp(11),0);
             b.setAutoSizeTextTypeUniformWithConfiguration(
                     9,11,1,TypedValue.COMPLEX_UNIT_SP);
@@ -761,7 +783,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 return true;
             });
             LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(50));
+                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(44));
             p.rightMargin=dp(5);
             roomRow.addView(b,p);
         }
@@ -770,7 +792,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         NativeTypography.register(add,20,true,uiPrefs);
         add.setContentDescription("Добавить комнату");
         add.setOnClickListener(v->showRoomPicker());
-        LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(dp(50),dp(50));
+        LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(dp(44),dp(44));
         roomRow.addView(add,addParams);
     }
 
@@ -898,7 +920,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private LinearLayout.LayoutParams compactModeParams(){
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(46),1f);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(42),1f);
         p.leftMargin=dp(2);
         p.rightMargin=dp(2);
         return p;
@@ -2305,7 +2327,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private LinearLayout card(){
         LinearLayout l=new LinearLayout(this);
         l.setOrientation(LinearLayout.VERTICAL);
-        l.setPadding(dp(8),dp(8),dp(8),dp(8));
+        l.setPadding(dp(7),dp(7),dp(7),dp(7));
         l.setBackground(rounded(
                 NativeVisualTokens.SURFACE,
                 NativeVisualTokens.LINE,
