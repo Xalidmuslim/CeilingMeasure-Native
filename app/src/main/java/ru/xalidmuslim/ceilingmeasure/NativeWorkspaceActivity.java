@@ -709,7 +709,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         Button back=button("‹",false);
         NativeTypography.register(back,24,true,uiPrefs);
         back.setContentDescription("Назад");
-        back.setOnClickListener(v->finish());
+        back.setOnClickListener(v->{
+            if (showingSavedMeasurements && savedOpenedFromEditor && workspacePage != null) {
+                returnToEditorFromSaved();
+            } else {
+                goHome();
+            }
+        });
         LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(50),dp(50));
         bar.addView(back,bp);
 
