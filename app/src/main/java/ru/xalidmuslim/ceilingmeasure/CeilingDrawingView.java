@@ -769,6 +769,7 @@ final class CeilingDrawingView extends View {
                     scheduleLongPress(
                             heldLabel.kind == LabelKind.EDGE ? "edge" : "diag",
                             heldLabel.id);
+                    getParent().requestDisallowInterceptTouchEvent(true);
                     postInvalidateOnAnimation();
                 } else {
                     beginLabelGesture(worldX, worldY);
@@ -838,12 +839,6 @@ final class CeilingDrawingView extends View {
                     cancelTransientGestures();
                     return true;
                 }
-
-                if (pageScrollActive) {
-                    cancelTransientGestures();
-                    return true;
-                }
-                pageScrollCandidate = false;
 
                 if (longPressFired) {
                     longPressFired = false;
