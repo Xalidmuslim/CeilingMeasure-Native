@@ -304,15 +304,18 @@ final class NativeEstimateDialog extends Dialog {
         sp.leftMargin=dp(3);
         row.addView(sum,sp);
 
+        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,dp(34),.34f);
+        rp.leftMargin=dp(2);
         if(line.removable){
             Button remove=button("×",false);
             remove.setTextColor(DANGER);
             remove.setMinWidth(0);
             remove.setMinimumWidth(0);
             remove.setOnClickListener(v->removeLine(owner,room,line));
-            LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,dp(34),.34f);
-            rp.leftMargin=dp(2);
             row.addView(remove,rp);
+        }else{
+            View actionSpacer=new View(getContext());
+            row.addView(actionSpacer,rp);
         }
         parent.addView(row);
     }
