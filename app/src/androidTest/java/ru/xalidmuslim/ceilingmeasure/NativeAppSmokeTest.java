@@ -361,6 +361,46 @@ public class NativeAppSmokeTest {
     }
 
     @Test
+    public void openingRoomFitsWholeContourInsteadOfRestoringStaleZoom() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
+        AtomicReference<NativeProjectStore.RoomData> roomRef = new AtomicReference<>();
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            FrameLayout parent = new FrameLayout(context);
+            CeilingDrawingView view = new CeilingDrawingView(context);
+            parent.addView(view, new FrameLayout.LayoutParams(800, 800));
+            parent.layout(0, 0, 800, 800);
+            view.layout(0, 0, 800, 800);
+
+            NativeProjectStore.RoomData room = measuredSquare(500f);
+            room.viewScale = 6f;
+            room.panX = -1800f;
+            room.panY = 900f;
+            view.setRoom(room);
+            viewRef.set(view);
+            roomRef.set(room);
+        });
+
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            CeilingDrawingView view = viewRef.get();
+            NativeProjectStore.RoomData room = roomRef.get();
+            assertNotNull(view);
+            assertNotNull(room);
+            assertTrue("stale saved zoom must be replaced by fit", view.getScaleForTest() < 6f);
+
+            for (NativeProjectStore.PointData point : room.points) {
+                float sx = point.x * view.getScaleForTest() + view.getPanXForTest();
+                float sy = point.y * view.getScaleForTest() + view.getPanYForTest();
+                assertTrue("point must be visible horizontally", sx >= 35f && sx <= 765f);
+                assertTrue("point must be visible vertically", sy >= 35f && sy <= 765f);
+            }
+        });
+    }
+
+    @Test
     public void nativePinchZoomUsesTwoFingersAndKeepsCentroidStable() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
