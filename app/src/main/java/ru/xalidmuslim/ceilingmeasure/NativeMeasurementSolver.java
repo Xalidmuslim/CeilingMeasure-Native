@@ -330,210 +330,105 @@ final class NativeMeasurementSolver {
         if (order.size() < 3) {
             return Result.fail("Для фактической геометрии нужно минимум три угла.");
         }
-        for (NativeProjectStore.EdgeData edge : room.edges) {
+
+        final int n = order.size();
+        float[] ux = new float[n];
+        float[] uy = new float[n];
+        float[] target = new float[n];
+        float[] adjusted = new float[n];
+        double[] flexibility = new double[n];
+
+        // The sketch owns the directions/angles. Field measurements own the
+        // preferred wall lengths. If the lengths do not close, distribute the
+        // residual through the wall lengths while keeping EVERY sketch
+        // direction unchanged. This prevents the solver from inventing a bent
+        // corner or changing a near-90° angle into something visibly crooked.
+        double closureX = 0d;
+        double closureY = 0d;
+        double mxx = 0d;
+        double mxy = 0d;
+        double myy = 0d;
+
+        for (int i = 0; i < n; i++) {
+            String aId = order.get(i);
+            String bId = order.get((i + 1) % n);
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, aId);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, bId);
+            NativeProjectStore.EdgeData edge = NativeGeometry.edgeBetween(room, aId, bId);
+            if (a == null || b == null || edge == null) {
+                return Result.fail("Повреждена геометрия комнаты.");
+            }
             if (edge.value <= 0f) {
                 return Result.fail("Сначала введи реальные размеры всех стен.");
             }
-        }
 
-        // Factual mode keeps the user's overall sketch as the shape prior,
-        // while entered wall lengths and ONLY manually measured diagonals are
-        // hard distance constraints. Calculated diagonals never become facts.
-        ArrayList<Constraint> factual = factualConstraints(room);
-        if (factual.isEmpty()) {
-            return Result.fail("Нет фактических размеров для расчёта.");
-        }
-
-        ArrayList<Float> ratios = new ArrayList<>();
-        for (NativeProjectStore.EdgeData edge : room.edges) {
-            NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
-            NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
-            if (a == null || b == null) continue;
-            float drawn = (float) Math.hypot(b.x - a.x, b.y - a.y);
-            if (drawn > 1f) ratios.add(edge.value / drawn);
-        }
-        float sketchToUnits = median(ratios);
-        if (!(sketchToUnits > 0f)) sketchToUnits = 1f;
-
-        float cx = 0f;
-        float cy = 0f;
-        for (String id : order) {
-            NativeProjectStore.PointData p = NativeGeometry.pointById(room, id);
-            if (p == null) return Result.fail("Повреждена геометрия комнаты.");
-            cx += p.x;
-            cy += p.y;
-        }
-        cx /= order.size();
-        cy /= order.size();
-
-        Map<String, PointF> raw = new HashMap<>();
-        for (String id : order) {
-            NativeProjectStore.PointData p = NativeGeometry.pointById(room, id);
-            raw.put(id, new PointF(
-                    (p.x - cx) * sketchToUnits,
-                    (p.y - cy) * sketchToUnits));
-        }
-
-        String fixedA = order.get(0);
-        String fixedB = order.get(1);
-        NativeProjectStore.EdgeData firstEdge =
-                NativeGeometry.edgeBetween(room, fixedA, fixedB);
-        if (firstEdge == null || firstEdge.value <= 0f) {
-            return Result.fail("Не удалось определить первую стену.");
-        }
-
-        PointF pa0 = raw.get(fixedA);
-        PointF pb0 = raw.get(fixedB);
-        if (pa0 == null || pb0 == null) {
-            return Result.fail("Не удалось прочитать исходную форму эскиза.");
-        }
-
-        float ux = pb0.x - pa0.x;
-        float uy = pb0.y - pa0.y;
-        float initialLength = (float) Math.hypot(ux, uy);
-        if (initialLength < 1f) {
-            ux = 1f;
-            uy = 0f;
-            initialLength = 1f;
-        }
-        ux /= initialLength;
-        uy /= initialLength;
-
-        float alignScale = firstEdge.value / Math.max(1f, initialLength);
-        Map<String, PointF> positions = new HashMap<>();
-        for (Map.Entry<String, PointF> entry : raw.entrySet()) {
-            PointF p = entry.getValue();
-            positions.put(entry.getKey(), new PointF(
-                    (p.x - pa0.x) * alignScale,
-                    (p.y - pa0.y) * alignScale));
-        }
-
-        PointF fixedPosA = new PointF(0f, 0f);
-        PointF fixedPosB = new PointF(
-                ux * firstEdge.value,
-                uy * firstEdge.value);
-        positions.put(fixedA, new PointF(fixedPosA.x, fixedPosA.y));
-        positions.put(fixedB, new PointF(fixedPosB.x, fixedPosB.y));
-
-        ArrayList<DirectionGuide> guides = new ArrayList<>();
-        for (NativeProjectStore.EdgeData edge : room.edges) {
-            PointF a = raw.get(edge.a);
-            PointF b = raw.get(edge.b);
-            if (a == null || b == null) continue;
             float dx = b.x - a.x;
             float dy = b.y - a.y;
-            float length = (float) Math.hypot(dx, dy);
-            if (length < 1e-6f) continue;
-            guides.add(new DirectionGuide(
-                    edge.a,
-                    edge.b,
-                    edge.value,
-                    dx / length,
-                    dy / length));
-        }
-
-        // A sketch that is clearly orthogonal should remain orthogonal even
-        // when field sizes do not close perfectly. Distribute the mismatch
-        // instead of twisting a visually rectangular room into a crooked one.
-        Result orthogonalSketch = solveFactualOrthogonalSketch(room, order);
-        if (orthogonalSketch != null) return orthogonalSketch;
-
-        // General factual mode is sketch-first: wall directions from the drawn
-        // contour are a strong prior. Measured lengths and measured diagonals
-        // pull the shape toward reality, but are intentionally soft when they
-        // conflict so the contour never collapses or invents sharp angles.
-        final int totalIterations = 3600;
-        for (int iter = 0; iter < totalIterations; iter++) {
-            float progress = iter / (float) Math.max(1, totalIterations - 1);
-            float guideWeight = .30f - .08f * progress;
-
-            for (DirectionGuide guide : guides) {
-                PointF a = positions.get(guide.a);
-                PointF b = positions.get(guide.b);
-                if (a == null || b == null) continue;
-
-                float desiredDx = guide.ux * guide.target;
-                float desiredDy = guide.uy * guide.target;
-                float diffX = (b.x - a.x) - desiredDx;
-                float diffY = (b.y - a.y) - desiredDy;
-                boolean af = guide.a.equals(fixedA);
-                boolean bf = guide.b.equals(fixedB);
-
-                if (af && bf) continue;
-                if (af) {
-                    b.x -= diffX * guideWeight;
-                    b.y -= diffY * guideWeight;
-                } else if (bf) {
-                    a.x += diffX * guideWeight;
-                    a.y += diffY * guideWeight;
-                } else {
-                    float half = guideWeight * .5f;
-                    a.x += diffX * half;
-                    a.y += diffY * half;
-                    b.x -= diffX * half;
-                    b.y -= diffY * half;
-                }
+            float drawn = (float) Math.hypot(dx, dy);
+            if (drawn < 1e-6f) {
+                return Result.fail("В эскизе есть стена нулевой длины.");
             }
 
-            for (Constraint constraint : factual) {
-                PointF a = positions.get(constraint.a);
-                PointF b = positions.get(constraint.b);
-                if (a == null || b == null) continue;
+            ux[i] = dx / drawn;
+            uy[i] = dy / drawn;
+            target[i] = edge.value;
 
-                float dx = b.x - a.x;
-                float dy = b.y - a.y;
-                float distance = (float) Math.hypot(dx, dy);
-                if (distance < 1e-6f) {
-                    dx = 1f;
-                    dy = 0f;
-                    distance = 1f;
-                }
+            // Long walls absorb most closure mismatch; tiny returns keep their
+            // measured size instead of collapsing or creating a micro-kink.
+            double len = Math.max(1d, edge.value);
+            flexibility[i] = len * len;
 
-                float error = distance - constraint.target;
-                float nx = dx / distance;
-                float ny = dy / distance;
-                boolean af = constraint.a.equals(fixedA);
-                boolean bf = constraint.b.equals(fixedB);
-                boolean wallConstraint =
-                        NativeGeometry.edgeBetween(room, constraint.a, constraint.b) != null;
-                float weight = wallConstraint ? .16f : .06f;
-
-                if (af && bf) continue;
-                if (af) {
-                    b.x -= nx * error * weight;
-                    b.y -= ny * error * weight;
-                } else if (bf) {
-                    a.x += nx * error * weight;
-                    a.y += ny * error * weight;
-                } else {
-                    float half = error * weight * .5f;
-                    a.x += nx * half;
-                    a.y += ny * half;
-                    b.x -= nx * half;
-                    b.y -= ny * half;
-                }
-            }
-
-            positions.put(fixedA, new PointF(fixedPosA.x, fixedPosA.y));
-            positions.put(fixedB, new PointF(fixedPosB.x, fixedPosB.y));
+            closureX += target[i] * ux[i];
+            closureY += target[i] * uy[i];
+            mxx += flexibility[i] * ux[i] * ux[i];
+            mxy += flexibility[i] * ux[i] * uy[i];
+            myy += flexibility[i] * uy[i] * uy[i];
         }
 
-        float sketchSign = Math.signum(signedArea(raw, order));
-        float solvedSign = Math.signum(signedArea(positions, order));
-        if (sketchSign != 0f && solvedSign != 0f && sketchSign != solvedSign) {
-            for (String id : order) {
-                PointF p = positions.get(id);
-                if (p != null) p.y = -p.y;
-            }
+        double det = mxx * myy - mxy * mxy;
+        if (Math.abs(det) < 1e-8d) {
+            return Result.fail("Не удалось сохранить форму эскиза: контур вырожден.");
         }
 
+        // Weighted least-squares correction:
+        // minimise wall-length changes while enforcing exact contour closure.
+        double lambdaX = (myy * closureX - mxy * closureY) / det;
+        double lambdaY = (-mxy * closureX + mxx * closureY) / det;
+
+        boolean redistributed = false;
+        for (int i = 0; i < n; i++) {
+            double correction = flexibility[i]
+                    * (ux[i] * lambdaX + uy[i] * lambdaY);
+            adjusted[i] = (float) (target[i] - correction);
+            if (adjusted[i] <= .25f) {
+                // Do not create a zero/negative short wall. In a severely
+                // inconsistent measurement set the sketch itself remains the
+                // safer representation.
+                return Result.fail(
+                        "Замеры слишком сильно конфликтуют: одна из стен "
+                                + "схлопывается при замыкании контура.");
+            }
+            if (Math.abs(adjusted[i] - target[i]) > .01f) redistributed = true;
+        }
+
+        Map<String, PointF> positions = new HashMap<>();
+        float x = 0f;
+        float y = 0f;
+        positions.put(order.get(0), new PointF(x, y));
+        for (int i = 0; i < n - 1; i++) {
+            x += ux[i] * adjusted[i];
+            y += uy[i] * adjusted[i];
+            positions.put(order.get(i + 1), new PointF(x, y));
+        }
+
+        ArrayList<Constraint> factual = factualConstraints(room);
         float maxError = maxConstraintError(positions, factual);
         String message = maxError > FACTUAL_CONFLICT_TOL
                 ? String.format(
                         Locale.getDefault(),
-                        "Фактическая геометрия построена по форме эскиза. "
-                                + "Замеры конфликтуют: невязка до %.2f м. "
-                                + "Контур не искажался ради скрытия расхождения.",
+                        "Фактическая геометрия построена строго по форме эскиза. "
+                                + "Расхождение замеров до %.2f м распределено по "
+                                + "длинам стен без изменения углов.",
                         maxError / 100f)
                 : String.format(
                         Locale.getDefault(),
@@ -547,7 +442,7 @@ final class NativeMeasurementSolver {
                 positions,
                 maxError,
                 false,
-                maxError > .01f);
+                redistributed || maxError > .01f);
     }
 
     @Nullable
