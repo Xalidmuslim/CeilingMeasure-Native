@@ -106,7 +106,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         gp.topMargin=dp(7);
         shell.addView(grid,gp);
-        String[] keys={"1","2","3","4","5","6","7","8","9","Очистить","0","⌫"};
+        String[] keys={"1","2","3","4","5","6","7","8","9",",","0","⌫"};
         for(String key:keys)addKey(grid,key);
 
         Button delete=button("Удалить диагональ",false);
@@ -165,7 +165,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
             return;
         }
         try{
-            listener.onSave(Float.parseFloat(buffer));
+            listener.onSave(Float.parseFloat(buffer.replace(',','.')));
         }catch(Exception e){
             Toast.makeText(getContext(),
                     "Введите диагональ, например 4120",
@@ -175,20 +175,26 @@ final class NativeDiagonalMeasureDialog extends Dialog {
 
     private void addKey(GridLayout grid,String key){
         Button b=button(key,false);
-        b.setTextSize("Очистить".equals(key)?10:18);
+        b.setTextSize("⌫".equals(key)?22:24);
+        b.setPadding(0,0,0,0);
+        b.setBackground(rounded(Color.rgb(248,250,252),LINE,18,1));
         b.setOnClickListener(v->{
-            if("Очистить".equals(key))buffer="0";
-            else if("⌫".equals(key))buffer=buffer.length()<=1?"0":buffer.substring(0,buffer.length()-1);
-            else{
+            if("⌫".equals(key)){
+                buffer=buffer.length()<=1?"0":buffer.substring(0,buffer.length()-1);
+            }else if(",".equals(key)){
+                if(!buffer.contains(",")&&!buffer.contains(".")){
+                    buffer=("0".equals(buffer)||buffer.isEmpty())?"0,":buffer+",";
+                }
+            }else{
                 if("0".equals(buffer))buffer="";
-                if(buffer.length()<7)buffer+=key;
+                if(buffer.length()<8)buffer+=key;
             }
             display.setText(buffer);
         });
         GridLayout.LayoutParams p=new GridLayout.LayoutParams();
-        p.width=0;p.height=dp(42);
+        p.width=0;p.height=dp(58);
         p.columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f);
-        p.setMargins(dp(3),dp(3),dp(3),dp(3));
+        p.setMargins(dp(4),dp(4),dp(4),dp(4));
         grid.addView(b,p);
     }
 
