@@ -80,6 +80,32 @@ public final class NativeFactualGeometryTest {
     }
 
     @Test
+    public void concaveSteppedSketchKeepsItsTurnTopology() {
+        NativeProjectStore.RoomData room = new NativeProjectStore.RoomData();
+        room.points.add(new NativeProjectStore.PointData("p0", 0f, 0f));
+        room.points.add(new NativeProjectStore.PointData("p1", 300f, 0f));
+        room.points.add(new NativeProjectStore.PointData("p2", 300f, 200f));
+        room.points.add(new NativeProjectStore.PointData("p3", 180f, 200f));
+        room.points.add(new NativeProjectStore.PointData("p4", 180f, 320f));
+        room.points.add(new NativeProjectStore.PointData("p5", 0f, 320f));
+
+        room.edges.add(edge("p0", "p1", 320f));
+        room.edges.add(edge("p1", "p2", 210f));
+        room.edges.add(edge("p2", "p3", 115f));
+        room.edges.add(edge("p3", "p4", 130f));
+        room.edges.add(edge("p4", "p5", 190f));
+        room.edges.add(edge("p5", "p0", 325f));
+
+        NativeMeasurementSolver.Result result =
+                NativeMeasurementSolver.solveFactual(room);
+
+        assertTrue(result.ok);
+        assertWallLengthsMatchEntered(room, result.positions);
+        assertMeaningfulTurnSignsPreserved(room, result.positions);
+        assertSameWinding(room, result.positions);
+    }
+
+    @Test
     public void conflictingExtraMeasuredDiagonalIsReportedNotHidden() {
         NativeProjectStore.RoomData room = rectangleRoom();
 
@@ -274,6 +300,45 @@ public final class NativeFactualGeometryTest {
                     edge.value,
                     distance(positions, edge.a, edge.b),
                     .06d);
+        }
+    }
+
+    private static void assertMeaningfulTurnSignsPreserved(
+            NativeProjectStore.RoomData room,
+            Map<String, PointF> positions) {
+        java.util.List<String> order = NativeGeometry.cycleOrder(room);
+        assertNotNull(order);
+        for (int i = 0; i < order.size(); i++) {
+            int previous = (i - 1 + order.size()) % order.size();
+            int next = (i + 1) % order.size();
+
+            NativeProjectStore.PointData sp =
+                    NativeGeometry.pointById(room, order.get(previous));
+            NativeProjectStore.PointData sv =
+                    NativeGeometry.pointById(room, order.get(i));
+            NativeProjectStore.PointData sn =
+                    NativeGeometry.pointById(room, order.get(next));
+            PointF fp = positions.get(order.get(previous));
+            PointF fv = positions.get(order.get(i));
+            PointF fn = positions.get(order.get(next));
+            assertNotNull(sp);
+            assertNotNull(sv);
+            assertNotNull(sn);
+            assertNotNull(fp);
+            assertNotNull(fv);
+            assertNotNull(fn);
+
+            double sketchCross =
+                    (sv.x - sp.x) * (sn.y - sv.y)
+                            - (sv.y - sp.y) * (sn.x - sv.x);
+            double factualCross =
+                    (fv.x - fp.x) * (fn.y - fv.y)
+                            - (fv.y - fp.y) * (fn.x - fv.x);
+            if (Math.abs(sketchCross) > 1e-3d) {
+                assertTrue(
+                        "concave/convex turn must not flip",
+                        Math.signum(sketchCross) == Math.signum(factualCross));
+            }
         }
     }
 
