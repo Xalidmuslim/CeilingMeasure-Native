@@ -12,7 +12,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
@@ -24,6 +24,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Validate launcher source asset
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("medicine-prophet-native/app/src/main/res/drawable/medicine_launcher.webp")
+          b = p.read_bytes()
+          assert len(b) >= 32, f"launcher asset too small: {len(b)} bytes"
+          assert b[:4] == b"RIFF" and b[8:12] == b"WEBP", "launcher asset is not a RIFF/WebP file"
+          declared = int.from_bytes(b[4:8], "little") + 8
+          assert declared == len(b), f"truncated/corrupt WebP: RIFF declares {declared} bytes, file has {len(b)}"
+          chunk_size = int.from_bytes(b[16:20], "little")
+          assert 20 + chunk_size <= len(b), f"truncated WebP payload: chunk requires {20 + chunk_size}, file has {len(b)}"
+          print("launcher-webp-ok", len(b), "bytes")
+          PY
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -40,9 +55,10 @@ jobs:
       - name: Bundle complete book for offline use
         run: |
           mkdir -p medicine-prophet-native/app/src/main/assets
-          curl -fsSL https://medicina-proroka.netlify.app/data/book.json             -o medicine-prophet-native/app/src/main/assets/book.json
+          curl -fsSL https://medicina-proroka.netlify.app/data/book.json \
+            -o medicine-prophet-native/app/src/main/assets/book.json
           echo "db5201e4150a50a41f7fde2eef5ac8ae3d8b1cf9da933c651f508ac0de5da0e1  medicine-prophet-native/app/src/main/assets/book.json" | sha256sum -c -
-          python - <<'PY'
+          python3 - <<'PY'
           import json
           p="medicine-prophet-native/app/src/main/assets/book.json"
           d=json.load(open(p,encoding="utf-8"))
@@ -55,7 +71,9 @@ jobs:
       - name: Restore Play upload key
         run: |
           base64 -d medicine-prophet-native/signing/medicina-native-upload.jks.b64 > "$MEDICINA_NATIVE_KEYSTORE"
-          keytool -list -keystore "$MEDICINA_NATIVE_KEYSTORE"             -storepass "$MEDICINA_NATIVE_STORE_PASSWORD"             -alias "$MEDICINA_NATIVE_KEY_ALIAS" >/dev/null
+          keytool -list -keystore "$MEDICINA_NATIVE_KEYSTORE" \
+            -storepass "$MEDICINA_NATIVE_STORE_PASSWORD" \
+            -alias "$MEDICINA_NATIVE_KEY_ALIAS" >/dev/null
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -71,16 +89,48 @@ jobs:
           cp medicine-prophet-native/app/build/outputs/apk/release/app-release.apk medicina-proroka-native.apk
           cp medicine-prophet-native/app/build/outputs/bundle/release/app-release.aab medicina-proroka-native.aab
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs medicina-proroka-native.apk
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging medicina-proroka-native.apk | grep -E "^package:|application-label|sdkVersion|targetSdkVersion"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging medicina-proroka-native.apk | tee /tmp/badging.txt
+          grep -E "^package:|application-label|sdkVersion|targetSdkVersion" /tmp/badging.txt
+          grep -q "application-icon-" /tmp/badging.txt
           jarsigner -verify -certs medicina-proroka-native.aab
           sha256sum medicina-proroka-native.apk medicina-proroka-native.aab
 
-      - name: Upload APK and AAB
+      - name: Install and launch on Android 16 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -euxo pipefail
+            PACKAGE="com.xalid.meditsinaproroka.nativeapp"
+            ACTIVITY=".MainActivity"
+            adb install -r medicina-proroka-native.apk
+            adb logcat -c
+            adb shell am force-stop "$PACKAGE"
+            adb shell am start -W -n "$PACKAGE/$ACTIVITY" | tee /tmp/start-result.txt
+            grep -q "Status: ok" /tmp/start-result.txt
+            sleep 5
+            PID="$(adb shell pidof "$PACKAGE" | tr -d '\r')"
+            test -n "$PID"
+            adb exec-out screencap -p > medicina-proroka-startup.png
+            test -s medicina-proroka-startup.png
+            adb logcat -d -v threadtime > medicina-proroka-logcat.txt
+            if grep -A 30 -B 5 -E "FATAL EXCEPTION: main|Process: $PACKAGE" medicina-proroka-logcat.txt | grep -q "$PACKAGE"; then
+              echo "Detected fatal startup crash"
+              exit 1
+            fi
+
+      - name: Upload APK, AAB and startup evidence
         uses: actions/upload-artifact@v4
         with:
           name: medicina-proroka-native-play
           path: |
             medicina-proroka-native.apk
             medicina-proroka-native.aab
+            medicina-proroka-startup.png
+            medicina-proroka-logcat.txt
           if-no-files-found: error
           retention-days: 30
