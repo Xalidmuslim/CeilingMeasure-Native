@@ -86,6 +86,7 @@ public class NativeAppSmokeTest {
             assertNotNull(root.findViewWithTag("native_save_measurement"));
             assertNotNull(root.findViewWithTag("native_drawing_check"));
             assertNotNull(root.findViewWithTag("native_history_nav"));
+            assertNotNull(root.findViewWithTag("native_nav_home"));
             assertNotNull(root.findViewWithTag("native_nav_redo"));
             assertNotNull(root.findViewWithTag("native_nav_more"));
             assertNotNull(root.findViewWithTag("native_nav_undo"));
