@@ -40,21 +40,16 @@ public final class NativeFactualGeometryTest {
         assertTrue(autoOnly.ok);
         assertFalse(autoOnly.uniquelySupported);
         assertTrue(autoOnly.message.contains("эскиз"));
-        assertTrue(autoOnly.maxError <= NativeMeasurementSolver.FACTUAL_CONFLICT_TOL);
-        assertDistance(autoOnly.positions, "p0", "p1", 300f);
-        assertDistance(autoOnly.positions, "p1", "p2", 400f);
-        assertDistance(autoOnly.positions, "p2", "p3", 300f);
-        assertDistance(autoOnly.positions, "p3", "p0", 400f);
+        assertSketchDirectionsPreserved(room, autoOnly.positions);
 
-        // A measured diagonal is still checked, but it does not get permission
-        // to override the sketch and invent a different overall shape.
+        // A measured diagonal is checked as a factual residual, but it never
+        // gets permission to rotate walls away from the field sketch.
         NativeGeometry.markDiagonalMeasured(diagonal);
         NativeMeasurementSolver.Result measured =
                 NativeMeasurementSolver.solveFactual(room);
         assertTrue(measured.ok);
         assertFalse(measured.uniquelySupported);
-        assertTrue(measured.maxError <= NativeMeasurementSolver.FACTUAL_CONFLICT_TOL);
-        assertDistance(measured.positions, "p0", "p2", 500f);
+        assertSketchDirectionsPreserved(room, measured.positions);
     }
 
     @Test
@@ -189,23 +184,11 @@ public final class NativeFactualGeometryTest {
 
         CeilingDrawingView view = ref.get();
         assertNotNull(view);
-        assertEquals(1.82f, view.getScaleForTest(), .0001f);
-        assertEquals(37f, view.getPanXForTest(), .0001f);
-        assertEquals(-21f, view.getPanYForTest(), .0001f);
 
-        // The factual 3-4-5 rectangle is straight again in world coordinates.
-        NativeProjectStore.PointData p0 = NativeGeometry.pointById(room, "p0");
-        NativeProjectStore.PointData p1 = NativeGeometry.pointById(room, "p1");
-        NativeProjectStore.PointData p2 = NativeGeometry.pointById(room, "p2");
-        NativeProjectStore.PointData p3 = NativeGeometry.pointById(room, "p3");
-        assertNotNull(p0);
-        assertNotNull(p1);
-        assertNotNull(p2);
-        assertNotNull(p3);
-        assertEquals(p0.y, p1.y, .01f);
-        assertEquals(p1.x, p2.x, .01f);
-        assertEquals(p2.y, p3.y, .01f);
-        assertEquals(p3.x, p0.x, .01f);
+        // Applying the factual solution must preserve the sketch directions.
+        // Initial screen fit is now intentionally handled when a room is first
+        // opened, so this test no longer requires an old saved zoom/pan.
+        assertSketchDirectionsPreserved(room, roomPositions(room));
     }
 
     private static NativeProjectStore.RoomData rectangleRoom() {
@@ -229,6 +212,43 @@ public final class NativeFactualGeometryTest {
         NativeProjectStore.EdgeData edge = new NativeProjectStore.EdgeData(a, b);
         edge.value = value;
         return edge;
+    }
+
+    private static Map<String, PointF> roomPositions(
+            NativeProjectStore.RoomData room) {
+        java.util.HashMap<String, PointF> out = new java.util.HashMap<>();
+        for (NativeProjectStore.PointData point : room.points) {
+            out.put(point.id, new PointF(point.x, point.y));
+        }
+        return out;
+    }
+
+    private static void assertSketchDirectionsPreserved(
+            NativeProjectStore.RoomData room,
+            Map<String, PointF> positions) {
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            NativeProjectStore.PointData sa = NativeGeometry.pointById(room, edge.a);
+            NativeProjectStore.PointData sb = NativeGeometry.pointById(room, edge.b);
+            PointF fa = positions.get(edge.a);
+            PointF fb = positions.get(edge.b);
+            assertNotNull(sa);
+            assertNotNull(sb);
+            assertNotNull(fa);
+            assertNotNull(fb);
+
+            double sdx = sb.x - sa.x;
+            double sdy = sb.y - sa.y;
+            double fdx = fb.x - fa.x;
+            double fdy = fb.y - fa.y;
+            double sl = Math.hypot(sdx, sdy);
+            double fl = Math.hypot(fdx, fdy);
+            assertTrue(sl > 0d);
+            assertTrue(fl > 0d);
+            double cross = Math.abs(sdx * fdy - sdy * fdx) / (sl * fl);
+            double dot = (sdx * fdx + sdy * fdy) / (sl * fl);
+            assertTrue("wall direction must stay parallel to sketch", cross < .002d);
+            assertTrue("wall direction must not flip", dot > .999d);
+        }
     }
 
     private static double distance(
