@@ -2090,8 +2090,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         LinearLayout filters=new LinearLayout(this);
         filters.setOrientation(LinearLayout.HORIZONTAL);
+        filters.setClipChildren(false);
+        filters.setClipToPadding(false);
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(46));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(52));
         fp.topMargin=dp(5);
         content.addView(filters,fp);
 
@@ -2104,8 +2106,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         LinearLayout backup=new LinearLayout(this);
         backup.setOrientation(LinearLayout.HORIZONTAL);
+        backup.setClipChildren(false);
+        backup.setClipToPadding(false);
         LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(46));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(52));
         bp.topMargin=dp(5);
         content.addView(backup,bp);
 
