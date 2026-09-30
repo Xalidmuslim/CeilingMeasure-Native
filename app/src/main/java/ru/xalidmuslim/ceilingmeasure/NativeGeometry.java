@@ -504,6 +504,42 @@ final class NativeGeometry {
                         room.raw.optString(GEOMETRY_MODE_KEY, ""));
     }
 
+    static Map<String, float[]> sketchCoordinates(
+            @Nullable NativeProjectStore.RoomData room) {
+        HashMap<String, float[]> result = new HashMap<>();
+        if (room == null) return result;
+
+        JSONArray stored = room.raw.optJSONArray(SKETCH_GEOMETRY_KEY);
+        if (stored != null && stored.length() > 0) {
+            for (int i = 0; i < stored.length(); i++) {
+                JSONObject item = stored.optJSONObject(i);
+                if (item == null) continue;
+                String id = item.optString("id", "");
+                float x = (float) item.optDouble("x", Float.NaN);
+                float y = (float) item.optDouble("y", Float.NaN);
+                if (!id.isEmpty() && Float.isFinite(x) && Float.isFinite(y)) {
+                    result.put(id, new float[]{x, y});
+                }
+            }
+            boolean complete = result.size() == room.points.size();
+            if (complete) {
+                for (NativeProjectStore.PointData point : room.points) {
+                    if (!result.containsKey(point.id)) {
+                        complete = false;
+                        break;
+                    }
+                }
+            }
+            if (complete) return result;
+            result.clear();
+        }
+
+        for (NativeProjectStore.PointData point : room.points) {
+            result.put(point.id, new float[]{point.x, point.y});
+        }
+        return result;
+    }
+
     static boolean captureSketchGeometry(@Nullable NativeProjectStore.RoomData room) {
         if (room == null || room.points.isEmpty()) return false;
         if (hasSketchGeometryBackup(room)) return true;
