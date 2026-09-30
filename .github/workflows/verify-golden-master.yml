@@ -2,7 +2,17 @@ name: Verify native Android
 
 on:
   push:
+    paths:
+      - "app/**"
+      - "webapp/**"
+      - "scripts/verify_webapp.py"
+      - ".github/workflows/verify-golden-master.yml"
   pull_request:
+    paths:
+      - "app/**"
+      - "webapp/**"
+      - "scripts/verify_webapp.py"
+      - ".github/workflows/verify-golden-master.yml"
   workflow_dispatch:
 
 permissions:
