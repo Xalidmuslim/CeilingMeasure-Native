@@ -70,15 +70,11 @@ final class CeilingDrawingView extends View {
     private float pinchLastCentroidY;
     private String displayedRoomId;
 
-    private boolean pageScrollCandidate;
-    private boolean pageScrollActive;
-    private float pageScrollLastY;
     private boolean wallSequenceActive;
     private String wallSequenceTapEdgeId;
 
     private float downScreenX;
     private float downScreenY;
-    private long oneFingerDownTime;
     private boolean moved;
     private boolean longPressFired;
     private Runnable longPressRunnable;
@@ -714,16 +710,14 @@ final class CeilingDrawingView extends View {
         switch (action) {
             case MotionEvent.ACTION_DOWN:
                 if (multiTouch) return true;
-                getParent().requestDisallowInterceptTouchEvent(true);
+                boolean closedContour = NativeGeometry.isClosed(room);
+                getParent().requestDisallowInterceptTouchEvent(!closedContour);
                 downScreenX = event.getX();
                 downScreenY = event.getY();
-                oneFingerDownTime = event.getEventTime();
                 moved = false;
                 longPressFired = false;
                 activeGuide = null;
                 redGuideSnapActive = false;
-                pageScrollActive = false;
-                pageScrollCandidate = false;
 
                 // Editing measurements is mode-independent: holding a wall or
                 // its numeric label must open the same editor in Wall, Point,
@@ -778,8 +772,12 @@ final class CeilingDrawingView extends View {
                     postInvalidateOnAnimation();
                 } else {
                     beginLabelGesture(worldX, worldY);
+                    if (draggingLabel != null
+                            || rotatingLabel != null
+                            || selectedLabel != null) {
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                    }
                 }
-                getParent().requestDisallowInterceptTouchEvent(true);
                 return true;
 
             case MotionEvent.ACTION_MOVE:
@@ -804,59 +802,6 @@ final class CeilingDrawingView extends View {
                     pendingLabelGesture = null;
                     beginLabelGesture(worldX, worldY);
                     moved = true;
-                }
-
-                boolean directManipulation =
-                        wallDraft != null
-                                || draggingPointId != null
-                                || diagDraft != null
-                                || draggingLabel != null
-                                || rotatingLabel != null;
-                boolean pinchAcquisitionWindow =
-                        event.getEventTime() - oneFingerDownTime < 120L;
-                if (NativeGeometry.isClosed(room)
-                        && !directManipulation
-                        && !pinchAcquisitionWindow
-                        && Math.abs(dyScreen) > dp(12)
-                        && Math.abs(dyScreen) >= Math.abs(dxScreen) * .82f) {
-                    cancelPendingLongPress();
-                    getParent().requestDisallowInterceptTouchEvent(false);
-                    return true;
-                }
-
-                if (pageScrollCandidate && !pageScrollActive) {
-                    float threshold = mode == Mode.WALL ? dp(8) : dp(11);
-                    float dominance = mode == Mode.WALL ? .72f : .78f;
-                    if (Math.abs(dyScreen) > threshold
-                            && Math.abs(dyScreen) >= Math.abs(dxScreen) * dominance) {
-                        pageScrollActive = true;
-                        cancelPendingLongPress();
-                        longPressFired = false;
-                        wallDraft = null;
-                        diagDraft = null;
-                        draggingPointId = null;
-                        rotatingLabel = null;
-                        draggingLabel = null;
-                        activeGuide = null;
-                        magnifierFocus = null;
-                        magnifierKind = null;
-                    }
-                }
-
-                if (pageScrollActive) {
-                    ScrollView scroll = findAncestorScrollView();
-                    if (scroll != null) {
-                        // Incremental deltas avoid the jump caused by repeatedly
-                        // recalculating from the original ACTION_DOWN position.
-                        float currentY = event.getY();
-                        int delta = Math.round(pageScrollLastY - currentY);
-                        if (delta != 0) {
-                            scroll.scrollBy(0, delta);
-                            scroll.postInvalidateOnAnimation();
-                        }
-                        pageScrollLastY = currentY;
-                    }
-                    return true;
                 }
 
                 if (mode == Mode.WALL && wallDraft != null) {
@@ -888,8 +833,6 @@ final class CeilingDrawingView extends View {
                 if (multiTouch) {
                     multiTouch = false;
                     pinchActive = false;
-                    pageScrollCandidate = false;
-                    pageScrollActive = false;
                     syncViewToRoom();
                     changed();
                     cancelTransientGestures();
@@ -897,8 +840,6 @@ final class CeilingDrawingView extends View {
                 }
 
                 if (pageScrollActive) {
-                    pageScrollCandidate = false;
-                    pageScrollActive = false;
                     cancelTransientGestures();
                     return true;
                 }
@@ -942,8 +883,6 @@ final class CeilingDrawingView extends View {
                 cancelPendingLongPress();
                 multiTouch = false;
                 pinchActive = false;
-                pageScrollCandidate = false;
-                pageScrollActive = false;
                 cancelTransientGestures();
                 return true;
 
@@ -1495,8 +1434,6 @@ final class CeilingDrawingView extends View {
         cancelPendingLongPress();
         longPressRunnable = () -> {
             longPressFired = true;
-            pageScrollCandidate = false;
-            pageScrollActive = false;
             wallDraft = null;
             diagDraft = null;
             draggingPointId = null;
@@ -2121,8 +2058,6 @@ final class CeilingDrawingView extends View {
         pinchLastDistance = Math.max(pointerSpan(event), 1f);
         pinchActive = true;
         multiTouch = true;
-        pageScrollCandidate = false;
-        pageScrollActive = false;
     }
 
     private void applyPinch(MotionEvent event) {
@@ -2197,22 +2132,6 @@ final class CeilingDrawingView extends View {
         return (float) Math.hypot(
                 event.getX(1) - event.getX(0),
                 event.getY(1) - event.getY(0));
-    }
-
-    private void beginPageScrollCandidate(MotionEvent event) {
-        pageScrollCandidate = true;
-        pageScrollActive = false;
-        pageScrollLastY = event.getY();
-    }
-
-    @Nullable
-    private ScrollView findAncestorScrollView() {
-        ViewParent parent = getParent();
-        while (parent != null) {
-            if (parent instanceof ScrollView) return (ScrollView) parent;
-            parent = parent.getParent();
-        }
-        return null;
     }
 
     private float centroidX(MotionEvent event) {
