@@ -318,7 +318,7 @@ public class NativeAppSmokeTest {
     }
 
     @Test
-    public void nativeDrawingUsesWebStyleWallGestureRules() {
+    public void nativeDrawingUsesWebStyleWallGestureRules() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Intent intent = new Intent(context, NativeWorkspaceActivity.class);
         intent.putExtra(
@@ -327,38 +327,51 @@ public class NativeAppSmokeTest {
 
         try (ActivityScenario<NativeWorkspaceActivity> scenario =
                      ActivityScenario.launch(intent)) {
-            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
-            scenario.onActivity(ref::set);
-            NativeWorkspaceActivity activity = ref.get();
-            assertNotNull(activity);
+            AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
+            AtomicReference<NativeProjectStore.RoomData> roomRef = new AtomicReference<>();
 
-            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            scenario.onActivity(activity -> {
                 CeilingDrawingView view = (CeilingDrawingView) activity.getWindow()
                         .getDecorView()
                         .findViewWithTag("native_drawing_view");
                 assertNotNull(view);
                 NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                viewRef.set(view);
+                roomRef.set(room);
 
                 long now = android.os.SystemClock.uptimeMillis();
+                // A tap or short drag on an empty map must not create a wall.
                 dispatch(view, now, MotionEvent.ACTION_DOWN, 100, 100);
                 dispatch(view, now + 40, MotionEvent.ACTION_UP, 100, 100);
+                drag(view, now + 60, 100, 100, 260, 100);
                 assertEquals(0, room.points.size());
                 assertEquals(0, room.edges.size());
+            });
 
-                drag(view, now + 100, 100, 100, 260, 100);
+            // First wall begins only after the long-press threshold.
+            long firstDown = android.os.SystemClock.uptimeMillis();
+            scenario.onActivity(activity ->
+                    dispatch(viewRef.get(), firstDown, MotionEvent.ACTION_DOWN, 100, 100));
+            android.os.SystemClock.sleep(420);
+            scenario.onActivity(activity -> {
+                CeilingDrawingView view = viewRef.get();
+                NativeProjectStore.RoomData room = roomRef.get();
+                dispatch(view, firstDown, MotionEvent.ACTION_MOVE, 260, 100);
+                dispatch(view, firstDown, MotionEvent.ACTION_UP, 260, 100);
                 assertEquals(2, room.points.size());
                 assertEquals(1, room.edges.size());
 
-                drag(view, now + 300, 260, 100, 260, 250);
+                long now = android.os.SystemClock.uptimeMillis();
+                drag(view, now + 100, 260, 100, 260, 250);
                 assertEquals(3, room.points.size());
                 assertEquals(2, room.edges.size());
 
                 // Blank space cannot start a disconnected wall after drawing begins.
-                drag(view, now + 500, 400, 300, 520, 300);
+                drag(view, now + 300, 400, 300, 520, 300);
                 assertEquals(2, room.edges.size());
 
-                drag(view, now + 700, 260, 250, 100, 250);
-                drag(view, now + 900, 100, 250, 100, 100);
+                drag(view, now + 500, 260, 250, 100, 250);
+                drag(view, now + 700, 100, 250, 100, 100);
 
                 assertEquals(4, room.edges.size());
                 assertTrue(NativeGeometry.isClosed(room));
