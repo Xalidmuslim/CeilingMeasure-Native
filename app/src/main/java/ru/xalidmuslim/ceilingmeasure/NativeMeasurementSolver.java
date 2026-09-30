@@ -349,11 +349,13 @@ final class NativeMeasurementSolver {
         double mxy = 0d;
         double myy = 0d;
 
+        Map<String, float[]> sketch = NativeGeometry.sketchCoordinates(room);
+
         for (int i = 0; i < n; i++) {
             String aId = order.get(i);
             String bId = order.get((i + 1) % n);
-            NativeProjectStore.PointData a = NativeGeometry.pointById(room, aId);
-            NativeProjectStore.PointData b = NativeGeometry.pointById(room, bId);
+            float[] a = sketch.get(aId);
+            float[] b = sketch.get(bId);
             NativeProjectStore.EdgeData edge = NativeGeometry.edgeBetween(room, aId, bId);
             if (a == null || b == null || edge == null) {
                 return Result.fail("Повреждена геометрия комнаты.");
@@ -362,8 +364,8 @@ final class NativeMeasurementSolver {
                 return Result.fail("Сначала введи реальные размеры всех стен.");
             }
 
-            float dx = b.x - a.x;
-            float dy = b.y - a.y;
+            float dx = b[0] - a[0];
+            float dy = b[1] - a[1];
             float drawn = (float) Math.hypot(dx, dy);
             if (drawn < 1e-6f) {
                 return Result.fail("В эскизе есть стена нулевой длины.");
