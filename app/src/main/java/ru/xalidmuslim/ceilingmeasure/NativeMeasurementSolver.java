@@ -316,10 +316,12 @@ final class NativeMeasurementSolver {
 
 
     /**
-     * Builds factual geometry from measured walls and measured diagonals only.
+     * Builds factual geometry with measured wall lengths as hard constraints.
      *
-     * The sketch is used solely to select the mirror branch of circle intersections.
-     * It never contributes a distance, angle or soft direction constraint.
+     * The sketch supplies topology, winding and a fading direction preference.
+     * Angles are allowed to bend when that is required to honor the entered
+     * dimensions. Measured diagonals choose the most plausible bend but may not
+     * change wall lengths; any remaining diagonal conflict is reported.
      */
     @NonNull
     static Result solveFactual(@NonNull NativeProjectStore.RoomData room) {
