@@ -110,7 +110,7 @@ final class CeilingDrawingView extends View {
         setFocusable(true);
 
         linePaint.setColor(TEXT);
-        linePaint.setStrokeWidth(dp(1.65f));
+        linePaint.setStrokeWidth(dp(1.35f));
         linePaint.setStyle(Paint.Style.STROKE);
         linePaint.setStrokeCap(Paint.Cap.ROUND);
         linePaint.setStrokeJoin(Paint.Join.ROUND);
@@ -118,7 +118,7 @@ final class CeilingDrawingView extends View {
         pointPaint.setStyle(Paint.Style.FILL);
 
         gridPaint.setColor(GRID);
-        gridPaint.setStrokeWidth(dp(1f));
+        gridPaint.setStrokeWidth(dp(.75f));
 
         textPaint.setColor(TEXT);
         textPaint.setTextSize(sp(13));
@@ -128,12 +128,12 @@ final class CeilingDrawingView extends View {
                 android.graphics.Typeface.BOLD));
 
         previewPaint.setColor(BLUE);
-        previewPaint.setStrokeWidth(dp(1.9f));
+        previewPaint.setStrokeWidth(dp(1.6f));
         previewPaint.setStyle(Paint.Style.STROKE);
         previewPaint.setStrokeCap(Paint.Cap.ROUND);
 
         guidePaint.setColor(RED);
-        guidePaint.setStrokeWidth(dp(1.15f));
+        guidePaint.setStrokeWidth(dp(.95f));
         guidePaint.setStyle(Paint.Style.STROKE);
         guidePaint.setPathEffect(new DashPathEffect(new float[]{dp(6), dp(5)}, 0));
 
@@ -419,11 +419,11 @@ final class CeilingDrawingView extends View {
         // scaled by Canvas, so zooming to 200–300% made walls look several
         // times thicker than at 100%.
         Paint normalPaint = new Paint(linePaint);
-        normalPaint.setStrokeWidth(dp(1.65f) / Math.max(MIN_VIEW_SCALE, scale));
+        normalPaint.setStrokeWidth(dp(1.35f) / Math.max(MIN_VIEW_SCALE, scale));
 
         Paint activePaint = new Paint(normalPaint);
         activePaint.setColor(BLUE);
-        activePaint.setStrokeWidth(dp(2.45f) / Math.max(MIN_VIEW_SCALE, scale));
+        activePaint.setStrokeWidth(dp(2.05f) / Math.max(MIN_VIEW_SCALE, scale));
 
         for (NativeProjectStore.EdgeData edge : room.edges) {
             NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
@@ -440,7 +440,7 @@ final class CeilingDrawingView extends View {
     private void drawDiagonals(Canvas canvas) {
         Paint paint = new Paint(linePaint);
         paint.setColor(Color.rgb(112, 130, 144));
-        paint.setStrokeWidth(dp(1.15f) / Math.max(MIN_VIEW_SCALE, scale));
+        paint.setStrokeWidth(dp(.95f) / Math.max(MIN_VIEW_SCALE, scale));
         paint.setPathEffect(new DashPathEffect(
                 new float[]{dp(7) / scale, dp(5) / scale},
                 0));
@@ -467,7 +467,7 @@ final class CeilingDrawingView extends View {
     private void drawWallDraft(Canvas canvas) {
         if (wallDraft == null) return;
         Paint wallPreview = new Paint(previewPaint);
-        wallPreview.setStrokeWidth(dp(1.9f) / Math.max(MIN_VIEW_SCALE, scale));
+        wallPreview.setStrokeWidth(dp(1.6f) / Math.max(MIN_VIEW_SCALE, scale));
         canvas.drawLine(
                 wallDraft.start.x,
                 wallDraft.start.y,
@@ -480,7 +480,7 @@ final class CeilingDrawingView extends View {
             float nx = -activeGuide.uy;
             float ny = activeGuide.ux;
             Paint guide = new Paint(guidePaint);
-            guide.setStrokeWidth(dp(1.15f) / Math.max(MIN_VIEW_SCALE, scale));
+            guide.setStrokeWidth(dp(.95f) / Math.max(MIN_VIEW_SCALE, scale));
             guide.setPathEffect(new DashPathEffect(
                     new float[]{
                             dp(6) / Math.max(MIN_VIEW_SCALE, scale),
@@ -496,7 +496,7 @@ final class CeilingDrawingView extends View {
     }
 
     private void drawPoints(Canvas canvas) {
-        float radius = dp(4.7f) / Math.max(MIN_VIEW_SCALE, scale);
+        float radius = dp(4.25f) / Math.max(MIN_VIEW_SCALE, scale);
         for (NativeProjectStore.PointData point : room.points) {
             boolean diagStart = diagDraft != null && diagDraft.startId.equals(point.id);
             boolean moving = point.id.equals(draggingPointId);
@@ -566,7 +566,7 @@ final class CeilingDrawingView extends View {
         Paint outline = new Paint(fill);
         outline.setColor(Color.WHITE);
         outline.setStyle(Paint.Style.STROKE);
-        outline.setStrokeWidth(dp(4f) / scale);
+        outline.setStrokeWidth(dp(3.2f) / scale);
         outline.setStrokeJoin(Paint.Join.ROUND);
 
         Paint.FontMetrics fm = fill.getFontMetrics();
