@@ -139,11 +139,11 @@ final class NativeUiSettingsDialog extends Dialog {
         sheet = new LinearLayout(activity);
         sheet.setTag("native_ui_settings_sheet");
         sheet.setOrientation(LinearLayout.VERTICAL);
-        sheet.setPadding(dp(12), dp(12), dp(12), dp(12));
+        sheet.setPadding(dp(10), dp(10), dp(10), dp(10));
         sheet.setBackground(NativeVisualTokens.outlined(
                 NativeVisualTokens.SURFACE,
                 NativeVisualTokens.LINE,
-                dp(24),
+                dp(18),
                 dp(1)));
         sheet.setElevation(dp(10));
         sheet.setClickable(true);
@@ -198,7 +198,7 @@ final class NativeUiSettingsDialog extends Dialog {
         header.addView(copy, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView title = text("Настройки", 20, NativeVisualTokens.TEXT, true);
+        TextView title = text("Настройки", 18, NativeVisualTokens.TEXT, true);
         copy.addView(title);
         TextView sub = text(
                 "Изменения применяются сразу ко всему приложению",
@@ -216,14 +216,14 @@ final class NativeUiSettingsDialog extends Dialog {
         close.setOnClickListener(v -> dismissAnimated());
         LinearLayout.LayoutParams closeParams =
                 new LinearLayout.LayoutParams(dp(38), dp(38));
-        closeParams.leftMargin = dp(12);
+        closeParams.leftMargin = dp(8);
         header.addView(close, closeParams);
     }
 
     private void addFontGroup() {
         LinearLayout group = group("Шрифт", null);
         LinearLayout row = threeColumnRow();
-        group.addView(row, topMargin(dp(7)));
+        group.addView(row, topMargin(dp(5)));
 
         addChoice(row, "Aa\nСистемный", "native_ui_font_system",
                 NativeUiPrefs.FONT_SYSTEM.equals(prefs.font),
@@ -253,7 +253,7 @@ final class NativeUiSettingsDialog extends Dialog {
         large.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         head.addView(large, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)));
-        group.addView(head, topMargin(dp(8)));
+        group.addView(head, topMargin(dp(5)));
 
         // Keep the percentage indicator independent of the live text scale.
         // Previously it was squeezed between the two "Aa" labels and grew with
@@ -298,7 +298,7 @@ final class NativeUiSettingsDialog extends Dialog {
             @Override public void onStartTrackingTouch(SeekBar bar) {}
             @Override public void onStopTrackingTouch(SeekBar bar) {}
         });
-        group.addView(slider, topMargin(dp(6)));
+        group.addView(slider, topMargin(dp(4)));
 
         LinearLayout marks = new LinearLayout(activity);
         marks.setOrientation(LinearLayout.HORIZONTAL);
@@ -318,7 +318,7 @@ final class NativeUiSettingsDialog extends Dialog {
                 "Жирность",
                 "Меняет базовую жирность, сохраняя разницу между обычным текстом и заголовками");
         LinearLayout row = threeColumnRow();
-        group.addView(row, topMargin(dp(7)));
+        group.addView(row, topMargin(dp(5)));
 
         addChoice(row, "Aa\nОбычная", "native_ui_weight_normal",
                 NativeUiPrefs.WEIGHT_NORMAL.equals(prefs.weight),
@@ -335,11 +335,11 @@ final class NativeUiSettingsDialog extends Dialog {
         LinearLayout preview = new LinearLayout(activity);
         preview.setTag("native_ui_preview");
         preview.setOrientation(LinearLayout.VERTICAL);
-        preview.setPadding(dp(13), dp(12), dp(13), dp(12));
+        preview.setPadding(dp(10), dp(9), dp(10), dp(9));
         preview.setBackground(NativeVisualTokens.outlined(
                 Color.rgb(248, 251, 253),
                 Color.rgb(216, 228, 235),
-                dp(16),
+                dp(12),
                 dp(1)));
         LinearLayout.LayoutParams params = matchWrap();
         params.topMargin = dp(6);
@@ -358,7 +358,7 @@ final class NativeUiSettingsDialog extends Dialog {
         LinearLayout actions = new LinearLayout(activity);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams params = matchWrap();
-        params.topMargin = dp(11);
+        params.topMargin = dp(7);
         sheet.addView(actions, params);
 
         Button reset = choiceButton("По умолчанию", false);
@@ -370,10 +370,10 @@ final class NativeUiSettingsDialog extends Dialog {
         done.setOnClickListener(v -> dismissAnimated());
 
         LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(
-                0, dp(44), 1f);
+                0, dp(40), 1f);
         left.rightMargin = dp(4);
         LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(
-                0, dp(44), 1f);
+                0, dp(40), 1f);
         right.leftMargin = dp(4);
         actions.addView(reset, left);
         actions.addView(done, right);
@@ -382,7 +382,7 @@ final class NativeUiSettingsDialog extends Dialog {
     private LinearLayout group(String label, String hint) {
         LinearLayout group = new LinearLayout(activity);
         group.setOrientation(LinearLayout.VERTICAL);
-        group.setPadding(0, dp(11), 0, dp(11));
+        group.setPadding(0, dp(8), 0, dp(8));
         group.setBackground(NativeVisualTokens.outlined(
                 Color.TRANSPARENT,
                 Color.TRANSPARENT,
@@ -405,7 +405,7 @@ final class NativeUiSettingsDialog extends Dialog {
         divider.setBackgroundColor(Color.argb(199, 215, 225, 233));
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
-        dividerParams.topMargin = dp(10);
+        dividerParams.topMargin = dp(7);
         group.addView(divider, dividerParams);
         return group;
     }
@@ -420,7 +420,7 @@ final class NativeUiSettingsDialog extends Dialog {
         button.setTag(tag);
         button.setOnClickListener(v -> action.run());
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                0, dp(54), 1f);
+                0, dp(48), 1f);
         params.leftMargin = dp(3);
         params.rightMargin = dp(3);
         row.addView(button, params);
@@ -435,7 +435,7 @@ final class NativeUiSettingsDialog extends Dialog {
         button.setPadding(dp(7), 0, dp(7), 0);
         NativeTypography.register(button, 10.5f, true, prefs);
         if (active) {
-            button.setBackground(NativeVisualTokens.primaryButton(dp(15), dp(1)));
+            button.setBackground(NativeVisualTokens.primaryButton(dp(12), dp(1)));
         } else {
             button.setBackground(NativeVisualTokens.outlined(
                     NativeVisualTokens.SURFACE,
