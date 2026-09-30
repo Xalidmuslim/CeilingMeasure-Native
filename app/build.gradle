@@ -10,8 +10,8 @@ android {
         applicationId 'ru.xalidmuslim.ceilingmeasure'
         minSdk 29
         targetSdk 35
-        versionCode 210
-        versionName '1.0.210-native'
+        versionCode 211
+        versionName '1.0.211-native'
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
