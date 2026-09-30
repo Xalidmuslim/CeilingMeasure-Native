@@ -510,6 +510,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_BOTTOM_DP));
 
         setContentView(page);
+        NativeMotion.enter(page);
         page.requestApplyInsets();
         setMode(CeilingDrawingView.Mode.WALL);
         updateStats();
