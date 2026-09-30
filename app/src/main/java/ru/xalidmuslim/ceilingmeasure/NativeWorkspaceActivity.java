@@ -78,6 +78,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private CeilingDrawingView drawingView;
     private TextView areaValue;
     private TextView perimeterValue;
+    private TextView drawingAreaValue;
+    private TextView drawingPerimeterValue;
+    private TextView drawingReliability;
     private Button wallMode;
     private Button pointMode;
     private Button diagonalMode;
@@ -422,6 +425,20 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 1f));
         status.addView(zoomStatus);
+
+        LinearLayout drawingMetrics = new LinearLayout(this);
+        drawingMetrics.setTag("native_drawing_metrics");
+        drawingMetrics.setOrientation(LinearLayout.HORIZONTAL);
+        drawingMetrics.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams drawingMetricsParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        drawingMetricsParams.topMargin = dp(5);
+        drawingCard.addView(drawingMetrics, drawingMetricsParams);
+
+        drawingAreaValue = quickMetric(drawingMetrics, "Площадь", "—", TEXT);
+        drawingPerimeterValue = quickMetric(drawingMetrics, "Периметр", "—", TEXT);
+        drawingReliability = quickMetric(drawingMetrics, "Замер", "Начат", MUTED);
 
         LinearLayout saveRow = new LinearLayout(this);
         saveRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -1255,6 +1272,41 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         return e;
     }
 
+    private TextView quickMetric(
+            LinearLayout parent,
+            String label,
+            String initial,
+            int valueColor){
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        box.setPadding(dp(6),dp(4),dp(6),dp(4));
+        box.setBackground(rounded(
+                NativeVisualTokens.SURFACE_SOFT,
+                NativeVisualTokens.DIVIDER,
+                9,
+                1));
+
+        TextView labelView = text(label,9.5f,MUTED,Typeface.NORMAL);
+        labelView.setSingleLine(true);
+        TextView valueView = text(initial,12,valueColor,Typeface.BOLD);
+        valueView.setSingleLine(true);
+        valueView.setMinWidth(0);
+        valueView.setAutoSizeTextTypeUniformWithConfiguration(
+                9,12,1,TypedValue.COMPLEX_UNIT_SP);
+        box.addView(labelView);
+        box.addView(valueView);
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f);
+        params.leftMargin=dp(2);
+        params.rightMargin=dp(2);
+        parent.addView(box,params);
+        return valueView;
+    }
+
     private TextView stat(LinearLayout parent,String label){
         LinearLayout box=new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -1878,7 +1930,6 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void updateStats(){
-        if(areaValue==null||perimeterValue==null)return;
         NativeProjectStore.RoomData room=activeRoom();
         List<NativeProjectStore.EdgeData> edges=NativeGeometry.orderedEdges(room);
 
@@ -1892,25 +1943,55 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             }
         }
 
-        perimeterValue.setText(allMeasured
+        String perimeterText=allMeasured
                 ?String.format(Locale.getDefault(),"%.2f м",perimeterUnits/100f)
-                :"—");
+                :"—";
+        if(perimeterValue!=null)perimeterValue.setText(perimeterText);
+        if(drawingPerimeterValue!=null)drawingPerimeterValue.setText(perimeterText);
 
-        if(!allMeasured||!NativeGeometry.isClosed(room)){
-            areaValue.setText("—");
-            return;
+        String areaText="—";
+        boolean closed=NativeGeometry.isClosed(room);
+        if(allMeasured&&closed){
+            Double rawArea=NativeMeasurementSolver.measuredAreaRaw(room);
+            if(rawArea!=null){
+                areaText=String.format(
+                        Locale.getDefault(),
+                        "%.2f м²",
+                        rawArea/10000d);
+            }
         }
+        if(areaValue!=null)areaValue.setText(areaText);
+        if(drawingAreaValue!=null)drawingAreaValue.setText(areaText);
 
-        Double rawArea=NativeMeasurementSolver.measuredAreaRaw(room);
-        if(rawArea==null){
-            areaValue.setText("—");
-            return;
+        if(drawingReliability!=null){
+            String reliability;
+            int color;
+            if(room.edges.isEmpty()){
+                reliability="Не начат";
+                color=MUTED;
+            }else if(!closed||!allMeasured){
+                reliability="Низкая";
+                color=NativeVisualTokens.ERROR;
+            }else{
+                int required=Math.max(0,room.points.size()-3);
+                int measured=0;
+                for(NativeProjectStore.DiagonalData diagonal:room.diagonals){
+                    if(NativeGeometry.isMeasuredDiagonal(diagonal))measured++;
+                }
+                if(NativeGeometry.isFactualGeometryDirty(room)){
+                    reliability="Обновить";
+                    color=NativeVisualTokens.WARN;
+                }else if(required>measured){
+                    reliability="Средняя";
+                    color=NativeVisualTokens.WARN;
+                }else{
+                    reliability="Высокая";
+                    color=NativeVisualTokens.OK;
+                }
+            }
+            drawingReliability.setText(reliability);
+            drawingReliability.setTextColor(color);
         }
-
-        areaValue.setText(String.format(
-                Locale.getDefault(),
-                "%.2f м²",
-                rawArea/10000d));
     }
 
     private void beginClientPdfExport(
