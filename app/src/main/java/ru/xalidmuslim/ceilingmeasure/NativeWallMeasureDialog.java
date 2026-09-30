@@ -205,7 +205,7 @@ final class NativeWallMeasureDialog extends Dialog {
     private void addKey(GridLayout grid,String key){
         Button b=button(key,false);
         b.setTextSize("⌫".equals(key)?22:24);
-        b.setTag("native_wall_key_"+key);
+        b.setTag(",".equals(key) ? "native_wall_decimal" : "native_wall_key_"+key);
         b.setPadding(0,0,0,0);
         b.setBackground(rounded(Color.rgb(248,250,252),LINE,18,1));
         b.setOnClickListener(v->press(key));
