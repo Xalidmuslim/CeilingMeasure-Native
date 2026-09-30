@@ -60,19 +60,19 @@ final class NativeMaterialEditorDialog extends Dialog {
 
         LinearLayout shell=new LinearLayout(getContext());
         shell.setOrientation(LinearLayout.VERTICAL);
-        shell.setPadding(dp(14),dp(13),dp(14),dp(15));
+        shell.setPadding(dp(10),dp(9),dp(10),dp(10));
         shell.setBackground(rounded(Color.WHITE,LINE,18,1));
 
         LinearLayout head=new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        head.addView(text(titleText,17,TEXT,true),new LinearLayout.LayoutParams(0,dp(40),1f));
+        head.addView(text(titleText,15.5f,TEXT,true),new LinearLayout.LayoutParams(0,dp(34),1f));
         Button close=button("×",false);
         close.setOnClickListener(v->dismiss());
-        head.addView(close,new LinearLayout.LayoutParams(dp(42),dp(40)));
+        head.addView(close,new LinearLayout.LayoutParams(dp(36),dp(34)));
         shell.addView(head);
 
-        shell.addView(text("Название",10,MUTED,false),top(7));
+        shell.addView(text("Название",10,MUTED,false),top(4));
         nameButton=button(draft.name,false);
         nameButton.setTag("native_material_name");
         nameButton.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
@@ -86,9 +86,9 @@ final class NativeMaterialEditorDialog extends Dialog {
                     nameButton.setText(draft.name);
                 }).show());
         shell.addView(nameButton,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(46)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(40)));
 
-        shell.addView(text("Единица",10,MUTED,false),top(8));
+        shell.addView(text("Единица",10,MUTED,false),top(5));
         LinearLayout units=new LinearLayout(getContext());
         units.setOrientation(LinearLayout.HORIZONTAL);
         String[] values={"шт","м","м²","компл."};
@@ -99,15 +99,15 @@ final class NativeMaterialEditorDialog extends Dialog {
                 draft.unit=unit;
                 refreshUnits();
             });
-            units.addView(b,new LinearLayout.LayoutParams(0,dp(42),1f));
+            units.addView(b,new LinearLayout.LayoutParams(0,dp(36),1f));
             unitButtons.add(b);
         }
         shell.addView(units,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(42)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(36)));
         refreshUnits();
 
         if(qtyEditable){
-            shell.addView(text("Количество",10,MUTED,false),top(8));
+            shell.addView(text("Количество",10,MUTED,false),top(5));
             qtyButton=button(format(draft.qty),false);
             qtyButton.setTag("native_material_qty");
             qtyButton.setOnClickListener(v->new NativeNumberPadDialog(
@@ -119,10 +119,10 @@ final class NativeMaterialEditorDialog extends Dialog {
                         qtyButton.setText(format(draft.qty));
                     }).show());
             shell.addView(qtyButton,new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,dp(44)));
+                    ViewGroup.LayoutParams.MATCH_PARENT,dp(38)));
         }
 
-        shell.addView(text("Цена",10,MUTED,false),top(8));
+        shell.addView(text("Цена",10,MUTED,false),top(5));
         priceButton=button(format(draft.price),false);
         priceButton.setTag("native_material_price");
         priceButton.setOnClickListener(v->new NativeNumberPadDialog(
@@ -134,13 +134,13 @@ final class NativeMaterialEditorDialog extends Dialog {
                     priceButton.setText(format(draft.price));
                 }).show());
         shell.addView(priceButton,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(44)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(38)));
 
         LinearLayout actions=new LinearLayout(getContext());
         actions.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(46));
-        ap.topMargin=dp(10);
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(40));
+        ap.topMargin=dp(6);
         shell.addView(actions,ap);
         Button cancel=button("Отмена",false);
         cancel.setOnClickListener(v->dismiss());
@@ -154,8 +154,8 @@ final class NativeMaterialEditorDialog extends Dialog {
             listener.onSave(draft.copy());
             dismiss();
         });
-        actions.addView(cancel,new LinearLayout.LayoutParams(0,dp(46),1f));
-        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(46),1f);
+        actions.addView(cancel,new LinearLayout.LayoutParams(0,dp(40),1f));
+        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(40),1f);
         sp.leftMargin=dp(6);
         actions.addView(save,sp);
 
@@ -190,11 +190,16 @@ final class NativeMaterialEditorDialog extends Dialog {
         Button b=new Button(getContext());
         b.setAllCaps(false);
         b.setText(value);
-        b.setTextSize(13);
+        b.setTextSize(12);
         b.setTextColor(primary?Color.WHITE:TEXT);
         b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
         b.setGravity(Gravity.CENTER);
-        b.setBackground(rounded(primary?BLUE:BG,primary?BLUE:LINE,10,1));
+        b.setMinWidth(0);
+        b.setMinimumWidth(0);
+        b.setMinHeight(0);
+        b.setMinimumHeight(0);
+        b.setPadding(dp(5),0,dp(5),0);
+        b.setBackground(rounded(primary?BLUE:BG,primary?BLUE:LINE,9,1));
         return b;
     }
 
