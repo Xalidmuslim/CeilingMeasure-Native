@@ -264,10 +264,9 @@ final class NativeUiSettingsDialog extends Dialog {
         sizeValue.setText(Math.round(prefs.scale * 100f) + "%");
         sizeValue.setTextSize(13);
         sizeValue.setTextColor(Color.rgb(40, 107, 141));
-        sizeValue.setTypeface(NativeUiPrefs.typefaceFor(
-                NativeUiPrefs.FONT_SYSTEM,
-                NativeUiPrefs.WEIGHT_MEDIUM,
-                true));
+        sizeValue.setTypeface(android.graphics.Typeface.create(
+                "sans-serif",
+                android.graphics.Typeface.BOLD));
         sizeValue.setIncludeFontPadding(false);
         sizeValue.setTag("native_ui_size_value");
         sizeValue.setGravity(Gravity.CENTER);
