@@ -266,6 +266,16 @@ final class NativeEstimateDialog extends Dialog {
         qtyButton.setAlpha(qtyButton.isEnabled()?1f:.55f);
         if(qtyButton.isEnabled()){
             qtyButton.setOnClickListener(v->editQty(owner,room,line));
+            qtyButton.setOnLongClickListener(v->{
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                editQty(owner,room,line);
+                return true;
+            });
+            row.setOnLongClickListener(v->{
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                editQty(owner,room,line);
+                return true;
+            });
         }
         LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(0,dp(34),.72f);
         qp.leftMargin=dp(3);
