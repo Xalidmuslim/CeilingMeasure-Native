@@ -174,7 +174,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         page.setBackground(NativeVisualTokens.workspaceBackground());
         workspacePage = page;
 
-        editorScroll = new ScrollView(this);
+        editorScroll = new DrawingAwareScrollView(this);
         editorScroll.setTag("native_editor_scroll");
         editorScroll.setFillViewport(true);
         editorScroll.setBackgroundColor(Color.TRANSPARENT);
@@ -2208,6 +2208,18 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
 
+
+    private static final class DrawingAwareScrollView extends ScrollView {
+        DrawingAwareScrollView(android.content.Context context) {
+            super(context);
+        }
+
+        @Override
+        public boolean onInterceptTouchEvent(MotionEvent event) {
+            if (event.getPointerCount() >= 2) return false;
+            return super.onInterceptTouchEvent(event);
+        }
+    }
 
     private LinearLayout card(){
         LinearLayout l=new LinearLayout(this);
