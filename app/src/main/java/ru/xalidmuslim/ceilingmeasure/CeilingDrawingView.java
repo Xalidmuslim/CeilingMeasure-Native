@@ -88,6 +88,7 @@ final class CeilingDrawingView extends View {
     private LabelHit draggingLabel;
     private LabelHit rotatingLabel;
     private LabelHit selectedLabel;
+    private LabelHit pendingLabelGesture;
     private float labelTouchStartX;
     private float labelTouchStartY;
     private float labelStartDx;
@@ -759,7 +760,22 @@ final class CeilingDrawingView extends View {
                     return beginDiagonalGesture(worldX, worldY);
                 }
 
-                beginLabelGesture(worldX, worldY);
+                LabelHit heldLabel = nearestLabel(
+                        worldX,
+                        worldY,
+                        dp(56f) / Math.max(.45f, scale));
+                if (heldLabel != null) {
+                    selectedLabel = heldLabel;
+                    pendingLabelGesture = heldLabel;
+                    draggingLabel = null;
+                    rotatingLabel = null;
+                    scheduleLongPress(
+                            heldLabel.kind == LabelKind.EDGE ? "edge" : "diag",
+                            heldLabel.id);
+                    postInvalidateOnAnimation();
+                } else {
+                    beginLabelGesture(worldX, worldY);
+                }
                 getParent().requestDisallowInterceptTouchEvent(true);
                 return true;
 
@@ -773,6 +789,18 @@ final class CeilingDrawingView extends View {
                 if (distance > moveCancelThreshold) {
                     moved = true;
                     cancelPendingLongPress();
+                }
+
+                if (mode == Mode.LABEL && pendingLabelGesture != null) {
+                    if (distance <= dp(20)) {
+                        // Stationary hold: keep long-press alive and do not
+                        // accidentally move the number.
+                        return true;
+                    }
+                    cancelPendingLongPress();
+                    pendingLabelGesture = null;
+                    beginLabelGesture(worldX, worldY);
+                    moved = true;
                 }
 
                 boolean directManipulation =
@@ -872,7 +900,14 @@ final class CeilingDrawingView extends View {
 
                 if (longPressFired) {
                     longPressFired = false;
+                    pendingLabelGesture = null;
                     cancelTransientGestures();
+                    return true;
+                }
+
+                if (mode == Mode.LABEL && pendingLabelGesture != null) {
+                    pendingLabelGesture = null;
+                    postInvalidateOnAnimation();
                     return true;
                 }
 
@@ -1460,6 +1495,7 @@ final class CeilingDrawingView extends View {
             diagDraft = null;
             draggingPointId = null;
             draggingLabel = null;
+            pendingLabelGesture = null;
             magnifierFocus = null;
             magnifierKind = null;
             postInvalidateOnAnimation();
@@ -1494,6 +1530,7 @@ final class CeilingDrawingView extends View {
         diagDraft = null;
         draggingLabel = null;
         rotatingLabel = null;
+        pendingLabelGesture = null;
         activeGuide = null;
         redGuideSnapActive = false;
         point90SnapActive = false;
