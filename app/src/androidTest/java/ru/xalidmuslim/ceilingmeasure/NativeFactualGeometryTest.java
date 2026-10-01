@@ -49,7 +49,7 @@ public final class NativeFactualGeometryTest {
         NativeMeasurementSolver.Result measured =
                 NativeMeasurementSolver.solveFactual(room);
         assertTrue(measured.ok);
-        assertFalse(measured.uniquelySupported);
+        assertTrue(measured.uniquelySupported);
         assertWallLengthsMatchEntered(room, measured.positions);
         assertSameWinding(room, measured.positions);
     }
@@ -128,7 +128,7 @@ public final class NativeFactualGeometryTest {
         assertTrue(result.ok);
         assertTrue(result.maxError > NativeMeasurementSolver.FACTUAL_CONFLICT_TOL);
         assertTrue(result.maxError < NativeMeasurementSolver.FIELD_MEASURE_TOL);
-        assertTrue(result.message.contains("Замеры конфликтуют"));
+        assertTrue(result.message.contains("невязку"));
     }
 
     @Test
