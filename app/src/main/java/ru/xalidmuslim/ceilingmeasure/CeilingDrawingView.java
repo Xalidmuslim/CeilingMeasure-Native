@@ -50,6 +50,9 @@ final class CeilingDrawingView extends View {
     // Complex factual geometry can legitimately require less than the old 45%
     // floor to fit. Keep a low safety floor so the whole contour is recoverable.
     private static final float MIN_VIEW_SCALE = .08f;
+    private static final float LABEL_TOUCH_RADIUS_DP = 30f;
+    private static final float LABEL_LONG_PRESS_RADIUS_DP = 34f;
+    private static final float LABEL_ROTATE_START_DP = 12f;
 
     private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -95,6 +98,7 @@ final class CeilingDrawingView extends View {
     private float labelStartDy;
     private float labelRotateCenterX;
     private float labelRotateCenterY;
+    private boolean labelRotationActive;
     private Guide activeGuide;
     private boolean redGuideSnapActive;
     private boolean point90SnapActive;
@@ -765,7 +769,7 @@ final class CeilingDrawingView extends View {
                 LabelHit heldLabel = nearestLabel(
                         worldX,
                         worldY,
-                        dp(56f) / Math.max(MIN_VIEW_SCALE, scale));
+                        dp(LABEL_TOUCH_RADIUS_DP) / Math.max(MIN_VIEW_SCALE, scale));
                 if (heldLabel != null) {
                     selectedLabel = heldLabel;
                     pendingLabelGesture = heldLabel;
@@ -868,13 +872,19 @@ final class CeilingDrawingView extends View {
                     finishPointDrag();
                 } else if (mode == Mode.DIAGONAL && diagDraft != null) {
                     finishDiagonalDraft();
-                } else if (mode == Mode.LABEL
-                        && (draggingLabel != null || rotatingLabel != null)) {
+                } else if (mode == Mode.LABEL && draggingLabel != null) {
                     draggingLabel = null;
-                    rotatingLabel = null;
                     magnifierFocus = null;
                     magnifierKind = null;
                     changed();
+                } else if (mode == Mode.LABEL && rotatingLabel != null) {
+                    boolean rotationChanged = labelRotationActive;
+                    rotatingLabel = null;
+                    labelRotationActive = false;
+                    magnifierFocus = null;
+                    magnifierKind = null;
+                    if (rotationChanged) changed();
+                    else postInvalidateOnAnimation();
                 }
                 return true;
 
@@ -989,11 +999,13 @@ final class CeilingDrawingView extends View {
                 boolean onRing = Math.abs(radial - radius) <= dp(18f) / scale;
                 boolean onHandle = distance(local[0], local[1], 0f, -radius) <= hit;
                 if (onRing || onHandle) {
-                    checkpoint();
                     rotatingLabel = selectedLabel;
                     draggingLabel = null;
                     labelRotateCenterX = selected.x;
                     labelRotateCenterY = selected.y;
+                    labelTouchStartX = x;
+                    labelTouchStartY = y;
+                    labelRotationActive = false;
                     return;
                 }
             }
@@ -1003,7 +1015,7 @@ final class CeilingDrawingView extends View {
                 placements,
                 x,
                 y,
-                dp(38f) / scale);
+                dp(LABEL_TOUCH_RADIUS_DP) / Math.max(MIN_VIEW_SCALE, scale));
         if (placement == null) {
             selectedLabel = null;
             draggingLabel = null;
@@ -1251,6 +1263,9 @@ final class CeilingDrawingView extends View {
     private void finishDiagonalDraft() {
         DiagDraft draft = diagDraft;
         diagDraft = null;
+        magnifierFocus = null;
+        magnifierKind = null;
+        lastDiagonalSnapId = null;
         if (draft == null) return;
 
         NativeProjectStore.PointData end = nearestPoint(
@@ -1307,10 +1322,21 @@ final class CeilingDrawingView extends View {
 
     private void updateLabelRotate(float x, float y) {
         if (rotatingLabel == null) return;
-        float distance = (float) Math.hypot(
+        float fingerTravel = (float) Math.hypot(
+                x - labelTouchStartX,
+                y - labelTouchStartY);
+        if (fingerTravel < dp(LABEL_ROTATE_START_DP) / Math.max(MIN_VIEW_SCALE, scale)) {
+            return;
+        }
+        if (!labelRotationActive) {
+            checkpoint();
+            labelRotationActive = true;
+        }
+
+        float radiusFromCenter = (float) Math.hypot(
                 x - labelRotateCenterX,
                 y - labelRotateCenterY);
-        if (distance <= dp(2f) / scale) return;
+        if (radiusFromCenter <= dp(2f) / Math.max(MIN_VIEW_SCALE, scale)) return;
 
         float angle = NativeProjectStore.normalizeAngle(
                 (float) Math.toDegrees(Math.atan2(
@@ -1391,7 +1417,8 @@ final class CeilingDrawingView extends View {
         LabelHit label = nearestLabel(
                 x,
                 y,
-                dp(mode == Mode.LABEL ? 56f : 42f) / Math.max(MIN_VIEW_SCALE, scale));
+                dp(mode == Mode.LABEL ? LABEL_LONG_PRESS_RADIUS_DP : 42f)
+                        / Math.max(MIN_VIEW_SCALE, scale));
         if (label != null) {
             scheduleLongPress(label.kind == LabelKind.EDGE ? "edge" : "diag", label.id);
             return;
@@ -1498,6 +1525,7 @@ final class CeilingDrawingView extends View {
         diagDraft = null;
         draggingLabel = null;
         rotatingLabel = null;
+        labelRotationActive = false;
         pendingLabelGesture = null;
         activeGuide = null;
         redGuideSnapActive = false;
@@ -1878,6 +1906,20 @@ final class CeilingDrawingView extends View {
             if (a != null && b != null) canvas.drawLine(a.x, a.y, b.x, b.y, edgePaint);
         }
 
+        Paint diagonalPaint = new Paint(linePaint);
+        diagonalPaint.setColor(Color.rgb(112, 130, 144));
+        diagonalPaint.setStrokeWidth(dp(1.8f) / lensScale);
+        diagonalPaint.setPathEffect(new DashPathEffect(
+                new float[]{dp(6f) / lensScale, dp(4f) / lensScale},
+                0));
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, diagonal.a);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, diagonal.b);
+            if (a != null && b != null) {
+                canvas.drawLine(a.x, a.y, b.x, b.y, diagonalPaint);
+            }
+        }
+
         if (magnifierKind == MagnifierKind.WALL && wallDraft != null) {
             Paint p = new Paint(previewPaint);
             p.setStrokeWidth(dp(3f) / lensScale);
@@ -1920,6 +1962,10 @@ final class CeilingDrawingView extends View {
             canvas.drawCircle(point.x, point.y, pointRadius, pp);
         }
 
+        for (NativeLabelEngine.Placement placement : labelPlacements()) {
+            drawMagnifierLabel(canvas, placement, lensScale);
+        }
+
         canvas.restore();
 
         int cross = magnifierKind == MagnifierKind.POINT && point90SnapActive
@@ -1934,6 +1980,32 @@ final class CeilingDrawingView extends View {
 
         canvas.restore();
         canvas.drawRoundRect(box, dp(8), dp(8), border);
+    }
+
+    private void drawMagnifierLabel(
+            Canvas canvas,
+            NativeLabelEngine.Placement placement,
+            float lensScale) {
+        Paint fill = new Paint(textPaint);
+        fill.setColor(TEXT);
+        fill.setTextSize(dp(placement.fontDp) * placement.size / lensScale);
+        fill.setStyle(Paint.Style.FILL);
+        fill.setStrokeWidth(0f);
+
+        Paint outline = new Paint(fill);
+        outline.setColor(Color.WHITE);
+        outline.setStyle(Paint.Style.STROKE);
+        outline.setStrokeWidth(dp(2.4f) / lensScale);
+        outline.setStrokeJoin(Paint.Join.ROUND);
+
+        Paint.FontMetrics fm = fill.getFontMetrics();
+        float baseline = -(fm.ascent + fm.descent) / 2f;
+        canvas.save();
+        canvas.translate(placement.x, placement.y);
+        canvas.rotate(placement.angle);
+        canvas.drawText(placement.text, 0f, baseline, outline);
+        canvas.drawText(placement.text, 0f, baseline, fill);
+        canvas.restore();
     }
 
     boolean isMagnifierVisibleForTest() {
