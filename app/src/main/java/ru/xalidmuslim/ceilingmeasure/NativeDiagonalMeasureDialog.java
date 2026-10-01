@@ -36,6 +36,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
     private final String titleText;
     private final Float autoValue;
     private final Listener listener;
+    private final NativeUiPrefs uiPrefs;
     private String buffer;
     private TextView display;
 
@@ -49,6 +50,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         this.titleText=title;
         this.autoValue=autoValue;
         this.listener=listener;
+        this.uiPrefs=NativeUiPrefs.load(context);
         this.buffer=currentValue>0f?String.valueOf(Math.round(currentValue)):"0";
     }
 
@@ -176,7 +178,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
 
     private void addKey(GridLayout grid,String key){
         Button b=button(key,false);
-        b.setTextSize("⌫".equals(key)?22:24);
+        NativeTypography.register(b,"⌫".equals(key)?22:24,true,uiPrefs);
         b.setPadding(0,0,0,0);
         b.setBackground(rounded(Color.rgb(248,250,252),LINE,18,1));
         b.setOnClickListener(v->{
@@ -204,8 +206,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         b.setAllCaps(false);
         b.setText(value);
         b.setTextColor(primary?Color.WHITE:TEXT);
-        b.setTextSize(13);
-        b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
+        NativeTypography.register(b,13,true,uiPrefs);
         b.setGravity(Gravity.CENTER);
         b.setBackground(rounded(primary?BLUE:Color.rgb(248,250,252),primary?BLUE:LINE,10,1));
         return b;
@@ -213,10 +214,9 @@ final class NativeDiagonalMeasureDialog extends Dialog {
 
     private TextView text(String value,float sp,int color,boolean bold){
         TextView t=new TextView(getContext());
-        t.setText(value);t.setTextSize(sp);t.setTextColor(color);
-        t.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));
+        t.setText(value);t.setTextColor(color);
         t.setIncludeFontPadding(false);
-        return t;
+        return NativeTypography.register(t,sp,bold,uiPrefs);
     }
 
     private GradientDrawable rounded(int fill,int stroke,int radius,int width){
