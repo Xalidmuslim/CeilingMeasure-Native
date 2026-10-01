@@ -74,7 +74,7 @@ jobs:
       - name: Upload corrected native APK
         uses: actions/upload-artifact@v4
         with:
-          name: CeilingMeasure-native-full-fix-v218
+          name: CeilingMeasure-native-full-fix-v219
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30

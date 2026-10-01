@@ -1,5 +1,6 @@
 package ru.xalidmuslim.ceilingmeasure;
 
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.text.TextWatcher;
@@ -38,11 +39,14 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import android.app.AlertDialog;
+import androidx.core.content.FileProvider;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -2079,6 +2083,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                             List<NativeProjectStore.ProjectData> projects){
                         beginClientPdfExport(projects);
                     }
+
+                    @Override public void onClientPdfShareRequested(
+                            List<NativeProjectStore.ProjectData> projects){
+                        beginClientPdfShare(projects);
+                    }
                 });
         dialog.show();
         scheduleSaveCurrent();
@@ -2151,15 +2160,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void beginClientPdfExport(
             List<NativeProjectStore.ProjectData> projects){
-        NativeClientEstimatePdf.Result pdf=NativeClientEstimatePdf.build(projects);
-        if(pdf.pricedLines<=0){
-            Toast.makeText(this,"Сначала укажи клиентские цены",Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if(pdf.bytes.length==0){
-            Toast.makeText(this,"Не удалось создать PDF на этом устройстве",Toast.LENGTH_SHORT).show();
-            return;
-        }
+        NativeClientEstimatePdf.Result pdf=buildClientPdf(projects);
+        if(pdf==null)return;
 
         pendingClientPdf=pdf.bytes;
         pendingClientPdfName=pdf.fileName;
@@ -2167,6 +2169,53 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         intent.setType("application/pdf");
         intent.putExtra(Intent.EXTRA_TITLE,pdf.fileName);
         startActivityForResult(intent,REQUEST_EXPORT_CLIENT_PDF);
+    }
+
+    private void beginClientPdfShare(
+            List<NativeProjectStore.ProjectData> projects){
+        NativeClientEstimatePdf.Result pdf=buildClientPdf(projects);
+        if(pdf==null)return;
+
+        try{
+            File dir=new File(getCacheDir(),"shared_pdfs");
+            if(!dir.exists()&&!dir.mkdirs()){
+                throw new IllegalStateException("share-dir");
+            }
+            File file=new File(dir,pdf.fileName);
+            try(FileOutputStream out=new FileOutputStream(file,false)){
+                out.write(pdf.bytes);
+                out.flush();
+            }
+
+            Uri uri=FileProvider.getUriForFile(
+                    this,
+                    getPackageName()+".fileprovider",
+                    file);
+            Intent send=new Intent(Intent.ACTION_SEND);
+            send.setType("application/pdf");
+            send.putExtra(Intent.EXTRA_STREAM,uri);
+            send.putExtra(Intent.EXTRA_SUBJECT,"Смета для клиента");
+            send.setClipData(ClipData.newRawUri(pdf.fileName,uri));
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(send,"Отправить PDF"));
+        }catch(Exception e){
+            Toast.makeText(this,"Не удалось подготовить PDF для отправки",Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Nullable
+    private NativeClientEstimatePdf.Result buildClientPdf(
+            List<NativeProjectStore.ProjectData> projects){
+        NativeClientEstimatePdf.Result pdf=NativeClientEstimatePdf.build(projects);
+        if(pdf.pricedLines<=0){
+            Toast.makeText(this,"Сначала укажи клиентские цены",Toast.LENGTH_SHORT).show();
+            return null;
+        }
+        if(pdf.bytes.length==0){
+            Toast.makeText(this,"Не удалось создать PDF на этом устройстве",Toast.LENGTH_SHORT).show();
+            return null;
+        }
+        return pdf;
     }
 
     private void goHome() {

@@ -31,6 +31,7 @@ final class NativeEstimateDialog extends Dialog {
     interface Listener {
         void onChanged();
         default void onClientPdfRequested(@NonNull List<NativeProjectStore.ProjectData> projects) {}
+        default void onClientPdfShareRequested(@NonNull List<NativeProjectStore.ProjectData> projects) {}
     }
 
     private static final int TEXT=NativeVisualTokens.TEXT;
@@ -177,25 +178,55 @@ final class NativeEstimateDialog extends Dialog {
 
         if(mode==Mode.CLIENT){
             LinearLayout bottom=new LinearLayout(getContext());
-            bottom.setOrientation(LinearLayout.HORIZONTAL);
+            bottom.setOrientation(LinearLayout.VERTICAL);
+            bottom.setClipChildren(false);
+            bottom.setClipToPadding(false);
+
             Button add=button("+ Дополнительный материал",false);
             add.setTag("native_client_add_material");
             add.setOnClickListener(v->openGlobalMaterialPicker(projects));
-            Button pdf=button("Скачать PDF",true);
+            add.setMaxLines(2);
+            bottom.addView(add,new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    adaptiveActionHeight(42,true)));
+
+            LinearLayout pdfActions=new LinearLayout(getContext());
+            pdfActions.setOrientation(LinearLayout.HORIZONTAL);
+            pdfActions.setBaselineAligned(false);
+            pdfActions.setClipChildren(false);
+            pdfActions.setClipToPadding(false);
+
+            Button pdf=button("Скачать PDF",false);
             pdf.setTag("native_client_pdf");
+            pdf.setSingleLine(true);
             pdf.setOnClickListener(v->listener.onClientPdfRequested(
                     new ArrayList<>(estimateProjects())));
-            add.setMaxLines(2);
-            pdf.setMaxLines(2);
-            int bottomHeight=adaptiveActionHeight(40,true);
-            bottom.addView(add,new LinearLayout.LayoutParams(0,bottomHeight,1f));
-            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,bottomHeight,1f);
-            pp.leftMargin=dp(6);
-            bottom.addView(pdf,pp);
-            content.addView(bottom,top(6));
+
+            Button share=button("Отправить PDF",true);
+            share.setTag("native_client_pdf_share");
+            share.setSingleLine(true);
+            share.setOnClickListener(v->listener.onClientPdfShareRequested(
+                    new ArrayList<>(estimateProjects())));
+
+            int pdfHeight=adaptiveActionHeight(40,false);
+            LinearLayout.LayoutParams saveParams=
+                    new LinearLayout.LayoutParams(0,pdfHeight,1f);
+            LinearLayout.LayoutParams shareParams=
+                    new LinearLayout.LayoutParams(0,pdfHeight,1f);
+            shareParams.leftMargin=dp(6);
+            pdfActions.addView(pdf,saveParams);
+            pdfActions.addView(share,shareParams);
+
+            LinearLayout.LayoutParams pdfRowParams=new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            pdfRowParams.topMargin=dp(5);
+            bottom.addView(pdfActions,pdfRowParams);
+
+            content.addView(bottom,top(7));
             content.addView(text(
-                    "PDF формируется прямо на устройстве и сохраняется готовым файлом. Интернет и окно печати не нужны.",
-                    9.5f,MUTED,false),top(4));
+                    "PDF можно сохранить на устройство или сразу отправить через WhatsApp, Telegram, почту и другие приложения.",
+                    9.5f,MUTED,false),top(5));
         }
 
         setContentView(scroll);
@@ -272,7 +303,8 @@ final class NativeEstimateDialog extends Dialog {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0,dp(3),0,dp(3));
-        row.setMinimumHeight(dp(44));
+        int controlHeight=adaptiveActionHeight(34,false);
+        row.setMinimumHeight(controlHeight+dp(6));
 
         LinearLayout nameBox=new LinearLayout(getContext());
         nameBox.setOrientation(LinearLayout.VERTICAL);
@@ -314,7 +346,7 @@ final class NativeEstimateDialog extends Dialog {
                 return true;
             });
         }
-        LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(0,dp(34),.72f);
+        LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(0,controlHeight,.72f);
         qp.leftMargin=dp(3);
         row.addView(qtyButton,qp);
 
@@ -327,7 +359,7 @@ final class NativeEstimateDialog extends Dialog {
                 8,11,1,TypedValue.COMPLEX_UNIT_SP);
         price.setTag("native_estimate_price_"+line.key+"_"+room.id);
         price.setOnClickListener(v->editPrice(owner,room,line));
-        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(34),.82f);
+        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,controlHeight,.82f);
         pp.leftMargin=dp(3);
         row.addView(price,pp);
 
@@ -337,11 +369,11 @@ final class NativeEstimateDialog extends Dialog {
         sum.setMinWidth(0);
         sum.setAutoSizeTextTypeUniformWithConfiguration(
                 8,11,1,TypedValue.COMPLEX_UNIT_SP);
-        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(34),.90f);
+        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,controlHeight,.90f);
         sp.leftMargin=dp(3);
         row.addView(sum,sp);
 
-        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,dp(34),.34f);
+        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,controlHeight,.34f);
         rp.leftMargin=dp(2);
         if(line.removable){
             Button remove=button("×",false);
