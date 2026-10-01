@@ -43,6 +43,7 @@ final class NativeEstimateDialog extends Dialog {
     private final NativeProjectStore.ProjectData project;
     private final Mode mode;
     private final Listener listener;
+    private final NativeUiPrefs uiPrefs;
     private LinearLayout content;
 
     NativeEstimateDialog(
@@ -56,6 +57,7 @@ final class NativeEstimateDialog extends Dialog {
         this.project=project;
         this.mode=mode;
         this.listener=listener;
+        this.uiPrefs=NativeUiPrefs.load(context);
     }
 
     @Override protected void onCreate(Bundle savedInstanceState){
@@ -656,9 +658,8 @@ final class NativeEstimateDialog extends Dialog {
         Button b=new Button(getContext());
         b.setAllCaps(false);
         b.setText(value);
-        b.setTextSize(11.5f);
+        NativeTypography.register(b,11.5f,true,uiPrefs);
         b.setTextColor(primary?Color.WHITE:TEXT);
-        b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
         b.setGravity(Gravity.CENTER);
         b.setMinWidth(0);
         b.setMinimumWidth(0);
@@ -672,11 +673,9 @@ final class NativeEstimateDialog extends Dialog {
     private TextView text(String value,float sp,int color,boolean bold){
         TextView t=new TextView(getContext());
         t.setText(value);
-        t.setTextSize(sp);
         t.setTextColor(color);
-        t.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));
         t.setIncludeFontPadding(false);
-        return t;
+        return NativeTypography.register(t,sp,bold,uiPrefs);
     }
 
     private LinearLayout.LayoutParams top(int margin){
