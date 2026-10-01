@@ -96,17 +96,23 @@ final class NativeEstimateDialog extends Dialog {
         head.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout titleBox=new LinearLayout(getContext());
         titleBox.setOrientation(LinearLayout.VERTICAL);
+        titleBox.setPadding(0,0,0,dp(2));
         titleBox.addView(text(mode==Mode.CLIENT?"Смета для клиента":"Расчёт по всем комнатам",18,TEXT,true));
         titleBox.addView(text(
                 mode==Mode.CLIENT
                         ?"Цены продажи по помещениям"
                         :"Площадь, периметр и полный закупочный расчёт",
                 10,MUTED,false));
-        head.addView(titleBox,new LinearLayout.LayoutParams(0,dp(40),1f));
+        LinearLayout.LayoutParams titleBoxParams=new LinearLayout.LayoutParams(
+                0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
+        titleBoxParams.rightMargin=dp(6);
+        head.addView(titleBox,titleBoxParams);
         Button close=button("Закрыть",false);
         close.setTag("native_estimate_close");
         close.setOnClickListener(v->dismiss());
-        head.addView(close,new LinearLayout.LayoutParams(dp(82),dp(34)));
+        LinearLayout.LayoutParams closeParams=new LinearLayout.LayoutParams(dp(82),dp(38));
+        closeParams.gravity=Gravity.TOP;
+        head.addView(close,closeParams);
         content.addView(head);
 
         List<NativeProjectStore.ProjectData> projects=estimateProjects();
@@ -144,7 +150,12 @@ final class NativeEstimateDialog extends Dialog {
         summary.addView(text(
                 mode==Mode.CLIENT?"Итого к оплате":"Итого за все комнаты",
                 11,MUTED,false));
-        summary.addView(text(money(total.total)+" ₽",24,TEXT,true),top(3));
+        TextView grandTotal=text(money(total.total)+" ₽",24,TEXT,true);
+        grandTotal.setSingleLine(true);
+        grandTotal.setAutoSizeTextTypeUniformWithConfiguration(
+                18,Math.max(24,Math.round(24f*uiPrefs.scale)),1,
+                TypedValue.COMPLEX_UNIT_SP);
+        summary.addView(grandTotal,top(3));
         summary.addView(text(
                 rooms+" помещ. · "+qty(total.areaM2)+" м² · "+qty(total.perimeterM)+" м",
                 11,MUTED,false),
@@ -198,6 +209,7 @@ final class NativeEstimateDialog extends Dialog {
         head.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout left=new LinearLayout(getContext());
         left.setOrientation(LinearLayout.VERTICAL);
+        left.setPadding(0,0,dp(6),dp(2));
         String roomName=multi
                 ?projectLabel(owner)+" · "+room.name
                 :room.name;
@@ -207,8 +219,16 @@ final class NativeEstimateDialog extends Dialog {
                         +" · "
                         +(cost.metrics.perimeterM>0?qty(cost.metrics.perimeterM)+" м":"Периметр —"),
                 10,MUTED,false));
-        head.addView(left,new LinearLayout.LayoutParams(0,dp(34),1f));
-        head.addView(text(money(cost.total)+" ₽",14,TEXT,true));
+        head.addView(left,new LinearLayout.LayoutParams(
+                0,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
+        TextView roomTotal=text(money(cost.total)+" ₽",14,TEXT,true);
+        roomTotal.setSingleLine(true);
+        roomTotal.setAutoSizeTextTypeUniformWithConfiguration(
+                10,Math.max(14,Math.round(14f*uiPrefs.scale)),1,
+                TypedValue.COMPLEX_UNIT_SP);
+        head.addView(roomTotal,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         card.addView(head);
 
         for(NativeEstimateEngine.Line line:cost.lines)addLine(card,owner,room,line);
@@ -241,17 +261,21 @@ final class NativeEstimateDialog extends Dialog {
         LinearLayout row=new LinearLayout(getContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0,dp(2),0,dp(2));
-        row.setMinimumHeight(dp(40));
+        row.setPadding(0,dp(3),0,dp(3));
+        row.setMinimumHeight(dp(44));
 
         LinearLayout nameBox=new LinearLayout(getContext());
         nameBox.setOrientation(LinearLayout.VERTICAL);
+        nameBox.setGravity(Gravity.CENTER_VERTICAL);
         TextView name=text(line.name,12,TEXT,true);
         name.setMaxLines(2);
         name.setMinWidth(0);
         nameBox.addView(name);
         TextView qtyUnit=text(qty(line.qty)+" "+line.unit,10,MUTED,false);
         qtyUnit.setSingleLine(true);
+        qtyUnit.setAutoSizeTextTypeUniformWithConfiguration(
+                8,Math.max(10,Math.round(10f*uiPrefs.scale)),1,
+                TypedValue.COMPLEX_UNIT_SP);
         nameBox.addView(qtyUnit);
         row.addView(nameBox,new LinearLayout.LayoutParams(
                 0,
@@ -676,6 +700,7 @@ final class NativeEstimateDialog extends Dialog {
         t.setText(value);
         t.setTextColor(color);
         t.setIncludeFontPadding(false);
+        t.setLineSpacing(0f,1.04f);
         return NativeTypography.register(t,sp,bold,uiPrefs);
     }
 
