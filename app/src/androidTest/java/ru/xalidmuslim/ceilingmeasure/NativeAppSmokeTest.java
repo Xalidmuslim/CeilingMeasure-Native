@@ -649,20 +649,29 @@ public class NativeAppSmokeTest {
 
         try (ActivityScenario<NativeWorkspaceActivity> scenario =
                      ActivityScenario.launch(intent)) {
-            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
-            scenario.onActivity(ref::set);
-            NativeWorkspaceActivity activity = ref.get();
-            assertNotNull(activity);
+            AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
+            AtomicReference<Long> downRef = new AtomicReference<>();
 
-            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            scenario.onActivity(activity -> {
                 CeilingDrawingView view = (CeilingDrawingView) activity.getWindow()
                         .getDecorView()
                         .findViewWithTag("native_drawing_view");
+                assertNotNull(view);
                 long now = android.os.SystemClock.uptimeMillis();
+                viewRef.set(view);
+                downRef.set(now);
                 dispatch(view, now, MotionEvent.ACTION_DOWN, 120, 120);
-                dispatch(view, now + 35, MotionEvent.ACTION_MOVE, 270, 120);
+            });
+
+            // First wall is intentionally long-press-only.
+            android.os.SystemClock.sleep(420);
+
+            scenario.onActivity(activity -> {
+                CeilingDrawingView view = viewRef.get();
+                long now = downRef.get();
+                dispatch(view, now + 420, MotionEvent.ACTION_MOVE, 270, 120);
                 assertTrue(view.isMagnifierVisibleForTest());
-                dispatch(view, now + 70, MotionEvent.ACTION_UP, 270, 120);
+                dispatch(view, now + 460, MotionEvent.ACTION_UP, 270, 120);
                 assertFalse(view.isMagnifierVisibleForTest());
             });
         }
