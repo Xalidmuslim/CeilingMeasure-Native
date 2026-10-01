@@ -41,6 +41,7 @@ final class NativePricePresetDialog extends Dialog {
     private final List<NativeProjectStore.ProjectData> scopeProjects;
     private final boolean client;
     private final Listener listener;
+    private final NativeUiPrefs uiPrefs;
     private boolean manage;
     private LinearLayout content;
 
@@ -57,6 +58,7 @@ final class NativePricePresetDialog extends Dialog {
         this.scopeProjects=scopeProjects;
         this.client=client;
         this.listener=listener;
+        this.uiPrefs=NativeUiPrefs.load(context);
     }
 
     @Override protected void onCreate(Bundle savedInstanceState){
@@ -325,9 +327,9 @@ final class NativePricePresetDialog extends Dialog {
 
     private Button button(String value,boolean primary){
         Button b=new Button(getContext());
-        b.setAllCaps(false);b.setText(value);b.setTextSize(11.5f);
+        b.setAllCaps(false);b.setText(value);
+        NativeTypography.register(b,11.5f,true,uiPrefs);
         b.setTextColor(primary?Color.WHITE:TEXT);
-        b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
         b.setGravity(Gravity.CENTER);
         b.setMinWidth(0);
         b.setMinimumWidth(0);
@@ -340,10 +342,9 @@ final class NativePricePresetDialog extends Dialog {
 
     private TextView text(String value,float sp,int color,boolean bold){
         TextView t=new TextView(getContext());
-        t.setText(value);t.setTextSize(sp);t.setTextColor(color);
-        t.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));
+        t.setText(value);t.setTextColor(color);
         t.setIncludeFontPadding(false);
-        return t;
+        return NativeTypography.register(t,sp,bold,uiPrefs);
     }
 
     private LinearLayout.LayoutParams top(int margin){
