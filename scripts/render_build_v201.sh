@@ -31,7 +31,7 @@ curl -fL --retry 3 --retry-delay 2   "https://services.gradle.org/distributions/
 unzip -q "$TOOLS/gradle-8.9-bin.zip" -d "$TOOLS"
 export GRADLE_USER_HOME="$TOOLS/gradle-home"
 
-echo "==> Building native v214"
+echo "==> Building native v215"
 "$TOOLS/gradle-8.9/bin/gradle" --no-daemon   clean lintDebug testDebugUnitTest assembleDebug assembleDebugAndroidTest
 
 APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
@@ -44,11 +44,11 @@ if unzip -l "$APK" | grep -q "assets/index.html"; then
   exit 1
 fi
 
-cp "$APK" "$OUT/CeilingMeasure-native-v214.apk"
-cp "$TEST_APK" "$OUT/CeilingMeasure-native-v214-androidTest.apk"
+cp "$APK" "$OUT/CeilingMeasure-native-v215.apk"
+cp "$TEST_APK" "$OUT/CeilingMeasure-native-v215-androidTest.apk"
 (
   cd "$OUT"
-  sha256sum CeilingMeasure-native-v214.apk > CeilingMeasure-native-v214.apk.sha256
+  sha256sum CeilingMeasure-native-v215.apk > CeilingMeasure-native-v215.apk.sha256
 )
 
 cat > "$OUT/index.html" <<'EOF'
@@ -57,15 +57,15 @@ cat > "$OUT/index.html" <<'EOF'
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CeilingMeasure native v214</title>
+<title>CeilingMeasure native v215</title>
 </head>
 <body>
-<h1>CeilingMeasure native v214</h1>
-<p><a href="CeilingMeasure-native-v214.apk">Скачать APK v214</a></p>
-<p><a href="CeilingMeasure-native-v214.apk.sha256">SHA-256</a></p>
+<h1>CeilingMeasure native v215</h1>
+<p><a href="CeilingMeasure-native-v215.apk">Скачать APK v215</a></p>
+<p><a href="CeilingMeasure-native-v215.apk.sha256">SHA-256</a></p>
 </body>
 </html>
 EOF
 
-echo "==> v214 build complete"
+echo "==> v215 build complete"
 ls -lh "$OUT"
