@@ -33,6 +33,7 @@ final class NativeMaterialEditorDialog extends Dialog {
     private final boolean qtyEditable;
     private final Listener listener;
     private final NativeProjectStore.MaterialData draft;
+    private final NativeUiPrefs uiPrefs;
     private Button nameButton;
     private Button qtyButton;
     private Button priceButton;
@@ -48,6 +49,7 @@ final class NativeMaterialEditorDialog extends Dialog {
         this.titleText=title;
         this.qtyEditable=qtyEditable;
         this.listener=listener;
+        this.uiPrefs=NativeUiPrefs.load(context);
         this.draft=initial==null?new NativeProjectStore.MaterialData():initial.copy();
         if(this.draft.name==null||this.draft.name.trim().isEmpty())this.draft.name="Материал";
         this.draft.unit=NativeProjectStore.normalizeMaterialUnit(this.draft.unit);
@@ -190,9 +192,8 @@ final class NativeMaterialEditorDialog extends Dialog {
         Button b=new Button(getContext());
         b.setAllCaps(false);
         b.setText(value);
-        b.setTextSize(12);
+        NativeTypography.register(b,12,true,uiPrefs);
         b.setTextColor(primary?Color.WHITE:TEXT);
-        b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
         b.setGravity(Gravity.CENTER);
         b.setMinWidth(0);
         b.setMinimumWidth(0);
@@ -205,10 +206,9 @@ final class NativeMaterialEditorDialog extends Dialog {
 
     private TextView text(String value,float sp,int color,boolean bold){
         TextView t=new TextView(getContext());
-        t.setText(value);t.setTextSize(sp);t.setTextColor(color);
-        t.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));
+        t.setText(value);t.setTextColor(color);
         t.setIncludeFontPadding(false);
-        return t;
+        return NativeTypography.register(t,sp,bold,uiPrefs);
     }
 
     private LinearLayout.LayoutParams top(int margin){
