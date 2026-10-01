@@ -66,7 +66,7 @@ final class NativeUiPrefs {
             raw = new JSONObject();
             try {
                 if (prefs.contains(KEY_FONT)) raw.put("font", prefs.getString(KEY_FONT, FONT_SYSTEM));
-                if (prefs.contains(KEY_SCALE)) raw.put("scale", prefs.getFloat(KEY_SCALE, 1.12f));
+                if (prefs.contains(KEY_SCALE)) raw.put("scale", prefs.getFloat(KEY_SCALE, 1.18f));
                 if (prefs.contains(KEY_WEIGHT)) raw.put("weight", prefs.getString(KEY_WEIGHT, WEIGHT_NORMAL));
                 if (prefs.contains(KEY_VERSION)) raw.put("version", prefs.getInt(KEY_VERSION, 1));
                 if (prefs.contains(KEY_SIZE)) raw.put("size", prefs.getString(KEY_SIZE, "normal"));
@@ -121,7 +121,7 @@ final class NativeUiPrefs {
         return new NativeUiPrefs(
                 NativeDataContract.UI_PREFS_VERSION,
                 FONT_SYSTEM,
-                1.12f,
+                1.18f,
                 WEIGHT_NORMAL);
     }
 
@@ -158,7 +158,7 @@ final class NativeUiPrefs {
         return new NativeUiPrefs(
                 object.optInt("version", NativeDataContract.UI_PREFS_VERSION),
                 object.optString("font", FONT_SYSTEM),
-                (float) object.optDouble("scale", 1.12d),
+                (float) object.optDouble("scale", 1.18d),
                 object.optString("weight", WEIGHT_NORMAL));
     }
 

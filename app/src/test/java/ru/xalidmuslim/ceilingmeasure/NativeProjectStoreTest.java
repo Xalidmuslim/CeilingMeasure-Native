@@ -342,7 +342,7 @@ public final class NativeProjectStoreTest {
     }
 
     @Test
-    public void uiPrefsPersistCanonicalVersion2WithoutNightMode() throws Exception {
+    public void uiPrefsPersistCanonicalVersion3WithoutNightMode() throws Exception {
         MemorySharedPreferences prefs = new MemorySharedPreferences();
         prefs.edit()
                 .putString("font", "arial")
@@ -352,13 +352,13 @@ public final class NativeProjectStoreTest {
 
         NativeUiPrefs migrated = NativeUiPrefs.loadFrom(prefs);
         assertEquals("system", migrated.font);
-        assertEquals(1.12f, migrated.scale, .0001f);
+        assertEquals(1.18f, migrated.scale, .0001f);
         assertEquals("normal", migrated.weight);
 
         String raw = prefs.getString("ceilingMeasureUiPrefsV1", null);
         assertNotNull(raw);
         JSONObject canonical = new JSONObject(raw);
-        assertEquals(2, canonical.getInt("version"));
+        assertEquals(3, canonical.getInt("version"));
         assertFalse(canonical.has("night"));
 
         NativeUiPrefs custom = migrated

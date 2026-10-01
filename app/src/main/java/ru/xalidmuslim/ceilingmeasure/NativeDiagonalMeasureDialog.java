@@ -27,15 +27,16 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         void onClose();
     }
 
-    private static final int TEXT=Color.rgb(35,56,72);
-    private static final int MUTED=Color.rgb(116,136,151);
-    private static final int BLUE=Color.rgb(47,143,190);
-    private static final int LINE=Color.rgb(220,229,235);
-    private static final int DANGER=Color.rgb(190,72,79);
+    private static final int TEXT=NativeVisualTokens.TEXT;
+    private static final int MUTED=NativeVisualTokens.MUTED;
+    private static final int BLUE=NativeVisualTokens.ACCENT;
+    private static final int LINE=NativeVisualTokens.LINE;
+    private static final int DANGER=NativeVisualTokens.DANGER;
 
     private final String titleText;
     private final Float autoValue;
     private final Listener listener;
+    private final NativeUiPrefs uiPrefs;
     private String buffer;
     private TextView display;
 
@@ -49,6 +50,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         this.titleText=title;
         this.autoValue=autoValue;
         this.listener=listener;
+        this.uiPrefs=NativeUiPrefs.load(context);
         this.buffer=currentValue>0f?String.valueOf(Math.round(currentValue)):"0";
     }
 
@@ -106,7 +108,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         gp.topMargin=dp(7);
         shell.addView(grid,gp);
-        String[] keys={"1","2","3","4","5","6","7","8","9","Очистить","0","⌫"};
+        String[] keys={"1","2","3","4","5","6","7","8","9",",","0","⌫"};
         for(String key:keys)addKey(grid,key);
 
         Button delete=button("Удалить диагональ",false);
@@ -145,6 +147,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         shell.addView(useAuto,uap);
 
         setContentView(shell);
+        NativeMotion.enterCompact(shell);
         Window window=getWindow();
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
@@ -165,7 +168,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
             return;
         }
         try{
-            listener.onSave(Float.parseFloat(buffer));
+            listener.onSave(Float.parseFloat(buffer.replace(',','.')));
         }catch(Exception e){
             Toast.makeText(getContext(),
                     "Введите диагональ, например 4120",
@@ -175,20 +178,31 @@ final class NativeDiagonalMeasureDialog extends Dialog {
 
     private void addKey(GridLayout grid,String key){
         Button b=button(key,false);
-        b.setTextSize("Очистить".equals(key)?10:18);
+        NativeTypography.register(b,"⌫".equals(key)?22:24,true,uiPrefs);
+        b.setPadding(0,0,0,0);
+        b.setBackground(NativeVisualTokens.rippleOutlined(
+                NativeVisualTokens.APP_SOFT,
+                LINE,
+                dp(18),
+                dp(1),
+                Color.argb(24,30,49,68)));
         b.setOnClickListener(v->{
-            if("Очистить".equals(key))buffer="0";
-            else if("⌫".equals(key))buffer=buffer.length()<=1?"0":buffer.substring(0,buffer.length()-1);
-            else{
+            if("⌫".equals(key)){
+                buffer=buffer.length()<=1?"0":buffer.substring(0,buffer.length()-1);
+            }else if(",".equals(key)){
+                if(!buffer.contains(",")&&!buffer.contains(".")){
+                    buffer=("0".equals(buffer)||buffer.isEmpty())?"0,":buffer+",";
+                }
+            }else{
                 if("0".equals(buffer))buffer="";
-                if(buffer.length()<7)buffer+=key;
+                if(buffer.length()<8)buffer+=key;
             }
             display.setText(buffer);
         });
         GridLayout.LayoutParams p=new GridLayout.LayoutParams();
-        p.width=0;p.height=dp(42);
+        p.width=0;p.height=dp(58);
         p.columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f);
-        p.setMargins(dp(3),dp(3),dp(3),dp(3));
+        p.setMargins(dp(4),dp(4),dp(4),dp(4));
         grid.addView(b,p);
     }
 
@@ -197,19 +211,24 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         b.setAllCaps(false);
         b.setText(value);
         b.setTextColor(primary?Color.WHITE:TEXT);
-        b.setTextSize(13);
-        b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
+        NativeTypography.register(b,13,true,uiPrefs);
         b.setGravity(Gravity.CENTER);
-        b.setBackground(rounded(primary?BLUE:Color.rgb(248,250,252),primary?BLUE:LINE,10,1));
+        b.setBackground(primary
+                ?NativeVisualTokens.controlButton(true,dp(10))
+                :NativeVisualTokens.rippleOutlined(
+                        NativeVisualTokens.APP_SOFT,
+                        LINE,
+                        dp(10),
+                        dp(1),
+                        Color.argb(24,30,49,68)));
         return b;
     }
 
     private TextView text(String value,float sp,int color,boolean bold){
         TextView t=new TextView(getContext());
-        t.setText(value);t.setTextSize(sp);t.setTextColor(color);
-        t.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));
+        t.setText(value);t.setTextColor(color);
         t.setIncludeFontPadding(false);
-        return t;
+        return NativeTypography.register(t,sp,bold,uiPrefs);
     }
 
     private GradientDrawable rounded(int fill,int stroke,int radius,int width){

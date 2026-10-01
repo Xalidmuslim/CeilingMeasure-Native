@@ -38,6 +38,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         uiPrefs = NativeUiPrefs.load(this);
         View content = createContent();
         setContentView(content);
+        NativeMotion.enter(content);
         content.requestApplyInsets();
     }
 
@@ -68,7 +69,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         content.setTag("native_home_content");
         content.setOrientation(LinearLayout.VERTICAL);
         content.setGravity(Gravity.CENTER_HORIZONTAL);
-        content.setPadding(dp(12), dp(32), dp(12), dp(24));
+        content.setPadding(dp(10), dp(32), dp(10), dp(18));
         scroll.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -85,7 +86,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         hero.setTag("native_home_hero");
         hero.setOrientation(LinearLayout.HORIZONTAL);
         hero.setGravity(Gravity.TOP);
-        hero.setPadding(dp(2), dp(8), dp(2), dp(20));
+        hero.setPadding(dp(2), dp(6), dp(2), dp(14));
         shell.addView(hero, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -108,17 +109,17 @@ public final class NativeHomeActivity extends ComponentActivity {
                         / getResources().getDisplayMetrics().density);
         TextView title = text(
                 "Замер потолков",
-                screenWidthDp <= 430 ? 26 : 29,
+                screenWidthDp <= 430 ? 24 : 27,
                 Color.rgb(32, 56, 74),
                 true);
         title.setTag("native_home_title");
         LinearLayout.LayoutParams titleParams = wrap();
-        titleParams.topMargin = dp(6);
+        titleParams.topMargin = dp(4);
         copy.addView(title, titleParams);
 
         TextView subtitle = text(
                 "Замер · чертёж · смета",
-                14,
+                12.5f,
                 NativeVisualTokens.HOME_MUTED,
                 false);
         LinearLayout.LayoutParams subtitleParams = wrap();
@@ -157,7 +158,7 @@ public final class NativeHomeActivity extends ComponentActivity {
                 false,
                 "native_home_saved",
                 v -> openWorkspace(NativeWorkspaceActivity.ACTION_SAVED_MEASUREMENTS));
-        actions.addView(saved, cardParams(10));
+        actions.addView(saved, cardParams(7));
         savedMeta = saved.findViewWithTag("native_home_saved_meta");
 
         View drawing = actionCard(
@@ -167,7 +168,7 @@ public final class NativeHomeActivity extends ComponentActivity {
                 false,
                 "native_home_drawing",
                 v -> openWorkspace(NativeWorkspaceActivity.ACTION_DRAWING));
-        actions.addView(drawing, cardParams(10));
+        actions.addView(drawing, cardParams(7));
         drawingMeta = drawing.findViewWithTag("native_home_drawing_meta");
 
         shellRoot = screen;
@@ -193,17 +194,17 @@ public final class NativeHomeActivity extends ComponentActivity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setPadding(dp(widthDp <= 430 ? 14 : 16), dp(widthDp <= 430 ? 14 : 16),
-                dp(widthDp <= 430 ? 14 : 16), dp(widthDp <= 430 ? 14 : 16));
+        card.setPadding(dp(widthDp <= 430 ? 12 : 14), dp(widthDp <= 430 ? 11 : 13),
+                dp(widthDp <= 430 ? 12 : 14), dp(widthDp <= 430 ? 11 : 13));
         card.setMinimumHeight(dp(primary
-                ? (widthDp <= 430 ? 108 : 122)
-                : (widthDp <= 430 ? 94 : 112)));
+                ? (widthDp <= 430 ? 92 : 104)
+                : (widthDp <= 430 ? 80 : 94)));
         card.setTag(tag);
         card.setContentDescription(title);
         card.setClickable(true);
         card.setFocusable(true);
         card.setClipToOutline(false);
-        card.setElevation(dp(primary ? 8 : 3));
+        card.setElevation(dp(primary ? 4 : 1));
 
         Drawable content = primary
                 ? NativeVisualTokens.homePrimary(dp(radius), dp(1))
@@ -243,19 +244,19 @@ public final class NativeHomeActivity extends ComponentActivity {
                 primary ? Color.argb(41, 255, 255, 255)
                         : NativeVisualTokens.HOME_ICON_BG,
                 dp(15)));
-        card.addView(icon, new LinearLayout.LayoutParams(dp(46), dp(46)));
+        card.addView(icon, new LinearLayout.LayoutParams(dp(42), dp(42)));
 
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        copyParams.leftMargin = dp(12);
+        copyParams.leftMargin = dp(10);
         copyParams.rightMargin = dp(8);
         card.addView(copy, copyParams);
 
         TextView titleView = text(
                 title,
-                17,
+                16,
                 primary ? Color.WHITE : NativeVisualTokens.HOME_CARD_TEXT,
                 true);
         copy.addView(titleView);
@@ -272,7 +273,7 @@ public final class NativeHomeActivity extends ComponentActivity {
                 ? "native_home_saved_meta"
                 : ("Чертёж".equals(title) ? "native_home_drawing_meta" : null));
         LinearLayout.LayoutParams subtitleLp = wrap();
-        subtitleLp.topMargin = dp(4);
+        subtitleLp.topMargin = dp(2);
         copy.addView(subtitleView, subtitleLp);
 
         TextView chevron = text(
@@ -282,7 +283,7 @@ public final class NativeHomeActivity extends ComponentActivity {
                         : NativeVisualTokens.HOME_CHEVRON,
                 false);
         chevron.setGravity(Gravity.CENTER);
-        card.addView(chevron, new LinearLayout.LayoutParams(dp(18), dp(46)));
+        card.addView(chevron, new LinearLayout.LayoutParams(dp(18), dp(42)));
 
         return card;
     }

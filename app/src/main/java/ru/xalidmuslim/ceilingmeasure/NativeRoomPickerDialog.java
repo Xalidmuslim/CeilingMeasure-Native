@@ -73,6 +73,7 @@ final class NativeRoomPickerDialog extends Dialog {
         shell.addView(tip,tp);
 
         setContentView(shell);
+        NativeMotion.enterCompact(shell);
         Window window=getWindow();
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);

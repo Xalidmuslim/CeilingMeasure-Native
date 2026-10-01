@@ -142,11 +142,12 @@ public final class NativePhase2ShellTest {
             assertShellViewWithinDisplay(activity, nav);
 
             ViewGroup navGroup = (ViewGroup) nav;
-            assertEquals(3, navGroup.getChildCount());
-            assertEquals("native_nav_redo", navGroup.getChildAt(0).getTag());
-            assertEquals("native_nav_undo", navGroup.getChildAt(1).getTag());
-            assertEquals("native_nav_more", navGroup.getChildAt(2).getTag());
-            for (int i = 0; i < 3; i++) {
+            assertEquals(4, navGroup.getChildCount());
+            assertEquals("native_nav_home", navGroup.getChildAt(0).getTag());
+            assertEquals("native_nav_redo", navGroup.getChildAt(1).getTag());
+            assertEquals("native_nav_undo", navGroup.getChildAt(2).getTag());
+            assertEquals("native_nav_more", navGroup.getChildAt(3).getTag());
+            for (int i = 0; i < 4; i++) {
                 View child = navGroup.getChildAt(i);
                 assertEquals(dp(activity, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP),
                         child.getLayoutParams().width);
@@ -160,7 +161,7 @@ public final class NativePhase2ShellTest {
             writeMetric(activity, "workspace_top",
                     "safeTop=" + safe.top
                             + ",topbarTop=" + topbarLoc[1]
-                            + ",navOrder=redo-undo-more"
+                            + ",navOrder=home-redo-undo-more"
                             + ",brandPx=" + brand.getTextSize());
             assertLightSystemBars(activity);
             capture("workspace_top");
@@ -387,9 +388,11 @@ public final class NativePhase2ShellTest {
         assertEquals(0xFF2F8FBE, NativeVisualTokens.ACCENT);
         assertEquals(13, NativeVisualTokens.CARD_RADIUS_DP);
         assertEquals(7, NativeVisualTokens.APP_COMPACT_GAP_DP);
-        assertEquals(84, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP);
-        assertEquals(39, NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP);
-        assertEquals(8, NativeVisualTokens.HISTORY_BOTTOM_DP);
+        // Four actions (Домой / Вперёд / Назад / Ещё) must fit phone widths
+        // without squeezing labels or overflowing the 303dp floating bar.
+        assertEquals(68, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP);
+        assertEquals(44, NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP);
+        assertEquals(7, NativeVisualTokens.HISTORY_BOTTOM_DP);
         assertEquals(115L, NativeVisualTokens.OVERLAY_MOTION_MS);
         assertEquals(145L, NativeVisualTokens.COLLAPSE_MOTION_MS);
     }

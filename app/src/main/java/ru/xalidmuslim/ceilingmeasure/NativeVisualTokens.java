@@ -1,5 +1,6 @@
 package ru.xalidmuslim.ceilingmeasure;
 
+import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -11,6 +12,7 @@ import android.graphics.Rect;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -64,16 +66,16 @@ final class NativeVisualTokens {
     static final int HOME_RADIUS_WIDE_DP = 22;
 
     static final int APP_COMPACT_GAP_DP = 7;
-    static final int HISTORY_BOTTOM_DP = 8;
-    static final int HISTORY_BUTTON_WIDTH_DP = 84;
-    static final int HISTORY_BUTTON_HEIGHT_DP = 39;
+    static final int HISTORY_BOTTOM_DP = 7;
+    static final int HISTORY_BUTTON_WIDTH_DP = 68;
+    static final int HISTORY_BUTTON_HEIGHT_DP = 44;
     static final int HISTORY_GAP_DP = 3;
     static final int HISTORY_PADDING_DP = 3;
     static final int HISTORY_WIDTH_DP =
-            HISTORY_BUTTON_WIDTH_DP * 3 + HISTORY_GAP_DP * 2 + HISTORY_PADDING_DP * 2; // 264
+            HISTORY_BUTTON_WIDTH_DP * 4 + HISTORY_GAP_DP * 3 + HISTORY_PADDING_DP * 2; // 287
     static final int HISTORY_HEIGHT_DP =
-            HISTORY_BUTTON_HEIGHT_DP + HISTORY_PADDING_DP * 2; // 45
-    static final int SCROLL_NAV_RESERVE_DP = 64;
+            HISTORY_BUTTON_HEIGHT_DP + HISTORY_PADDING_DP * 2; // 50
+    static final int SCROLL_NAV_RESERVE_DP = 66;
 
     static final long OVERLAY_MOTION_MS = 115L;
     static final long COLLAPSE_MOTION_MS = 145L;
@@ -91,6 +93,33 @@ final class NativeVisualTokens {
         GradientDrawable d = solid(fill, radiusPx);
         if (strokePx > 0) d.setStroke(strokePx, stroke);
         return d;
+    }
+
+    static Drawable rippleOutlined(
+            int fill,
+            int stroke,
+            float radiusPx,
+            int strokePx,
+            int rippleColor) {
+        GradientDrawable content = outlined(fill, stroke, radiusPx, strokePx);
+        GradientDrawable mask = solid(Color.WHITE, radiusPx);
+        return new RippleDrawable(
+                ColorStateList.valueOf(rippleColor),
+                content,
+                mask);
+    }
+
+    static Drawable controlButton(boolean primary, float radiusPx) {
+        GradientDrawable content = primary
+                ? primaryButton(radiusPx, 1)
+                : outlined(SURFACE, LINE, radiusPx, 1);
+        int ripple = primary
+                ? Color.argb(44, 255, 255, 255)
+                : Color.argb(24, 30, 49, 68);
+        return new RippleDrawable(
+                ColorStateList.valueOf(ripple),
+                content,
+                solid(Color.WHITE, radiusPx));
     }
 
     static GradientDrawable primaryButton(float radiusPx, int strokePx) {

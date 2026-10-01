@@ -5,6 +5,7 @@ import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Button;
 
 import androidx.annotation.NonNull;
 
@@ -61,7 +62,23 @@ final class NativeTypography {
     private static void apply(@NonNull TextView view, @NonNull NativeUiPrefs prefs) {
         Meta meta = (Meta) view.getTag(R.id.native_typography_meta);
         if (meta == null) return;
-        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, meta.baseSp * prefs.scale);
+
+        float requestedSp = meta.baseSp * prefs.scale;
         view.setTypeface(typeface(prefs, meta.strong));
+
+        if (view instanceof Button) {
+            // Buttons live inside bounded cards. Respect the user's requested
+            // size as the upper bound, but let Android shrink the label just
+            // enough to keep every word inside its frame instead of clipping.
+            int maxSp = Math.max(9, Math.round(requestedSp));
+            int minSp = Math.max(8, Math.min(maxSp, Math.round(meta.baseSp * .68f)));
+            ((Button) view).setAutoSizeTextTypeUniformWithConfiguration(
+                    minSp,
+                    maxSp,
+                    1,
+                    TypedValue.COMPLEX_UNIT_SP);
+        } else {
+            view.setTextSize(TypedValue.COMPLEX_UNIT_SP, requestedSp);
+        }
     }
 }

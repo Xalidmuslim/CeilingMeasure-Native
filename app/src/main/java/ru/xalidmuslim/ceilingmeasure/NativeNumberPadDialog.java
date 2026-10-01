@@ -23,16 +23,17 @@ final class NativeNumberPadDialog extends Dialog {
         void onValue(float value);
     }
 
-    private static final int TEXT = Color.rgb(35, 56, 72);
-    private static final int MUTED = Color.rgb(116, 136, 151);
-    private static final int BLUE = Color.rgb(47, 143, 190);
-    private static final int LINE = Color.rgb(220, 229, 235);
-    private static final int PANEL = Color.WHITE;
-    private static final int BG = Color.rgb(246, 248, 250);
+    private static final int TEXT=NativeVisualTokens.TEXT;
+    private static final int MUTED=NativeVisualTokens.MUTED;
+    private static final int BLUE=NativeVisualTokens.ACCENT;
+    private static final int LINE=NativeVisualTokens.LINE;
+    private static final int PANEL=NativeVisualTokens.SURFACE;
+    private static final int BG=NativeVisualTokens.APP_SOFT;
 
     private final String titleText;
     private final float initialValue;
     private final Listener listener;
+    private final NativeUiPrefs uiPrefs;
     private TextView display;
     private String buffer;
 
@@ -45,6 +46,7 @@ final class NativeNumberPadDialog extends Dialog {
         this.titleText = title;
         this.initialValue = initialValue;
         this.listener = listener;
+        this.uiPrefs = NativeUiPrefs.load(context);
         this.buffer = initialValue > 0 ? format(initialValue) : "0";
     }
 
@@ -75,7 +77,7 @@ final class NativeNumberPadDialog extends Dialog {
         display.setBackground(rounded(BG, LINE, 12, 1));
         LinearLayout.LayoutParams displayParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(58));
+                dp(56));
         displayParams.topMargin = dp(12);
         shell.addView(display, displayParams);
 
@@ -90,7 +92,7 @@ final class NativeNumberPadDialog extends Dialog {
         addRow(keypad, "1", "2", "3");
         addRow(keypad, "4", "5", "6");
         addRow(keypad, "7", "8", "9");
-        // 0 deliberately remains in the middle column, directly below 8.
+        // Phone layout: utility / 0 / backspace on the last row.
         addRow(keypad, ",", "0", "⌫");
 
         LinearLayout actions = new LinearLayout(getContext());
@@ -126,6 +128,7 @@ final class NativeNumberPadDialog extends Dialog {
         actions.addView(done, right);
 
         setContentView(shell);
+        NativeMotion.enterCompact(shell);
 
         Window window = getWindow();
         if (window != null) {
@@ -147,7 +150,7 @@ final class NativeNumberPadDialog extends Dialog {
         row.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(54));
+                dp(60));
         rowParams.topMargin = dp(5);
         parent.addView(row, rowParams);
 
@@ -160,18 +163,18 @@ final class NativeNumberPadDialog extends Dialog {
         Button key = new Button(getContext());
         key.setAllCaps(false);
         key.setText(value);
-        key.setTextSize(value.equals("⌫") ? 20 : 22);
+        NativeTypography.register(key,value.equals("⌫")?22:24,true,uiPrefs);
         key.setTextColor(TEXT);
-        key.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
         key.setGravity(Gravity.CENTER);
         key.setPadding(0, 0, 0, 0);
-        key.setBackground(rounded(BG, LINE, 11, 1));
+        key.setBackground(NativeVisualTokens.rippleOutlined(
+                BG,LINE,dp(18),dp(1),Color.argb(24,30,49,68)));
         key.setTag("native_number_pad_" + keyTag(value));
         key.setOnClickListener(v -> press(value));
 
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(54), 1f);
-        params.leftMargin = dp(3);
-        params.rightMargin = dp(3);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(60), 1f);
+        params.leftMargin = dp(4);
+        params.rightMargin = dp(4);
         row.addView(key, params);
     }
 
@@ -202,21 +205,21 @@ final class NativeNumberPadDialog extends Dialog {
         Button button = new Button(getContext());
         button.setAllCaps(false);
         button.setText(value);
-        button.setTextSize(14);
-        button.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
+        NativeTypography.register(button,14,true,uiPrefs);
         button.setTextColor(primary ? Color.WHITE : TEXT);
-        button.setBackground(rounded(primary ? BLUE : BG, primary ? BLUE : LINE, 11, 1));
+        button.setBackground(primary
+                ?NativeVisualTokens.controlButton(true,dp(11))
+                :NativeVisualTokens.rippleOutlined(
+                        BG,LINE,dp(11),dp(1),Color.argb(24,30,49,68)));
         return button;
     }
 
     private TextView text(String value, int sp, int color, int style) {
         TextView view = new TextView(getContext());
         view.setText(value);
-        view.setTextSize(sp);
         view.setTextColor(color);
-        view.setTypeface(Typeface.create("sans-serif", style));
         view.setIncludeFontPadding(false);
-        return view;
+        return NativeTypography.register(view,sp,style==Typeface.BOLD,uiPrefs);
     }
 
     private GradientDrawable rounded(int fill, int stroke, int radius, int strokeWidth) {

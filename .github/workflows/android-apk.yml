@@ -2,7 +2,7 @@ name: Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, fix/native-full-app-2026-09-29 ]
   pull_request:
   workflow_dispatch:
 
@@ -86,7 +86,9 @@ jobs:
           grep -q 'vibrateSnap' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
           grep -q 'beginPinch' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
           grep -q 'applyPinch' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
-          grep -q 'pageScrollActive' app/src/main/java/ru/xalidmuslim/ceilingmeasure/CeilingDrawingView.java
+          grep -q 'class DrawingAwareScrollView' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeWorkspaceActivity.java
+          grep -q 'openCanvasOwnsGesture' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeWorkspaceActivity.java
+          grep -q 'touchStartsInsideOpenWallCanvas' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeWorkspaceActivity.java
           grep -q 'native_wall_scroll_strip' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeWorkspaceActivity.java
           grep -q 'native_history_nav' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeWorkspaceActivity.java
           grep -q 'class NativeRoomPickerDialog' app/src/main/java/ru/xalidmuslim/ceilingmeasure/NativeRoomPickerDialog.java

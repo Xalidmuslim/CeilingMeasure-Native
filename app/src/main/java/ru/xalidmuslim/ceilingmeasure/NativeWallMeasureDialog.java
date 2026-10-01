@@ -30,15 +30,16 @@ final class NativeWallMeasureDialog extends Dialog {
         void onClose();
     }
 
-    private static final int TEXT = Color.rgb(35,56,72);
-    private static final int MUTED = Color.rgb(116,136,151);
-    private static final int BLUE = Color.rgb(47,143,190);
-    private static final int LINE = Color.rgb(214,224,233);
-    private static final int DANGER = Color.rgb(190,72,79);
+    private static final int TEXT=NativeVisualTokens.TEXT;
+    private static final int MUTED=NativeVisualTokens.MUTED;
+    private static final int BLUE=NativeVisualTokens.ACCENT;
+    private static final int LINE=NativeVisualTokens.LINE;
+    private static final int DANGER=NativeVisualTokens.DANGER;
 
     private final String titleText;
     private final boolean sequence;
     private final Listener listener;
+    private final NativeUiPrefs uiPrefs;
     private String buffer;
     private TextView display;
     private TextView meterHint;
@@ -53,6 +54,7 @@ final class NativeWallMeasureDialog extends Dialog {
         this.titleText=title;
         this.sequence=sequence;
         this.listener=listener;
+        this.uiPrefs=NativeUiPrefs.load(context);
         this.buffer=currentValue>0f
                 ?(Math.abs(currentValue-Math.round(currentValue))<.01f
                     ?String.valueOf(Math.round(currentValue))
@@ -90,30 +92,14 @@ final class NativeWallMeasureDialog extends Dialog {
                 false);
         shell.addView(sub);
 
-        LinearLayout valueRow=new LinearLayout(getContext());
-        valueRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams vrp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(43));
-        vrp.topMargin=dp(6);
-        shell.addView(valueRow,vrp);
-
-        display=text(buffer,24,TEXT,true);
+        display=text(buffer,26,TEXT,true);
         display.setGravity(Gravity.CENTER);
         display.setTag("native_wall_value");
-        display.setBackground(rounded(Color.rgb(250,252,253),LINE,11,1));
-        LinearLayout.LayoutParams dpv=new LinearLayout.LayoutParams(0,dp(43),1f);
-        dpv.rightMargin=dp(6);
-        valueRow.addView(display,dpv);
-
-        Button decimal=button(",",false);
-        decimal.setTag("native_wall_decimal");
-        decimal.setTextSize(24);
-        decimal.setOnClickListener(v->{
-            if(buffer.contains(",")||buffer.contains("."))return;
-            buffer=("0".equals(buffer)||buffer.isEmpty())?"0,":buffer+",";
-            refresh();
-        });
-        valueRow.addView(decimal,new LinearLayout.LayoutParams(dp(52),dp(43)));
+        display.setBackground(rounded(Color.rgb(250,252,253),LINE,14,1));
+        LinearLayout.LayoutParams dpv=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(52));
+        dpv.topMargin=dp(7);
+        shell.addView(display,dpv);
 
         meterHint=text("",10,MUTED,false);
         meterHint.setTag("native_wall_meter_hint");
@@ -125,14 +111,14 @@ final class NativeWallMeasureDialog extends Dialog {
 
         GridLayout keypad=new GridLayout(getContext());
         keypad.setTag("native_wall_keypad");
-        keypad.setColumnCount(4);
+        keypad.setColumnCount(3);
         LinearLayout.LayoutParams kp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         kp.topMargin=dp(5);
         shell.addView(keypad,kp);
 
-        String[] keys={"1","2","3","4","5","6","7","8","9","Очистить","0","⌫"};
+        String[] keys={"1","2","3","4","5","6","7","8","9",",","0","⌫"};
         for(String key:keys)addKey(keypad,key);
 
         Button delete=button("Удалить стену",false);
@@ -170,6 +156,7 @@ final class NativeWallMeasureDialog extends Dialog {
         actions.addView(done,half2);
 
         setContentView(shell);
+        NativeMotion.enterCompact(shell);
         refresh();
 
         setOnKeyListener((dialog,keyCode,event)->{
@@ -219,22 +206,31 @@ final class NativeWallMeasureDialog extends Dialog {
 
     private void addKey(GridLayout grid,String key){
         Button b=button(key,false);
-        b.setTextSize("Очистить".equals(key)?10:17);
-        b.setTag("native_wall_key_"+key);
+        NativeTypography.register(b,"⌫".equals(key)?22:24,true,uiPrefs);
+        b.setTag(",".equals(key) ? "native_wall_decimal" : "native_wall_key_"+key);
+        b.setPadding(0,0,0,0);
+        b.setBackground(NativeVisualTokens.rippleOutlined(
+                NativeVisualTokens.APP_SOFT,
+                LINE,
+                dp(18),
+                dp(1),
+                Color.argb(24,30,49,68)));
         b.setOnClickListener(v->press(key));
         GridLayout.LayoutParams p=new GridLayout.LayoutParams();
         p.width=0;
-        p.height=dp(39);
+        p.height=dp(58);
         p.columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f);
-        p.setMargins(dp(2),dp(2),dp(2),dp(2));
+        p.setMargins(dp(4),dp(4),dp(4),dp(4));
         grid.addView(b,p);
     }
 
     private void press(String key){
-        if("Очистить".equals(key)){
-            buffer="0";
-        }else if("⌫".equals(key)){
+        if("⌫".equals(key)){
             buffer=buffer.length()<=1?"0":buffer.substring(0,buffer.length()-1);
+        }else if(",".equals(key)){
+            if(!buffer.contains(",")&&!buffer.contains(".")){
+                buffer=("0".equals(buffer)||buffer.isEmpty())?"0,":buffer+",";
+            }
         }else if(key.matches("\\d")){
             if("0".equals(buffer))buffer="";
             if(buffer.length()<7)buffer+=key;
@@ -282,22 +278,26 @@ final class NativeWallMeasureDialog extends Dialog {
         b.setAllCaps(false);
         b.setText(value);
         b.setTextColor(primary?Color.WHITE:TEXT);
-        b.setTextSize(13);
-        b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
+        NativeTypography.register(b,13,true,uiPrefs);
         b.setGravity(Gravity.CENTER);
         b.setPadding(dp(4),0,dp(4),0);
-        b.setBackground(rounded(primary?BLUE:Color.rgb(248,250,252),primary?BLUE:LINE,9,1));
+        b.setBackground(primary
+                ?NativeVisualTokens.controlButton(true,dp(9))
+                :NativeVisualTokens.rippleOutlined(
+                        NativeVisualTokens.APP_SOFT,
+                        LINE,
+                        dp(9),
+                        dp(1),
+                        Color.argb(24,30,49,68)));
         return b;
     }
 
     private TextView text(String value,float sp,int color,boolean bold){
         TextView t=new TextView(getContext());
         t.setText(value);
-        t.setTextSize(sp);
         t.setTextColor(color);
-        t.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));
         t.setIncludeFontPadding(false);
-        return t;
+        return NativeTypography.register(t,sp,bold,uiPrefs);
     }
 
     private GradientDrawable rounded(int fill,int stroke,int radius,int width){

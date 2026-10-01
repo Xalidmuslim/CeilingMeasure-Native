@@ -21,7 +21,7 @@ import java.util.UUID;
  */
 final class NativeDataContract {
     static final int DB_SCHEMA_VERSION = 165;
-    static final int UI_PREFS_VERSION = 2;
+    static final int UI_PREFS_VERSION = 3;
     static final String DB_STORAGE_KEY = "ceilingMeasureData";
     static final String UI_PREFS_STORAGE_KEY = "ceilingMeasureUiPrefsV1";
 
@@ -225,25 +225,33 @@ final class NativeDataContract {
 
         double scale;
         if (raw.has("scale") && raw.opt("scale") != JSONObject.NULL) {
-            scale = numeric(raw.opt("scale"), 1.12d);
+            scale = numeric(raw.opt("scale"), 1.18d);
         } else {
             String size = raw.optString("size", "");
             if ("small".equals(size)) scale = .90d;
             else if ("normal".equals(size)) scale = 1d;
             else if ("large".equals(size)) scale = 1.12d;
             else if ("xlarge".equals(size)) scale = 1.24d;
-            else scale = 1.12d;
+            else scale = 1.18d;
         }
         scale = clamp(scale, .85d, 1.30d);
-
-        int version = (int) numeric(raw.opt("version"), 1d);
-        if (version < UI_PREFS_VERSION && Math.abs(scale - 1d) < .001d) {
-            scale = 1.12d;
-        }
 
         String weight = raw.optString("weight", "normal");
         if (!"normal".equals(weight) && !"medium".equals(weight) && !"bold".equals(weight)) {
             weight = "normal";
+        }
+
+        int version = (int) numeric(raw.opt("version"), 1d);
+        // Preserve the old v1 -> v2 migration first, then move only the
+        // canonical default profile to the slightly larger v3 default.
+        if (version < 2 && Math.abs(scale - 1d) < .001d) {
+            scale = 1.12d;
+        }
+        if (version < 3
+                && Math.abs(scale - 1.12d) < .001d
+                && "system".equals(font)
+                && "normal".equals(weight)) {
+            scale = 1.18d;
         }
 
         JSONObject out = new JSONObject();

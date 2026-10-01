@@ -29,18 +29,19 @@ final class NativePricePresetDialog extends Dialog {
         void onApplied();
     }
 
-    private static final int TEXT=Color.rgb(35,56,72);
-    private static final int MUTED=Color.rgb(116,136,151);
-    private static final int BLUE=Color.rgb(47,143,190);
-    private static final int LINE=Color.rgb(220,229,235);
-    private static final int BG=Color.rgb(246,248,250);
-    private static final int DANGER=Color.rgb(190,72,79);
+    private static final int TEXT=NativeVisualTokens.TEXT;
+    private static final int MUTED=NativeVisualTokens.MUTED;
+    private static final int BLUE=NativeVisualTokens.ACCENT;
+    private static final int LINE=NativeVisualTokens.LINE;
+    private static final int BG=NativeVisualTokens.APP_SOFT;
+    private static final int DANGER=NativeVisualTokens.DANGER;
 
     private final NativeProjectStore store;
     private final NativeProjectStore.ProjectData current;
     private final List<NativeProjectStore.ProjectData> scopeProjects;
     private final boolean client;
     private final Listener listener;
+    private final NativeUiPrefs uiPrefs;
     private boolean manage;
     private LinearLayout content;
 
@@ -57,6 +58,7 @@ final class NativePricePresetDialog extends Dialog {
         this.scopeProjects=scopeProjects;
         this.client=client;
         this.listener=listener;
+        this.uiPrefs=NativeUiPrefs.load(context);
     }
 
     @Override protected void onCreate(Bundle savedInstanceState){
@@ -81,7 +83,7 @@ final class NativePricePresetDialog extends Dialog {
         scroll.setBackgroundColor(BG);
         content=new LinearLayout(getContext());
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(12),dp(14),dp(12),dp(28));
+        content.setPadding(dp(8),dp(10),dp(8),dp(16));
         scroll.addView(content,new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -97,10 +99,10 @@ final class NativePricePresetDialog extends Dialog {
                         ?"Цены продажи по умолчанию. Они не связаны с закупочным прайсом."
                         :"Твои цены материалов по умолчанию. Новые комнаты получают их автоматически.",
                 10,MUTED,false));
-        head.addView(title,new LinearLayout.LayoutParams(0,dp(54),1f));
+        head.addView(title,new LinearLayout.LayoutParams(0,dp(40),1f));
         Button close=button("Закрыть",false);
         close.setOnClickListener(v->dismiss());
-        head.addView(close,new LinearLayout.LayoutParams(dp(88),dp(42)));
+        head.addView(close,new LinearLayout.LayoutParams(dp(82),dp(38)));
         content.addView(head);
 
         HashMap<String,Float> prices=store.loadDefaultPricing(client);
@@ -123,7 +125,7 @@ final class NativePricePresetDialog extends Dialog {
         manageButton.setTag(client?"native_client_price_manage":"native_purchase_price_manage");
         manageButton.setOnClickListener(v->{manage=!manage;render();});
         content.addView(manageButton,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(44)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(38)));
 
         Button add=button("+ Другой материал",false);
         add.setTag(client?"native_client_price_add":"native_purchase_price_add");
@@ -144,8 +146,8 @@ final class NativePricePresetDialog extends Dialog {
                     }).show();
         });
         LinearLayout.LayoutParams addp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(44));
-        addp.topMargin=dp(6);
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(38));
+        addp.topMargin=dp(4);
         content.addView(add,addp);
 
         TextView note=text(
@@ -153,7 +155,7 @@ final class NativePricePresetDialog extends Dialog {
                         ?"Новые комнаты получают этот прайс автоматически. В каждой клиентской смете цену можно изменить вручную."
                         :"Изменения прайса сохраняются сразу. Цена в конкретной комнате после этого всё равно редактируется отдельно.",
                 10,MUTED,false);
-        content.addView(note,top(8));
+        content.addView(note,top(5));
 
         LinearLayout actions=new LinearLayout(getContext());
         actions.setOrientation(LinearLayout.HORIZONTAL);
@@ -165,11 +167,11 @@ final class NativePricePresetDialog extends Dialog {
                 true);
         all.setTag("native_price_apply_all");
         all.setOnClickListener(v->apply(true));
-        actions.addView(room,new LinearLayout.LayoutParams(0,dp(46),1f));
-        LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(0,dp(46),1f);
+        actions.addView(room,new LinearLayout.LayoutParams(0,dp(40),1f));
+        LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(0,dp(40),1f);
         ap.leftMargin=dp(6);
         actions.addView(all,ap);
-        content.addView(actions,top(10));
+        content.addView(actions,top(6));
 
         setContentView(scroll);
     }
@@ -184,9 +186,10 @@ final class NativePricePresetDialog extends Dialog {
 
         LinearLayout label=new LinearLayout(getContext());
         label.setOrientation(LinearLayout.VERTICAL);
-        label.addView(text(meta.name,12,TEXT,true));
-        label.addView(text(meta.unit,10,MUTED,false));
-        row.addView(label,new LinearLayout.LayoutParams(0,dp(46),1f));
+        label.setGravity(Gravity.CENTER_VERTICAL);
+        label.addView(text(meta.name,11.5f,TEXT,true));
+        label.addView(text(meta.unit,9.5f,MUTED,false));
+        row.addView(label,new LinearLayout.LayoutParams(0,dp(38),1f));
 
         if(hidden){
             Button restore=button("Вернуть",false);
@@ -194,19 +197,28 @@ final class NativePricePresetDialog extends Dialog {
                 store.setDefaultKeyHidden(client,meta.key,false);
                 render();
             });
-            row.addView(restore,new LinearLayout.LayoutParams(dp(86),dp(40)));
+            row.addView(restore,new LinearLayout.LayoutParams(dp(76),dp(34)));
         }else{
-            Button price=button(format(NativeEstimateEngine.value(prices,meta.key)),false);
-            price.setTag("native_default_price_"+(client?"client_":"purchase_")+meta.key);
-            price.setOnClickListener(v->new NativeNumberPadDialog(
+            Runnable editPrice=()->new NativeNumberPadDialog(
                     getContext(),
                     meta.name+" · цена",
                     NativeEstimateEngine.value(prices,meta.key),
                     value->{
                         store.saveDefaultPrice(client,meta.key,value);
                         render();
-                    }).show());
-            row.addView(price,new LinearLayout.LayoutParams(dp(82),dp(40)));
+                    }).show();
+
+            Button price=button(format(NativeEstimateEngine.value(prices,meta.key)),false);
+            price.setTag("native_default_price_"+(client?"client_":"purchase_")+meta.key);
+            price.setOnClickListener(v->editPrice.run());
+            row.addView(price,new LinearLayout.LayoutParams(dp(72),dp(34)));
+
+            Button edit=button("✎",false);
+            edit.setContentDescription("Изменить цену "+meta.name);
+            edit.setOnClickListener(v->editPrice.run());
+            LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(dp(34),dp(34));
+            ep.leftMargin=dp(3);
+            row.addView(edit,ep);
 
             boolean removable=client
                     ?!"canvas".equals(meta.key)
@@ -219,23 +231,25 @@ final class NativePricePresetDialog extends Dialog {
                     store.setDefaultKeyHidden(client,meta.key,true);
                     render();
                 });
-                LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(40),dp(40));
-                rp.leftMargin=dp(4);
+                LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(34),dp(34));
+                rp.leftMargin=dp(3);
                 row.addView(remove,rp);
             }
         }
-        content.addView(row,top(5));
+        content.addView(row,top(3));
     }
 
     private void addCustomRow(NativeProjectStore.MaterialData item){
         LinearLayout row=card();
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setOrientation(LinearLayout.HORIZONTAL);
+
         LinearLayout label=new LinearLayout(getContext());
         label.setOrientation(LinearLayout.VERTICAL);
-        label.addView(text(item.name,12,TEXT,true));
-        label.addView(text(item.unit,10,MUTED,false));
-        row.addView(label,new LinearLayout.LayoutParams(0,dp(46),1f));
+        label.setGravity(Gravity.CENTER_VERTICAL);
+        label.addView(text(item.name,11.5f,TEXT,true));
+        label.addView(text(item.unit,9.5f,MUTED,false));
+        row.addView(label,new LinearLayout.LayoutParams(0,dp(38),1f));
 
         Button price=button(format(item.price),false);
         price.setOnClickListener(v->new NativeNumberPadDialog(
@@ -247,9 +261,10 @@ final class NativePricePresetDialog extends Dialog {
                     store.upsertDefaultCustom(client,item);
                     render();
                 }).show());
-        row.addView(price,new LinearLayout.LayoutParams(dp(78),dp(40)));
+        row.addView(price,new LinearLayout.LayoutParams(dp(72),dp(34)));
 
         Button edit=button("✎",false);
+        edit.setContentDescription("Редактировать "+item.name);
         edit.setOnClickListener(v->new NativeMaterialEditorDialog(
                 getContext(),
                 "Редактировать материал",
@@ -259,21 +274,23 @@ final class NativePricePresetDialog extends Dialog {
                     store.upsertDefaultCustom(client,material);
                     render();
                 }).show());
-        LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(dp(40),dp(40));
+        LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(dp(34),dp(34));
         ep.leftMargin=dp(3);
         row.addView(edit,ep);
 
-        Button remove=button("×",false);
-        remove.setTextColor(DANGER);
-        remove.setOnClickListener(v->{
-            store.deleteDefaultCustom(client,item.id);
-            render();
-        });
-        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(40),dp(40));
-        rp.leftMargin=dp(3);
-        row.addView(remove,rp);
+        if(manage){
+            Button remove=button("×",false);
+            remove.setTextColor(DANGER);
+            remove.setOnClickListener(v->{
+                store.deleteDefaultCustom(client,item.id);
+                render();
+            });
+            LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(34),dp(34));
+            rp.leftMargin=dp(3);
+            row.addView(remove,rp);
+        }
 
-        content.addView(row,top(5));
+        content.addView(row,top(3));
     }
 
     private void apply(boolean all){
@@ -303,27 +320,31 @@ final class NativePricePresetDialog extends Dialog {
 
     private LinearLayout card(){
         LinearLayout c=new LinearLayout(getContext());
-        c.setPadding(dp(10),dp(6),dp(10),dp(6));
-        c.setBackground(rounded(Color.WHITE,LINE,12,1));
+        c.setPadding(dp(8),dp(4),dp(8),dp(4));
+        c.setBackground(rounded(Color.WHITE,LINE,10,1));
         return c;
     }
 
     private Button button(String value,boolean primary){
         Button b=new Button(getContext());
-        b.setAllCaps(false);b.setText(value);b.setTextSize(12);
+        b.setAllCaps(false);b.setText(value);
+        NativeTypography.register(b,11.5f,true,uiPrefs);
         b.setTextColor(primary?Color.WHITE:TEXT);
-        b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
         b.setGravity(Gravity.CENTER);
-        b.setBackground(rounded(primary?BLUE:Color.WHITE,primary?BLUE:LINE,10,1));
+        b.setMinWidth(0);
+        b.setMinimumWidth(0);
+        b.setMinHeight(0);
+        b.setMinimumHeight(0);
+        b.setPadding(dp(4),0,dp(4),0);
+        b.setBackground(NativeVisualTokens.controlButton(primary,dp(10)));
         return b;
     }
 
     private TextView text(String value,float sp,int color,boolean bold){
         TextView t=new TextView(getContext());
-        t.setText(value);t.setTextSize(sp);t.setTextColor(color);
-        t.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));
+        t.setText(value);t.setTextColor(color);
         t.setIncludeFontPadding(false);
-        return t;
+        return NativeTypography.register(t,sp,bold,uiPrefs);
     }
 
     private LinearLayout.LayoutParams top(int margin){

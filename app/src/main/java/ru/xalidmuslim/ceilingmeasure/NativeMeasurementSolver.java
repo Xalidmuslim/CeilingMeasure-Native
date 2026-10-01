@@ -19,6 +19,10 @@ final class NativeMeasurementSolver {
     // Factual geometry must not silently absorb the legacy 0.10 m working tolerance.
     // One project unit is 1 cm, so > 1 cm residual is reported as a measurement conflict.
     static final float FACTUAL_CONFLICT_TOL = 1f;
+    // "Точно по размерам" is intentionally stricter than the factual/sketch mode.
+    // One project unit is 1 cm; 0.08 unit = 0.8 mm.
+    static final float EXACT_MEASUREMENT_TOL = .08f;
+    private static final int EXACT_SEARCH_STATE_LIMIT = 16000;
 
     private NativeMeasurementSolver() {}
 
@@ -58,6 +62,22 @@ final class NativeMeasurementSolver {
         Constraint(String a, String b, float target) {
             this.a = a;
             this.b = b;
+            this.target = target;
+        }
+    }
+
+    private static final class ExactSearch {
+        Map<String, PointF> best;
+        float bestArea = -1f;
+        int states;
+    }
+
+    private static final class PlacedConstraint {
+        final String other;
+        final float target;
+
+        PlacedConstraint(String other, float target) {
+            this.other = other;
             this.target = target;
         }
     }
@@ -316,10 +336,12 @@ final class NativeMeasurementSolver {
 
 
     /**
-     * Builds factual geometry from measured walls and measured diagonals only.
+     * Builds factual geometry with measured wall lengths as hard constraints.
      *
-     * The sketch is used solely to select the mirror branch of circle intersections.
-     * It never contributes a distance, angle or soft direction constraint.
+     * The sketch supplies topology, winding and a fading direction preference.
+     * Angles are allowed to bend when that is required to honor the entered
+     * dimensions. Measured diagonals choose the most plausible bend but may not
+     * change wall lengths; any remaining diagonal conflict is reported.
      */
     @NonNull
     static Result solveFactual(@NonNull NativeProjectStore.RoomData room) {
@@ -330,38 +352,836 @@ final class NativeMeasurementSolver {
         if (order.size() < 3) {
             return Result.fail("Для фактической геометрии нужно минимум три угла.");
         }
+
+        final int n = order.size();
+        Map<String, float[]> sketch = NativeGeometry.sketchCoordinates(room);
+        float[] target = new float[n];
+        float[] sketchTheta = new float[n];
+        float[] theta = new float[n];
+
+        float totalLength = 0f;
+        float largestLength = 0f;
+        for (int i = 0; i < n; i++) {
+            String aId = order.get(i);
+            String bId = order.get((i + 1) % n);
+            float[] a = sketch.get(aId);
+            float[] b = sketch.get(bId);
+            NativeProjectStore.EdgeData edge =
+                    NativeGeometry.edgeBetween(room, aId, bId);
+
+            if (a == null || b == null || edge == null) {
+                return Result.fail("Повреждена геометрия комнаты.");
+            }
+            if (edge.value <= 0f) {
+                return Result.fail("Сначала введи реальные размеры всех стен.");
+            }
+
+            float dx = b[0] - a[0];
+            float dy = b[1] - a[1];
+            if (Math.hypot(dx, dy) < 1e-6d) {
+                return Result.fail("В эскизе есть стена нулевой длины.");
+            }
+
+            target[i] = edge.value;
+            sketchTheta[i] = (float) Math.atan2(dy, dx);
+            theta[i] = sketchTheta[i];
+            totalLength += edge.value;
+            largestLength = Math.max(largestLength, edge.value);
+        }
+
+        // A closed polygon can exist only when no wall is longer than all of
+        // the remaining walls together. Do not invent impossible geometry.
+        if (largestLength > totalLength - largestLength + .01f) {
+            return Result.fail(
+                    "Введённые размеры стен не могут образовать замкнутый контур. "
+                            + "Одна стена длиннее суммы остальных.");
+        }
+
+        // Measurement-first deformation:
+        // - every wall keeps its entered length;
+        // - the first wall keeps the sketch direction as a visual anchor;
+        // - remaining wall directions rotate by the smallest correction needed
+        //   to close the polygon;
+        // - meaningful convex/concave turns from the sketch may not flip;
+        // - non-neighbour walls may not cross.
+        //
+        // This is the inverse of the old algorithm. The old solver kept angles
+        // fixed and silently changed wall lengths, which looked acceptable for
+        // rectangles but badly distorted stepped/concave rooms with tiny
+        // returns. Here lengths are hard constraints and angles are the part
+        // allowed to become crooked.
+        final int maxIterations = 1200;
+        float closureError = Float.MAX_VALUE;
+        boolean relaxedTurnGuard = false;
+
+        for (int iter = 0; iter < maxIterations; iter++) {
+            float closureX = 0f;
+            float closureY = 0f;
+            for (int i = 0; i < n; i++) {
+                closureX += target[i] * (float) Math.cos(theta[i]);
+                closureY += target[i] * (float) Math.sin(theta[i]);
+            }
+            closureError = (float) Math.hypot(closureX, closureY);
+            if (closureError < .008f) break;
+
+            double mxx = 0d;
+            double mxy = 0d;
+            double myy = 0d;
+            float maxTarget = Math.max(1f, largestLength);
+
+            // First edge stays anchored. Long walls absorb more angular
+            // correction; tiny architectural returns remain visually stable.
+            for (int i = 1; i < n; i++) {
+                double jx = -target[i] * Math.sin(theta[i]);
+                double jy = target[i] * Math.cos(theta[i]);
+                double flexibility = Math.max(.035d, target[i] / maxTarget);
+                mxx += flexibility * jx * jx;
+                mxy += flexibility * jx * jy;
+                myy += flexibility * jy * jy;
+            }
+
+            double det = mxx * myy - mxy * mxy;
+            if (Math.abs(det) < 1e-10d) break;
+
+            // Minimum-angle correction satisfying the linearized closure.
+            double lambdaX = (myy * closureX - mxy * closureY) / det;
+            double lambdaY = (-mxy * closureX + mxx * closureY) / det;
+
+            float[] delta = new float[n];
+            float maxDelta = 0f;
+            for (int i = 1; i < n; i++) {
+                double jx = -target[i] * Math.sin(theta[i]);
+                double jy = target[i] * Math.cos(theta[i]);
+                double flexibility = Math.max(.035d, target[i] / maxTarget);
+                delta[i] = (float) (-flexibility
+                        * (jx * lambdaX + jy * lambdaY));
+                maxDelta = Math.max(maxDelta, Math.abs(delta[i]));
+            }
+            if (!(maxDelta > 1e-8f)) break;
+
+            float step = Math.min(1f, .14f / maxDelta);
+            step *= .88f;
+
+            boolean accepted = false;
+            for (int attempt = 0; attempt < 12; attempt++) {
+                float[] proposed = theta.clone();
+                for (int i = 1; i < n; i++) {
+                    proposed[i] += delta[i] * step;
+                }
+
+                boolean turnOk = relaxedTurnGuard
+                        || preservesMeaningfulTurns(sketchTheta, proposed);
+                Map<String, PointF> proposedPositions =
+                        positionsFromAngles(order, target, proposed);
+                boolean crossing = polygonSelfIntersects(proposedPositions, order);
+
+                if (turnOk && !crossing) {
+                    theta = proposed;
+                    accepted = true;
+                    break;
+                }
+                step *= .5f;
+            }
+
+            if (!accepted) {
+                // If a highly inconsistent set of dimensions cannot close
+                // without flattening one sketch corner, permit extra bending
+                // only after the strict topology-preserving phase has stalled.
+                // Segment crossing is still forbidden.
+                if (!relaxedTurnGuard && iter > 80) {
+                    relaxedTurnGuard = true;
+                    continue;
+                }
+                break;
+            }
+        }
+
+        float finalClosureX = 0f;
+        float finalClosureY = 0f;
+        for (int i = 0; i < n; i++) {
+            finalClosureX += target[i] * (float) Math.cos(theta[i]);
+            finalClosureY += target[i] * (float) Math.sin(theta[i]);
+        }
+        closureError = (float) Math.hypot(finalClosureX, finalClosureY);
+
+        Map<String, PointF> positions = positionsFromAngles(order, target, theta);
+
+        ArrayList<Constraint> wallConstraints = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            wallConstraints.add(new Constraint(
+                    order.get(i),
+                    order.get((i + 1) % n),
+                    target[i]));
+        }
+        float wallError = maxConstraintError(positions, wallConstraints);
+
+        ArrayList<Constraint> factual = factualConstraints(room);
+        float maxError = maxConstraintError(positions, factual);
+
+        int measuredDiagonalCount = 0;
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            if (NativeGeometry.isMeasuredDiagonal(diagonal)) measuredDiagonalCount++;
+        }
+        int neededDiagonals = Math.max(0, n - 3);
+        boolean unique = n <= 3 || measuredDiagonalCount >= neededDiagonals;
+
+        boolean shapeConflict = closureError > .08f || wallError > .08f;
+        String message;
+        if (shapeConflict) {
+            message = String.format(
+                    Locale.getDefault(),
+                    "Размеры стен сильно конфликтуют с формой эскиза. "
+                            + "Показана ближайшая замкнутая форма без пересечения стен; "
+                            + "невязка до %.2f м.",
+                    Math.max(closureError, wallError) / 100f);
+        } else if (maxError > FACTUAL_CONFLICT_TOL && measuredDiagonalCount > 0) {
+            message = String.format(
+                    Locale.getDefault(),
+                    "Стены растянуты по введённым размерам. "
+                            + "Форма и вогнутые/выпуклые углы сохранены по эскизу. "
+                            + "Контрольные диагонали дают невязку до %.2f м.",
+                    maxError / 100f);
+        } else {
+            message = "Стены растянуты по введённым размерам. "
+                    + "Порядок, вогнутые и выпуклые углы взяты из эскиза.";
+        }
+
+        return new Result(
+                true,
+                message,
+                positions,
+                Math.max(maxError, wallError),
+                unique,
+                shapeConflict || maxError > FACTUAL_CONFLICT_TOL);
+    }
+
+
+    /**
+     * Reconstructs the room only from entered wall lengths and measured
+     * diagonals. The sketch is never used as an angle/shape prior.
+     *
+     * Topology is still taken from the closed wall cycle because the point IDs
+     * and wall ownership must remain unchanged. Coordinates are obtained by
+     * exact circle-circle trilateration. If the measurements cannot all be
+     * satisfied within sub-millimetre numeric tolerance, no geometry is
+     * applied and the caller keeps the current drawing untouched.
+     */
+    @NonNull
+    static Result solveMeasurementsOnly(@NonNull NativeProjectStore.RoomData room) {
+        List<String> order = NativeGeometry.cycleOrder(room);
+        if (order == null) {
+            return Result.fail("Сначала стены должны образовать один замкнутый контур.");
+        }
+        if (order.size() < 3) {
+            return Result.fail("Для точного построения нужно минимум три угла.");
+        }
+
         for (NativeProjectStore.EdgeData edge : room.edges) {
             if (edge.value <= 0f) {
                 return Result.fail("Сначала введи реальные размеры всех стен.");
             }
         }
 
+        int measuredDiagonals = 0;
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            if (NativeGeometry.isMeasuredDiagonal(diagonal)) measuredDiagonals++;
+        }
+        int minimum = Math.max(0, order.size() - 3);
+        if (measuredDiagonals < minimum) {
+            return Result.fail(
+                    "Для точного построения не хватает измеренных диагоналей. "
+                            + "Для этого контура нужно минимум "
+                            + minimum
+                            + ".");
+        }
+
+        ArrayList<Constraint> constraints = factualConstraints(room);
+        boolean graphSupported = false;
+        Map<String, PointF> best = null;
+        float bestArea = -1f;
+
+        // Any measured wall may be the coordinate-system baseline. Trying the
+        // boundary edges makes the solver independent of where point A happens
+        // to be and supports arbitrary triangulated diagonal layouts.
+        for (int start = 0; start < order.size(); start++) {
+            String aId = order.get(start);
+            String bId = order.get((start + 1) % order.size());
+            NativeProjectStore.EdgeData baseline =
+                    NativeGeometry.edgeBetween(room, aId, bId);
+            if (baseline == null || baseline.value <= 0f) continue;
+            if (!canTrilaterateFrom(order, constraints, aId, bId)) continue;
+
+            graphSupported = true;
+            HashMap<String, PointF> positions = new HashMap<>();
+            positions.put(aId, new PointF(0f, 0f));
+            positions.put(bId, new PointF(baseline.value, 0f));
+
+            ExactSearch search = new ExactSearch();
+            searchExactPositions(order, constraints, positions, search);
+            if (search.best != null && search.bestArea > bestArea) {
+                best = search.best;
+                bestArea = search.bestArea;
+            }
+
+            // A valid exact reconstruction is enough. Other baselines can only
+            // rotate/reflect the same measured geometry or expose equivalent
+            // triangle flips.
+            if (best != null) break;
+        }
+
+        if (!graphSupported) {
+            return Result.fail(
+                    "Диагонали введены, но их расположения недостаточно для точного "
+                            + "восстановления всех углов. Добавь контрольные диагонали "
+                            + "так, чтобы каждый новый угол определялся двумя расстояниями.");
+        }
+
+        if (best == null) {
+            return Result.fail(
+                    "Введённые размеры стен и диагоналей противоречат друг другу. "
+                            + "Точную фигуру по этим цифрам построить невозможно.");
+        }
+
+        float maxError = maxConstraintError(best, constraints);
+        if (maxError > EXACT_MEASUREMENT_TOL) {
+            return Result.fail(
+                    String.format(
+                            Locale.getDefault(),
+                            "Замеры конфликтуют: невязка %.3f м. "
+                                    + "Точная геометрия не применена.",
+                            maxError / 100f));
+        }
+
+        // Canonical orientation only. Reflection does not change any entered
+        // distance and avoids dependence on the old sketch winding.
+        if (signedArea(best, order) < 0f) {
+            for (PointF point : best.values()) point.y = -point.y;
+        }
+
+        return new Result(
+                true,
+                String.format(
+                        Locale.getDefault(),
+                        "Построено точно только по введённым стенам и измеренным "
+                                + "диагоналям. Эскиз не учитывался. Невязка: %.3f м.",
+                        maxError / 100f),
+                best,
+                maxError,
+                true,
+                false);
+    }
+
+    private static boolean canTrilaterateFrom(
+            @NonNull List<String> order,
+            @NonNull List<Constraint> constraints,
+            @NonNull String first,
+            @NonNull String second) {
+        HashMap<String, Boolean> placed = new HashMap<>();
+        placed.put(first, true);
+        placed.put(second, true);
+
+        boolean changed = true;
+        while (changed && placed.size() < order.size()) {
+            changed = false;
+            for (String id : order) {
+                if (placed.containsKey(id)) continue;
+                int count = 0;
+                for (Constraint c : constraints) {
+                    if (id.equals(c.a) && placed.containsKey(c.b)) count++;
+                    else if (id.equals(c.b) && placed.containsKey(c.a)) count++;
+                }
+                if (count >= 2) {
+                    placed.put(id, true);
+                    changed = true;
+                }
+            }
+        }
+        return placed.size() == order.size();
+    }
+
+    private static void searchExactPositions(
+            @NonNull List<String> order,
+            @NonNull List<Constraint> constraints,
+            @NonNull HashMap<String, PointF> positions,
+            @NonNull ExactSearch search) {
+        if (++search.states > EXACT_SEARCH_STATE_LIMIT) return;
+
+        if (positions.size() == order.size()) {
+            if (polygonSelfIntersects(positions, order)) return;
+            float area = Math.abs(signedArea(positions, order));
+            if (area < .25f) return;
+            float error = maxConstraintError(positions, constraints);
+            if (error <= EXACT_MEASUREMENT_TOL && area > search.bestArea) {
+                search.bestArea = area;
+                search.best = copyPositions(positions);
+            }
+            return;
+        }
+
+        String nextId = null;
+        ArrayList<PlacedConstraint> nextLinks = null;
+        int bestLinkCount = -1;
+        float bestBaseline = -1f;
+
+        for (String id : order) {
+            if (positions.containsKey(id)) continue;
+            ArrayList<PlacedConstraint> links =
+                    placedConstraints(id, positions, constraints);
+            if (links.size() < 2) continue;
+
+            float baseline = largestPlacedBaseline(links, positions);
+            if (links.size() > bestLinkCount
+                    || (links.size() == bestLinkCount && baseline > bestBaseline)) {
+                nextId = id;
+                nextLinks = links;
+                bestLinkCount = links.size();
+                bestBaseline = baseline;
+            }
+        }
+
+        if (nextId == null || nextLinks == null) return;
+
+        PlacedConstraint first = null;
+        PlacedConstraint second = null;
+        float pairDistance = -1f;
+        for (int i = 0; i < nextLinks.size(); i++) {
+            PointF a = positions.get(nextLinks.get(i).other);
+            if (a == null) continue;
+            for (int j = i + 1; j < nextLinks.size(); j++) {
+                PointF b = positions.get(nextLinks.get(j).other);
+                if (b == null) continue;
+                float d = (float) Math.hypot(b.x - a.x, b.y - a.y);
+                if (d > pairDistance) {
+                    pairDistance = d;
+                    first = nextLinks.get(i);
+                    second = nextLinks.get(j);
+                }
+            }
+        }
+        if (first == null || second == null || pairDistance < 1e-5f) return;
+
+        PointF centerA = positions.get(first.other);
+        PointF centerB = positions.get(second.other);
+        if (centerA == null || centerB == null) return;
+
+        ArrayList<PointF> candidates = circleIntersections(
+                centerA,
+                first.target,
+                centerB,
+                second.target);
+
+        for (PointF candidate : candidates) {
+            boolean valid = true;
+
+            for (PointF existing : positions.values()) {
+                if (Math.hypot(
+                        candidate.x - existing.x,
+                        candidate.y - existing.y) < .02d) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (!valid) continue;
+
+            for (PlacedConstraint link : nextLinks) {
+                PointF other = positions.get(link.other);
+                if (other == null) continue;
+                float actual = (float) Math.hypot(
+                        candidate.x - other.x,
+                        candidate.y - other.y);
+                if (Math.abs(actual - link.target) > EXACT_MEASUREMENT_TOL) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (!valid) continue;
+
+            positions.put(nextId, candidate);
+            if (!polygonSelfIntersects(positions, order)) {
+                searchExactPositions(order, constraints, positions, search);
+            }
+            positions.remove(nextId);
+        }
+    }
+
+    @NonNull
+    private static ArrayList<PlacedConstraint> placedConstraints(
+            @NonNull String id,
+            @NonNull Map<String, PointF> positions,
+            @NonNull List<Constraint> constraints) {
+        ArrayList<PlacedConstraint> result = new ArrayList<>();
+        for (Constraint c : constraints) {
+            String other = null;
+            if (id.equals(c.a) && positions.containsKey(c.b)) other = c.b;
+            else if (id.equals(c.b) && positions.containsKey(c.a)) other = c.a;
+            if (other == null) continue;
+
+            boolean duplicate = false;
+            for (PlacedConstraint existing : result) {
+                if (existing.other.equals(other)) {
+                    duplicate = true;
+                    break;
+                }
+            }
+            if (!duplicate) result.add(new PlacedConstraint(other, c.target));
+        }
+        return result;
+    }
+
+    private static float largestPlacedBaseline(
+            @NonNull List<PlacedConstraint> links,
+            @NonNull Map<String, PointF> positions) {
+        float best = 0f;
+        for (int i = 0; i < links.size(); i++) {
+            PointF a = positions.get(links.get(i).other);
+            if (a == null) continue;
+            for (int j = i + 1; j < links.size(); j++) {
+                PointF b = positions.get(links.get(j).other);
+                if (b == null) continue;
+                best = Math.max(
+                        best,
+                        (float) Math.hypot(b.x - a.x, b.y - a.y));
+            }
+        }
+        return best;
+    }
+
+    @NonNull
+    private static ArrayList<PointF> circleIntersections(
+            @NonNull PointF a,
+            float radiusA,
+            @NonNull PointF b,
+            float radiusB) {
+        ArrayList<PointF> result = new ArrayList<>();
+        double dx = b.x - a.x;
+        double dy = b.y - a.y;
+        double d = Math.hypot(dx, dy);
+        if (d < 1e-8d || radiusA <= 0f || radiusB <= 0f) return result;
+
+        if (d > radiusA + radiusB + EXACT_MEASUREMENT_TOL
+                || d < Math.abs(radiusA - radiusB) - EXACT_MEASUREMENT_TOL) {
+            return result;
+        }
+
+        double along =
+                ((double) radiusA * radiusA
+                        - (double) radiusB * radiusB
+                        + d * d)
+                        / (2d * d);
+        double h2 = (double) radiusA * radiusA - along * along;
+        if (h2 < -1e-5d) return result;
+        double h = Math.sqrt(Math.max(0d, h2));
+
+        double ux = dx / d;
+        double uy = dy / d;
+        double baseX = a.x + ux * along;
+        double baseY = a.y + uy * along;
+        double px = -uy;
+        double py = ux;
+
+        result.add(new PointF(
+                (float) (baseX + px * h),
+                (float) (baseY + py * h)));
+        if (h > 1e-5d) {
+            result.add(new PointF(
+                    (float) (baseX - px * h),
+                    (float) (baseY - py * h)));
+        }
+        return result;
+    }
+
+    @NonNull
+    private static Map<String, PointF> copyPositions(
+            @NonNull Map<String, PointF> source) {
+        HashMap<String, PointF> copy = new HashMap<>();
+        for (Map.Entry<String, PointF> entry : source.entrySet()) {
+            PointF p = entry.getValue();
+            copy.put(entry.getKey(), new PointF(p.x, p.y));
+        }
+        return copy;
+    }
+
+    @NonNull
+    private static Map<String, PointF> positionsFromAngles(
+            @NonNull List<String> order,
+            @NonNull float[] lengths,
+            @NonNull float[] theta) {
+        HashMap<String, PointF> positions = new HashMap<>();
+        float x = 0f;
+        float y = 0f;
+        positions.put(order.get(0), new PointF(x, y));
+        for (int i = 0; i < order.size() - 1; i++) {
+            x += lengths[i] * (float) Math.cos(theta[i]);
+            y += lengths[i] * (float) Math.sin(theta[i]);
+            positions.put(order.get(i + 1), new PointF(x, y));
+        }
+        return positions;
+    }
+
+    private static boolean preservesMeaningfulTurns(
+            @NonNull float[] sketchTheta,
+            @NonNull float[] theta) {
+        int n = theta.length;
+        for (int i = 0; i < n; i++) {
+            int previous = (i - 1 + n) % n;
+            float sketchTurn = (float) Math.sin(
+                    sketchTheta[i] - sketchTheta[previous]);
+            if (Math.abs(sketchTurn) < .10f) {
+                // Near-straight sketch joins may bend either way.
+                continue;
+            }
+            float solvedTurn = (float) Math.sin(theta[i] - theta[previous]);
+            if (sketchTurn * solvedTurn <= .018f) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean polygonSelfIntersects(
+            @NonNull Map<String, PointF> positions,
+            @NonNull List<String> order) {
+        int n = order.size();
+        for (int i = 0; i < n; i++) {
+            PointF a = positions.get(order.get(i));
+            PointF b = positions.get(order.get((i + 1) % n));
+            if (a == null || b == null) continue;
+
+            for (int j = i + 1; j < n; j++) {
+                if (j == i) continue;
+                if ((i + 1) % n == j) continue;
+                if ((j + 1) % n == i) continue;
+
+                PointF c = positions.get(order.get(j));
+                PointF d = positions.get(order.get((j + 1) % n));
+                if (c == null || d == null) continue;
+                if (segmentsProperlyIntersect(a, b, c, d)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean segmentsProperlyIntersect(
+            PointF a,
+            PointF b,
+            PointF c,
+            PointF d) {
+        float abC = cross(a, b, c);
+        float abD = cross(a, b, d);
+        float cdA = cross(c, d, a);
+        float cdB = cross(c, d, b);
+        final float eps = 1e-4f;
+        return ((abC > eps && abD < -eps) || (abC < -eps && abD > eps))
+                && ((cdA > eps && cdB < -eps) || (cdA < -eps && cdB > eps));
+    }
+
+    private static float cross(PointF a, PointF b, PointF p) {
+        return (b.x - a.x) * (p.y - a.y)
+                - (b.y - a.y) * (p.x - a.x);
+    }
+
+    @Nullable
+    private static Result solveFactualOrthogonalSketch(
+            @NonNull NativeProjectStore.RoomData room,
+            @NonNull List<String> order) {
+        double sx = 0d;
+        double sy = 0d;
+
+        for (int i = 0; i < order.size(); i++) {
+            String aId = order.get(i);
+            String bId = order.get((i + 1) % order.size());
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, aId);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, bId);
+            NativeProjectStore.EdgeData edge = NativeGeometry.edgeBetween(room, aId, bId);
+            if (a == null || b == null || edge == null || edge.value <= 0f) return null;
+
+            double theta = Math.atan2(b.y - a.y, b.x - a.x);
+            double weight = Math.pow(Math.max(1f, edge.value), 1.2d);
+            sx += Math.cos(theta * 4d) * weight;
+            sy += Math.sin(theta * 4d) * weight;
+        }
+
+        if (Math.hypot(sx, sy) < 1e-6d) return null;
+
+        double phi = Math.atan2(sy, sx) / 4d;
+        double cos = Math.cos(phi);
+        double sin = Math.sin(phi);
+        double worstDeviation = 0d;
+        float closureX = 0f;
+        float closureY = 0f;
+        ArrayList<OrthoSegment> segments = new ArrayList<>();
+
+        for (int i = 0; i < order.size(); i++) {
+            String aId = order.get(i);
+            String bId = order.get((i + 1) % order.size());
+            NativeProjectStore.PointData a = NativeGeometry.pointById(room, aId);
+            NativeProjectStore.PointData b = NativeGeometry.pointById(room, bId);
+            NativeProjectStore.EdgeData edge = NativeGeometry.edgeBetween(room, aId, bId);
+            if (a == null || b == null || edge == null) return null;
+
+            double dx = b.x - a.x;
+            double dy = b.y - a.y;
+            double xr = dx * cos + dy * sin;
+            double yr = -dx * sin + dy * cos;
+            double major = Math.max(Math.abs(xr), Math.abs(yr));
+            double minor = Math.min(Math.abs(xr), Math.abs(yr));
+            worstDeviation = Math.max(
+                    worstDeviation,
+                    Math.atan2(minor, Math.max(1e-9d, major)));
+
+            boolean xAxis = Math.abs(xr) >= Math.abs(yr);
+            int sign = (xAxis ? xr : yr) >= 0d ? 1 : -1;
+            OrthoSegment segment =
+                    new OrthoSegment(aId, bId, xAxis, sign, edge.value);
+            segments.add(segment);
+            if (xAxis) closureX += sign * edge.value;
+            else closureY += sign * edge.value;
+        }
+
+        // Only auto-preserve 90 degrees when the sketch itself clearly says 90°.
+        if (worstDeviation > Math.toRadians(20d)) return null;
+
+        int xCount = 0;
+        int yCount = 0;
+        for (OrthoSegment segment : segments) {
+            if (segment.xAxis) xCount++;
+            else yCount++;
+        }
+        if (xCount == 0 || yCount == 0) return null;
+
+        // Distribute closure mismatch mostly through long walls. Equal
+        // distribution was damaging tiny architectural offsets (for example
+        // a 2-unit return next to a 256-unit wall), sometimes shrinking the
+        // short wall almost to zero and creating a visible broken corner.
+        // Squared-length weighting keeps small returns essentially intact.
+        if (!distributeOrthogonalClosure(segments, true, closureX)) return null;
+        if (!distributeOrthogonalClosure(segments, false, closureY)) return null;
+
+        Map<String, PointF> positions = new HashMap<>();
+        positions.put(order.get(0), new PointF(0f, 0f));
+        float x = 0f;
+        float y = 0f;
+        for (int i = 0; i < segments.size(); i++) {
+            OrthoSegment segment = segments.get(i);
+            if (segment.xAxis) x += segment.sign * segment.adjusted;
+            else y += segment.sign * segment.adjusted;
+            if (i < segments.size() - 1) {
+                positions.put(segment.b, new PointF(x, y));
+            }
+        }
+
+        ArrayList<Constraint> factual = factualConstraints(room);
+        float maxError = maxConstraintError(positions, factual);
+        boolean adjusted = Math.abs(closureX) > .01f || Math.abs(closureY) > .01f;
+
+        String message = maxError > FACTUAL_CONFLICT_TOL
+                ? String.format(
+                        Locale.getDefault(),
+                        "Фактическая геометрия построена по эскизу 90°. "
+                                + "Замеры конфликтуют: невязка до %.2f м распределена "
+                                + "по контуру без искажения прямых углов.",
+                        maxError / 100f)
+                : String.format(
+                        Locale.getDefault(),
+                        "Фактическая геометрия построена по эскизу с сохранением "
+                                + "прямых углов. Невязка: %.2f м.",
+                        maxError / 100f);
+
+        return new Result(
+                true,
+                message,
+                positions,
+                maxError,
+                false,
+                adjusted);
+    }
+
+    private static boolean distributeOrthogonalClosure(
+            @NonNull List<OrthoSegment> segments,
+            boolean xAxis,
+            float closure) {
+        if (Math.abs(closure) <= 1e-6f) return true;
+
+        double weightSum = 0d;
+        OrthoSegment largest = null;
+        for (OrthoSegment segment : segments) {
+            if (segment.xAxis != xAxis) continue;
+            double length = Math.max(1d, segment.target);
+            weightSum += length * length;
+            if (largest == null || segment.target > largest.target) {
+                largest = segment;
+            }
+        }
+        if (weightSum <= 0d || largest == null) return false;
+
+        float residual = closure;
+        for (OrthoSegment segment : segments) {
+            if (segment.xAxis != xAxis) continue;
+            double length = Math.max(1d, segment.target);
+            float share = (float) ((length * length) / weightSum);
+            float correction = -segment.sign * closure * share;
+            segment.adjusted = segment.target + correction;
+            if (segment.adjusted <= .5f) return false;
+            residual += segment.sign * (segment.adjusted - segment.target);
+        }
+
+        // Eliminate floating-point residue on the longest wall, never on the
+        // tiny return that visually defines the corner.
+        if (Math.abs(residual) > 1e-4f) {
+            largest.adjusted -= largest.sign * residual;
+            if (largest.adjusted <= .5f) return false;
+        }
+        return true;
+    }
+
+    private static boolean hasExactFactualSupport(
+            @NonNull NativeProjectStore.RoomData room,
+            @NonNull List<String> order) {
+        if (order.size() <= 3) return true;
         String anchorId = order.get(0);
-        int missing = 0;
         for (int i = 2; i < order.size() - 1; i++) {
             NativeProjectStore.DiagonalData diagonal =
                     NativeGeometry.diagonalBetween(room, anchorId, order.get(i));
-            if (!NativeGeometry.isMeasuredDiagonal(diagonal)) missing++;
+            if (!NativeGeometry.isMeasuredDiagonal(diagonal)) return false;
         }
-        if (missing > 0) {
-            return Result.fail(
-                    "Недостаточно измеренных диагоналей. Добавь и измерь ещё "
-                            + missing
-                            + (missing == 1
-                            ? " диагональ от первого угла."
-                            : " диагонали от первого угла.")
-                            + " Расчётные диагонали не считаются фактическим замером.");
-        }
+        return true;
+    }
+
+    @NonNull
+    private static Result solveFactualExact(
+            @NonNull NativeProjectStore.RoomData room,
+            @NonNull List<String> order) {
+        String anchorId = order.get(0);
+        String secondId = order.get(1);
 
         NativeProjectStore.EdgeData firstEdge =
-                NativeGeometry.edgeBetween(room, order.get(0), order.get(1));
+                NativeGeometry.edgeBetween(room, anchorId, secondId);
         if (firstEdge == null || firstEdge.value <= 0f) {
             return Result.fail("Не удалось прочитать первую стену.");
         }
 
+        NativeProjectStore.PointData sketchA =
+                NativeGeometry.pointById(room, anchorId);
+        NativeProjectStore.PointData sketchB =
+                NativeGeometry.pointById(room, secondId);
+
+        float firstUx = 1f;
+        float firstUy = 0f;
+        if (sketchA != null && sketchB != null) {
+            float sdx = sketchB.x - sketchA.x;
+            float sdy = sketchB.y - sketchA.y;
+            float sl = (float) Math.hypot(sdx, sdy);
+            if (sl > 1e-6f) {
+                firstUx = sdx / sl;
+                firstUy = sdy / sl;
+            }
+        }
+
         Map<String, PointF> positions = new HashMap<>();
-        positions.put(order.get(0), new PointF(0f, 0f));
-        positions.put(order.get(1), new PointF(firstEdge.value, 0f));
+        positions.put(anchorId, new PointF(0f, 0f));
+        positions.put(secondId, new PointF(
+                firstUx * firstEdge.value,
+                firstUy * firstEdge.value));
 
         for (int i = 2; i < order.size(); i++) {
             String previousId = order.get(i - 1);
@@ -376,9 +1196,8 @@ final class NativeMeasurementSolver {
             Float anchorDistance = factualDistance(room, anchorId, currentId);
             if (anchorDistance == null || anchorDistance <= 0f) {
                 return Result.fail(
-                        "Недостаточно измерений для угла "
-                                + (i + 1)
-                                + ". Нужна измеренная диагональ.");
+                        "Недостаточно фактических измерений для угла "
+                                + (i + 1) + ".");
             }
 
             PointF anchor = positions.get(anchorId);
@@ -396,7 +1215,7 @@ final class NativeMeasurementSolver {
                 return Result.fail("Замеры конфликтуют: две опорные точки совпали.");
             }
 
-            final float epsilon = .02f;
+            final float epsilon = .002f;
             if (d > rAnchor + rPrevious + epsilon
                     || d < Math.abs(rAnchor - rPrevious) - epsilon) {
                 return Result.fail(
@@ -411,9 +1230,9 @@ final class NativeMeasurementSolver {
             if (h2 < -epsilon) {
                 return Result.fail(
                         "Замеры конфликтуют: невозможно точно определить угол "
-                                + (i + 1)
-                                + ".");
+                                + (i + 1) + ".");
             }
+
             float h = (float) Math.sqrt(Math.max(0f, h2));
             float ux = dx / d;
             float uy = dy / d;
@@ -435,13 +1254,13 @@ final class NativeMeasurementSolver {
             message = String.format(
                     Locale.getDefault(),
                     "Замеры конфликтуют. Максимальная невязка: %.2f м. "
-                            + "Фактическая геометрия не должна применяться автоматически.",
+                            + "Эскиз оставлен без изменений.",
                     maxError / 100f);
         } else {
             message = String.format(
                     Locale.getDefault(),
-                    "Фактическая геометрия рассчитана только по измеренным стенам "
-                            + "и диагоналям. Максимальная невязка: %.2f м.",
+                    "Фактические размеры применены точно по измеренным стенам "
+                            + "и диагоналям. Невязка: %.2f м.",
                     maxError / 100f);
         }
 
@@ -692,9 +1511,15 @@ final class NativeMeasurementSolver {
 
         if (NativeGeometry.isFactualGeometry(room)) {
             Result factual = solveFactual(room);
-            if (!factual.ok || factual.maxError > FACTUAL_CONFLICT_TOL) return null;
+            if (!factual.ok) return null;
             return (double) Math.abs(signedArea(factual.positions, order));
         }
+        if (NativeGeometry.isMeasurementsGeometry(room)) {
+            Result exact = solveMeasurementsOnly(room);
+            if (!exact.ok) return null;
+            return (double) Math.abs(signedArea(exact.positions, order));
+        }
+        if (NativeGeometry.isMeasurementsGeometryDirty(room)) return null;
 
         Result solved = solveFree(room);
         if (!solved.ok || solved.maxError > FIELD_MEASURE_TOL) return null;

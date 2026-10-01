@@ -11,6 +11,7 @@ import android.content.pm.ResolveInfo;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.GridLayout;
+import android.widget.FrameLayout;
 import android.view.MotionEvent;
 
 import androidx.test.core.app.ActivityScenario;
@@ -21,6 +22,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 @RunWith(AndroidJUnit4.class)
@@ -83,11 +86,15 @@ public class NativeAppSmokeTest {
             assertNotNull(root.findViewWithTag("native_save_measurement"));
             assertNotNull(root.findViewWithTag("native_drawing_check"));
             assertNotNull(root.findViewWithTag("native_history_nav"));
+            assertNotNull(root.findViewWithTag("native_nav_home"));
             assertNotNull(root.findViewWithTag("native_nav_redo"));
             assertNotNull(root.findViewWithTag("native_nav_more"));
             assertNotNull(root.findViewWithTag("native_nav_undo"));
             assertNotNull(root.findViewWithTag("native_drawing_hint"));
-            assertNotNull(root.findViewWithTag("native_wall_scroll_strip"));
+            assertNotNull(root.findViewWithTag("native_drawing_metrics"));
+            View retiredScrollStrip = root.findViewWithTag("native_wall_scroll_strip");
+            assertNotNull(retiredScrollStrip);
+            assertEquals(View.GONE, retiredScrollStrip.getVisibility());
             assertNotNull(root.findViewWithTag("native_editor_scroll"));
             assertNotNull(root.findViewWithTag("native_top_home"));
             assertNotNull(root.findViewWithTag("native_top_saved"));
@@ -189,7 +196,7 @@ public class NativeAppSmokeTest {
                         android.R.id.content).getRootView()
                         .findViewWithTag("native_wall_keypad");
                 assertNotNull(keypad);
-                assertEquals(4, keypad.getColumnCount());
+                assertEquals(3, keypad.getColumnCount());
 
                 View five = dialog.findViewById(android.R.id.content).getRootView()
                         .findViewWithTag("native_wall_key_5");
@@ -202,11 +209,14 @@ public class NativeAppSmokeTest {
                 assertEquals("58", dialog.rawValueForTest());
                 assertEquals(58f, dialog.currentUnitsOrNull(), .01f);
 
-                View clear = dialog.findViewById(android.R.id.content).getRootView()
-                        .findViewWithTag("native_wall_key_Очистить");
+                View backspace = dialog.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_wall_key_⌫");
                 View decimal = dialog.findViewById(android.R.id.content).getRootView()
                         .findViewWithTag("native_wall_decimal");
-                clear.performClick();
+                assertNotNull(backspace);
+                assertNotNull(decimal);
+                backspace.performClick();
+                backspace.performClick();
                 decimal.performClick();
                 five.performClick();
                 eight.performClick();
@@ -309,7 +319,7 @@ public class NativeAppSmokeTest {
     }
 
     @Test
-    public void nativeDrawingUsesWebStyleWallGestureRules() {
+    public void nativeDrawingUsesWebStyleWallGestureRules() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Intent intent = new Intent(context, NativeWorkspaceActivity.class);
         intent.putExtra(
@@ -318,43 +328,228 @@ public class NativeAppSmokeTest {
 
         try (ActivityScenario<NativeWorkspaceActivity> scenario =
                      ActivityScenario.launch(intent)) {
-            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
-            scenario.onActivity(ref::set);
-            NativeWorkspaceActivity activity = ref.get();
-            assertNotNull(activity);
+            AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
+            AtomicReference<NativeProjectStore.RoomData> roomRef = new AtomicReference<>();
 
-            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            scenario.onActivity(activity -> {
                 CeilingDrawingView view = (CeilingDrawingView) activity.getWindow()
                         .getDecorView()
                         .findViewWithTag("native_drawing_view");
                 assertNotNull(view);
                 NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                viewRef.set(view);
+                roomRef.set(room);
 
                 long now = android.os.SystemClock.uptimeMillis();
+                // A tap or short drag on an empty map must not create a wall.
                 dispatch(view, now, MotionEvent.ACTION_DOWN, 100, 100);
                 dispatch(view, now + 40, MotionEvent.ACTION_UP, 100, 100);
+                drag(view, now + 60, 100, 100, 260, 100);
                 assertEquals(0, room.points.size());
                 assertEquals(0, room.edges.size());
+            });
 
-                drag(view, now + 100, 100, 100, 260, 100);
+            // First wall begins only after the long-press threshold.
+            long firstDown = android.os.SystemClock.uptimeMillis();
+            scenario.onActivity(activity ->
+                    dispatch(viewRef.get(), firstDown, MotionEvent.ACTION_DOWN, 100, 100));
+            android.os.SystemClock.sleep(420);
+            scenario.onActivity(activity -> {
+                CeilingDrawingView view = viewRef.get();
+                NativeProjectStore.RoomData room = roomRef.get();
+                dispatch(view, firstDown, MotionEvent.ACTION_MOVE, 260, 100);
+                dispatch(view, firstDown, MotionEvent.ACTION_UP, 260, 100);
                 assertEquals(2, room.points.size());
                 assertEquals(1, room.edges.size());
 
-                drag(view, now + 300, 260, 100, 260, 250);
+                long now = android.os.SystemClock.uptimeMillis();
+                drag(view, now + 100, 260, 100, 260, 250);
                 assertEquals(3, room.points.size());
                 assertEquals(2, room.edges.size());
 
                 // Blank space cannot start a disconnected wall after drawing begins.
-                drag(view, now + 500, 400, 300, 520, 300);
+                drag(view, now + 300, 400, 300, 520, 300);
                 assertEquals(2, room.edges.size());
 
-                drag(view, now + 700, 260, 250, 100, 250);
-                drag(view, now + 900, 100, 250, 100, 100);
+                drag(view, now + 500, 260, 250, 100, 250);
+                drag(view, now + 700, 100, 250, 100, 100);
 
                 assertEquals(4, room.edges.size());
                 assertTrue(NativeGeometry.isClosed(room));
             });
         }
+    }
+
+    @Test
+    public void openingRoomFitsWholeContourInsteadOfRestoringStaleZoom() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
+        AtomicReference<NativeProjectStore.RoomData> roomRef = new AtomicReference<>();
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            FrameLayout parent = new FrameLayout(context);
+            CeilingDrawingView view = new CeilingDrawingView(context);
+            parent.addView(view, new FrameLayout.LayoutParams(800, 800));
+            parent.layout(0, 0, 800, 800);
+            view.layout(0, 0, 800, 800);
+
+            NativeProjectStore.RoomData room = measuredSquare(500f);
+            room.viewScale = 6f;
+            room.panX = -1800f;
+            room.panY = 900f;
+            view.setRoom(room);
+            viewRef.set(view);
+            roomRef.set(room);
+        });
+
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            CeilingDrawingView view = viewRef.get();
+            NativeProjectStore.RoomData room = roomRef.get();
+            assertNotNull(view);
+            assertNotNull(room);
+            assertTrue("stale saved zoom must be replaced by fit", view.getScaleForTest() < 6f);
+
+            for (NativeProjectStore.PointData point : room.points) {
+                float sx = point.x * view.getScaleForTest() + view.getPanXForTest();
+                float sy = point.y * view.getScaleForTest() + view.getPanYForTest();
+                assertTrue("point must be visible horizontally", sx >= 35f && sx <= 765f);
+                assertTrue("point must be visible vertically", sy >= 35f && sy <= 765f);
+            }
+        });
+    }
+
+    @Test
+    public void nativePinchZoomUsesTwoFingersAndKeepsCentroidStable() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
+        AtomicReference<float[]> beforeRef = new AtomicReference<>();
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            FrameLayout parent = new FrameLayout(context);
+            CeilingDrawingView view = new CeilingDrawingView(context);
+            parent.addView(view, new FrameLayout.LayoutParams(800, 800));
+            parent.layout(0, 0, 800, 800);
+            view.layout(0, 0, 800, 800);
+
+            NativeProjectStore.RoomData room = measuredSquare(500f);
+            view.setRoom(room);
+            view.fitView();
+
+            float scale = view.getScaleForTest();
+            float worldCx = (400f - view.getPanXForTest()) / scale;
+            float worldCy = (400f - view.getPanYForTest()) / scale;
+            beforeRef.set(new float[]{scale, worldCx, worldCy});
+
+            long now = android.os.SystemClock.uptimeMillis();
+            dispatch(view, now, MotionEvent.ACTION_DOWN, 250f, 400f);
+            dispatchTwo(
+                    view,
+                    now,
+                    now + 20,
+                    MotionEvent.ACTION_POINTER_DOWN
+                            | (1 << MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+                    250f, 400f,
+                    550f, 400f);
+            dispatchTwo(
+                    view,
+                    now,
+                    now + 60,
+                    MotionEvent.ACTION_MOVE,
+                    180f, 400f,
+                    620f, 400f);
+            dispatchTwo(
+                    view,
+                    now,
+                    now + 90,
+                    MotionEvent.ACTION_POINTER_UP
+                            | (1 << MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+                    180f, 400f,
+                    620f, 400f);
+            dispatch(view, now, MotionEvent.ACTION_UP, 180f, 400f);
+            viewRef.set(view);
+        });
+
+        CeilingDrawingView view = viewRef.get();
+        float[] before = beforeRef.get();
+        assertNotNull(view);
+        assertNotNull(before);
+        float afterScale = view.getScaleForTest();
+        assertTrue("pinch must zoom in", afterScale > before[0] * 1.25f);
+
+        float afterWorldCx = (400f - view.getPanXForTest()) / afterScale;
+        float afterWorldCy = (400f - view.getPanYForTest()) / afterScale;
+        assertEquals(before[1], afterWorldCx, 1.5f);
+        assertEquals(before[2], afterWorldCy, 1.5f);
+    }
+
+    @Test
+    public void numbersModeLongPressOnDisplayedNumberOpensMeasurementEdit() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        CountDownLatch edited = new CountDownLatch(1);
+        AtomicReference<String> editedEdge = new AtomicReference<>();
+        AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
+        AtomicReference<float[]> touchRef = new AtomicReference<>();
+        AtomicReference<Long> downRef = new AtomicReference<>();
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            FrameLayout parent = new FrameLayout(context);
+            CeilingDrawingView view = new CeilingDrawingView(context);
+            parent.addView(view, new FrameLayout.LayoutParams(800, 800));
+            parent.layout(0, 0, 800, 800);
+            view.layout(0, 0, 800, 800);
+
+            NativeProjectStore.RoomData room = measuredSquare(500f);
+            view.setRoom(room);
+            view.fitView();
+            view.setMode(CeilingDrawingView.Mode.LABEL);
+            view.setListener(new CeilingDrawingView.Listener() {
+                @Override public void onChanged() {}
+                @Override public void onHistoryCheckpoint() {}
+                @Override public void onVertexLongPressed(String pointId) {}
+                @Override public void onWallLongPressed(String edgeId, float currentValue) {
+                    editedEdge.set(edgeId);
+                    edited.countDown();
+                }
+                @Override public void onWallSequencePick(String edgeId) {}
+                @Override public void onDiagonalCreated(String diagonalId, float currentValue) {}
+                @Override public void onDiagonalLongPressed(String diagonalId, float currentValue) {}
+                @Override public void onContourClosed() {}
+            });
+
+            NativeLabelEngine.Placement placement = null;
+            for (NativeLabelEngine.Placement item : view.labelPlacementsForTest()) {
+                if (item.kind == NativeLabelEngine.Kind.EDGE) {
+                    placement = item;
+                    break;
+                }
+            }
+            assertNotNull(placement);
+
+            float sx = placement.x * view.getScaleForTest() + view.getPanXForTest();
+            float sy = placement.y * view.getScaleForTest() + view.getPanYForTest();
+            long now = android.os.SystemClock.uptimeMillis();
+            touchRef.set(new float[]{sx, sy});
+            downRef.set(now);
+            dispatch(view, now, MotionEvent.ACTION_DOWN, sx, sy);
+            viewRef.set(view);
+        });
+
+        assertTrue("holding a number must trigger measurement edit",
+                edited.await(1200, TimeUnit.MILLISECONDS));
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            float[] p = touchRef.get();
+            dispatch(
+                    viewRef.get(),
+                    downRef.get(),
+                    MotionEvent.ACTION_UP,
+                    p[0],
+                    p[1]);
+        });
+
+        assertNotNull(editedEdge.get());
     }
 
     @Test
@@ -454,20 +649,29 @@ public class NativeAppSmokeTest {
 
         try (ActivityScenario<NativeWorkspaceActivity> scenario =
                      ActivityScenario.launch(intent)) {
-            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
-            scenario.onActivity(ref::set);
-            NativeWorkspaceActivity activity = ref.get();
-            assertNotNull(activity);
+            AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
+            AtomicReference<Long> downRef = new AtomicReference<>();
 
-            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            scenario.onActivity(activity -> {
                 CeilingDrawingView view = (CeilingDrawingView) activity.getWindow()
                         .getDecorView()
                         .findViewWithTag("native_drawing_view");
+                assertNotNull(view);
                 long now = android.os.SystemClock.uptimeMillis();
+                viewRef.set(view);
+                downRef.set(now);
                 dispatch(view, now, MotionEvent.ACTION_DOWN, 120, 120);
-                dispatch(view, now + 35, MotionEvent.ACTION_MOVE, 270, 120);
+            });
+
+            // First wall is intentionally long-press-only.
+            android.os.SystemClock.sleep(420);
+
+            scenario.onActivity(activity -> {
+                CeilingDrawingView view = viewRef.get();
+                long now = downRef.get();
+                dispatch(view, now + 420, MotionEvent.ACTION_MOVE, 270, 120);
                 assertTrue(view.isMagnifierVisibleForTest());
-                dispatch(view, now + 70, MotionEvent.ACTION_UP, 270, 120);
+                dispatch(view, now + 460, MotionEvent.ACTION_UP, 270, 120);
                 assertFalse(view.isMagnifierVisibleForTest());
             });
         }
@@ -808,6 +1012,56 @@ public class NativeAppSmokeTest {
         dispatch(view, downTime, MotionEvent.ACTION_DOWN, x1, y1);
         dispatch(view, downTime + 35, MotionEvent.ACTION_MOVE, x2, y2);
         dispatch(view, downTime + 70, MotionEvent.ACTION_UP, x2, y2);
+    }
+
+    private static void dispatchTwo(
+            CeilingDrawingView view,
+            long downTime,
+            long eventTime,
+            int action,
+            float x0,
+            float y0,
+            float x1,
+            float y1) {
+        MotionEvent.PointerProperties[] properties = {
+                new MotionEvent.PointerProperties(),
+                new MotionEvent.PointerProperties()
+        };
+        properties[0].id = 0;
+        properties[0].toolType = MotionEvent.TOOL_TYPE_FINGER;
+        properties[1].id = 1;
+        properties[1].toolType = MotionEvent.TOOL_TYPE_FINGER;
+
+        MotionEvent.PointerCoords[] coords = {
+                new MotionEvent.PointerCoords(),
+                new MotionEvent.PointerCoords()
+        };
+        coords[0].x = x0;
+        coords[0].y = y0;
+        coords[0].pressure = 1f;
+        coords[0].size = 1f;
+        coords[1].x = x1;
+        coords[1].y = y1;
+        coords[1].pressure = 1f;
+        coords[1].size = 1f;
+
+        MotionEvent event = MotionEvent.obtain(
+                downTime,
+                eventTime,
+                action,
+                2,
+                properties,
+                coords,
+                0,
+                0,
+                1f,
+                1f,
+                0,
+                0,
+                0,
+                0);
+        view.dispatchTouchEvent(event);
+        event.recycle();
     }
 
     private static void dispatch(
