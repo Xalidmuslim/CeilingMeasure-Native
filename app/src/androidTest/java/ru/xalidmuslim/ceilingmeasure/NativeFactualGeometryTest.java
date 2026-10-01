@@ -54,6 +54,77 @@ public final class NativeFactualGeometryTest {
         assertSameWinding(room, measured.positions);
     }
 
+
+    @Test
+    public void measurementsOnlyIgnoresSketchAndHonorsEnteredDiagonalExactly() {
+        NativeProjectStore.RoomData room = rectangleRoom();
+
+        // Distort the field sketch heavily. The exact solver must not read
+        // these angles or proportions at all.
+        room.points.get(0).x = 900f;
+        room.points.get(0).y = 120f;
+        room.points.get(1).x = 1150f;
+        room.points.get(1).y = 310f;
+        room.points.get(2).x = 700f;
+        room.points.get(2).y = 860f;
+        room.points.get(3).x = 220f;
+        room.points.get(3).y = 640f;
+
+        NativeProjectStore.DiagonalData diagonal =
+                new NativeProjectStore.DiagonalData("p0", "p2");
+        diagonal.value = 500f;
+        NativeGeometry.markDiagonalMeasured(diagonal);
+        room.diagonals.add(diagonal);
+
+        NativeMeasurementSolver.Result result =
+                NativeMeasurementSolver.solveMeasurementsOnly(room);
+
+        assertTrue(result.ok);
+        assertTrue(result.uniquelySupported);
+        assertWallLengthsMatchEntered(room, result.positions);
+        assertDistance(result.positions, "p0", "p2", 500f);
+        assertTrue(result.maxError <= NativeMeasurementSolver.EXACT_MEASUREMENT_TOL);
+    }
+
+    @Test
+    public void measurementsOnlyRejectsImpossibleWallAndDiagonalSet() {
+        NativeProjectStore.RoomData room = rectangleRoom();
+        room.edges.get(0).value = 500f;
+        room.edges.get(1).value = 300f;
+        room.edges.get(2).value = 500f;
+        room.edges.get(3).value = 300f;
+
+        NativeProjectStore.DiagonalData first =
+                new NativeProjectStore.DiagonalData("p0", "p2");
+        first.value = 200f;
+        NativeGeometry.markDiagonalMeasured(first);
+        room.diagonals.add(first);
+
+        NativeProjectStore.DiagonalData second =
+                new NativeProjectStore.DiagonalData("p1", "p3");
+        second.value = 850f;
+        NativeGeometry.markDiagonalMeasured(second);
+        room.diagonals.add(second);
+
+        NativeMeasurementSolver.Result result =
+                NativeMeasurementSolver.solveMeasurementsOnly(room);
+
+        assertFalse(result.ok);
+        assertTrue(result.message.contains("противоречат")
+                || result.message.contains("невозможно"));
+    }
+
+    @Test
+    public void measurementsOnlyRequiresEnoughMeasuredDiagonalsForRigidShape() {
+        NativeProjectStore.RoomData room = rectangleRoom();
+
+        NativeMeasurementSolver.Result result =
+                NativeMeasurementSolver.solveMeasurementsOnly(room);
+
+        assertFalse(result.ok);
+        assertTrue(result.message.contains("диагонал"));
+    }
+
     @Test
     public void unequalOppositeWallsWarpSketchButKeepEveryEnteredLength() {
         NativeProjectStore.RoomData room = rectangleRoom();

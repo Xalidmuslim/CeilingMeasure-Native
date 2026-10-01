@@ -19,6 +19,10 @@ final class NativeMeasurementSolver {
     // Factual geometry must not silently absorb the legacy 0.10 m working tolerance.
     // One project unit is 1 cm, so > 1 cm residual is reported as a measurement conflict.
     static final float FACTUAL_CONFLICT_TOL = 1f;
+    // "Точно по размерам" is intentionally stricter than the factual/sketch mode.
+    // One project unit is 1 cm; 0.08 unit = 0.8 mm.
+    static final float EXACT_MEASUREMENT_TOL = .08f;
+    private static final int EXACT_SEARCH_STATE_LIMIT = 16000;
 
     private NativeMeasurementSolver() {}
 
@@ -58,6 +62,22 @@ final class NativeMeasurementSolver {
         Constraint(String a, String b, float target) {
             this.a = a;
             this.b = b;
+            this.target = target;
+        }
+    }
+
+    private static final class ExactSearch {
+        Map<String, PointF> best;
+        float bestArea = -1f;
+        int states;
+    }
+
+    private static final class PlacedConstraint {
+        final String other;
+        final float target;
+
+        PlacedConstraint(String other, float target) {
+            this.other = other;
             this.target = target;
         }
     }
@@ -533,6 +553,352 @@ final class NativeMeasurementSolver {
                 Math.max(maxError, wallError),
                 unique,
                 shapeConflict || maxError > FACTUAL_CONFLICT_TOL);
+    }
+
+
+    /**
+     * Reconstructs the room only from entered wall lengths and measured
+     * diagonals. The sketch is never used as an angle/shape prior.
+     *
+     * Topology is still taken from the closed wall cycle because the point IDs
+     * and wall ownership must remain unchanged. Coordinates are obtained by
+     * exact circle-circle trilateration. If the measurements cannot all be
+     * satisfied within sub-millimetre numeric tolerance, no geometry is
+     * applied and the caller keeps the current drawing untouched.
+     */
+    @NonNull
+    static Result solveMeasurementsOnly(@NonNull NativeProjectStore.RoomData room) {
+        List<String> order = NativeGeometry.cycleOrder(room);
+        if (order == null) {
+            return Result.fail("Сначала стены должны образовать один замкнутый контур.");
+        }
+        if (order.size() < 3) {
+            return Result.fail("Для точного построения нужно минимум три угла.");
+        }
+
+        for (NativeProjectStore.EdgeData edge : room.edges) {
+            if (edge.value <= 0f) {
+                return Result.fail("Сначала введи реальные размеры всех стен.");
+            }
+        }
+
+        int measuredDiagonals = 0;
+        for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
+            if (NativeGeometry.isMeasuredDiagonal(diagonal)) measuredDiagonals++;
+        }
+        int minimum = Math.max(0, order.size() - 3);
+        if (measuredDiagonals < minimum) {
+            return Result.fail(
+                    "Для точного построения не хватает измеренных диагоналей. "
+                            + "Для этого контура нужно минимум "
+                            + minimum
+                            + ".");
+        }
+
+        ArrayList<Constraint> constraints = factualConstraints(room);
+        boolean graphSupported = false;
+        Map<String, PointF> best = null;
+        float bestArea = -1f;
+
+        // Any measured wall may be the coordinate-system baseline. Trying the
+        // boundary edges makes the solver independent of where point A happens
+        // to be and supports arbitrary triangulated diagonal layouts.
+        for (int start = 0; start < order.size(); start++) {
+            String aId = order.get(start);
+            String bId = order.get((start + 1) % order.size());
+            NativeProjectStore.EdgeData baseline =
+                    NativeGeometry.edgeBetween(room, aId, bId);
+            if (baseline == null || baseline.value <= 0f) continue;
+            if (!canTrilaterateFrom(order, constraints, aId, bId)) continue;
+
+            graphSupported = true;
+            HashMap<String, PointF> positions = new HashMap<>();
+            positions.put(aId, new PointF(0f, 0f));
+            positions.put(bId, new PointF(baseline.value, 0f));
+
+            ExactSearch search = new ExactSearch();
+            searchExactPositions(order, constraints, positions, search);
+            if (search.best != null && search.bestArea > bestArea) {
+                best = search.best;
+                bestArea = search.bestArea;
+            }
+
+            // A valid exact reconstruction is enough. Other baselines can only
+            // rotate/reflect the same measured geometry or expose equivalent
+            // triangle flips.
+            if (best != null) break;
+        }
+
+        if (!graphSupported) {
+            return Result.fail(
+                    "Диагонали введены, но их расположения недостаточно для точного "
+                            + "восстановления всех углов. Добавь контрольные диагонали "
+                            + "так, чтобы каждый новый угол определялся двумя расстояниями.");
+        }
+
+        if (best == null) {
+            return Result.fail(
+                    "Введённые размеры стен и диагоналей противоречат друг другу. "
+                            + "Точную фигуру по этим цифрам построить невозможно.");
+        }
+
+        float maxError = maxConstraintError(best, constraints);
+        if (maxError > EXACT_MEASUREMENT_TOL) {
+            return Result.fail(
+                    String.format(
+                            Locale.getDefault(),
+                            "Замеры конфликтуют: невязка %.3f м. "
+                                    + "Точная геометрия не применена.",
+                            maxError / 100f));
+        }
+
+        // Canonical orientation only. Reflection does not change any entered
+        // distance and avoids dependence on the old sketch winding.
+        if (signedArea(best, order) < 0f) {
+            for (PointF point : best.values()) point.y = -point.y;
+        }
+
+        return new Result(
+                true,
+                String.format(
+                        Locale.getDefault(),
+                        "Построено точно только по введённым стенам и измеренным "
+                                + "диагоналям. Эскиз не учитывался. Невязка: %.3f м.",
+                        maxError / 100f),
+                best,
+                maxError,
+                true,
+                false);
+    }
+
+    private static boolean canTrilaterateFrom(
+            @NonNull List<String> order,
+            @NonNull List<Constraint> constraints,
+            @NonNull String first,
+            @NonNull String second) {
+        HashMap<String, Boolean> placed = new HashMap<>();
+        placed.put(first, true);
+        placed.put(second, true);
+
+        boolean changed = true;
+        while (changed && placed.size() < order.size()) {
+            changed = false;
+            for (String id : order) {
+                if (placed.containsKey(id)) continue;
+                int count = 0;
+                for (Constraint c : constraints) {
+                    if (id.equals(c.a) && placed.containsKey(c.b)) count++;
+                    else if (id.equals(c.b) && placed.containsKey(c.a)) count++;
+                }
+                if (count >= 2) {
+                    placed.put(id, true);
+                    changed = true;
+                }
+            }
+        }
+        return placed.size() == order.size();
+    }
+
+    private static void searchExactPositions(
+            @NonNull List<String> order,
+            @NonNull List<Constraint> constraints,
+            @NonNull HashMap<String, PointF> positions,
+            @NonNull ExactSearch search) {
+        if (++search.states > EXACT_SEARCH_STATE_LIMIT) return;
+
+        if (positions.size() == order.size()) {
+            if (polygonSelfIntersects(positions, order)) return;
+            float area = Math.abs(signedArea(positions, order));
+            if (area < .25f) return;
+            float error = maxConstraintError(positions, constraints);
+            if (error <= EXACT_MEASUREMENT_TOL && area > search.bestArea) {
+                search.bestArea = area;
+                search.best = copyPositions(positions);
+            }
+            return;
+        }
+
+        String nextId = null;
+        ArrayList<PlacedConstraint> nextLinks = null;
+        int bestLinkCount = -1;
+        float bestBaseline = -1f;
+
+        for (String id : order) {
+            if (positions.containsKey(id)) continue;
+            ArrayList<PlacedConstraint> links =
+                    placedConstraints(id, positions, constraints);
+            if (links.size() < 2) continue;
+
+            float baseline = largestPlacedBaseline(links, positions);
+            if (links.size() > bestLinkCount
+                    || (links.size() == bestLinkCount && baseline > bestBaseline)) {
+                nextId = id;
+                nextLinks = links;
+                bestLinkCount = links.size();
+                bestBaseline = baseline;
+            }
+        }
+
+        if (nextId == null || nextLinks == null) return;
+
+        PlacedConstraint first = null;
+        PlacedConstraint second = null;
+        float pairDistance = -1f;
+        for (int i = 0; i < nextLinks.size(); i++) {
+            PointF a = positions.get(nextLinks.get(i).other);
+            if (a == null) continue;
+            for (int j = i + 1; j < nextLinks.size(); j++) {
+                PointF b = positions.get(nextLinks.get(j).other);
+                if (b == null) continue;
+                float d = (float) Math.hypot(b.x - a.x, b.y - a.y);
+                if (d > pairDistance) {
+                    pairDistance = d;
+                    first = nextLinks.get(i);
+                    second = nextLinks.get(j);
+                }
+            }
+        }
+        if (first == null || second == null || pairDistance < 1e-5f) return;
+
+        PointF centerA = positions.get(first.other);
+        PointF centerB = positions.get(second.other);
+        if (centerA == null || centerB == null) return;
+
+        ArrayList<PointF> candidates = circleIntersections(
+                centerA,
+                first.target,
+                centerB,
+                second.target);
+
+        for (PointF candidate : candidates) {
+            boolean valid = true;
+
+            for (PointF existing : positions.values()) {
+                if (Math.hypot(
+                        candidate.x - existing.x,
+                        candidate.y - existing.y) < .02d) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (!valid) continue;
+
+            for (PlacedConstraint link : nextLinks) {
+                PointF other = positions.get(link.other);
+                if (other == null) continue;
+                float actual = (float) Math.hypot(
+                        candidate.x - other.x,
+                        candidate.y - other.y);
+                if (Math.abs(actual - link.target) > EXACT_MEASUREMENT_TOL) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (!valid) continue;
+
+            positions.put(nextId, candidate);
+            if (!polygonSelfIntersects(positions, order)) {
+                searchExactPositions(order, constraints, positions, search);
+            }
+            positions.remove(nextId);
+        }
+    }
+
+    @NonNull
+    private static ArrayList<PlacedConstraint> placedConstraints(
+            @NonNull String id,
+            @NonNull Map<String, PointF> positions,
+            @NonNull List<Constraint> constraints) {
+        ArrayList<PlacedConstraint> result = new ArrayList<>();
+        for (Constraint c : constraints) {
+            String other = null;
+            if (id.equals(c.a) && positions.containsKey(c.b)) other = c.b;
+            else if (id.equals(c.b) && positions.containsKey(c.a)) other = c.a;
+            if (other == null) continue;
+
+            boolean duplicate = false;
+            for (PlacedConstraint existing : result) {
+                if (existing.other.equals(other)) {
+                    duplicate = true;
+                    break;
+                }
+            }
+            if (!duplicate) result.add(new PlacedConstraint(other, c.target));
+        }
+        return result;
+    }
+
+    private static float largestPlacedBaseline(
+            @NonNull List<PlacedConstraint> links,
+            @NonNull Map<String, PointF> positions) {
+        float best = 0f;
+        for (int i = 0; i < links.size(); i++) {
+            PointF a = positions.get(links.get(i).other);
+            if (a == null) continue;
+            for (int j = i + 1; j < links.size(); j++) {
+                PointF b = positions.get(links.get(j).other);
+                if (b == null) continue;
+                best = Math.max(
+                        best,
+                        (float) Math.hypot(b.x - a.x, b.y - a.y));
+            }
+        }
+        return best;
+    }
+
+    @NonNull
+    private static ArrayList<PointF> circleIntersections(
+            @NonNull PointF a,
+            float radiusA,
+            @NonNull PointF b,
+            float radiusB) {
+        ArrayList<PointF> result = new ArrayList<>();
+        double dx = b.x - a.x;
+        double dy = b.y - a.y;
+        double d = Math.hypot(dx, dy);
+        if (d < 1e-8d || radiusA <= 0f || radiusB <= 0f) return result;
+
+        if (d > radiusA + radiusB + EXACT_MEASUREMENT_TOL
+                || d < Math.abs(radiusA - radiusB) - EXACT_MEASUREMENT_TOL) {
+            return result;
+        }
+
+        double along =
+                ((double) radiusA * radiusA
+                        - (double) radiusB * radiusB
+                        + d * d)
+                        / (2d * d);
+        double h2 = (double) radiusA * radiusA - along * along;
+        if (h2 < -1e-5d) return result;
+        double h = Math.sqrt(Math.max(0d, h2));
+
+        double ux = dx / d;
+        double uy = dy / d;
+        double baseX = a.x + ux * along;
+        double baseY = a.y + uy * along;
+        double px = -uy;
+        double py = ux;
+
+        result.add(new PointF(
+                (float) (baseX + px * h),
+                (float) (baseY + py * h)));
+        if (h > 1e-5d) {
+            result.add(new PointF(
+                    (float) (baseX - px * h),
+                    (float) (baseY - py * h)));
+        }
+        return result;
+    }
+
+    @NonNull
+    private static Map<String, PointF> copyPositions(
+            @NonNull Map<String, PointF> source) {
+        HashMap<String, PointF> copy = new HashMap<>();
+        for (Map.Entry<String, PointF> entry : source.entrySet()) {
+            PointF p = entry.getValue();
+            copy.put(entry.getKey(), new PointF(p.x, p.y));
+        }
+        return copy;
     }
 
     @NonNull
@@ -1148,6 +1514,12 @@ final class NativeMeasurementSolver {
             if (!factual.ok) return null;
             return (double) Math.abs(signedArea(factual.positions, order));
         }
+        if (NativeGeometry.isMeasurementsGeometry(room)) {
+            Result exact = solveMeasurementsOnly(room);
+            if (!exact.ok) return null;
+            return (double) Math.abs(signedArea(exact.positions, order));
+        }
+        if (NativeGeometry.isMeasurementsGeometryDirty(room)) return null;
 
         Result solved = solveFree(room);
         if (!solved.ok || solved.maxError > FIELD_MEASURE_TOL) return null;

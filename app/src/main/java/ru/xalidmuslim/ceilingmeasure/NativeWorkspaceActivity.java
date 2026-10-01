@@ -1229,6 +1229,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 applyFactualGeometry();
                 updateDrawingChrome();
                 return;
+            case "exactGeometry":
+                applyExactMeasurementGeometry();
+                updateDrawingChrome();
+                return;
             case "auto90":
                 pushHistory();
                 applyGeometrySolution(true);
@@ -1359,6 +1363,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         CeilingDrawingView.Mode mode=drawingView.getMode();
         if(room.geometryLocked)return "Геометрия зафиксирована. Доступны просмотр и расчёт.";
         if(NativeGeometry.isClosed(room)){
+            if(NativeGeometry.isMeasurementsGeometryDirty(room)){
+                return "Точная геометрия по размерам требует обновления после изменения замеров.";
+            }
+            if(NativeGeometry.isMeasurementsGeometry(room)){
+                return "Контур замкнут · точно по стенам и измеренным диагоналям.";
+            }
             if(NativeGeometry.isFactualGeometryDirty(room)){
                 return "Фактическая геометрия требует обновления после изменения замеров.";
             }
@@ -2002,6 +2012,39 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         }
     }
 
+
+    private void applyExactMeasurementGeometry(){
+        NativeProjectStore.RoomData room=activeRoom();
+        NativeMeasurementSolver.Result result=
+                NativeMeasurementSolver.solveMeasurementsOnly(room);
+
+        if(!result.ok){
+            new AlertDialog.Builder(this)
+                    .setTitle("Точно по размерам")
+                    .setMessage(result.message)
+                    .setPositiveButton("Понятно",null)
+                    .show();
+            return;
+        }
+
+        pushHistory();
+        if(!NativeGeometry.captureSketchGeometry(room)){
+            Toast.makeText(
+                    this,
+                    "Не удалось сохранить исходную геометрию эскиза",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        drawingView.applySolvedGeometry(result.positions);
+        NativeGeometry.markMeasurementsGeometry(room);
+        drawingView.fitView();
+        scheduleSaveCurrent();
+        updateStats();
+
+        Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();
+    }
+
     private void applyGeometrySolution(boolean orthogonal){
         NativeProjectStore.RoomData room=activeRoom();
         NativeMeasurementSolver.Result result=orthogonal
@@ -2142,7 +2185,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 for(NativeProjectStore.DiagonalData diagonal:room.diagonals){
                     if(NativeGeometry.isMeasuredDiagonal(diagonal))measured++;
                 }
-                if(NativeGeometry.isFactualGeometryDirty(room)){
+                if(NativeGeometry.isFactualGeometryDirty(room)
+                        ||NativeGeometry.isMeasurementsGeometryDirty(room)){
                     reliability="Обновить";
                     color=NativeVisualTokens.WARN;
                 }else if(required>measured){

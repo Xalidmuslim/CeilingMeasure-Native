@@ -63,7 +63,7 @@ final class NativeDrawToolsDialog extends Dialog {
 
         GridLayout grid = new GridLayout(getContext());
         grid.setColumnCount(2);
-        grid.setRowCount(5);
+        grid.setRowCount(6);
         LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -73,13 +73,17 @@ final class NativeDrawToolsDialog extends Dialog {
         add(grid, "⌁", "45°/90° стены", "magnet", room.wallAngleMagnet, room.geometryLocked, false);
         add(grid, "∟", "90° точки", "point90", room.point90Magnet, room.geometryLocked, false);
         add(grid, "⌂", "Геометрия эскиза", "sketchGeometry",
-                !NativeGeometry.isFactualGeometry(room)
-                        && !NativeGeometry.isFactualGeometryDirty(room),
+                !NativeGeometry.hasSketchGeometryBackup(room),
                 room.geometryLocked, false);
         add(grid, "△", NativeGeometry.isFactualGeometryDirty(room)
                         ? "Фактическая · обновить"
                         : "Фактическая геометрия", "actualGeometry",
                 NativeGeometry.isFactualGeometry(room),
+                room.geometryLocked, false);
+        add(grid, "◎", NativeGeometry.isMeasurementsGeometryDirty(room)
+                        ? "Точно по размерам · обновить"
+                        : "Точно по размерам", "exactGeometry",
+                NativeGeometry.isMeasurementsGeometry(room),
                 room.geometryLocked, false);
         add(grid, "A", room.showAutoLetters ? "Скрыть буквы" : "Показать буквы", "letters", room.showAutoLetters, false, false);
         add(grid, "⌁", "Авто диагонали", "autoDiags", false, room.geometryLocked, false);

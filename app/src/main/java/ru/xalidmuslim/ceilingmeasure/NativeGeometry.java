@@ -19,6 +19,8 @@ final class NativeGeometry {
     private static final String GEOMETRY_MODE_SKETCH = "sketch";
     private static final String GEOMETRY_MODE_ACTUAL = "actual";
     private static final String GEOMETRY_MODE_ACTUAL_DIRTY = "actual_dirty";
+    private static final String GEOMETRY_MODE_MEASUREMENTS = "measurements";
+    private static final String GEOMETRY_MODE_MEASUREMENTS_DIRTY = "measurements_dirty";
     private static final String DIAGONAL_SOURCE_KEY = "_nativeMeasurementSource";
     private static final String DIAGONAL_SOURCE_MEASURED = "measured";
     private static final String DIAGONAL_SOURCE_AUTO = "auto";
@@ -504,6 +506,18 @@ final class NativeGeometry {
                         room.raw.optString(GEOMETRY_MODE_KEY, ""));
     }
 
+    static boolean isMeasurementsGeometry(@Nullable NativeProjectStore.RoomData room) {
+        return room != null
+                && GEOMETRY_MODE_MEASUREMENTS.equals(
+                        room.raw.optString(GEOMETRY_MODE_KEY, ""));
+    }
+
+    static boolean isMeasurementsGeometryDirty(@Nullable NativeProjectStore.RoomData room) {
+        return room != null
+                && GEOMETRY_MODE_MEASUREMENTS_DIRTY.equals(
+                        room.raw.optString(GEOMETRY_MODE_KEY, ""));
+    }
+
     static Map<String, float[]> sketchCoordinates(
             @Nullable NativeProjectStore.RoomData room) {
         HashMap<String, float[]> result = new HashMap<>();
@@ -610,13 +624,25 @@ final class NativeGeometry {
         }
     }
 
+    static void markMeasurementsGeometry(@Nullable NativeProjectStore.RoomData room) {
+        if (room == null) return;
+        try {
+            room.raw.put(GEOMETRY_MODE_KEY, GEOMETRY_MODE_MEASUREMENTS);
+        } catch (Exception ignored) {
+        }
+    }
+
     static void markFactualGeometryDirty(@Nullable NativeProjectStore.RoomData room) {
         if (room == null || !hasSketchGeometryBackup(room)) return;
         String mode = room.raw.optString(GEOMETRY_MODE_KEY, "");
-        if (!GEOMETRY_MODE_ACTUAL.equals(mode)
-                && !GEOMETRY_MODE_ACTUAL_DIRTY.equals(mode)) return;
         try {
-            room.raw.put(GEOMETRY_MODE_KEY, GEOMETRY_MODE_ACTUAL_DIRTY);
+            if (GEOMETRY_MODE_ACTUAL.equals(mode)
+                    || GEOMETRY_MODE_ACTUAL_DIRTY.equals(mode)) {
+                room.raw.put(GEOMETRY_MODE_KEY, GEOMETRY_MODE_ACTUAL_DIRTY);
+            } else if (GEOMETRY_MODE_MEASUREMENTS.equals(mode)
+                    || GEOMETRY_MODE_MEASUREMENTS_DIRTY.equals(mode)) {
+                room.raw.put(GEOMETRY_MODE_KEY, GEOMETRY_MODE_MEASUREMENTS_DIRTY);
+            }
         } catch (Exception ignored) {
         }
     }
