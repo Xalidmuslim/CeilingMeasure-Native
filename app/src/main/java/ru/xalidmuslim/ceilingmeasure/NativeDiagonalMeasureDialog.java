@@ -180,7 +180,12 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         Button b=button(key,false);
         NativeTypography.register(b,"⌫".equals(key)?22:24,true,uiPrefs);
         b.setPadding(0,0,0,0);
-        b.setBackground(rounded(Color.rgb(248,250,252),LINE,18,1));
+        b.setBackground(NativeVisualTokens.rippleOutlined(
+                NativeVisualTokens.APP_SOFT,
+                LINE,
+                dp(18),
+                dp(1),
+                Color.argb(24,30,49,68)));
         b.setOnClickListener(v->{
             if("⌫".equals(key)){
                 buffer=buffer.length()<=1?"0":buffer.substring(0,buffer.length()-1);
@@ -208,7 +213,14 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         b.setTextColor(primary?Color.WHITE:TEXT);
         NativeTypography.register(b,13,true,uiPrefs);
         b.setGravity(Gravity.CENTER);
-        b.setBackground(rounded(primary?BLUE:Color.rgb(248,250,252),primary?BLUE:LINE,10,1));
+        b.setBackground(primary
+                ?NativeVisualTokens.controlButton(true,dp(10))
+                :NativeVisualTokens.rippleOutlined(
+                        NativeVisualTokens.APP_SOFT,
+                        LINE,
+                        dp(10),
+                        dp(1),
+                        Color.argb(24,30,49,68)));
         return b;
     }
 
