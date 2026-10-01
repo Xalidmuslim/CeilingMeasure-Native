@@ -29,12 +29,12 @@ final class NativePricePresetDialog extends Dialog {
         void onApplied();
     }
 
-    private static final int TEXT=Color.rgb(35,56,72);
-    private static final int MUTED=Color.rgb(116,136,151);
-    private static final int BLUE=Color.rgb(47,143,190);
-    private static final int LINE=Color.rgb(220,229,235);
-    private static final int BG=Color.rgb(246,248,250);
-    private static final int DANGER=Color.rgb(190,72,79);
+    private static final int TEXT=NativeVisualTokens.TEXT;
+    private static final int MUTED=NativeVisualTokens.MUTED;
+    private static final int BLUE=NativeVisualTokens.ACCENT;
+    private static final int LINE=NativeVisualTokens.LINE;
+    private static final int BG=NativeVisualTokens.APP_SOFT;
+    private static final int DANGER=NativeVisualTokens.DANGER;
 
     private final NativeProjectStore store;
     private final NativeProjectStore.ProjectData current;
