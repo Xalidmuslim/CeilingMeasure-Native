@@ -23,12 +23,12 @@ final class NativeNumberPadDialog extends Dialog {
         void onValue(float value);
     }
 
-    private static final int TEXT = Color.rgb(35, 56, 72);
-    private static final int MUTED = Color.rgb(116, 136, 151);
-    private static final int BLUE = Color.rgb(47, 143, 190);
-    private static final int LINE = Color.rgb(220, 229, 235);
-    private static final int PANEL = Color.WHITE;
-    private static final int BG = Color.rgb(246, 248, 250);
+    private static final int TEXT=NativeVisualTokens.TEXT;
+    private static final int MUTED=NativeVisualTokens.MUTED;
+    private static final int BLUE=NativeVisualTokens.ACCENT;
+    private static final int LINE=NativeVisualTokens.LINE;
+    private static final int PANEL=NativeVisualTokens.SURFACE;
+    private static final int BG=NativeVisualTokens.APP_SOFT;
 
     private final String titleText;
     private final float initialValue;
