@@ -33,6 +33,7 @@ final class NativeNumberPadDialog extends Dialog {
     private final String titleText;
     private final float initialValue;
     private final Listener listener;
+    private final NativeUiPrefs uiPrefs;
     private TextView display;
     private String buffer;
 
@@ -45,6 +46,7 @@ final class NativeNumberPadDialog extends Dialog {
         this.titleText = title;
         this.initialValue = initialValue;
         this.listener = listener;
+        this.uiPrefs = NativeUiPrefs.load(context);
         this.buffer = initialValue > 0 ? format(initialValue) : "0";
     }
 
@@ -161,9 +163,8 @@ final class NativeNumberPadDialog extends Dialog {
         Button key = new Button(getContext());
         key.setAllCaps(false);
         key.setText(value);
-        key.setTextSize(value.equals("⌫") ? 22 : 24);
+        NativeTypography.register(key,value.equals("⌫")?22:24,true,uiPrefs);
         key.setTextColor(TEXT);
-        key.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
         key.setGravity(Gravity.CENTER);
         key.setPadding(0, 0, 0, 0);
         key.setBackground(rounded(BG, LINE, 18, 1));
@@ -203,8 +204,7 @@ final class NativeNumberPadDialog extends Dialog {
         Button button = new Button(getContext());
         button.setAllCaps(false);
         button.setText(value);
-        button.setTextSize(14);
-        button.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
+        NativeTypography.register(button,14,true,uiPrefs);
         button.setTextColor(primary ? Color.WHITE : TEXT);
         button.setBackground(rounded(primary ? BLUE : BG, primary ? BLUE : LINE, 11, 1));
         return button;
@@ -213,11 +213,9 @@ final class NativeNumberPadDialog extends Dialog {
     private TextView text(String value, int sp, int color, int style) {
         TextView view = new TextView(getContext());
         view.setText(value);
-        view.setTextSize(sp);
         view.setTextColor(color);
-        view.setTypeface(Typeface.create("sans-serif", style));
         view.setIncludeFontPadding(false);
-        return view;
+        return NativeTypography.register(view,sp,style==Typeface.BOLD,uiPrefs);
     }
 
     private GradientDrawable rounded(int fill, int stroke, int radius, int strokeWidth) {
