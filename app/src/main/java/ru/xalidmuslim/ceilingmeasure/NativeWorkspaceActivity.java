@@ -577,7 +577,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         bar.setPadding(dp(8),dp(7),dp(8),dp(7));
         bar.setMinimumHeight(dp(64));
         bar.setBackgroundColor(NativeVisualTokens.SURFACE);
-        bar.setElevation(dp(2));
+        bar.setElevation(dp(1));
 
         LinearLayout brand=new LinearLayout(this);
         brand.setOrientation(LinearLayout.VERTICAL);
@@ -978,7 +978,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_PADDING_DP),
                 dp(NativeVisualTokens.HISTORY_PADDING_DP),
                 dp(NativeVisualTokens.HISTORY_PADDING_DP));
-        nav.setElevation(dp(8));
+        nav.setElevation(dp(4));
         nav.setBackground(NativeVisualTokens.outlined(
                 NativeVisualTokens.SURFACE,
                 NativeVisualTokens.LINE,
@@ -2441,7 +2441,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 NativeVisualTokens.LINE,
                 NativeVisualTokens.CARD_RADIUS_DP,
                 1));
-        l.setElevation(dp(1));
+        l.setElevation(0f);
         return l;
     }
 
@@ -2462,15 +2462,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         b.setMinimumHeight(0);
         b.setPadding(dp(8),dp(3),dp(8),dp(3));
         b.setStateListAnimator(null);
-        GradientDrawable content = primary
-                ?NativeVisualTokens.primaryButton(dp(12),dp(1))
-                :rounded(NativeVisualTokens.SURFACE,LINE,12,1);
-        b.setBackground(new RippleDrawable(
-                ColorStateList.valueOf(primary
-                        ?Color.argb(45,255,255,255)
-                        :Color.argb(26,30,49,68)),
-                content,
-                NativeVisualTokens.solid(Color.WHITE,dp(12))));
+        b.setBackground(NativeVisualTokens.controlButton(primary,dp(12)));
         return b;
     }
 
