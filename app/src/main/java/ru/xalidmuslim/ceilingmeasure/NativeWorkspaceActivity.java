@@ -14,6 +14,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
+import android.transition.AutoTransition;
+import android.transition.TransitionManager;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -88,6 +90,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private EditText nameInput;
     private EditText phoneInput;
     private EditText addressInput;
+    private LinearLayout orderBody;
+    private LinearLayout roomsBody;
+    private TextView orderChevron;
+    private TextView roomsChevron;
+    private TextView orderSummary;
+    private boolean orderCollapsed;
+    private boolean roomsCollapsed;
     private TextView drawingRoomTitle;
     private TextView drawingStatus;
     private TextView zoomStatus;
@@ -197,6 +206,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private void showEditor(boolean jumpToDrawing) {
         showingSavedMeasurements = false;
         savedOpenedFromEditor = false;
+        orderCollapsed = jumpToDrawing;
+        roomsCollapsed = false;
         undoRooms.clear();
         redoRooms.clear();
 
@@ -247,6 +258,42 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         orderCard.setPadding(dp(7),dp(4),dp(7),dp(5));
         root.addView(orderCard, marginParams(0,4));
 
+        LinearLayout orderHead = new LinearLayout(this);
+        orderHead.setTag("native_order_header");
+        orderHead.setOrientation(LinearLayout.HORIZONTAL);
+        orderHead.setGravity(Gravity.CENTER_VERTICAL);
+        orderHead.setClickable(true);
+        orderHead.setFocusable(true);
+        orderHead.setPadding(dp(1),dp(1),dp(1),dp(2));
+
+        TextView orderTitle = text("Заказ",12.5f,TEXT,Typeface.BOLD);
+        orderHead.addView(orderTitle);
+
+        orderSummary = text("",10,MUTED,Typeface.NORMAL);
+        orderSummary.setSingleLine(true);
+        orderSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        orderSummary.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams orderSummaryLp = new LinearLayout.LayoutParams(
+                0,
+                dp(30),
+                1f);
+        orderSummaryLp.leftMargin=dp(8);
+        orderHead.addView(orderSummary,orderSummaryLp);
+
+        orderChevron = text("⌃",13,TEXT,Typeface.BOLD);
+        orderChevron.setGravity(Gravity.CENTER);
+        orderHead.addView(orderChevron,new LinearLayout.LayoutParams(dp(28),dp(30)));
+        orderCard.addView(orderHead,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(32)));
+
+        orderBody = new LinearLayout(this);
+        orderBody.setTag("native_order_body");
+        orderBody.setOrientation(LinearLayout.VERTICAL);
+        orderCard.addView(orderBody,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
         LinearLayout contactRow = new LinearLayout(this);
         contactRow.setOrientation(LinearLayout.HORIZONTAL);
         contactRow.setGravity(Gravity.TOP);
@@ -267,21 +314,64 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         phoneColumnParams.leftMargin=dp(3);
         contactRow.addView(phoneColumn,phoneColumnParams);
 
-        orderCard.addView(contactRow,new LinearLayout.LayoutParams(
+        orderBody.addView(contactRow,new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        addressInput = field(orderCard, "Адрес", project.address, InputType.TYPE_CLASS_TEXT);
+        addressInput = field(orderBody, "Адрес", project.address, InputType.TYPE_CLASS_TEXT);
 
-        View.OnFocusChangeListener saver=(v,has)->{if(!has)syncProjectFields();};
+        View.OnFocusChangeListener saver=(v,has)->{
+            if(!has){
+                syncProjectFields();
+                updateOrderSummary();
+            }
+        };
         nameInput.setOnFocusChangeListener(saver);
         phoneInput.setOnFocusChangeListener(saver);
         addressInput.setOnFocusChangeListener(saver);
+        orderHead.setOnClickListener(v->toggleOrderSection(orderCard));
+        updateOrderSummary();
+        applySectionState(orderBody,orderChevron,orderCollapsed);
 
         LinearLayout roomsCard = card();
+        roomsCard.setTag("native_rooms_card");
         root.addView(roomsCard, marginParams(0,4));
-        TextView roomsTitle = text("Комнаты",15.5f,TEXT,Typeface.BOLD);
-        roomsCard.addView(roomsTitle);
+
+        LinearLayout roomsHead = new LinearLayout(this);
+        roomsHead.setTag("native_rooms_header");
+        roomsHead.setOrientation(LinearLayout.HORIZONTAL);
+        roomsHead.setGravity(Gravity.CENTER_VERTICAL);
+        roomsHead.setClickable(true);
+        roomsHead.setFocusable(true);
+        roomsHead.setPadding(dp(1),0,dp(1),0);
+
+        TextView roomsTitle = text("Комнаты",14.5f,TEXT,Typeface.BOLD);
+        roomsHead.addView(roomsTitle);
+
+        TextView roomsCount = text("",10,MUTED,Typeface.NORMAL);
+        roomsCount.setTag("native_rooms_count");
+        roomsCount.setText(project.rooms.size()+" помещ.");
+        roomsCount.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams roomsCountLp = new LinearLayout.LayoutParams(
+                0,
+                dp(30),
+                1f);
+        roomsCountLp.leftMargin=dp(8);
+        roomsHead.addView(roomsCount,roomsCountLp);
+
+        roomsChevron = text("⌃",13,TEXT,Typeface.BOLD);
+        roomsChevron.setGravity(Gravity.CENTER);
+        roomsHead.addView(roomsChevron,new LinearLayout.LayoutParams(dp(28),dp(30)));
+        roomsCard.addView(roomsHead,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(34)));
+
+        roomsBody = new LinearLayout(this);
+        roomsBody.setTag("native_rooms_body");
+        roomsBody.setOrientation(LinearLayout.VERTICAL);
+        roomsCard.addView(roomsBody,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
         HorizontalScrollView roomsScroll = new HorizontalScrollView(this);
         roomsScroll.setHorizontalScrollBarEnabled(false);
@@ -293,8 +383,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout.LayoutParams rs = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        rs.topMargin=dp(5);
-        roomsCard.addView(roomsScroll,rs);
+        rs.topMargin=dp(3);
+        roomsBody.addView(roomsScroll,rs);
+        roomsHead.setOnClickListener(v->toggleRoomsSection(roomsCard));
+        applySectionState(roomsBody,roomsChevron,roomsCollapsed);
         renderRooms();
 
         drawingCard = card();
@@ -777,8 +869,53 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         return bar;
     }
 
+    private void toggleOrderSection(LinearLayout card) {
+        orderCollapsed=!orderCollapsed;
+        animateSection(card,orderBody,orderChevron,orderCollapsed);
+    }
+
+    private void toggleRoomsSection(LinearLayout card) {
+        roomsCollapsed=!roomsCollapsed;
+        animateSection(card,roomsBody,roomsChevron,roomsCollapsed);
+    }
+
+    private void animateSection(
+            ViewGroup card,
+            View body,
+            TextView chevron,
+            boolean collapsed) {
+        if(card==null||body==null)return;
+        AutoTransition transition=new AutoTransition();
+        transition.setDuration(NativeVisualTokens.COLLAPSE_MOTION_MS);
+        TransitionManager.beginDelayedTransition(card,transition);
+        body.setVisibility(collapsed?View.GONE:View.VISIBLE);
+        if(chevron!=null)chevron.setText(collapsed?"⌄":"⌃");
+    }
+
+    private void applySectionState(
+            View body,
+            TextView chevron,
+            boolean collapsed) {
+        if(body!=null)body.setVisibility(collapsed?View.GONE:View.VISIBLE);
+        if(chevron!=null)chevron.setText(collapsed?"⌄":"⌃");
+    }
+
+    private void updateOrderSummary() {
+        if(orderSummary==null||project==null)return;
+        String name=nameInput==null?project.name:nameInput.getText().toString().trim();
+        String address=addressInput==null?project.address:addressInput.getText().toString().trim();
+        String summary=!name.isEmpty()?name:(!address.isEmpty()?address:"Без имени");
+        orderSummary.setText(summary);
+    }
+
     private void renderRooms() {
         roomRow.removeAllViews();
+        if(root!=null){
+            View count=root.findViewWithTag("native_rooms_count");
+            if(count instanceof TextView){
+                ((TextView)count).setText(project.rooms.size()+" помещ.");
+            }
+        }
         for(int i=0;i<project.rooms.size();i++){
             final int index=i;
             NativeProjectStore.RoomData r=project.rooms.get(i);
@@ -1353,6 +1490,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(nameInput!=null)project.name=nameInput.getText().toString().trim();
         if(phoneInput!=null)project.phone=phoneInput.getText().toString().trim();
         if(addressInput!=null)project.address=addressInput.getText().toString().trim();
+        updateOrderSummary();
         scheduleSaveCurrent();
     }
 
@@ -1360,6 +1498,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(nameInput!=null)project.name=nameInput.getText().toString().trim();
         if(phoneInput!=null)project.phone=phoneInput.getText().toString().trim();
         if(addressInput!=null)project.address=addressInput.getText().toString().trim();
+        updateOrderSummary();
         store.saveCurrent(project);
     }
 
