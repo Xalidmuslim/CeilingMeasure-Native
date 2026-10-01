@@ -209,7 +209,12 @@ final class NativeWallMeasureDialog extends Dialog {
         NativeTypography.register(b,"⌫".equals(key)?22:24,true,uiPrefs);
         b.setTag(",".equals(key) ? "native_wall_decimal" : "native_wall_key_"+key);
         b.setPadding(0,0,0,0);
-        b.setBackground(rounded(Color.rgb(248,250,252),LINE,18,1));
+        b.setBackground(NativeVisualTokens.rippleOutlined(
+                NativeVisualTokens.APP_SOFT,
+                LINE,
+                dp(18),
+                dp(1),
+                Color.argb(24,30,49,68)));
         b.setOnClickListener(v->press(key));
         GridLayout.LayoutParams p=new GridLayout.LayoutParams();
         p.width=0;
@@ -276,7 +281,14 @@ final class NativeWallMeasureDialog extends Dialog {
         NativeTypography.register(b,13,true,uiPrefs);
         b.setGravity(Gravity.CENTER);
         b.setPadding(dp(4),0,dp(4),0);
-        b.setBackground(rounded(primary?BLUE:Color.rgb(248,250,252),primary?BLUE:LINE,9,1));
+        b.setBackground(primary
+                ?NativeVisualTokens.controlButton(true,dp(9))
+                :NativeVisualTokens.rippleOutlined(
+                        NativeVisualTokens.APP_SOFT,
+                        LINE,
+                        dp(9),
+                        dp(1),
+                        Color.argb(24,30,49,68)));
         return b;
     }
 
