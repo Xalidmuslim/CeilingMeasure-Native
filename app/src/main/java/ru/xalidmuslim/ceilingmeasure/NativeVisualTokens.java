@@ -66,7 +66,7 @@ final class NativeVisualTokens {
     static final int HOME_RADIUS_WIDE_DP = 22;
 
     static final int APP_COMPACT_GAP_DP = 7;
-    static final int HISTORY_BOTTOM_DP = 6;
+    static final int HISTORY_BOTTOM_DP = 7;
     static final int HISTORY_BUTTON_WIDTH_DP = 68;
     static final int HISTORY_BUTTON_HEIGHT_DP = 44;
     static final int HISTORY_GAP_DP = 3;
