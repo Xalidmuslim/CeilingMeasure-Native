@@ -50,9 +50,10 @@ final class CeilingDrawingView extends View {
     // Complex factual geometry can legitimately require less than the old 45%
     // floor to fit. Keep a low safety floor so the whole contour is recoverable.
     private static final float MIN_VIEW_SCALE = .08f;
-    private static final float LABEL_TOUCH_RADIUS_DP = 30f;
-    private static final float LABEL_LONG_PRESS_RADIUS_DP = 34f;
-    private static final float LABEL_ROTATE_START_DP = 12f;
+    private static final float LABEL_TOUCH_RADIUS_DP = 22f;
+    private static final float LABEL_LONG_PRESS_RADIUS_DP = 28f;
+    private static final float LABEL_ROTATE_HANDLE_HIT_DP = 12f;
+    private static final float LABEL_ROTATE_START_DP = 18f;
 
     private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -627,7 +628,7 @@ final class CeilingDrawingView extends View {
         handle.setStyle(Paint.Style.STROKE);
         handle.setStrokeWidth(dp(2f) / scale);
 
-        float handleRadius = dp(11f) / scale;
+        float handleRadius = dp(9f) / scale;
         canvas.drawCircle(0f, -radius, handleRadius, white);
         canvas.drawCircle(0f, -radius, handleRadius, handle);
 
@@ -977,28 +978,29 @@ final class CeilingDrawingView extends View {
                 float radius = labelSelectionRadius(selected);
                 float controlY = radius + dp(26f) / scale;
                 float controlX = dp(48f) / scale;
-                float hit = dp(25f) / scale;
+                float controlHit = dp(22f) / Math.max(MIN_VIEW_SCALE, scale);
+                float rotateHit = dp(LABEL_ROTATE_HANDLE_HIT_DP)
+                        / Math.max(MIN_VIEW_SCALE, scale);
 
-                if (distance(local[0], local[1], -controlX, controlY) <= hit) {
+                if (distance(local[0], local[1], -controlX, controlY) <= controlHit) {
                     checkpoint();
                     changeSelectedLabelSize(-.1f);
                     return;
                 }
-                if (distance(local[0], local[1], controlX, controlY) <= hit) {
+                if (distance(local[0], local[1], controlX, controlY) <= controlHit) {
                     checkpoint();
                     changeSelectedLabelSize(.1f);
                     return;
                 }
-                if (distance(local[0], local[1], 0f, controlY) <= hit) {
+                if (distance(local[0], local[1], 0f, controlY) <= controlHit) {
                     checkpoint();
                     resetSelectedLabelSize();
                     return;
                 }
 
-                float radial = (float) Math.hypot(local[0], local[1]);
-                boolean onRing = Math.abs(radial - radius) <= dp(18f) / scale;
-                boolean onHandle = distance(local[0], local[1], 0f, -radius) <= hit;
-                if (onRing || onHandle) {
+                boolean onHandle =
+                        distance(local[0], local[1], 0f, -radius) <= rotateHit;
+                if (onHandle) {
                     rotatingLabel = selectedLabel;
                     draggingLabel = null;
                     labelRotateCenterX = selected.x;
@@ -1296,11 +1298,14 @@ final class CeilingDrawingView extends View {
         if (draggingLabel == null) return;
         float dx = x - labelTouchStartX;
         float dy = y - labelTouchStartY;
+        float actualX = labelStartDx + dx;
+        float actualY = labelStartDy + dy;
+
         if (draggingLabel.kind == LabelKind.EDGE) {
             NativeProjectStore.EdgeData edge = edgeById(draggingLabel.id);
             if (edge != null) {
-                edge.labelX = labelStartDx + dx;
-                edge.labelY = labelStartDy + dy;
+                edge.labelX = actualX;
+                edge.labelY = actualY;
                 edge.labelDx = 0f;
                 edge.labelDy = 0f;
                 edge.labelManual = true;
@@ -1308,14 +1313,17 @@ final class CeilingDrawingView extends View {
         } else {
             NativeProjectStore.DiagonalData diagonal = diagonalById(draggingLabel.id);
             if (diagonal != null) {
-                diagonal.labelX = labelStartDx + dx;
-                diagonal.labelY = labelStartDy + dy;
+                diagonal.labelX = actualX;
+                diagonal.labelY = actualY;
                 diagonal.labelDx = 0f;
                 diagonal.labelDy = 0f;
                 diagonal.labelManual = true;
             }
         }
-        magnifierFocus = new PointF(x, y);
+
+        // The lens follows the real label center, not the finger. This makes
+        // the magnifier a literal view of where the number will be saved.
+        magnifierFocus = new PointF(actualX, actualY);
         magnifierKind = MagnifierKind.LABEL;
         postInvalidateOnAnimation();
     }
@@ -1355,7 +1363,9 @@ final class CeilingDrawingView extends View {
                 diagonal.labelManual = true;
             }
         }
-        magnifierFocus = new PointF(x, y);
+        // Rotation changes only the angle; the label position itself stays
+        // fixed, so keep the lens centered on that real saved position.
+        magnifierFocus = new PointF(labelRotateCenterX, labelRotateCenterY);
         magnifierKind = MagnifierKind.LABEL;
         postInvalidateOnAnimation();
     }
