@@ -2358,7 +2358,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             row.setClickable(true);
             row.setOnClickListener(v->{
                 project=p;
-                showEditor(false);
+                // Saved measurement opens directly on the working drawing.
+                // Customer details remain one tap away in the collapsible card.
+                showEditor(true);
                 editorOpenedFromSavedMeasurements = true;
                 saveProjectAsync(p);
             });
