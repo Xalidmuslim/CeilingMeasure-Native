@@ -254,12 +254,12 @@ public final class NativeDataContractTest {
     }
 
     @Test
-    public void uiPrefsOldDefaultArialMigratesToSystem112Version2() throws Exception {
+    public void uiPrefsOldDefaultArialMigratesToSystem118Version3() throws Exception {
         JSONObject prefs = NativeDataContract.canonicalizeUiPrefs(
                 fixtureObject("ui_prefs_old_default.json"));
-        assertEquals(2, prefs.getInt("version"));
+        assertEquals(3, prefs.getInt("version"));
         assertEquals("system", prefs.getString("font"));
-        assertEquals(1.12d, prefs.getDouble("scale"), 0.0001d);
+        assertEquals(1.18d, prefs.getDouble("scale"), 0.0001d);
         assertEquals("normal", prefs.getString("weight"));
         assertFalse(prefs.has("night"));
     }
@@ -277,7 +277,7 @@ public final class NativeDataContractTest {
     public void uiPrefsV2Explicit100PercentStays100AndNightIsDropped() throws Exception {
         JSONObject prefs = NativeDataContract.canonicalizeUiPrefs(
                 fixtureObject("ui_prefs_v2_custom.json"));
-        assertEquals(2, prefs.getInt("version"));
+        assertEquals(3, prefs.getInt("version"));
         assertEquals("mono", prefs.getString("font"));
         assertEquals(1d, prefs.getDouble("scale"), 0.0001d);
         assertEquals("medium", prefs.getString("weight"));

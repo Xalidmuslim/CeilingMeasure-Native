@@ -389,6 +389,21 @@ final class CeilingDrawingView extends View {
     }
 
     @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        if (room == null || room.points.isEmpty() || oldw <= 0 || oldh <= 0) return;
+
+        // Keep the same world point under the visual centre when the canvas
+        // changes size (for example while the wall editor is docked/closed).
+        // Geometry is untouched; only the viewport offset is compensated.
+        offsetX += (w - oldw) / 2f;
+        offsetY += (h - oldh) / 2f;
+        clampViewportAfterTransform();
+        syncViewToRoom();
+        postInvalidateOnAnimation();
+    }
+
+    @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         drawGrid(canvas);
