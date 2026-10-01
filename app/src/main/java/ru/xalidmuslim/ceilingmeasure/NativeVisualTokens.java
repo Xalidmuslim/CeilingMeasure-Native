@@ -66,16 +66,16 @@ final class NativeVisualTokens {
     static final int HOME_RADIUS_WIDE_DP = 22;
 
     static final int APP_COMPACT_GAP_DP = 7;
-    static final int HISTORY_BOTTOM_DP = 8;
-    static final int HISTORY_BUTTON_WIDTH_DP = 72;
-    static final int HISTORY_BUTTON_HEIGHT_DP = 46;
+    static final int HISTORY_BOTTOM_DP = 6;
+    static final int HISTORY_BUTTON_WIDTH_DP = 68;
+    static final int HISTORY_BUTTON_HEIGHT_DP = 44;
     static final int HISTORY_GAP_DP = 3;
     static final int HISTORY_PADDING_DP = 3;
     static final int HISTORY_WIDTH_DP =
-            HISTORY_BUTTON_WIDTH_DP * 4 + HISTORY_GAP_DP * 3 + HISTORY_PADDING_DP * 2; // 303
+            HISTORY_BUTTON_WIDTH_DP * 4 + HISTORY_GAP_DP * 3 + HISTORY_PADDING_DP * 2; // 287
     static final int HISTORY_HEIGHT_DP =
-            HISTORY_BUTTON_HEIGHT_DP + HISTORY_PADDING_DP * 2; // 52
-    static final int SCROLL_NAV_RESERVE_DP = 72;
+            HISTORY_BUTTON_HEIGHT_DP + HISTORY_PADDING_DP * 2; // 50
+    static final int SCROLL_NAV_RESERVE_DP = 66;
 
     static final long OVERLAY_MOTION_MS = 115L;
     static final long COLLAPSE_MOTION_MS = 145L;
