@@ -167,7 +167,8 @@ final class NativeNumberPadDialog extends Dialog {
         key.setTextColor(TEXT);
         key.setGravity(Gravity.CENTER);
         key.setPadding(0, 0, 0, 0);
-        key.setBackground(rounded(BG, LINE, 18, 1));
+        key.setBackground(NativeVisualTokens.rippleOutlined(
+                BG,LINE,dp(18),dp(1),Color.argb(24,30,49,68)));
         key.setTag("native_number_pad_" + keyTag(value));
         key.setOnClickListener(v -> press(value));
 
@@ -206,7 +207,10 @@ final class NativeNumberPadDialog extends Dialog {
         button.setText(value);
         NativeTypography.register(button,14,true,uiPrefs);
         button.setTextColor(primary ? Color.WHITE : TEXT);
-        button.setBackground(rounded(primary ? BLUE : BG, primary ? BLUE : LINE, 11, 1));
+        button.setBackground(primary
+                ?NativeVisualTokens.controlButton(true,dp(11))
+                :NativeVisualTokens.rippleOutlined(
+                        BG,LINE,dp(11),dp(1),Color.argb(24,30,49,68)));
         return button;
     }
 
