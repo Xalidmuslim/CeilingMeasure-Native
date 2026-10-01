@@ -390,9 +390,9 @@ public final class NativePhase2ShellTest {
         assertEquals(7, NativeVisualTokens.APP_COMPACT_GAP_DP);
         // Four actions (Домой / Вперёд / Назад / Ещё) must fit phone widths
         // without squeezing labels or overflowing the 303dp floating bar.
-        assertEquals(72, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP);
-        assertEquals(46, NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP);
-        assertEquals(8, NativeVisualTokens.HISTORY_BOTTOM_DP);
+        assertEquals(68, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP);
+        assertEquals(44, NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP);
+        assertEquals(7, NativeVisualTokens.HISTORY_BOTTOM_DP);
         assertEquals(115L, NativeVisualTokens.OVERLAY_MOTION_MS);
         assertEquals(145L, NativeVisualTokens.COLLAPSE_MOTION_MS);
     }
