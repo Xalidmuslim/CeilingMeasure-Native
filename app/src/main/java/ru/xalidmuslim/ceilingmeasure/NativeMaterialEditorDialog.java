@@ -200,7 +200,7 @@ final class NativeMaterialEditorDialog extends Dialog {
         b.setMinHeight(0);
         b.setMinimumHeight(0);
         b.setPadding(dp(5),0,dp(5),0);
-        b.setBackground(rounded(primary?BLUE:BG,primary?BLUE:LINE,9,1));
+        b.setBackground(NativeVisualTokens.controlButton(primary,dp(9)));
         return b;
     }
 
