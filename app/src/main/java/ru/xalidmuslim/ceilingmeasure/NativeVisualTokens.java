@@ -1,5 +1,6 @@
 package ru.xalidmuslim.ceilingmeasure;
 
+import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -11,6 +12,7 @@ import android.graphics.Rect;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -91,6 +93,33 @@ final class NativeVisualTokens {
         GradientDrawable d = solid(fill, radiusPx);
         if (strokePx > 0) d.setStroke(strokePx, stroke);
         return d;
+    }
+
+    static Drawable rippleOutlined(
+            int fill,
+            int stroke,
+            float radiusPx,
+            int strokePx,
+            int rippleColor) {
+        GradientDrawable content = outlined(fill, stroke, radiusPx, strokePx);
+        GradientDrawable mask = solid(Color.WHITE, radiusPx);
+        return new RippleDrawable(
+                ColorStateList.valueOf(rippleColor),
+                content,
+                mask);
+    }
+
+    static Drawable controlButton(boolean primary, float radiusPx) {
+        GradientDrawable content = primary
+                ? primaryButton(radiusPx, 1)
+                : outlined(SURFACE, LINE, radiusPx, 1);
+        int ripple = primary
+                ? Color.argb(44, 255, 255, 255)
+                : Color.argb(24, 30, 49, 68);
+        return new RippleDrawable(
+                ColorStateList.valueOf(ripple),
+                content,
+                solid(Color.WHITE, radiusPx));
     }
 
     static GradientDrawable primaryButton(float radiusPx, int strokePx) {
