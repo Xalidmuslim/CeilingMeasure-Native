@@ -39,6 +39,7 @@ final class NativeWallMeasureDialog extends Dialog {
     private final String titleText;
     private final boolean sequence;
     private final Listener listener;
+    private final NativeUiPrefs uiPrefs;
     private String buffer;
     private TextView display;
     private TextView meterHint;
@@ -53,6 +54,7 @@ final class NativeWallMeasureDialog extends Dialog {
         this.titleText=title;
         this.sequence=sequence;
         this.listener=listener;
+        this.uiPrefs=NativeUiPrefs.load(context);
         this.buffer=currentValue>0f
                 ?(Math.abs(currentValue-Math.round(currentValue))<.01f
                     ?String.valueOf(Math.round(currentValue))
@@ -204,7 +206,7 @@ final class NativeWallMeasureDialog extends Dialog {
 
     private void addKey(GridLayout grid,String key){
         Button b=button(key,false);
-        b.setTextSize("⌫".equals(key)?22:24);
+        NativeTypography.register(b,"⌫".equals(key)?22:24,true,uiPrefs);
         b.setTag(",".equals(key) ? "native_wall_decimal" : "native_wall_key_"+key);
         b.setPadding(0,0,0,0);
         b.setBackground(rounded(Color.rgb(248,250,252),LINE,18,1));
@@ -271,8 +273,7 @@ final class NativeWallMeasureDialog extends Dialog {
         b.setAllCaps(false);
         b.setText(value);
         b.setTextColor(primary?Color.WHITE:TEXT);
-        b.setTextSize(13);
-        b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
+        NativeTypography.register(b,13,true,uiPrefs);
         b.setGravity(Gravity.CENTER);
         b.setPadding(dp(4),0,dp(4),0);
         b.setBackground(rounded(primary?BLUE:Color.rgb(248,250,252),primary?BLUE:LINE,9,1));
@@ -282,11 +283,9 @@ final class NativeWallMeasureDialog extends Dialog {
     private TextView text(String value,float sp,int color,boolean bold){
         TextView t=new TextView(getContext());
         t.setText(value);
-        t.setTextSize(sp);
         t.setTextColor(color);
-        t.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));
         t.setIncludeFontPadding(false);
-        return t;
+        return NativeTypography.register(t,sp,bold,uiPrefs);
     }
 
     private GradientDrawable rounded(int fill,int stroke,int radius,int width){
