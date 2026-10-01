@@ -110,7 +110,9 @@ final class NativeEstimateDialog extends Dialog {
         Button close=button("Закрыть",false);
         close.setTag("native_estimate_close");
         close.setOnClickListener(v->dismiss());
-        LinearLayout.LayoutParams closeParams=new LinearLayout.LayoutParams(dp(82),dp(38));
+        close.setSingleLine(true);
+        LinearLayout.LayoutParams closeParams=new LinearLayout.LayoutParams(
+                dp(82),adaptiveActionHeight(38,false));
         closeParams.gravity=Gravity.TOP;
         head.addView(close,closeParams);
         content.addView(head);
@@ -128,16 +130,20 @@ final class NativeEstimateDialog extends Dialog {
                     false);
             merge.setTag("native_merge_orders");
             merge.setOnClickListener(v->openMergeOrders());
-            toolbar.addView(prices,new LinearLayout.LayoutParams(0,dp(40),1f));
-            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(0,dp(40),1f);
+            prices.setMaxLines(2);
+            merge.setMaxLines(2);
+            int toolbarHeight=adaptiveActionHeight(40,true);
+            toolbar.addView(prices,new LinearLayout.LayoutParams(0,toolbarHeight,1f));
+            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(0,toolbarHeight,1f);
             mp.leftMargin=dp(6);
             toolbar.addView(merge,mp);
         }else{
             Button prices=button("Закупочный прайс",false);
             prices.setTag("native_purchase_price_preset");
             prices.setOnClickListener(v->openPricePreset(false,projects));
+            prices.setMaxLines(2);
             toolbar.addView(prices,new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,dp(40)));
+                    ViewGroup.LayoutParams.MATCH_PARENT,adaptiveActionHeight(40,true)));
         }
         content.addView(toolbar,top(4));
 
@@ -179,8 +185,11 @@ final class NativeEstimateDialog extends Dialog {
             pdf.setTag("native_client_pdf");
             pdf.setOnClickListener(v->listener.onClientPdfRequested(
                     new ArrayList<>(estimateProjects())));
-            bottom.addView(add,new LinearLayout.LayoutParams(0,dp(40),1f));
-            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(40),1f);
+            add.setMaxLines(2);
+            pdf.setMaxLines(2);
+            int bottomHeight=adaptiveActionHeight(40,true);
+            bottom.addView(add,new LinearLayout.LayoutParams(0,bottomHeight,1f));
+            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,bottomHeight,1f);
             pp.leftMargin=dp(6);
             bottom.addView(pdf,pp);
             content.addView(bottom,top(6));
@@ -237,8 +246,9 @@ final class NativeEstimateDialog extends Dialog {
             Button add=button("+ Другой материал",false);
             add.setTag("native_internal_add_material_"+room.id);
             add.setOnClickListener(v->openAdhocMaterial(owner,room,false));
+            add.setMaxLines(2);
             card.addView(add,new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,dp(38)));
+                    ViewGroup.LayoutParams.MATCH_PARENT,adaptiveActionHeight(38,true)));
         }
 
         TextView state=text(
@@ -710,6 +720,20 @@ final class NativeEstimateDialog extends Dialog {
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         p.topMargin=dp(margin);
         return p;
+    }
+
+    private int adaptiveActionHeight(int baseDp,boolean mayWrap){
+        float systemScale=Math.max(
+                1f,
+                getContext().getResources().getConfiguration().fontScale);
+        float appScale=Math.max(
+                1f,
+                uiPrefs.scale/NativeUiPrefs.defaults().scale);
+        float effective=Math.max(systemScale,appScale);
+        float multiplier=mayWrap?1.75f:1.15f;
+        float growth=1f+(effective-1f)*multiplier;
+        growth=Math.min(mayWrap?1.50f:1.28f,Math.max(1f,growth));
+        return dp(Math.round(baseDp*growth));
     }
 
     private String qty(double value){
