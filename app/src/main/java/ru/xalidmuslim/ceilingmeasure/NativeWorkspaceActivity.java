@@ -667,7 +667,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(dp(8),dp(7),dp(8),dp(7));
-        bar.setMinimumHeight(dp(64));
+        bar.setMinimumHeight(dp(58));
         bar.setBackgroundColor(NativeVisualTokens.SURFACE);
         bar.setElevation(dp(1));
 
@@ -676,12 +676,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         brand.setGravity(Gravity.CENTER_VERTICAL);
         // Keep header compact, but let NativeTypography own text scaling.
         // Android auto-size here would override the user's live 85–130% setting.
-        TextView main=text("Натяжные потолки",16,TEXT,Typeface.BOLD);
+        TextView main=text("Натяжные потолки",15.5f,TEXT,Typeface.BOLD);
         main.setTag("native_workspace_brand_title");
         main.setSingleLine(true);
         main.setMinWidth(0);
         main.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        TextView sub=text("замер · расчёт · смета",10,MUTED,Typeface.NORMAL);
+        TextView sub=text("замер · расчёт · смета",9.5f,MUTED,Typeface.NORMAL);
         sub.setTag("native_workspace_brand_subtitle");
         sub.setSingleLine(true);
         sub.setMinWidth(0);
@@ -701,7 +701,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         actions.setTag("native_workspace_top_actions");
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.CENTER_VERTICAL);
-        actions.setPadding(dp(2),dp(2),dp(2),dp(2));
+        actions.setPadding(dp(1),dp(1),dp(1),dp(1));
         actions.setBackground(NativeVisualTokens.solid(
                 Color.rgb(244,247,249),
                 dp(12)));
@@ -709,7 +709,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         ImageView home=topIconButton(R.drawable.ic_shell_home,"native_top_home","Главная");
         home.setOnClickListener(v->goHome());
-        actions.addView(home,new LinearLayout.LayoutParams(dp(32),dp(32)));
+        actions.addView(home,new LinearLayout.LayoutParams(dp(30),dp(30)));
 
         View saved=topActionButton(
                 R.drawable.ic_shell_saved,
@@ -721,7 +721,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             savedOpenedFromEditor = true;
             showSavedMeasurements();
         });
-        LinearLayout.LayoutParams savedLp=new LinearLayout.LayoutParams(dp(76),dp(48));
+        LinearLayout.LayoutParams savedLp=new LinearLayout.LayoutParams(dp(72),dp(44));
         savedLp.leftMargin=dp(3);
         actions.addView(saved,savedLp);
 
@@ -744,7 +744,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     project=store.newProject();
                     showEditor(false);
                 }).show());
-        LinearLayout.LayoutParams freshLp=new LinearLayout.LayoutParams(dp(72),dp(48));
+        LinearLayout.LayoutParams freshLp=new LinearLayout.LayoutParams(dp(68),dp(44));
         freshLp.leftMargin=dp(3);
         actions.addView(fresh,freshLp);
 
@@ -753,7 +753,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 "native_top_settings",
                 "Настройки интерфейса");
         settings.setOnClickListener(v->showNativeSettings());
-        LinearLayout.LayoutParams settingsLp=new LinearLayout.LayoutParams(dp(32),dp(32));
+        LinearLayout.LayoutParams settingsLp=new LinearLayout.LayoutParams(dp(30),dp(30));
         settingsLp.leftMargin=dp(3);
         actions.addView(settings,settingsLp);
         return bar;
