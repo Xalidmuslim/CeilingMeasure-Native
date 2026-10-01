@@ -666,7 +666,7 @@ final class NativeEstimateDialog extends Dialog {
         b.setMinHeight(0);
         b.setMinimumHeight(0);
         b.setPadding(dp(4),0,dp(4),0);
-        b.setBackground(rounded(primary?BLUE:Color.WHITE,primary?BLUE:LINE,10,1));
+        b.setBackground(NativeVisualTokens.controlButton(primary,dp(10)));
         return b;
     }
 
