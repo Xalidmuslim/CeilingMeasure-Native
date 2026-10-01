@@ -47,6 +47,7 @@ final class CeilingDrawingView extends View {
     private static final int RED = Color.rgb(217, 74, 74);
     private static final int GREEN = Color.rgb(47, 154, 105);
     private static final long LONG_PRESS_MS = 330L;
+    private static final long FIRST_WALL_START_PRESS_MS = 180L;
     // Complex factual geometry can legitimately require less than the old 45%
     // floor to fit. Keep a low safety floor so the whole contour is recoverable.
     private static final float MIN_VIEW_SCALE = .08f;
@@ -1489,7 +1490,7 @@ final class CeilingDrawingView extends View {
             magnifierKind = MagnifierKind.WALL;
             postInvalidateOnAnimation();
         };
-        handler.postDelayed(longPressRunnable, LONG_PRESS_MS);
+        handler.postDelayed(longPressRunnable, FIRST_WALL_START_PRESS_MS);
     }
 
     private void scheduleLongPress(String kind, String id) {
