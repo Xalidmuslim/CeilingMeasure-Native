@@ -351,18 +351,20 @@ private fun MetricCard(title: String, value: String, modifier: Modifier = Modifi
 
 @Composable
 private fun BudgetRing(fraction: Float, label: Int?, modifier: Modifier = Modifier) {
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val progressColor = MaterialTheme.colorScheme.primary
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val width = 18.dp.toPx()
             drawArc(
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = trackColor,
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
                 style = Stroke(width, cap = StrokeCap.Round)
             )
             drawArc(
-                color = MaterialTheme.colorScheme.primary,
+                color = progressColor,
                 startAngle = -90f,
                 sweepAngle = 360f * fraction,
                 useCenter = false,
