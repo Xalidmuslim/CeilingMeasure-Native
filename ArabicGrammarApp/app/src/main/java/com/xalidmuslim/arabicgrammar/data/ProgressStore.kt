@@ -127,7 +127,7 @@ class ProgressStore(context: Context) {
         return streak
     }
 
-    fun setSearchQuery(value: String) {
+    fun updateSearchQuery(value: String) {
         searchQuery = value
     }
 
