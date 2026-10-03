@@ -39,7 +39,7 @@ fun SectionTitle(kicker: String, title: String) {
 fun StatCard(value: String, label: String, modifier: Modifier = Modifier) {
     OutlinedCard(modifier, shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.padding(12.dp)) {
-            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = CardHeadlineBrown)
             Text(
                 label,
                 style = MaterialTheme.typography.bodySmall,
@@ -72,7 +72,7 @@ fun ChapterCard(
             Surface(
                 modifier = Modifier.size(64.dp),
                 shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = NestedSage,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
@@ -89,7 +89,7 @@ fun ChapterCard(
                     color = MaterialTheme.colorScheme.secondary,
                     style = MaterialTheme.typography.labelMedium,
                 )
-                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(title, style = MaterialTheme.typography.titleMedium, color = CardHeadlineBrown)
                 Text(
                     description,
                     style = MaterialTheme.typography.bodySmall,
@@ -123,7 +123,7 @@ fun ActionCard(
             Surface(
                 modifier = Modifier.size(48.dp),
                 shape = RoundedCornerShape(15.dp),
-                color = MaterialTheme.colorScheme.secondaryContainer,
+                color = NestedSageStrong,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(icon, contentDescription = null)
@@ -131,7 +131,7 @@ fun ActionCard(
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall)
+                Text(title, style = MaterialTheme.typography.titleSmall, color = CardHeadlineBrown)
                 Text(
                     description,
                     style = MaterialTheme.typography.bodySmall,
@@ -159,7 +159,7 @@ fun TopicRow(section: BookSection, completed: Boolean, onClick: () -> Unit) {
             Surface(
                 modifier = Modifier.size(38.dp),
                 shape = RoundedCornerShape(99.dp),
-                color = if (completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                color = if (completed) MaterialTheme.colorScheme.primary else NestedSage,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     if (completed) {
@@ -180,7 +180,7 @@ fun TopicRow(section: BookSection, completed: Boolean, onClick: () -> Unit) {
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(section.title, style = MaterialTheme.typography.titleSmall)
+                Text(section.title, style = MaterialTheme.typography.titleSmall, color = CardHeadlineBrown)
                 val suffix = if (section.exerciseCount > 0) " · " + section.exerciseCount + " упр." else ""
                 Text(
                     chapterName(section.chapter) + suffix,
