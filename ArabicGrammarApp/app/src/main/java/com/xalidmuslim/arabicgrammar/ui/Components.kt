@@ -1,5 +1,7 @@
 package com.xalidmuslim.arabicgrammar.ui
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,7 +58,10 @@ fun ChapterCard(
     onClick: () -> Unit,
 ) {
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(240))
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(22.dp),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
     ) {
@@ -184,7 +189,9 @@ fun TopicRow(section: BookSection, completed: Boolean, onClick: () -> Unit) {
 @Composable
 fun SettingsCard(title: String, content: @Composable () -> Unit) {
     OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(240)),
         shape = RoundedCornerShape(20.dp),
     ) {
         Column(Modifier.padding(16.dp)) {
