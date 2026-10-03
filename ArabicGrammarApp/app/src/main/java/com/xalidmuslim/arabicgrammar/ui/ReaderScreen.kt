@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xalidmuslim.arabicgrammar.data.BookBlock
 import com.xalidmuslim.arabicgrammar.data.BookRepository
 import com.xalidmuslim.arabicgrammar.data.ProgressStore
 import com.xalidmuslim.arabicgrammar.data.ReaderGroup
@@ -406,6 +407,86 @@ fun ReaderScreen(
     }
 }
 
+private val inlineAnswerRun = Regex("[_＿—–-]{6,}")
+
+private fun answerTemplate(line: String): String =
+    inlineAnswerRun
+        .replace(line, " … ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+@Composable
+private fun InteractiveBookBlock(
+    block: BookBlock,
+    settings: ReaderSettings,
+    preferArabic: Boolean,
+) {
+    val lines = remember(block.text) { block.text.lines() }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        lines.forEachIndexed { lineIndex, rawLine ->
+            val line = rawLine.trim()
+            if (line.isBlank()) return@forEachIndexed
+
+            if (inlineAnswerRun.containsMatchIn(line)) {
+                var answer by rememberSaveable(block.index, lineIndex) { mutableStateOf("") }
+                val template = answerTemplate(line)
+
+                OutlinedTextField(
+                    value = answer,
+                    onValueChange = { answer = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        if (template.isBlank() || template == "…") {
+                            Text("Ваш ответ")
+                        } else {
+                            Text(
+                                styledMixedText(template, settings),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    textDirection = TextDirection.Ltr,
+                                ),
+                            )
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = if (preferArabic) arabicFont(settings) else russianFont(settings),
+                        textDirection = TextDirection.ContentOrLtr,
+                    ),
+                )
+            } else if (preferArabic) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Text(
+                        line,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End,
+                        style = TextStyle(
+                            fontFamily = arabicFont(settings),
+                            fontSize = (21.5f * settings.arabicScale).sp,
+                            lineHeight = (34f * settings.arabicScale).sp,
+                            textDirection = TextDirection.Rtl,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                }
+            } else {
+                Text(
+                    styledMixedText(line, settings),
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        textDirection = TextDirection.Ltr,
+                        lineHeight = (22f * settings.textScale * settings.lineHeight / 1.55f).sp,
+                    ),
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun ParagraphCard(
     group: ReaderGroup,
@@ -436,13 +517,10 @@ private fun ParagraphCard(
             }
 
             group.blocks.forEachIndexed { index, block ->
-                Text(
-                    styledMixedText(block.text, settings),
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        textDirection = TextDirection.Ltr,
-                        lineHeight = (22f * settings.textScale * settings.lineHeight / 1.55f).sp,
-                    ),
+                InteractiveBookBlock(
+                    block = block,
+                    settings = settings,
+                    preferArabic = false,
                 )
                 if (index != group.blocks.lastIndex) {
                     Spacer(Modifier.height(8.dp))
@@ -477,20 +555,11 @@ private fun ArabicCard(
                 fontWeight = FontWeight.SemiBold,
             )
             Spacer(Modifier.height(7.dp))
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                Text(
-                    group.blocks.first().text,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.End,
-                    style = TextStyle(
-                        fontFamily = arabicFont(settings),
-                        fontSize = (21.5f * settings.arabicScale).sp,
-                        lineHeight = (34f * settings.arabicScale).sp,
-                        textDirection = TextDirection.Rtl,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    ),
-                )
-            }
+            InteractiveBookBlock(
+                block = group.blocks.first(),
+                settings = settings,
+                preferArabic = true,
+            )
         }
     }
 }
@@ -587,13 +656,11 @@ private fun TableCard(
                 )
                 Spacer(Modifier.height(7.dp))
                 blocks.forEachIndexed { blockIndex, block ->
-                    tableLines(block.text).forEach { line ->
-                        Text(
-                            styledMixedText(line, settings),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                            style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr),
-                        )
-                    }
+                    InteractiveBookBlock(
+                        block = block,
+                        settings = settings,
+                        preferArabic = false,
+                    )
                     if (blockIndex != blocks.lastIndex) {
                         Spacer(Modifier.height(5.dp))
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
