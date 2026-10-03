@@ -77,6 +77,9 @@ function decodeEntities(s) {
 function htmlText(inner) {
   return decodeEntities(inner.replace(/<br\s*\/?\s*>/gi,'\n').replace(/<[^>]+>/g,' '))
     .replace(/\u00a0/g,' ')
+    .replace(/[\u0080-\u009f\ufffd\u25a1\u25a0]/g,' ')
+    .replace(/[\u200b\ufeff]/g,'')
+    .replace(/^\s*Nbsp;\s*/i,'')
     .replace(/[\t\r ]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n').trim().normalize('NFC');
 }
 function classify(text) {
