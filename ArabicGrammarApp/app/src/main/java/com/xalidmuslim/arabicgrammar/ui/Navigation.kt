@@ -102,8 +102,8 @@ fun ArabicGrammarApp(repository: BookRepository, progress: ProgressStore) {
                 modifier = Modifier.fillMaxSize().padding(padding),
                 transitionSpec = {
                     if (settings.animations) {
-                        (slideInHorizontally(tween(220)) { it / 10 } + fadeIn(tween(220))) togetherWith
-                            (slideOutHorizontally(tween(180)) { -it / 12 } + fadeOut(tween(160)))
+                        (slideInHorizontally(tween(300)) { it / 12 } + fadeIn(tween(280))) togetherWith
+                            (slideOutHorizontally(tween(240)) { -it / 14 } + fadeOut(tween(220)))
                     } else {
                         fadeIn(tween(1)) togetherWith fadeOut(tween(1))
                     }
