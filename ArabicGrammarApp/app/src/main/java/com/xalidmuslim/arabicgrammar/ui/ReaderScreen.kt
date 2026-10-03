@@ -369,7 +369,7 @@ fun ReaderScreen(
                         Text("Арабский шрифт", style = MaterialTheme.typography.titleSmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(
-                                "serif" to "Насх",
+                                "naskh" to "Насх",
                                 "sans" to "Современный",
                                 "system" to "Системный",
                             ).forEach { pair ->
