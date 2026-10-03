@@ -37,6 +37,22 @@ class ProgressStore(context: Context) {
         prefs.getStringSet("study_dates", emptySet())?.toSet() ?: emptySet()
     )
         private set
+    var flashKnown by mutableStateOf(
+        prefs.getStringSet("flash_known", emptySet())?.toSet() ?: emptySet()
+    )
+        private set
+    var flashRepeat by mutableStateOf(
+        prefs.getStringSet("flash_repeat", emptySet())?.toSet() ?: emptySet()
+    )
+        private set
+    var conjugationWrong by mutableStateOf(
+        prefs.getStringSet("conjugation_wrong", emptySet())?.toSet() ?: emptySet()
+    )
+        private set
+    var conjugationAttempts by mutableStateOf(prefs.getInt("conjugation_attempts", 0))
+        private set
+    var conjugationCorrect by mutableStateOf(prefs.getInt("conjugation_correct", 0))
+        private set
     var recentSections by mutableStateOf(loadRecent())
         private set
 
@@ -126,6 +142,41 @@ class ProgressStore(context: Context) {
         }
         return streak
     }
+
+    fun rateFlashCard(cardId: String, known: Boolean) {
+        if (known) {
+            flashKnown = flashKnown + cardId
+            flashRepeat = flashRepeat - cardId
+        } else {
+            flashKnown = flashKnown - cardId
+            flashRepeat = flashRepeat + cardId
+        }
+        prefs.edit()
+            .putStringSet("flash_known", flashKnown)
+            .putStringSet("flash_repeat", flashRepeat)
+            .apply()
+        touchStudy()
+    }
+
+    fun recordConjugation(questionId: String, correct: Boolean) {
+        conjugationAttempts += 1
+        if (correct) {
+            conjugationCorrect += 1
+            conjugationWrong = conjugationWrong - questionId
+        } else {
+            conjugationWrong = conjugationWrong + questionId
+        }
+        prefs.edit()
+            .putInt("conjugation_attempts", conjugationAttempts)
+            .putInt("conjugation_correct", conjugationCorrect)
+            .putStringSet("conjugation_wrong", conjugationWrong)
+            .apply()
+        touchStudy()
+    }
+
+    fun conjugationAccuracy(): Int =
+        if (conjugationAttempts == 0) 0
+        else ((conjugationCorrect * 100f) / conjugationAttempts).toInt()
 
     fun updateSearchQuery(value: String) {
         searchQuery = value

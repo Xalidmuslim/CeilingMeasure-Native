@@ -54,3 +54,22 @@ data class QuizQuestion(
     val correctIndex: Int,
     val arabicHeavy: Boolean,
 )
+
+data class FlashCard(
+    val id: String,
+    val sectionId: String,
+    val sectionTitle: String,
+    val chapter: String,
+    val front: String,
+    val back: String,
+    val arabicFront: Boolean,
+)
+
+data class ConjugationQuestion(
+    val id: String,
+    val sectionId: String,
+    val sectionTitle: String,
+    val personLabel: String,
+    val numberLabel: String,
+    val answer: String,
+)

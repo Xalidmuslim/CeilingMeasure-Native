@@ -37,6 +37,8 @@ sealed interface Screen {
     data class Reader(val sectionId: String) : Screen
     data object Practice : Screen
     data class Quiz(val reviewErrors: Boolean = false) : Screen
+    data class Flashcards(val reviewOnly: Boolean = false) : Screen
+    data class ConjugationTrainer(val reviewOnly: Boolean = false) : Screen
     data object Search : Screen
     data object Settings : Screen
     data object Bookmarks : Screen
@@ -77,7 +79,12 @@ fun ArabicGrammarApp(repository: BookRepository, progress: ProgressStore) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             bottomBar = {
-                if (current !is Screen.Reader && current !is Screen.Quiz) {
+                if (
+                    current !is Screen.Reader &&
+                    current !is Screen.Quiz &&
+                    current !is Screen.Flashcards &&
+                    current !is Screen.ConjugationTrainer
+                ) {
                     AppBottomBar(current, ::topLevel)
                 }
             },
@@ -101,6 +108,18 @@ fun ArabicGrammarApp(repository: BookRepository, progress: ProgressStore) {
                     is Screen.Reader -> ReaderScreen(repository, progress, screen.sectionId, ::navigate, ::back)
                     Screen.Practice -> PracticeScreen(repository, progress, ::navigate)
                     is Screen.Quiz -> QuizScreen(repository, progress, screen.reviewErrors, ::back)
+                    is Screen.Flashcards -> FlashcardsScreen(
+                        repository,
+                        progress,
+                        screen.reviewOnly,
+                        ::back,
+                    )
+                    is Screen.ConjugationTrainer -> ConjugationTrainerScreen(
+                        repository,
+                        progress,
+                        screen.reviewOnly,
+                        ::back,
+                    )
                     Screen.Search -> SearchScreen(repository, progress, ::navigate)
                     Screen.Settings -> SettingsScreen(progress)
                     Screen.Bookmarks -> BookmarksScreen(repository, progress, ::navigate, ::back)

@@ -159,6 +159,108 @@ class BookRepository(context: Context) : AutoCloseable {
         return questions
     }
 
+    fun flashCards(
+        preferredSectionIds: Set<String> = emptySet(),
+        limit: Int = 40,
+    ): List<FlashCard> {
+        val allCore = sections().filter {
+            it.found && (it.chapter == "syntax" || it.chapter == "morphology")
+        }
+        val focus = if (preferredSectionIds.size >= 3) {
+            allCore.filter { preferredSectionIds.contains(it.id) }
+        } else {
+            allCore
+        }
+
+        val cards = mutableListOf<FlashCard>()
+        for (section in focus) {
+            val sectionBlocks = blocks(section.id)
+            val rule = sectionBlocks.firstOrNull { block ->
+                block.type in setOf("text", "mixed") &&
+                    block.text.length in 55..520 &&
+                    !block.text.contains("упражнения", ignoreCase = true)
+            }
+            if (rule != null) {
+                cards += FlashCard(
+                    id = section.id + ":rule:" + rule.index,
+                    sectionId = section.id,
+                    sectionTitle = section.title,
+                    chapter = section.chapter,
+                    front = "Вспомни основное правило темы «" + section.title + "».",
+                    back = rule.text.trim(),
+                    arabicFront = false,
+                )
+            }
+
+            val arabic = sectionBlocks.firstOrNull { block ->
+                block.type == "arabic" && block.text.length in 2..220
+            }
+            if (arabic != null) {
+                cards += FlashCard(
+                    id = section.id + ":arabic:" + arabic.index,
+                    sectionId = section.id,
+                    sectionTitle = section.title,
+                    chapter = section.chapter,
+                    front = arabic.text.trim(),
+                    back = "Этот пример относится к теме: " + section.title,
+                    arabicFront = true,
+                )
+            }
+        }
+        return cards.shuffled().take(limit)
+    }
+
+    fun conjugationQuestions(limit: Int = 60): List<ConjugationQuestion> {
+        val out = mutableListOf<ConjugationQuestion>()
+        val morphology = sections("morphology").filter { it.found }
+
+        for (section in morphology) {
+            val groups = buildReaderGroups(blocks(section.id))
+            for (group in groups) {
+                if (group.kind != ReaderKind.TABLE) continue
+
+                fun lines(text: String): List<String> =
+                    text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+
+                val labels = group.blocks.firstOrNull()?.let { lines(it.text) }.orEmpty()
+                val valueColumns = group.blocks.drop(1).take(3).map { block ->
+                    lines(block.text).filterNot { it.lowercase().contains("число") }
+                }
+                val valid = labels.size in 4..6 &&
+                    labels.any { it.lowercase().contains("лицо") } &&
+                    valueColumns.size == 3 &&
+                    valueColumns.all { it.size >= labels.size }
+                if (!valid) continue
+
+                val numberLabels = listOf(
+                    "единственное число",
+                    "двойственное число",
+                    "множественное число",
+                )
+
+                labels.forEachIndexed { row, rawLabel ->
+                    val label = rawLabel
+                        .replace("жен.рода", "жен. рода")
+                        .replace("муж.рода", "муж. рода")
+                    valueColumns.forEachIndexed { column, values ->
+                        val answer = values.getOrNull(row).orEmpty().trim()
+                        if (answer.isBlank()) return@forEachIndexed
+                        out += ConjugationQuestion(
+                            id = section.id + ":table:" +
+                                group.blocks.first().index + ":" + row + ":" + column,
+                            sectionId = section.id,
+                            sectionTitle = section.title,
+                            personLabel = label,
+                            numberLabel = numberLabels[column],
+                            answer = answer,
+                        )
+                    }
+                }
+            }
+        }
+        return out.shuffled().take(limit)
+    }
+
     private fun querySections(sql: String, args: Array<String>?): List<BookSection> {
         val out = mutableListOf<BookSection>()
         database.rawQuery(sql, args).use { cursor ->
