@@ -13,7 +13,7 @@ data class ReaderSettings(
     val lineHeight: Float = 1.55f,
     val paragraphGap: Float = 12f,
     val fontChoice: String = "sans",
-    val arabicFontChoice: String = "serif",
+    val arabicFontChoice: String = "naskh",
     val animations: Boolean = true,
 )
 
@@ -224,7 +224,7 @@ class ProgressStore(context: Context) {
         lineHeight = prefs.getFloat("line_height", 1.55f),
         paragraphGap = prefs.getFloat("paragraph_gap", 12f),
         fontChoice = prefs.getString("font_choice", "sans") ?: "sans",
-        arabicFontChoice = prefs.getString("arabic_font_choice", "serif") ?: "serif",
+        arabicFontChoice = prefs.getString("arabic_font_choice", "naskh") ?: "naskh",
         animations = prefs.getBoolean("animations", true),
     )
 
