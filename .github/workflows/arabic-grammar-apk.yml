@@ -1,0 +1,79 @@
+name: Arabic Grammar APK
+
+on:
+  push:
+    branches:
+      - feature/arabic-grammar-app-2026-10-03
+    paths:
+      - 'ArabicGrammarApp/**'
+      - '.github/workflows/arabic-grammar-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch and validate full Unicode book
+        working-directory: ArabicGrammarApp
+        run: node scripts/fetch-book.mjs
+
+      - name: Preserve generated book snapshot
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ArabicGrammarApp/app/src/main/assets/book/content.json
+          if ! git diff --cached --quiet; then
+            git commit -m "ArabicGrammar: refresh verified Unicode book content"
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        working-directory: ArabicGrammarApp
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify APK
+        run: |
+          test -f ArabicGrammarApp/app/build/outputs/apk/debug/app-debug.apk
+          ls -lh ArabicGrammarApp/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: arabic-grammar-debug-apk
+          path: ArabicGrammarApp/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload content audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: arabic-grammar-content-json
+          path: ArabicGrammarApp/app/src/main/assets/book/content.json
+          if-no-files-found: error
+          retention-days: 30
