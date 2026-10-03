@@ -64,7 +64,7 @@ fun ReaderScreen(
     }
 
     LaunchedEffect(section.id) {
-        progress.setLastSection(section.id)
+        progress.updateLastSection(section.id)
     }
 
     Scaffold(
