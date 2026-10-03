@@ -8,7 +8,7 @@
 
   const defaultState = {
     lastSection:'s1', completed:[], bookmarks:[], notes:{}, exerciseDone:[],
-    settings:{theme:'light',font:1,arabic:1.08,line:1.7,gap:1,animations:true}
+    settings:{theme:'light',font:1,arabic:1.08,line:1.7,gap:1,fontFamily:'system',arabicFamily:'naskh',animations:true}
   };
   let state = loadState();
 
@@ -20,7 +20,12 @@
   }
   function save(){ localStorage.setItem(KEY,JSON.stringify(state)); applySettings(); }
   function applySettings(){
-    document.documentElement.dataset.theme=state.settings.theme==='dark'?'dark':'light';
+    const dark = state.settings.theme==='dark' || (state.settings.theme==='auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme=dark?'dark':'light';
+    const bodyFonts={system:'system-ui,-apple-system,"Noto Sans",sans-serif',serif:'Georgia,"Times New Roman",serif',compact:'"Arial Narrow",Arial,sans-serif'};
+    const arabicFonts={naskh:'"Noto Naskh Arabic","Noto Sans Arabic",serif',kufi:'"Noto Kufi Arabic","Noto Sans Arabic",sans-serif',system:'serif'};
+    document.documentElement.style.setProperty('--body-font',bodyFonts[state.settings.fontFamily]||bodyFonts.system);
+    document.documentElement.style.setProperty('--arabic-font',arabicFonts[state.settings.arabicFamily]||arabicFonts.naskh);
     document.documentElement.style.setProperty('--fs',state.settings.font);
     document.documentElement.style.setProperty('--afs',state.settings.arabic);
     document.documentElement.style.setProperty('--lh',state.settings.line);
@@ -156,8 +161,10 @@
     const x=state.settings;
     return shell(`
       <div class="top"><div><div class="kicker">Под себя</div><h1>Настройки</h1></div></div>
-      <div class="setting"><label><span>Тема</span></label><div class="themeBtns"><button data-theme="light" class="${x.theme==='light'?'active':''}">День</button><button data-theme="dark" class="${x.theme==='dark'?'active':''}">Ночь</button><button data-theme="light">Светлая</button></div></div>
+      <div class="setting"><label><span>Тема</span></label><div class="themeBtns"><button data-theme="light" class="${x.theme==='light'?'active':''}">День</button><button data-theme="dark" class="${x.theme==='dark'?'active':''}">Ночь</button><button data-theme="auto" class="${x.theme==='auto'?'active':''}">Система</button></div></div>
+      <div class="setting"><label><span>Шрифт русского текста</span></label><div class="choiceBtns"><button data-font-family="system" class="${x.fontFamily==='system'?'active':''}">Системный</button><button data-font-family="serif" class="${x.fontFamily==='serif'?'active':''}">Книжный</button><button data-font-family="compact" class="${x.fontFamily==='compact'?'active':''}">Компактный</button></div></div>
       <div class="setting"><label><span>Размер русского текста</span><b>${Math.round(x.font*100)}%</b></label><input type="range" min="0.85" max="1.35" step="0.05" value="${x.font}" data-setting="font"></div>
+      <div class="setting"><label><span>Шрифт арабского текста</span></label><div class="choiceBtns"><button data-arabic-family="naskh" class="${x.arabicFamily==='naskh'?'active':''}">Naskh</button><button data-arabic-family="kufi" class="${x.arabicFamily==='kufi'?'active':''}">Kufi</button><button data-arabic-family="system" class="${x.arabicFamily==='system'?'active':''}">Системный</button></div></div>
       <div class="setting"><label><span>Размер арабского текста</span><b>${Math.round(x.arabic*100)}%</b></label><div class="block arabic" style="padding:8px 0">النَّحْوُ وَالصَّرْفُ</div><input type="range" min="0.9" max="1.5" step="0.05" value="${x.arabic}" data-setting="arabic"></div>
       <div class="setting"><label><span>Межстрочный интервал</span><b>${x.line}</b></label><input type="range" min="1.35" max="2.1" step="0.05" value="${x.line}" data-setting="line"></div>
       <div class="setting"><label><span>Отступы между блоками</span><b>${x.gap}</b></label><input type="range" min="0.5" max="1.8" step="0.1" value="${x.gap}" data-setting="gap"></div>
@@ -192,6 +199,8 @@
     const si=document.getElementById('searchInput'); if(si){si.oninput=e=>doSearch(e.target.value); setTimeout(()=>si.focus(),80)}
     document.querySelectorAll('[data-practice]').forEach(el=>el.onclick=()=>{const id=el.dataset.practice;if(!state.exerciseDone.includes(id))state.exerciseDone.push(id);save();goto('reader',{id});});
     document.querySelectorAll('[data-theme]').forEach(el=>el.onclick=()=>{state.settings.theme=el.dataset.theme;save();render();});
+    document.querySelectorAll('[data-font-family]').forEach(el=>el.onclick=()=>{state.settings.fontFamily=el.dataset.fontFamily;save();render();});
+    document.querySelectorAll('[data-arabic-family]').forEach(el=>el.onclick=()=>{state.settings.arabicFamily=el.dataset.arabicFamily;save();render();});
     document.querySelectorAll('[data-setting]').forEach(el=>el.oninput=()=>{state.settings[el.dataset.setting]=Number(el.value);save();render();});
   }
 
