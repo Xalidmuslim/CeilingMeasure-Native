@@ -134,10 +134,11 @@ fun FlashcardsScreen(
                     Spacer(Modifier.height(18.dp))
 
                     AnimatedContent(
-                        targetState = revealed,
+                        targetState = card.id to revealed,
                         transitionSpec = { fadeIn() togetherWith fadeOut() },
                         label = "flash_reveal",
-                    ) { showAnswer ->
+                    ) { state ->
+                        val showAnswer = state.second
                         if (showAnswer) {
                             Text(
                                 styledMixedText(card.back, progress.settings),
