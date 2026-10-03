@@ -4,6 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Launcher: selected 3D book icon
 android {
     namespace = "com.xalidmuslim.arabicgrammar"
     compileSdk = 35
