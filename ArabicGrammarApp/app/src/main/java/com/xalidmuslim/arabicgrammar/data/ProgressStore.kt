@@ -45,7 +45,7 @@ class ProgressStore(context: Context) {
         prefs.edit().putStringSet("exercise_done", exerciseDone).apply()
     }
 
-    fun setLastSection(id: String) {
+    fun updateLastSection(id: String) {
         lastSection = id
         prefs.edit().putString("last_section", id).apply()
     }
