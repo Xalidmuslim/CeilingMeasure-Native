@@ -34,7 +34,7 @@ fun SearchScreen(
     var loading by remember { mutableStateOf(false) }
 
     LaunchedEffect(query) {
-        progress.setSearchQuery(query)
+        progress.updateSearchQuery(query)
         val text = query.trim()
         if (text.length < 2) {
             results = emptyList()
