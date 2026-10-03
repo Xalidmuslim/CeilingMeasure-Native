@@ -509,7 +509,7 @@ private fun ParagraphCard(
             if (first && !group.exercise) {
                 Text(
                     "Объяснение",
-                    color = MaterialTheme.colorScheme.secondary,
+                    color = CardHeadlineBrown,
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.labelLarge,
                 )
@@ -588,7 +588,7 @@ private fun TableCard(
             if (conjugation) {
                 Text(
                     "Спряжение",
-                    color = MaterialTheme.colorScheme.secondary,
+                    color = CardHeadlineBrown,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
