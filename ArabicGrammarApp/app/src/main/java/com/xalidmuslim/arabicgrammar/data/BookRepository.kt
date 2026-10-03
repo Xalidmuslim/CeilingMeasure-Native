@@ -116,6 +116,75 @@ class BookRepository(context: Context) : AutoCloseable {
         return out
     }
 
+    fun proverbs(): List<ProverbEntry> {
+        val arabicChar = Regex("[\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF]")
+        val out = mutableListOf<ProverbEntry>()
+
+        for (section in sections().filter { it.found }) {
+            val sectionBlocks = blocks(section.id)
+
+            sectionBlocks.forEachIndexed { cueIndex, cue ->
+                if (!cue.text.contains("пословиц", ignoreCase = true)) {
+                    return@forEachIndexed
+                }
+
+                var arabic = ""
+                var translation = ""
+                var arabicIndex = -1
+
+                for (i in (cueIndex + 1)..minOf(cueIndex + 4, sectionBlocks.lastIndex)) {
+                    val block = sectionBlocks[i]
+                    if (!arabicChar.containsMatchIn(block.text)) continue
+
+                    arabicIndex = i
+                    val lines = block.text
+                        .lineSequence()
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .toList()
+
+                    val quotedAt = block.text.indexOf('«')
+                    if (quotedAt >= 0) {
+                        arabic = block.text.substring(0, quotedAt).trim()
+                        translation = block.text.substring(quotedAt).trim()
+                    } else {
+                        arabic = lines.firstOrNull { arabicChar.containsMatchIn(it) }.orEmpty()
+                    }
+                    break
+                }
+
+                if (arabic.isBlank() || arabicIndex < 0) {
+                    return@forEachIndexed
+                }
+
+                if (translation.isBlank()) {
+                    val parts = mutableListOf<String>()
+                    for (i in (arabicIndex + 1)..minOf(arabicIndex + 3, sectionBlocks.lastIndex)) {
+                        val text = sectionBlocks[i].text.trim()
+                        if (text.isBlank()) continue
+                        if (parts.isEmpty() && !text.contains('«')) break
+                        parts += text
+                        if (text.contains('»')) break
+                    }
+                    translation = parts.joinToString(" ").replace(Regex("\\s+"), " ").trim()
+                }
+
+                if (translation.isNotBlank()) {
+                    out += ProverbEntry(
+                        id = section.id + ":proverb:" + cue.index,
+                        sectionId = section.id,
+                        sectionTitle = section.title,
+                        chapter = section.chapter,
+                        arabic = arabic.replace(Regex("\\s+"), " ").trim(),
+                        translation = translation,
+                    )
+                }
+            }
+        }
+
+        return out.distinctBy { it.arabic }
+    }
+
     fun quizQuestions(
         preferredSectionIds: Set<String> = emptySet(),
         limit: Int = 10,
