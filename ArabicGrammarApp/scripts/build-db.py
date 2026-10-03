@@ -30,9 +30,12 @@ def normalize_text(value):
     text = re.sub(r"(?<=[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff])(?=[А-Яа-яЁё])", " ", text)
     text = re.sub(r"(?<=[А-Яа-яЁё])(?=[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff])", " ", text)
     text = re.sub(r"(?<=\))(?=[А-Яа-яЁё\u0600-\u06ff])", " ", text)
-    text = re.sub(r"(?<=:)(?=[^\s\n])", " ", text)
+    text = re.sub(r"(?<=[,;:])(?=[^\s\n])", " ", text)
+    text = re.sub(r"(?<=[\u0600-\u06ff])(?=«)", " ", text)
+    text = re.sub(r"(?<=\d)(?=лицо\b)", " ", text, flags=re.I)
     text = re.sub(r"(\d+)\)\s*", r"\1) ", text)
     text = re.sub(r"(^|\n)\.(?=[А-Яа-яЁё])", r"\1", text)
+    text = re.sub(r"(?<![\u0600-\u06ff])[\u064b-\u065f\u0670](?![\u0600-\u06ff])", "", text)
     text = re.sub(r" {2,}", " ", text)
 
     return text.strip()
