@@ -67,15 +67,15 @@ final class NativeVisualTokens {
     static final int HISTORY_BOTTOM_DP = 8;
     // Golden v184 computed rects at 360/393/412 CSS px:
     // outer nav 266x58, each button 84x50, padding/gap 3, bottom 8.
-    static final int HISTORY_BUTTON_WIDTH_DP = 84;
-    static final int HISTORY_BUTTON_HEIGHT_DP = 50;
-    static final int HISTORY_GAP_DP = 3;
+    // Working-redesign branch: keep the same three actions but reduce visual weight.
+    static final int HISTORY_BUTTON_WIDTH_DP = 76;
+    static final int HISTORY_BUTTON_HEIGHT_DP = 48;
+    static final int HISTORY_GAP_DP = 4;
     static final int HISTORY_PADDING_DP = 3;
-    static final int HISTORY_WIDTH_DP = 266;
-    static final int HISTORY_HEIGHT_DP = 58;
-    // Golden v184 computed at 360/393/412 CSS px: #appScroll and .app
-    // both resolve to padding-bottom: 104px.
-    static final int SCROLL_NAV_RESERVE_DP = 104;
+    static final int HISTORY_WIDTH_DP = 242;
+    static final int HISTORY_HEIGHT_DP = 54;
+    // Reserve enough room for navigation plus system safe-area without covering content.
+    static final int SCROLL_NAV_RESERVE_DP = 92;
 
     static final long OVERLAY_MOTION_MS = 115L;
     static final long COLLAPSE_MOTION_MS = 145L;
@@ -96,11 +96,8 @@ final class NativeVisualTokens {
     }
 
     static GradientDrawable primaryButton(float radiusPx, int strokePx) {
-        GradientDrawable d = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.rgb(55, 153, 200), Color.rgb(44, 137, 183)});
-        d.setCornerRadius(radiusPx);
-        d.setStroke(strokePx, ACCENT);
+        GradientDrawable d = solid(ACCENT, radiusPx);
+        if (strokePx > 0) d.setStroke(strokePx, ACCENT_STRONG);
         return d;
     }
 
@@ -118,7 +115,8 @@ final class NativeVisualTokens {
     }
 
     static Drawable workspaceBackground() {
-        return new ShellGradientDrawable(false);
+        // Flat workspace surface: the drawing and controls carry hierarchy, not decoration.
+        return solid(APP_BG, 0f);
     }
 
     private static final class ShellGradientDrawable extends Drawable {
