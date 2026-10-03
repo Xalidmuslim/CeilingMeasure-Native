@@ -201,7 +201,7 @@ fun SettingsCard(title: String, content: @Composable () -> Unit) {
         shape = RoundedCornerShape(20.dp),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(title, style = MaterialTheme.typography.titleSmall, color = CardHeadlineBrown)
             Spacer(Modifier.height(10.dp))
             content()
         }
