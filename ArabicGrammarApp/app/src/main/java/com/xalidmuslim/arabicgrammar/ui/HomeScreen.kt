@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -32,6 +33,7 @@ fun HomeScreen(
     val meta = remember { repository.meta() }
     val syntax = remember { repository.sections("syntax") }
     val morphology = remember { repository.sections("morphology") }
+    val proverbCount = remember { repository.proverbs().size }
     val current = remember(progress.lastSection) {
         repository.section(progress.lastSection) ?: syntax.firstOrNull()
     }
@@ -205,6 +207,13 @@ fun HomeScreen(
                 "Поиск по книге",
                 "Русский и арабский текст",
             ) { navigate(Screen.Search) }
+        }
+        item {
+            ActionCard(
+                Icons.Outlined.FormatQuote,
+                "Пословицы",
+                proverbCount.toString() + " пословиц из всей книги",
+            ) { navigate(Screen.Proverbs) }
         }
         item {
             ActionCard(
