@@ -13,6 +13,7 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NoteAlt
 import androidx.compose.material.icons.outlined.Quiz
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,6 +41,7 @@ private enum class ReaderSheet {
     EXERCISES,
     NOTE,
     SOURCE,
+    SETTINGS,
 }
 
 private val arabicRun = Regex(
@@ -105,65 +107,75 @@ fun ReaderScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
+            Column {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(
+                                chapterName(section.chapter) + " · Тема " + section.number,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                section.title,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = back) {
+                            Icon(Icons.Outlined.ArrowBack, contentDescription = "Назад")
+                        }
+                    },
+                    actions = {
                         Text(
-                            chapterName(section.chapter) + " · Тема " + section.number,
-                            style = MaterialTheme.typography.bodySmall,
+                            ((readingProgress * 100).toInt()).toString() + "%",
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(
-                            section.title,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = back) {
-                        Icon(Icons.Outlined.ArrowBack, contentDescription = "Назад")
-                    }
-                },
-                actions = {
-                    Text(
-                        ((readingProgress * 100).toInt()).toString() + "%",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    IconButton(onClick = { progress.toggleBookmark(section.id) }) {
-                        Icon(
-                            if (progress.bookmarks.contains(section.id)) Icons.Default.Bookmark
-                            else Icons.Outlined.BookmarkBorder,
-                            contentDescription = "Закладка",
-                        )
-                    }
-                },
-            )
-        },
-        bottomBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 4.dp,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .height(62.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                        IconButton(onClick = { progress.toggleBookmark(section.id) }) {
+                            Icon(
+                                if (progress.bookmarks.contains(section.id)) Icons.Default.Bookmark
+                                else Icons.Outlined.BookmarkBorder,
+                                contentDescription = "Закладка",
+                            )
+                        }
+                    },
+                )
+
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 2.dp,
                 ) {
-                    ReaderAction("Упражнения", Icons.Outlined.Quiz, Modifier.weight(1f)) {
-                        sheet = ReaderSheet.EXERCISES
-                    }
-                    ReaderAction("Заметка", Icons.Outlined.NoteAlt, Modifier.weight(1f)) {
-                        sheet = ReaderSheet.NOTE
-                    }
-                    ReaderAction("О разделе", Icons.Outlined.Info, Modifier.weight(1f)) {
-                        sheet = ReaderSheet.SOURCE
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ReaderAction("Упр.", Icons.Outlined.Quiz, Modifier.weight(1f)) {
+                            sheet = ReaderSheet.EXERCISES
+                        }
+                        ReaderAction("Заметка", Icons.Outlined.NoteAlt, Modifier.weight(1f)) {
+                            sheet = ReaderSheet.NOTE
+                        }
+                        ReaderAction("О теме", Icons.Outlined.Info, Modifier.weight(1f)) {
+                            sheet = ReaderSheet.SOURCE
+                        }
+                        ReaderAction("Настр.", Icons.Outlined.Settings, Modifier.weight(1f)) {
+                            sheet = ReaderSheet.SETTINGS
+                        }
                     }
                 }
+
+                LinearProgressIndicator(
+                    progress = readingProgress,
+                    modifier = Modifier.fillMaxWidth().height(2.dp),
+                    color = MaterialTheme.colorScheme.secondary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
             }
         },
     ) { padding ->
@@ -204,15 +216,6 @@ fun ReaderScreen(
 
             item {
                 LessonDiagram(section)
-            }
-
-            item {
-                LinearProgressIndicator(
-                    progress = readingProgress,
-                    modifier = Modifier.fillMaxWidth().height(2.dp),
-                    color = MaterialTheme.colorScheme.secondary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                )
             }
 
             itemsIndexed(
@@ -337,6 +340,115 @@ fun ReaderScreen(
                                 "рендерятся отдельными нативными компонентами.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+
+                    ReaderSheet.SETTINGS -> {
+                        Text("Настройки чтения", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(12.dp))
+
+                        Text("Тема", style = MaterialTheme.typography.titleSmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                "light" to "День",
+                                "dark" to "Ночь",
+                                "system" to "Система",
+                            ).forEach { pair ->
+                                FilterChip(
+                                    selected = settings.theme == pair.first,
+                                    onClick = {
+                                        progress.updateSettings(
+                                            settings.copy(theme = pair.first)
+                                        )
+                                    },
+                                    label = { Text(pair.second) },
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "Русский текст · " +
+                                (settings.textScale * 100).toInt() + "%",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Slider(
+                            value = settings.textScale,
+                            onValueChange = {
+                                progress.updateSettings(settings.copy(textScale = it))
+                            },
+                            valueRange = 0.85f..1.35f,
+                        )
+
+                        Text(
+                            "Арабский текст · " +
+                                (settings.arabicScale * 100).toInt() + "%",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Slider(
+                            value = settings.arabicScale,
+                            onValueChange = {
+                                progress.updateSettings(settings.copy(arabicScale = it))
+                            },
+                            valueRange = 0.9f..1.5f,
+                        )
+
+                        Text("Межстрочный интервал", style = MaterialTheme.typography.titleSmall)
+                        Slider(
+                            value = settings.lineHeight,
+                            onValueChange = {
+                                progress.updateSettings(settings.copy(lineHeight = it))
+                            },
+                            valueRange = 1.25f..2f,
+                        )
+
+                        Text("Отступы между блоками", style = MaterialTheme.typography.titleSmall)
+                        Slider(
+                            value = settings.paragraphGap,
+                            onValueChange = {
+                                progress.updateSettings(settings.copy(paragraphGap = it))
+                            },
+                            valueRange = 6f..24f,
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+                        Text("Русский шрифт", style = MaterialTheme.typography.titleSmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                "sans" to "Обычный",
+                                "serif" to "Книжный",
+                                "mono" to "Моно",
+                            ).forEach { pair ->
+                                FilterChip(
+                                    selected = settings.fontChoice == pair.first,
+                                    onClick = {
+                                        progress.updateSettings(
+                                            settings.copy(fontChoice = pair.first)
+                                        )
+                                    },
+                                    label = { Text(pair.second) },
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+                        Text("Арабский шрифт", style = MaterialTheme.typography.titleSmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                "serif" to "Книжный",
+                                "sans" to "Sans",
+                                "mono" to "Моно",
+                            ).forEach { pair ->
+                                FilterChip(
+                                    selected = settings.arabicFontChoice == pair.first,
+                                    onClick = {
+                                        progress.updateSettings(
+                                            settings.copy(arabicFontChoice = pair.first)
+                                        )
+                                    },
+                                    label = { Text(pair.second) },
+                                )
+                            }
+                        }
                     }
 
                     null -> Unit
