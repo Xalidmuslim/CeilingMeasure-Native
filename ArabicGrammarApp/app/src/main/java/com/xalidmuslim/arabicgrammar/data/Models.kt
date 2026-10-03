@@ -73,3 +73,12 @@ data class ConjugationQuestion(
     val numberLabel: String,
     val answer: String,
 )
+
+data class ProverbEntry(
+    val id: String,
+    val sectionId: String,
+    val sectionTitle: String,
+    val chapter: String,
+    val arabic: String,
+    val translation: String,
+)
