@@ -140,10 +140,10 @@ fun FlashcardsScreen(
                     ) { showAnswer ->
                         if (showAnswer) {
                             Text(
-                                card.back,
+                                styledMixedText(card.back, progress.settings),
                                 modifier = Modifier.fillMaxWidth(),
                                 style = MaterialTheme.typography.bodyLarge.copy(
-                                    textDirection = TextDirection.ContentOrLtr,
+                                    textDirection = TextDirection.Ltr,
                                 ),
                             )
                         } else if (card.arabicFront) {
