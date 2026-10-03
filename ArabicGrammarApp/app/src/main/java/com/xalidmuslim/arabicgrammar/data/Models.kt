@@ -43,3 +43,14 @@ enum class ReaderKind {
     ANSWER_LINE,
     EXERCISE_TITLE,
 }
+
+data class QuizQuestion(
+    val id: String,
+    val sectionId: String,
+    val sectionTitle: String,
+    val chapter: String,
+    val prompt: String,
+    val options: List<String>,
+    val correctIndex: Int,
+    val arabicHeavy: Boolean,
+)

@@ -36,6 +36,7 @@ sealed interface Screen {
     data class Library(val chapter: String? = null) : Screen
     data class Reader(val sectionId: String) : Screen
     data object Practice : Screen
+    data class Quiz(val reviewErrors: Boolean = false) : Screen
     data object Search : Screen
     data object Settings : Screen
     data object Bookmarks : Screen
@@ -76,7 +77,7 @@ fun ArabicGrammarApp(repository: BookRepository, progress: ProgressStore) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             bottomBar = {
-                if (current !is Screen.Reader) {
+                if (current !is Screen.Reader && current !is Screen.Quiz) {
                     AppBottomBar(current, ::topLevel)
                 }
             },
@@ -97,9 +98,10 @@ fun ArabicGrammarApp(repository: BookRepository, progress: ProgressStore) {
                 when (screen) {
                     Screen.Home -> HomeScreen(repository, progress, ::navigate)
                     is Screen.Library -> LibraryScreen(repository, progress, screen.chapter, ::navigate, ::back)
-                    is Screen.Reader -> ReaderScreen(repository, progress, screen.sectionId, ::back)
+                    is Screen.Reader -> ReaderScreen(repository, progress, screen.sectionId, ::navigate, ::back)
                     Screen.Practice -> PracticeScreen(repository, progress, ::navigate)
-                    Screen.Search -> SearchScreen(repository, ::navigate)
+                    is Screen.Quiz -> QuizScreen(repository, progress, screen.reviewErrors, ::back)
+                    Screen.Search -> SearchScreen(repository, progress, ::navigate)
                     Screen.Settings -> SettingsScreen(progress)
                     Screen.Bookmarks -> BookmarksScreen(repository, progress, ::navigate, ::back)
                 }

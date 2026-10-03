@@ -64,6 +64,14 @@ class BookRepository(context: Context) : AutoCloseable {
         }
     }
 
+    fun adjacent(sectionId: String): Pair<BookSection?, BookSection?> {
+        val current = section(sectionId) ?: return null to null
+        val list = sections(current.chapter).filter { it.found }
+        val index = list.indexOfFirst { it.id == sectionId }
+        if (index < 0) return null to null
+        return list.getOrNull(index - 1) to list.getOrNull(index + 1)
+    }
+
     fun blocks(sectionId: String): List<BookBlock> {
         val out = mutableListOf<BookBlock>()
         database.rawQuery(
@@ -106,6 +114,49 @@ class BookRepository(context: Context) : AutoCloseable {
             }
         }
         return out
+    }
+
+    fun quizQuestions(
+        preferredSectionIds: Set<String> = emptySet(),
+        limit: Int = 10,
+    ): List<QuizQuestion> {
+        val allCore = sections().filter {
+            it.found && (it.chapter == "syntax" || it.chapter == "morphology")
+        }
+        val focus = if (preferredSectionIds.size >= 4) {
+            allCore.filter { preferredSectionIds.contains(it.id) }
+        } else {
+            allCore
+        }
+
+        val questions = mutableListOf<QuizQuestion>()
+        for (section in focus.shuffled()) {
+            if (questions.size >= limit) break
+            val candidate = blocks(section.id).firstOrNull { block ->
+                block.type in setOf("text", "mixed", "arabic") &&
+                    block.text.length in 70..380 &&
+                    block.text.count { it == '\n' } <= 2 &&
+                    !block.text.contains("упражнения", ignoreCase = true)
+            } ?: continue
+
+            val distractors = allCore.filter {
+                it.chapter == section.chapter && it.id != section.id
+            }.shuffled().take(3)
+            if (distractors.size < 3) continue
+
+            val optionTitles = (distractors.map { it.title } + section.title).shuffled()
+            questions += QuizQuestion(
+                id = section.id + ":" + candidate.index,
+                sectionId = section.id,
+                sectionTitle = section.title,
+                chapter = section.chapter,
+                prompt = candidate.text.trim(),
+                options = optionTitles,
+                correctIndex = optionTitles.indexOf(section.title),
+                arabicHeavy = candidate.type == "arabic",
+            )
+        }
+        return questions
     }
 
     private fun querySections(sql: String, args: Array<String>?): List<BookSection> {
