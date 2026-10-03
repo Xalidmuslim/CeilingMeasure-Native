@@ -91,6 +91,7 @@ fun HomeScreen(
                         Text(
                             current?.title ?: "Части речи",
                             style = MaterialTheme.typography.titleLarge,
+                            color = CardHeadlineBrown,
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
@@ -157,7 +158,7 @@ fun HomeScreen(
                             )
                             Spacer(Modifier.width(10.dp))
                             Column {
-                                Text(section.title, style = MaterialTheme.typography.titleSmall)
+                                Text(section.title, style = MaterialTheme.typography.titleSmall, color = CardHeadlineBrown)
                                 Text(
                                     chapterName(section.chapter) + " · Тема " + section.number,
                                     style = MaterialTheme.typography.bodySmall,
