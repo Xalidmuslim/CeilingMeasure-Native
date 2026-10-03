@@ -76,13 +76,14 @@ function decodeEntities(s) {
 }
 function htmlText(inner) {
   return decodeEntities(inner.replace(/<br\s*\/?\s*>/gi,'\n').replace(/<[^>]+>/g,' '))
+    .replace(/\u00a0/g,' ')
     .replace(/[\t\r ]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n').trim().normalize('NFC');
 }
 function classify(text) {
   const a=(text.match(/[\u0600-\u06ff]/g)||[]).length, r=(text.match(/[А-Яа-яЁё]/g)||[]).length;
   if (/^упражнения для закрепления$/i.test(text.trim())) return 'exercise-heading';
-  if (a>0 && a>=r*1.2) return 'arabic';
   if (a>0 && r>0) return 'mixed';
+  if (a>0) return 'arabic';
   return 'text';
 }
 function extractBlocks(html, sourceId) {

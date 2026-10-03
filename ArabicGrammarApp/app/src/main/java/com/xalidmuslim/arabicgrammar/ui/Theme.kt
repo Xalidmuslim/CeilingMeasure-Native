@@ -60,14 +60,14 @@ fun ArabicGrammarTheme(
     val base = russianFont(settings)
     val scale = settings.textScale
     val typography = MaterialTheme.typography.copy(
-        bodyLarge = TextStyle(fontFamily = base, fontSize = (17f * scale).sp, lineHeight = (26f * scale).sp),
-        bodyMedium = TextStyle(fontFamily = base, fontSize = (15f * scale).sp, lineHeight = (23f * scale).sp),
-        bodySmall = TextStyle(fontFamily = base, fontSize = (13f * scale).sp, lineHeight = (19f * scale).sp),
-        titleLarge = TextStyle(fontFamily = FontFamily.Serif, fontSize = (26f * scale).sp, lineHeight = (30f * scale).sp),
-        titleMedium = TextStyle(fontFamily = FontFamily.Serif, fontSize = (21f * scale).sp, lineHeight = (25f * scale).sp),
-        titleSmall = TextStyle(fontFamily = base, fontSize = (16f * scale).sp, lineHeight = (21f * scale).sp),
-        labelLarge = TextStyle(fontFamily = base, fontSize = (14f * scale).sp),
-        labelMedium = TextStyle(fontFamily = base, fontSize = (12f * scale).sp),
+        bodyLarge = TextStyle(fontFamily = base, fontSize = (15.5f * scale).sp, lineHeight = (22.5f * scale).sp),
+        bodyMedium = TextStyle(fontFamily = base, fontSize = (14f * scale).sp, lineHeight = (20.5f * scale).sp),
+        bodySmall = TextStyle(fontFamily = base, fontSize = (12.5f * scale).sp, lineHeight = (18f * scale).sp),
+        titleLarge = TextStyle(fontFamily = FontFamily.Serif, fontSize = (24f * scale).sp, lineHeight = (28f * scale).sp),
+        titleMedium = TextStyle(fontFamily = FontFamily.Serif, fontSize = (19.5f * scale).sp, lineHeight = (23f * scale).sp),
+        titleSmall = TextStyle(fontFamily = base, fontSize = (15f * scale).sp, lineHeight = (19.5f * scale).sp),
+        labelLarge = TextStyle(fontFamily = base, fontSize = (13f * scale).sp),
+        labelMedium = TextStyle(fontFamily = base, fontSize = (11.5f * scale).sp),
     )
     MaterialTheme(
         colorScheme = if (dark) Dark else Light,

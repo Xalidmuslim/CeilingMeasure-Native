@@ -77,7 +77,7 @@ fun HomeScreen(
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            current?.let { chapterName(it.chapter) + " · § " + it.number } ?: "Глава 1",
+                            current?.let { chapterName(it.chapter) + " · Тема " + it.number } ?: "Глава 1",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium,
                         )

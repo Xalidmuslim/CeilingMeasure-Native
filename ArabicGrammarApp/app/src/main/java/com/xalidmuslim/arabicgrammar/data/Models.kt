@@ -39,5 +39,7 @@ data class ReaderGroup(
 enum class ReaderKind {
     PARAGRAPH,
     ARABIC,
+    TABLE,
+    ANSWER_LINE,
     EXERCISE_TITLE,
 }

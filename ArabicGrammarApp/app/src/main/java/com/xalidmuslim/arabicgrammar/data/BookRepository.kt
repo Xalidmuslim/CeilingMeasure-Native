@@ -133,33 +133,53 @@ class BookRepository(context: Context) : AutoCloseable {
 fun buildReaderGroups(blocks: List<BookBlock>): List<ReaderGroup> {
     val result = mutableListOf<ReaderGroup>()
     val paragraphBuffer = mutableListOf<BookBlock>()
+    val tableBuffer = mutableListOf<BookBlock>()
     var exercise = false
 
     fun flushParagraphs() {
         if (paragraphBuffer.isEmpty()) return
-        paragraphBuffer.chunked(3).forEach { chunk ->
+        paragraphBuffer.chunked(2).forEach { chunk ->
             result += ReaderGroup(ReaderKind.PARAGRAPH, chunk.toList(), exercise)
         }
         paragraphBuffer.clear()
+    }
+
+    fun flushTable() {
+        if (tableBuffer.isEmpty()) return
+        result += ReaderGroup(ReaderKind.TABLE, tableBuffer.toList(), exercise)
+        tableBuffer.clear()
     }
 
     for (block in blocks) {
         when (block.type) {
             "exercise-heading" -> {
                 flushParagraphs()
+                flushTable()
                 exercise = true
                 result += ReaderGroup(ReaderKind.EXERCISE_TITLE, listOf(block), true)
             }
+            "table" -> {
+                flushParagraphs()
+                tableBuffer += block
+            }
+            "answer-line" -> {
+                flushParagraphs()
+                flushTable()
+                result += ReaderGroup(ReaderKind.ANSWER_LINE, listOf(block), exercise)
+            }
             "arabic" -> {
                 flushParagraphs()
+                flushTable()
                 result += ReaderGroup(ReaderKind.ARABIC, listOf(block), exercise)
             }
             else -> {
+                flushTable()
                 paragraphBuffer += block
-                if (paragraphBuffer.size >= 3) flushParagraphs()
+                if (paragraphBuffer.size >= 2) flushParagraphs()
             }
         }
     }
     flushParagraphs()
+    flushTable()
     return result
 }
