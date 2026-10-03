@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -31,16 +31,6 @@ jobs:
         working-directory: ArabicGrammarApp
         run: node scripts/fetch-book.mjs
 
-      - name: Preserve generated book snapshot
-        continue-on-error: true
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ArabicGrammarApp/app/src/main/assets/book/content.json
-          if ! git diff --cached --quiet; then
-            git commit -m "ArabicGrammar: refresh verified Unicode book content"
-            git push origin HEAD:${GITHUB_REF_NAME}
-          fi
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -74,6 +64,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: arabic-grammar-content-json
-          path: ArabicGrammarApp/app/src/main/assets/book/content.json
+          path: |
+            ArabicGrammarApp/app/src/main/assets/book/content.json
+            ArabicGrammarApp/app/src/main/assets/book/book-data.js
           if-no-files-found: error
           retention-days: 30
