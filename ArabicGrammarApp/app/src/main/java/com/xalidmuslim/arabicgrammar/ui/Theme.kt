@@ -16,29 +16,79 @@ import com.xalidmuslim.arabicgrammar.data.ReaderSettings
 private val Light = lightColorScheme(
     primary = Color(0xFF17384A),
     onPrimary = Color(0xFFFFFAF2),
-    secondary = Color(0xFFA95F3B),
+    primaryContainer = Color(0xFFE4ECE1),
+    onPrimaryContainer = Color(0xFF263A2B),
+
+    secondary = Color(0xFF8A684B),
     onSecondary = Color(0xFFFFFAF2),
-    background = Color(0xFFF4EFE6),
+    secondaryContainer = Color(0xFFE6EEDF),
+    onSecondaryContainer = Color(0xFF354234),
+
+    tertiary = Color(0xFF66775F),
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFE8EFE3),
+    onTertiaryContainer = Color(0xFF32402F),
+
+    background = Color(0xFFF5F1E8),
     onBackground = Color(0xFF20262D),
-    surface = Color(0xFFFFFAF2),
+    surface = Color(0xFFFFFCF7),
     onSurface = Color(0xFF20262D),
-    surfaceVariant = Color(0xFFEEE6D9),
-    outline = Color(0xFFD8CDBD),
+    surfaceVariant = Color(0xFFF0F4EC),
+    onSurfaceVariant = Color(0xFF596159),
+
+    surfaceDim = Color(0xFFE7ECE3),
+    surfaceBright = Color(0xFFFFFCF7),
+    surfaceContainerLowest = Color(0xFFFFFEFB),
+    surfaceContainerLow = Color(0xFFF4F7F0),
+    surfaceContainer = Color(0xFFEDF2E9),
+    surfaceContainerHigh = Color(0xFFE8EEE4),
+    surfaceContainerHighest = Color(0xFFE1E9DD),
+
+    outline = Color(0xFFC4D0C0),
+    outlineVariant = Color(0xFFD8E2D5),
+
     error = Color(0xFF9C463E),
+    errorContainer = Color(0xFFF4DFDC),
+    onErrorContainer = Color(0xFF4A201C),
 )
 
 private val Dark = darkColorScheme(
     primary = Color(0xFFD5E2E9),
     onPrimary = Color(0xFF13222B),
-    secondary = Color(0xFFD28A62),
-    onSecondary = Color(0xFF1F1713),
+    primaryContainer = Color(0xFF304136),
+    onPrimaryContainer = Color(0xFFDDE9DE),
+
+    secondary = Color(0xFFD0B397),
+    onSecondary = Color(0xFF2B2119),
+    secondaryContainer = Color(0xFF303A30),
+    onSecondaryContainer = Color(0xFFE2E9DF),
+
+    tertiary = Color(0xFFB8C8B2),
+    onTertiary = Color(0xFF223021),
+    tertiaryContainer = Color(0xFF2C382B),
+    onTertiaryContainer = Color(0xFFDCE7D8),
+
     background = Color(0xFF11161A),
     onBackground = Color(0xFFEFE9E0),
-    surface = Color(0xFF1B2227),
+    surface = Color(0xFF1B2220),
     onSurface = Color(0xFFF0EBE2),
-    surfaceVariant = Color(0xFF222A30),
-    outline = Color(0xFF30383E),
+    surfaceVariant = Color(0xFF252F28),
+    onSurfaceVariant = Color(0xFFC7CEC6),
+
+    surfaceDim = Color(0xFF111613),
+    surfaceBright = Color(0xFF303834),
+    surfaceContainerLowest = Color(0xFF0D120F),
+    surfaceContainerLow = Color(0xFF18201A),
+    surfaceContainer = Color(0xFF1D271F),
+    surfaceContainerHigh = Color(0xFF243027),
+    surfaceContainerHighest = Color(0xFF2B382E),
+
+    outline = Color(0xFF526156),
+    outlineVariant = Color(0xFF39463C),
+
     error = Color(0xFFD77A71),
+    errorContainer = Color(0xFF4B2522),
+    onErrorContainer = Color(0xFFFFDAD5),
 )
 
 private val ArabicSegment = Regex(
@@ -55,6 +105,7 @@ fun russianFont(settings: ReaderSettings): FontFamily = when (settings.fontChoic
 fun arabicFont(settings: ReaderSettings): FontFamily = when (settings.arabicFontChoice) {
     "sans" -> FontFamily.SansSerif
     "system" -> FontFamily.Default
+    "naskh", "serif" -> FontFamily.Serif
     else -> FontFamily.Serif
 }
 
