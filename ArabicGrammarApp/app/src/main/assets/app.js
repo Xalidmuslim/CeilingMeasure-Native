@@ -204,14 +204,15 @@
     document.querySelectorAll('[data-setting]').forEach(el=>el.oninput=()=>{state.settings[el.dataset.setting]=Number(el.value);save();render();});
   }
 
-  async function init(){
-    applySettings(); render();
+  function init(){
+    applySettings();
     try{
-      const r=await fetch('book/content.json',{cache:'no-store'}); if(!r.ok) throw new Error(`content.json: ${r.status}`);
-      book=await r.json();
-      if(!book?.blocks?.length) throw new Error('Книга не содержит текстовых блоков');
+      book = globalThis.__BOOK__ || window.__BOOK__ || null;
+      if(!book?.blocks?.length) throw new Error('Встроенные данные книги не найдены');
       render();
-    }catch(e){app.innerHTML=`<div class="loading"><div class="error"><b>Не удалось открыть встроенный текст книги.</b><p>${esc(e.message)}</p></div></div>`;}
+    }catch(e){
+      app.innerHTML=`<div class="loading"><div class="error"><b>Не удалось открыть встроенный текст книги.</b><p>${esc(e.message)}</p></div></div>`;
+    }
   }
   init();
 })();
