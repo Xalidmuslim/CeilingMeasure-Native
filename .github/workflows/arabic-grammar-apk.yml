@@ -31,6 +31,9 @@ jobs:
         working-directory: ArabicGrammarApp
         run: node scripts/fetch-book.mjs
 
+      - name: Build structured SQLite book database
+        working-directory: ArabicGrammarApp
+        run: python3 scripts/build-db.py
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -50,6 +53,9 @@ jobs:
       - name: Verify APK
         run: |
           test -f ArabicGrammarApp/app/build/outputs/apk/debug/app-debug.apk
+          unzip -l ArabicGrammarApp/app/build/outputs/apk/debug/app-debug.apk | grep 'assets/book/book.db'
+          ! unzip -l ArabicGrammarApp/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/index.html'
+          ! unzip -l ArabicGrammarApp/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/app.js'
           ls -lh ArabicGrammarApp/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
@@ -65,7 +71,7 @@ jobs:
         with:
           name: arabic-grammar-content-json
           path: |
-            ArabicGrammarApp/app/src/main/assets/book/content.json
-            ArabicGrammarApp/app/src/main/assets/book/book-data.js
+            ArabicGrammarApp/build/book-source/content.json
+            ArabicGrammarApp/app/src/main/assets/book/book.db
           if-no-files-found: error
           retention-days: 30
