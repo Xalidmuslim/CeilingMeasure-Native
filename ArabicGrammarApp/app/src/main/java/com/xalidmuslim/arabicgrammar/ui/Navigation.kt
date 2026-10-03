@@ -1,0 +1,138 @@
+package com.xalidmuslim.arabicgrammar.ui
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import com.xalidmuslim.arabicgrammar.data.BookRepository
+import com.xalidmuslim.arabicgrammar.data.ProgressStore
+
+sealed interface Screen {
+    data object Home : Screen
+    data class Library(val chapter: String? = null) : Screen
+    data class Reader(val sectionId: String) : Screen
+    data object Practice : Screen
+    data object Search : Screen
+    data object Settings : Screen
+    data object Bookmarks : Screen
+}
+
+@Composable
+fun ArabicGrammarApp(repository: BookRepository, progress: ProgressStore) {
+    val settings = progress.settings
+    val stack = remember { mutableStateListOf<Screen>(Screen.Home) }
+    val current = stack.last()
+
+    DisposableEffect(repository) { onDispose { repository.close() } }
+
+    fun navigate(screen: Screen) {
+        if (stack.lastOrNull() != screen) stack.add(screen)
+    }
+    fun back() {
+        if (stack.size > 1) stack.removeAt(stack.lastIndex)
+    }
+    fun topLevel(screen: Screen) {
+        if (screen == Screen.Home) {
+            stack.clear()
+            stack.add(Screen.Home)
+            return
+        }
+        if (stack.firstOrNull() != Screen.Home) {
+            stack.clear()
+            stack.add(Screen.Home)
+        }
+        if (stack.lastOrNull() != screen) stack.add(screen)
+    }
+
+    BackHandler(enabled = true) {
+        if (stack.size > 1) back()
+    }
+
+    ArabicGrammarTheme(settings, isSystemInDarkTheme()) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            bottomBar = {
+                if (current !is Screen.Reader) {
+                    AppBottomBar(current, ::topLevel)
+                }
+            },
+        ) { padding ->
+            AnimatedContent(
+                targetState = current,
+                modifier = Modifier.fillMaxSize().padding(padding),
+                transitionSpec = {
+                    if (settings.animations) {
+                        (slideInHorizontally(tween(220)) { it / 10 } + fadeIn(tween(220))) togetherWith
+                            (slideOutHorizontally(tween(180)) { -it / 12 } + fadeOut(tween(160)))
+                    } else {
+                        fadeIn(tween(1)) togetherWith fadeOut(tween(1))
+                    }
+                },
+                label = "screen",
+            ) { screen ->
+                when (screen) {
+                    Screen.Home -> HomeScreen(repository, progress, ::navigate)
+                    is Screen.Library -> LibraryScreen(repository, progress, screen.chapter, ::navigate, ::back)
+                    is Screen.Reader -> ReaderScreen(repository, progress, screen.sectionId, ::back)
+                    Screen.Practice -> PracticeScreen(repository, progress, ::navigate)
+                    Screen.Search -> SearchScreen(repository, ::navigate)
+                    Screen.Settings -> SettingsScreen(progress)
+                    Screen.Bookmarks -> BookmarksScreen(repository, progress, ::navigate, ::back)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppBottomBar(current: Screen, navigate: (Screen) -> Unit) {
+    val items = listOf(
+        Triple(Screen.Home as Screen, "Главная", Icons.Default.Home),
+        Triple(Screen.Library() as Screen, "Книга", Icons.Default.MenuBook),
+        Triple(Screen.Practice as Screen, "Практика", Icons.Default.School),
+        Triple(Screen.Search as Screen, "Поиск", Icons.Default.Search),
+        Triple(Screen.Settings as Screen, "Настройки", Icons.Default.Settings),
+    )
+    NavigationBar {
+        items.forEach { (screen, label, icon) ->
+            val selected = when (screen) {
+                Screen.Home -> current is Screen.Home
+                is Screen.Library -> current is Screen.Library
+                Screen.Practice -> current is Screen.Practice
+                Screen.Search -> current is Screen.Search
+                Screen.Settings -> current is Screen.Settings
+                else -> false
+            }
+            NavigationBarItem(
+                selected = selected,
+                onClick = { navigate(screen) },
+                icon = { Icon(icon, contentDescription = label) },
+                label = { Text(label, maxLines = 1) },
+            )
+        }
+    }
+}
