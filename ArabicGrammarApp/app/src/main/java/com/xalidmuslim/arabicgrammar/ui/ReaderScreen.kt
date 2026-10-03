@@ -1,5 +1,7 @@
 package com.xalidmuslim.arabicgrammar.ui
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -382,6 +384,18 @@ fun ReaderScreen(
                                 )
                             }
                         }
+
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "النَّحْوُ وَالصَّرْفُ · الطَّالِبُ مُجْتَهِدٌ",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.End,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontFamily = arabicFont(settings),
+                                fontSize = (23f * settings.arabicScale).sp,
+                                lineHeight = (34f * settings.arabicScale).sp,
+                            ),
+                        )
                     }
 
                     null -> Unit
@@ -399,7 +413,9 @@ private fun ParagraphCard(
     first: Boolean,
 ) {
     OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(240)),
         shape = RoundedCornerShape(17.dp),
         colors = CardDefaults.outlinedCardColors(
             containerColor = if (group.exercise)
