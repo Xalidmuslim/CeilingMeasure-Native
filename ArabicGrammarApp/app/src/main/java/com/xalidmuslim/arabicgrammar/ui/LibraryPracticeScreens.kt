@@ -163,7 +163,7 @@ fun PracticeScreen(
                             tint = MaterialTheme.colorScheme.secondary,
                         )
                         Spacer(Modifier.width(9.dp))
-                        Text("Карточки", style = MaterialTheme.typography.titleMedium)
+                        Text("Карточки", style = MaterialTheme.typography.titleMedium, color = CardHeadlineBrown)
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
@@ -205,7 +205,7 @@ fun PracticeScreen(
                         )
                         Spacer(Modifier.width(10.dp))
                         Column {
-                            Text("Повторить карточки", style = MaterialTheme.typography.titleSmall)
+                            Text("Повторить карточки", style = MaterialTheme.typography.titleSmall, color = CardHeadlineBrown)
                             Text(
                                 progress.flashRepeat.size.toString() + " карточек отмечено как сложные",
                                 style = MaterialTheme.typography.bodySmall,
@@ -232,7 +232,7 @@ fun PracticeScreen(
                             tint = MaterialTheme.colorScheme.secondary,
                         )
                         Spacer(Modifier.width(9.dp))
-                        Text("Тренажёр спряжения", style = MaterialTheme.typography.titleMedium)
+                        Text("Тренажёр спряжения", style = MaterialTheme.typography.titleMedium, color = CardHeadlineBrown)
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
@@ -273,7 +273,7 @@ fun PracticeScreen(
                         )
                         Spacer(Modifier.width(10.dp))
                         Column {
-                            Text("Повторить формы", style = MaterialTheme.typography.titleSmall)
+                            Text("Повторить формы", style = MaterialTheme.typography.titleSmall, color = CardHeadlineBrown)
                             Text(
                                 progress.conjugationWrong.size.toString() +
                                     " форм требуют повторения",
@@ -303,7 +303,7 @@ fun PracticeScreen(
                             tint = MaterialTheme.colorScheme.secondary,
                         )
                         Spacer(Modifier.width(9.dp))
-                        Text("Быстрая проверка", style = MaterialTheme.typography.titleMedium)
+                        Text("Быстрая проверка", style = MaterialTheme.typography.titleMedium, color = CardHeadlineBrown)
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
@@ -350,7 +350,7 @@ fun PracticeScreen(
                         )
                         Spacer(Modifier.width(10.dp))
                         Column {
-                            Text("Повторить ошибки теста", style = MaterialTheme.typography.titleSmall)
+                            Text("Повторить ошибки теста", style = MaterialTheme.typography.titleSmall, color = CardHeadlineBrown)
                             Text(
                                 progress.quizWrongSections.size.toString() +
                                     " тем требуют повторения",
@@ -393,7 +393,7 @@ fun PracticeScreen(
                         onCheckedChange = { progress.toggleExerciseDone(section.id) },
                     )
                     Column(Modifier.weight(1f)) {
-                        Text(section.title, style = MaterialTheme.typography.titleSmall)
+                        Text(section.title, style = MaterialTheme.typography.titleSmall, color = CardHeadlineBrown)
                         Text(
                             chapterName(section.chapter) + " · " +
                                 section.exerciseCount + " блок(а) упражнений",
