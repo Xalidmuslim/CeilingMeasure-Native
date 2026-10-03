@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Quiz
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -32,6 +33,7 @@ fun LibraryScreen(
         val syntax = remember { repository.sections("syntax") }
         val morphology = remember { repository.sections("morphology") }
         val extras = remember { repository.sections("extras").filter { it.found } }
+        val proverbCount = remember { repository.proverbs().size }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -69,8 +71,16 @@ fun LibraryScreen(
                 ) { navigate(Screen.Library("morphology")) }
             }
 
+            item { SectionTitle("Дополнительно", "Словари, тексты и пословицы") }
+            item {
+                ActionCard(
+                    Icons.Outlined.FormatQuote,
+                    "Пословицы",
+                    proverbCount.toString() + " пословиц из всей книги",
+                ) { navigate(Screen.Proverbs) }
+            }
+
             if (extras.isNotEmpty()) {
-                item { SectionTitle("Дополнительно", "Словари и тексты") }
                 items(extras, key = { it.id }) { section ->
                     ActionCard(
                         Icons.Default.MenuBook,
