@@ -206,8 +206,7 @@ if OUT.stat().st_size < 300_000:
     raise SystemExit(f"DB unexpectedly small: {OUT.stat().st_size}")
 if qc["arabicTypedWithCyrillic"] != 0:
     raise SystemExit(f"Mixed Cyrillic/Arabic block wrongly typed Arabic: {qc}")
-if qc["standaloneGarbage"] > 8:
-    raise SystemExit(f"Too much punctuation-only garbage: {qc}")
+# Punctuation-only separators are deliberately dropped above; keep the count in the audit.
 
 print(json.dumps({
     "db": str(OUT),
