@@ -9,8 +9,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MenuBook
@@ -29,6 +29,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.xalidmuslim.arabicgrammar.data.BookRepository
 import com.xalidmuslim.arabicgrammar.data.ProgressStore
 
@@ -142,31 +144,53 @@ private fun AppBottomBar(current: Screen, navigate: (Screen) -> Unit) {
         Triple(Screen.Settings as Screen, "Настройки", Icons.Default.Settings),
     )
 
-    NavigationBar {
-        items.forEach { (screen, label, icon) ->
-            val selected = when (screen) {
-                Screen.Home -> current is Screen.Home
-                is Screen.Library ->
-                    current is Screen.Library ||
-                        current is Screen.Reader ||
-                        current is Screen.Bookmarks ||
-                        current is Screen.Proverbs
-                Screen.Practice ->
-                    current is Screen.Practice ||
-                        current is Screen.Quiz ||
-                        current is Screen.Flashcards ||
-                        current is Screen.ConjugationTrainer
-                Screen.Search -> current is Screen.Search
-                Screen.Settings -> current is Screen.Settings
-                else -> false
-            }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 2.dp,
+    ) {
+        NavigationBar(
+            modifier = Modifier.height(64.dp),
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp,
+            windowInsets = WindowInsets(0, 0, 0, 0),
+        ) {
+            items.forEach { (screen, label, icon) ->
+                val selected = when (screen) {
+                    Screen.Home -> current is Screen.Home
+                    is Screen.Library ->
+                        current is Screen.Library ||
+                            current is Screen.Reader ||
+                            current is Screen.Bookmarks ||
+                            current is Screen.Proverbs
+                    Screen.Practice ->
+                        current is Screen.Practice ||
+                            current is Screen.Quiz ||
+                            current is Screen.Flashcards ||
+                            current is Screen.ConjugationTrainer
+                    Screen.Search -> current is Screen.Search
+                    Screen.Settings -> current is Screen.Settings
+                    else -> false
+                }
 
-            NavigationBarItem(
-                selected = selected,
-                onClick = { navigate(screen) },
-                icon = { Icon(icon, contentDescription = label) },
-                label = { Text(label, maxLines = 1) },
-            )
+                NavigationBarItem(
+                    selected = selected,
+                    onClick = { navigate(screen) },
+                    icon = { Icon(icon, contentDescription = label) },
+                    label = { Text(label, maxLines = 1) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = CardHeadlineBrown,
+                        indicatorColor = NestedSageStrong,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                )
+            }
         }
     }
 }
