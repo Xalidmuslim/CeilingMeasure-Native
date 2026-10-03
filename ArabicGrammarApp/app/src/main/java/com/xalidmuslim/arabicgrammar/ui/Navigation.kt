@@ -43,6 +43,7 @@ sealed interface Screen {
     data object Search : Screen
     data object Settings : Screen
     data object Bookmarks : Screen
+    data object Proverbs : Screen
 }
 
 private fun screenStateKey(screen: Screen): String = when (screen) {
@@ -56,6 +57,7 @@ private fun screenStateKey(screen: Screen): String = when (screen) {
     Screen.Search -> "search"
     Screen.Settings -> "settings"
     Screen.Bookmarks -> "bookmarks"
+    Screen.Proverbs -> "proverbs"
 }
 
 @Composable
@@ -122,6 +124,7 @@ fun ArabicGrammarApp(repository: BookRepository, progress: ProgressStore) {
                         Screen.Search -> SearchScreen(repository, progress, ::navigate)
                         Screen.Settings -> SettingsScreen(progress)
                         Screen.Bookmarks -> BookmarksScreen(repository, progress, ::navigate, ::back)
+                        Screen.Proverbs -> ProverbsScreen(repository, progress, ::navigate, ::back)
                     }
                 }
             }
@@ -146,7 +149,8 @@ private fun AppBottomBar(current: Screen, navigate: (Screen) -> Unit) {
                 is Screen.Library ->
                     current is Screen.Library ||
                         current is Screen.Reader ||
-                        current is Screen.Bookmarks
+                        current is Screen.Bookmarks ||
+                        current is Screen.Proverbs
                 Screen.Practice ->
                     current is Screen.Practice ||
                         current is Screen.Quiz ||
