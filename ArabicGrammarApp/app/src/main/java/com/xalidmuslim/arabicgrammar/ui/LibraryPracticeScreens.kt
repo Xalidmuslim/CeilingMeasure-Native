@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Quiz
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -122,12 +124,96 @@ fun PracticeScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
-            Kicker("Авторские задания")
+            Kicker("Закрепление")
             Text(
                 "Практика",
                 style = MaterialTheme.typography.titleLarge.copy(fontSize = 34.sp),
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(5.dp))
+            Text(
+                "Авторские упражнения + короткие проверки по реальным фрагментам книги.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        item {
+            ElevatedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { navigate(Screen.Quiz(false)) },
+                shape = RoundedCornerShape(22.dp),
+            ) {
+                Column(Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Outlined.Quiz,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(9.dp))
+                        Text("Быстрая проверка", style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "10 вопросов: определить тему по фрагменту из книги.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AssistChip(
+                            onClick = {},
+                            label = {
+                                Text(
+                                    progress.quizCorrect.toString() + "/" +
+                                        progress.quizAttempts + " верно"
+                                )
+                            },
+                        )
+                        AssistChip(
+                            onClick = {},
+                            label = { Text(progress.quizAccuracy().toString() + "% точность") },
+                        )
+                    }
+                }
+            }
+        }
+
+        if (progress.quizWrongSections.isNotEmpty()) {
+            item {
+                OutlinedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { navigate(Screen.Quiz(true)) },
+                    shape = RoundedCornerShape(20.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.ErrorOutline,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Повторить ошибки", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                progress.quizWrongSections.size.toString() +
+                                    " тем требуют повторения",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        item { SectionTitle("Из книги", "Авторские упражнения") }
+
+        item {
             LinearProgressIndicator(
                 progress = if (sections.isEmpty()) 0f else done.toFloat() / sections.size,
                 modifier = Modifier.fillMaxWidth(),
@@ -152,12 +238,13 @@ fun PracticeScreen(
                 ) {
                     Checkbox(
                         checked = progress.exerciseDone.contains(section.id),
-                        onCheckedChange = { progress.markExerciseDone(section.id) },
+                        onCheckedChange = { progress.toggleExerciseDone(section.id) },
                     )
                     Column(Modifier.weight(1f)) {
                         Text(section.title, style = MaterialTheme.typography.titleSmall)
                         Text(
-                            chapterName(section.chapter) + " · " + section.exerciseCount + " блок(а) упражнений",
+                            chapterName(section.chapter) + " · " +
+                                section.exerciseCount + " блок(а) упражнений",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

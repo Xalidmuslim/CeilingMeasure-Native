@@ -1,10 +1,12 @@
 package com.xalidmuslim.arabicgrammar.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.School
@@ -19,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xalidmuslim.arabicgrammar.data.BookRepository
 import com.xalidmuslim.arabicgrammar.data.ProgressStore
+import com.xalidmuslim.arabicgrammar.data.buildReaderGroups
 
 @Composable
 fun HomeScreen(
@@ -32,6 +35,18 @@ fun HomeScreen(
     val current = remember(progress.lastSection) {
         repository.section(progress.lastSection) ?: syntax.firstOrNull()
     }
+    val currentRead = remember(current?.id, progress.lastSection) {
+        current?.let {
+            val totalItems = buildReaderGroups(repository.blocks(it.id)).size + 1
+            if (totalItems <= 1) 0
+            else ((progress.readerIndex(it.id) * 100f) / totalItems).toInt().coerceIn(0, 99)
+        } ?: 0
+    }
+    val recent = progress.recentSections
+        .filterNot { it == current?.id }
+        .mapNotNull { repository.section(it) }
+        .take(3)
+
     val done = progress.completed.count { it.startsWith("s") || it.startsWith("m") }
     val total = syntax.size + morphology.size
     val ratio = if (total == 0) 0f else done.toFloat() / total.toFloat()
@@ -77,7 +92,10 @@ fun HomeScreen(
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            current?.let { chapterName(it.chapter) + " · Тема " + it.number } ?: "Глава 1",
+                            current?.let {
+                                chapterName(it.chapter) + " · Тема " + it.number +
+                                    if (currentRead > 0) " · " + currentRead + "%" else ""
+                            } ?: "Глава 1",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium,
                         )
@@ -88,7 +106,7 @@ fun HomeScreen(
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(Modifier.width(6.dp))
-                            Text("Продолжить")
+                            Text(if (currentRead > 0) "Продолжить с места" else "Начать")
                         }
                     }
                     Box(contentAlignment = Alignment.Center) {
@@ -112,7 +130,41 @@ fun HomeScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatCard(done.toString() + "/" + total, "тем", Modifier.weight(1f))
                 StatCard(progress.exerciseDone.size.toString(), "упражнений", Modifier.weight(1f))
-                StatCard((meta.arabicChars / 1000).toString() + "к", "араб. знаков", Modifier.weight(1f))
+                StatCard(progress.currentStreak().toString(), "дней подряд", Modifier.weight(1f))
+            }
+        }
+
+        if (recent.isNotEmpty()) {
+            item { SectionTitle("История", "Недавние темы") }
+            recent.forEach { section ->
+                item(key = "recent_" + section.id) {
+                    OutlinedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { navigate(Screen.Reader(section.id)) },
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Default.History,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text(section.title, style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    chapterName(section.chapter) + " · Тема " + section.number,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -144,7 +196,7 @@ fun HomeScreen(
             ActionCard(
                 Icons.Default.School,
                 "Практика",
-                "Упражнения автора по темам",
+                "Упражнения и быстрые проверки",
             ) { navigate(Screen.Practice) }
         }
         item {
@@ -160,27 +212,6 @@ fun HomeScreen(
                 "Содержание",
                 "Все темы и дополнительные разделы",
             ) { navigate(Screen.Library()) }
-        }
-
-        item {
-            OutlinedCard(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Kicker("Нативный формат")
-                    Text(
-                        "Книга разобрана на уроки, карточки, примеры и упражнения.",
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Это не PDF и не текстовый просмотрщик. Контент читается из локальной базы и собирается в интерфейс приложения.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
         }
     }
 }

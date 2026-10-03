@@ -3,6 +3,7 @@ package com.xalidmuslim.arabicgrammar.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
@@ -33,6 +34,7 @@ import com.xalidmuslim.arabicgrammar.data.ReaderGroup
 import com.xalidmuslim.arabicgrammar.data.ReaderKind
 import com.xalidmuslim.arabicgrammar.data.ReaderSettings
 import com.xalidmuslim.arabicgrammar.data.buildReaderGroups
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 private enum class ReaderSheet {
     EXERCISES,
@@ -57,6 +59,7 @@ fun ReaderScreen(
     repository: BookRepository,
     progress: ProgressStore,
     sectionId: String,
+    navigate: (Screen) -> Unit,
     back: () -> Unit,
 ) {
     val section = remember(sectionId) { repository.section(sectionId) }
@@ -72,8 +75,31 @@ fun ReaderScreen(
         return
     }
 
+    val adjacent = remember(sectionId) { repository.adjacent(sectionId) }
+    val initialIndex = progress.readerIndex(sectionId).coerceIn(0, groups.size + 1)
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialIndex,
+        initialFirstVisibleItemScrollOffset = progress.readerOffset(sectionId),
+    )
+    val readingProgress by remember {
+        derivedStateOf {
+            val totalItems = (groups.size + 1).coerceAtLeast(1)
+            (listState.firstVisibleItemIndex.toFloat() / totalItems).coerceIn(0f, 1f)
+        }
+    }
+
     LaunchedEffect(section.id) {
         progress.updateLastSection(section.id)
+    }
+
+    LaunchedEffect(sectionId, listState) {
+        snapshotFlow {
+            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+        }
+            .distinctUntilChanged()
+            .collect { pair ->
+                progress.saveReaderPosition(sectionId, pair.first, pair.second)
+            }
     }
 
     Scaffold(
@@ -101,6 +127,11 @@ fun ReaderScreen(
                     }
                 },
                 actions = {
+                    Text(
+                        ((readingProgress * 100).toInt()).toString() + "%",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     IconButton(onClick = { progress.toggleBookmark(section.id) }) {
                         Icon(
                             if (progress.bookmarks.contains(section.id)) Icons.Default.Bookmark
@@ -137,6 +168,7 @@ fun ReaderScreen(
         },
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(settings.paragraphGap.coerceIn(7f, 16f).dp),
@@ -170,6 +202,15 @@ fun ReaderScreen(
                 }
             }
 
+            item {
+                LinearProgressIndicator(
+                    progress = readingProgress,
+                    modifier = Modifier.fillMaxWidth().height(2.dp),
+                    color = MaterialTheme.colorScheme.secondary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
+            }
+
             itemsIndexed(
                 groups,
                 key = { index, group ->
@@ -182,6 +223,43 @@ fun ReaderScreen(
                     ReaderKind.TABLE -> TableCard(group, settings)
                     ReaderKind.ANSWER_LINE -> AnswerField(group)
                     ReaderKind.PARAGRAPH -> ParagraphCard(group, settings, index == 0)
+                }
+            }
+
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!progress.completed.contains(section.id)) {
+                        Button(
+                            onClick = { progress.toggleCompleted(section.id) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Тема пройдена")
+                        }
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                adjacent.first?.let { navigate(Screen.Reader(it.id)) }
+                            },
+                            enabled = adjacent.first != null,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("← Предыдущая")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                adjacent.second?.let { navigate(Screen.Reader(it.id)) }
+                            },
+                            enabled = adjacent.second != null,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("Следующая →")
+                        }
+                    }
                 }
             }
         }

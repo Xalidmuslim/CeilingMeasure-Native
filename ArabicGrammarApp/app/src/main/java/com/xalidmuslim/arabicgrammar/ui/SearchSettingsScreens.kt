@@ -26,13 +26,15 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SearchScreen(
     repository: BookRepository,
+    progress: ProgressStore,
     navigate: (Screen) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf(progress.searchQuery) }
     var results by remember { mutableStateOf<List<SearchResult>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
 
     LaunchedEffect(query) {
+        progress.setSearchQuery(query)
         val text = query.trim()
         if (text.length < 2) {
             results = emptyList()
