@@ -2,12 +2,12 @@ package com.xalidmuslim.arabicgrammar.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import com.xalidmuslim.arabicgrammar.data.BookRepository
 import com.xalidmuslim.arabicgrammar.data.ProgressStore
@@ -44,10 +45,24 @@ sealed interface Screen {
     data object Bookmarks : Screen
 }
 
+private fun screenStateKey(screen: Screen): String = when (screen) {
+    Screen.Home -> "home"
+    is Screen.Library -> "library:" + (screen.chapter ?: "root")
+    is Screen.Reader -> "reader:" + screen.sectionId
+    Screen.Practice -> "practice"
+    is Screen.Quiz -> "quiz:" + screen.reviewErrors
+    is Screen.Flashcards -> "flashcards:" + screen.reviewOnly
+    is Screen.ConjugationTrainer -> "conjugation:" + screen.reviewOnly
+    Screen.Search -> "search"
+    Screen.Settings -> "settings"
+    Screen.Bookmarks -> "bookmarks"
+}
+
 @Composable
 fun ArabicGrammarApp(repository: BookRepository, progress: ProgressStore) {
     val settings = progress.settings
     val stack = remember { mutableStateListOf<Screen>(Screen.Home) }
+    val stateHolder = rememberSaveableStateHolder()
     val current = stack.last()
 
     DisposableEffect(repository) { onDispose { repository.close() } }
@@ -55,9 +70,11 @@ fun ArabicGrammarApp(repository: BookRepository, progress: ProgressStore) {
     fun navigate(screen: Screen) {
         if (stack.lastOrNull() != screen) stack.add(screen)
     }
+
     fun back() {
         if (stack.size > 1) stack.removeAt(stack.lastIndex)
     }
+
     fun topLevel(screen: Screen) {
         if (screen == Screen.Home) {
             stack.clear()
@@ -78,16 +95,7 @@ fun ArabicGrammarApp(repository: BookRepository, progress: ProgressStore) {
     ArabicGrammarTheme(settings, isSystemInDarkTheme()) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = {
-                if (
-                    current !is Screen.Reader &&
-                    current !is Screen.Quiz &&
-                    current !is Screen.Flashcards &&
-                    current !is Screen.ConjugationTrainer
-                ) {
-                    AppBottomBar(current, ::topLevel)
-                }
-            },
+            bottomBar = { AppBottomBar(current, ::topLevel) },
         ) { padding ->
             AnimatedContent(
                 targetState = current,
@@ -102,27 +110,19 @@ fun ArabicGrammarApp(repository: BookRepository, progress: ProgressStore) {
                 },
                 label = "screen",
             ) { screen ->
-                when (screen) {
-                    Screen.Home -> HomeScreen(repository, progress, ::navigate)
-                    is Screen.Library -> LibraryScreen(repository, progress, screen.chapter, ::navigate, ::back)
-                    is Screen.Reader -> ReaderScreen(repository, progress, screen.sectionId, ::navigate, ::back)
-                    Screen.Practice -> PracticeScreen(repository, progress, ::navigate)
-                    is Screen.Quiz -> QuizScreen(repository, progress, screen.reviewErrors, ::back)
-                    is Screen.Flashcards -> FlashcardsScreen(
-                        repository,
-                        progress,
-                        screen.reviewOnly,
-                        ::back,
-                    )
-                    is Screen.ConjugationTrainer -> ConjugationTrainerScreen(
-                        repository,
-                        progress,
-                        screen.reviewOnly,
-                        ::back,
-                    )
-                    Screen.Search -> SearchScreen(repository, progress, ::navigate)
-                    Screen.Settings -> SettingsScreen(progress)
-                    Screen.Bookmarks -> BookmarksScreen(repository, progress, ::navigate, ::back)
+                stateHolder.SaveableStateProvider(screenStateKey(screen)) {
+                    when (screen) {
+                        Screen.Home -> HomeScreen(repository, progress, ::navigate)
+                        is Screen.Library -> LibraryScreen(repository, progress, screen.chapter, ::navigate, ::back)
+                        is Screen.Reader -> ReaderScreen(repository, progress, screen.sectionId, ::navigate, ::back)
+                        Screen.Practice -> PracticeScreen(repository, progress, ::navigate)
+                        is Screen.Quiz -> QuizScreen(repository, progress, screen.reviewErrors, ::back)
+                        is Screen.Flashcards -> FlashcardsScreen(repository, progress, screen.reviewOnly, ::back)
+                        is Screen.ConjugationTrainer -> ConjugationTrainerScreen(repository, progress, screen.reviewOnly, ::back)
+                        Screen.Search -> SearchScreen(repository, progress, ::navigate)
+                        Screen.Settings -> SettingsScreen(progress)
+                        Screen.Bookmarks -> BookmarksScreen(repository, progress, ::navigate, ::back)
+                    }
                 }
             }
         }
@@ -138,16 +138,25 @@ private fun AppBottomBar(current: Screen, navigate: (Screen) -> Unit) {
         Triple(Screen.Search as Screen, "Поиск", Icons.Default.Search),
         Triple(Screen.Settings as Screen, "Настройки", Icons.Default.Settings),
     )
+
     NavigationBar {
         items.forEach { (screen, label, icon) ->
             val selected = when (screen) {
                 Screen.Home -> current is Screen.Home
-                is Screen.Library -> current is Screen.Library
-                Screen.Practice -> current is Screen.Practice
+                is Screen.Library ->
+                    current is Screen.Library ||
+                        current is Screen.Reader ||
+                        current is Screen.Bookmarks
+                Screen.Practice ->
+                    current is Screen.Practice ||
+                        current is Screen.Quiz ||
+                        current is Screen.Flashcards ||
+                        current is Screen.ConjugationTrainer
                 Screen.Search -> current is Screen.Search
                 Screen.Settings -> current is Screen.Settings
                 else -> false
             }
+
             NavigationBarItem(
                 selected = selected,
                 onClick = { navigate(screen) },
