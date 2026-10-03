@@ -9,14 +9,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xalidmuslim.arabicgrammar.data.BookSection
+import com.xalidmuslim.arabicgrammar.data.ReaderSettings
 
 @Composable
-fun LessonDiagram(section: BookSection) {
+fun LessonDiagram(section: BookSection, settings: ReaderSettings) {
     val title = section.title.lowercase()
 
     when {
         title.contains("части речи") -> PartsOfSpeechDiagram()
-        title.contains("склонение им") || title.contains("падеж") -> CasesDiagram()
+        title.contains("склонение им") || title.contains("падеж") -> CasesDiagram(settings)
         section.chapter == "morphology" &&
             (title.contains("спряж") || title.contains("глагол")) -> VerbMapDiagram()
     }
@@ -76,7 +77,7 @@ private fun PartsOfSpeechDiagram() {
 }
 
 @Composable
-private fun CasesDiagram() {
+private fun CasesDiagram(settings: ReaderSettings) {
     DiagramShell("Три падежа") {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             listOf(
@@ -91,7 +92,7 @@ private fun CasesDiagram() {
                     tonalElevation = 1.dp,
                 ) {
                     Text(
-                        label,
+                        styledMixedText(label, settings),
                         modifier = Modifier.padding(10.dp),
                         textAlign = TextAlign.Center,
                     )
