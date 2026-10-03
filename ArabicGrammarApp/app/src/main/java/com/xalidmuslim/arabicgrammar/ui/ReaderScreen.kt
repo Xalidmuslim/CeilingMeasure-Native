@@ -170,7 +170,7 @@ fun ReaderScreen(
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Kicker("Урок")
-                        Text(section.title, style = MaterialTheme.typography.titleLarge)
+                        Text(section.title, style = MaterialTheme.typography.titleLarge, color = CardHeadlineBrown)
                         Spacer(Modifier.height(5.dp))
                         Text(
                             "Правила, примеры и упражнения собраны в отдельные компактные блоки.",
@@ -542,15 +542,15 @@ private fun ArabicCard(
         shape = RoundedCornerShape(17.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (group.exercise)
-                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f)
+                NestedSageStrong
             else
-                MaterialTheme.colorScheme.surfaceVariant,
+                NestedSage,
         ),
     ) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             Text(
                 if (group.exercise) "Задание" else "Арабский пример",
-                color = MaterialTheme.colorScheme.secondary,
+                color = CardHeadlineBrown,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -582,6 +582,7 @@ private fun TableCard(
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(17.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, NestedSageBorder),
     ) {
         Column(Modifier.padding(12.dp)) {
             if (conjugation) {
@@ -691,7 +692,7 @@ private fun ExerciseTitleCard(group: ReaderGroup) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(17.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        colors = CardDefaults.cardColors(containerColor = NestedSageStrong),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -709,6 +710,7 @@ private fun ExerciseTitleCard(group: ReaderGroup) {
                 Text(
                     group.blocks.firstOrNull()?.text ?: "Упражнения",
                     style = MaterialTheme.typography.titleSmall,
+                    color = CardHeadlineBrown,
                 )
             }
         }
