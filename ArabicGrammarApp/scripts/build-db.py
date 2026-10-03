@@ -15,6 +15,9 @@ ANSWER_RE = re.compile(r"^[\s_—–-]{8,}$")
 def normalize_text(value):
     text = unicodedata.normalize("NFC", str(value or ""))
     text = text.replace("\u00a0", " ").replace("\u200e", "").replace("\u200f", "")
+    text = text.replace("\u200b", "").replace("\ufeff", "")
+    text = re.sub(r"[\u0080-\u009f\ufffd\u25a1\u25a0]", " ", text)
+    text = re.sub(r"^\s*Nbsp;\s*", "", text, flags=re.I)
     text = text.replace("§", "")
     text = re.sub(r"[\t\r ]+", " ", text)
     text = re.sub(r" *\n *", "\n", text)
@@ -151,11 +154,15 @@ qc = {
     "standaloneGarbage": 0,
     "answerLines": 0,
     "tables": 0,
+    "removedControlArtifacts": 0,
 }
 
 for i, b in enumerate(data.get("blocks", [])):
     raw = str(b.get("text", ""))
     qc["removedSectionSigns"] += raw.count("§")
+    qc["removedControlArtifacts"] += len(
+        re.findall(r"[\u0080-\u009f\ufffd\u25a1\u25a0]", raw)
+    )
     text = normalize_text(raw)
 
     if ANSWER_RE.fullmatch(text):
