@@ -1,8 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-const OUT = resolve('app/src/main/assets/book/content.json');
-const OUT_JS = resolve('app/src/main/assets/book/book-data.js');
+const OUT = resolve('build/book-source/content.json');
 
 const syntax = [
   'Части речи','Определённость и неопределенность имени','Род имени','Склонение имён','Предлоги родительного падежа',
@@ -185,9 +184,6 @@ if(bad>3) throw new Error(`Encoding artifacts detected in ${bad} blocks`);
 if(coreFound<70) throw new Error(`Only ${coreFound}/81 core sections detected`);
 
 await mkdir(dirname(OUT),{recursive:true});
-const json = JSON.stringify(payload);
-await writeFile(OUT,json);
-await writeFile(OUT_JS,`globalThis.__BOOK__ = ${json};\n`);
+await writeFile(OUT,JSON.stringify(payload));
 console.log(`Wrote ${OUT}`);
-console.log(`Wrote ${OUT_JS}`);
 console.log(JSON.stringify(payload.stats,null,2));
