@@ -110,7 +110,10 @@ fun ActionCard(
     onClick: () -> Unit,
 ) {
     OutlinedCard(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(240))
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
     ) {
         Row(
@@ -142,7 +145,10 @@ fun ActionCard(
 @Composable
 fun TopicRow(section: BookSection, completed: Boolean, onClick: () -> Unit) {
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(240))
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
     ) {
