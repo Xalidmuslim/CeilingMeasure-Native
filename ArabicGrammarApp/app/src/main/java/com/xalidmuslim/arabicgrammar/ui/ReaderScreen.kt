@@ -10,11 +10,9 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NoteAlt
 import androidx.compose.material.icons.outlined.Quiz
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,9 +36,7 @@ import com.xalidmuslim.arabicgrammar.data.buildReaderGroups
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 private enum class ReaderSheet {
-    EXERCISES,
     NOTE,
-    SOURCE,
     SETTINGS,
 }
 
@@ -109,10 +105,12 @@ fun ReaderScreen(
         topBar = {
             Column {
                 TopAppBar(
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     title = {
                         Column {
                             Text(
-                                chapterName(section.chapter) + " · Тема " + section.number,
+                                chapterName(section.chapter) + " · Тема " + section.number +
+                                    " · " + ((readingProgress * 100).toInt()) + "%",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -130,11 +128,6 @@ fun ReaderScreen(
                         }
                     },
                     actions = {
-                        Text(
-                            ((readingProgress * 100).toInt()).toString() + "%",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                         IconButton(onClick = { progress.toggleBookmark(section.id) }) {
                             Icon(
                                 if (progress.bookmarks.contains(section.id)) Icons.Default.Bookmark
@@ -142,33 +135,14 @@ fun ReaderScreen(
                                 contentDescription = "Закладка",
                             )
                         }
+                        IconButton(onClick = { sheet = ReaderSheet.NOTE }) {
+                            Icon(Icons.Outlined.NoteAlt, contentDescription = "Заметка")
+                        }
+                        IconButton(onClick = { sheet = ReaderSheet.SETTINGS }) {
+                            Icon(Icons.Outlined.Settings, contentDescription = "Настройки чтения")
+                        }
                     },
                 )
-
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 2.dp,
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        ReaderAction("Упр.", Icons.Outlined.Quiz, Modifier.weight(1f)) {
-                            sheet = ReaderSheet.EXERCISES
-                        }
-                        ReaderAction("Заметка", Icons.Outlined.NoteAlt, Modifier.weight(1f)) {
-                            sheet = ReaderSheet.NOTE
-                        }
-                        ReaderAction("О теме", Icons.Outlined.Info, Modifier.weight(1f)) {
-                            sheet = ReaderSheet.SOURCE
-                        }
-                        ReaderAction("Настр.", Icons.Outlined.Settings, Modifier.weight(1f)) {
-                            sheet = ReaderSheet.SETTINGS
-                        }
-                    }
-                }
 
                 LinearProgressIndicator(
                     progress = readingProgress,
@@ -278,36 +252,6 @@ fun ReaderScreen(
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp),
             ) {
                 when (sheet) {
-                    ReaderSheet.EXERCISES -> {
-                        Text("Упражнения", style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            if (section.exerciseCount > 0) {
-                                "В уроке найдено " + section.exerciseCount +
-                                    " блока упражнений. Они выделены внутри темы."
-                            } else {
-                                "В этом разделе отдельный блок упражнений не найден."
-                            },
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(14.dp))
-                        Button(
-                            onClick = {
-                                progress.markExerciseDone(section.id)
-                                sheet = null
-                            },
-                            enabled = section.exerciseCount > 0,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(
-                                if (progress.exerciseDone.contains(section.id))
-                                    "Отмечено выполненным"
-                                else
-                                    "Отметить выполненным"
-                            )
-                        }
-                    }
-
                     ReaderSheet.NOTE -> {
                         Text("Моя заметка", style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(8.dp))
@@ -329,17 +273,6 @@ fun ReaderScreen(
                         ) {
                             Text("Сохранить")
                         }
-                    }
-
-                    ReaderSheet.SOURCE -> {
-                        Text("О формате", style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Книга хранится в структурированной SQLite-базе внутри APK. " +
-                                "Русские пояснения, арабские примеры, таблицы и упражнения " +
-                                "рендерятся отдельными нативными компонентами.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                     }
 
                     ReaderSheet.SETTINGS -> {
@@ -434,9 +367,9 @@ fun ReaderScreen(
                         Text("Арабский шрифт", style = MaterialTheme.typography.titleSmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(
-                                "serif" to "Книжный",
-                                "sans" to "Sans",
-                                "mono" to "Моно",
+                                "serif" to "Насх",
+                                "sans" to "Современный",
+                                "system" to "Системный",
                             ).forEach { pair ->
                                 FilterChip(
                                     selected = settings.arabicFontChoice == pair.first,
@@ -488,7 +421,7 @@ private fun ParagraphCard(
 
             group.blocks.forEachIndexed { index, block ->
                 Text(
-                    bidiSafe(block.text),
+                    styledMixedText(block.text, settings),
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodyLarge.copy(
                         textDirection = TextDirection.Ltr,
@@ -521,20 +454,12 @@ private fun ArabicCard(
         ),
     ) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Outlined.Translate,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(17.dp),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    if (group.exercise) "Задание" else "Арабский пример",
-                    color = MaterialTheme.colorScheme.secondary,
-                    style = MaterialTheme.typography.labelLarge,
-                )
-            }
+            Text(
+                if (group.exercise) "Задание" else "Арабский пример",
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
             Spacer(Modifier.height(7.dp))
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 Text(
@@ -648,7 +573,7 @@ private fun TableCard(
                 blocks.forEachIndexed { blockIndex, block ->
                     tableLines(block.text).forEach { line ->
                         Text(
-                            bidiSafe(line),
+                            styledMixedText(line, settings),
                             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                             style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr),
                         )
@@ -703,21 +628,6 @@ private fun ExerciseTitleCard(group: ReaderGroup) {
                     style = MaterialTheme.typography.titleSmall,
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun ReaderAction(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    modifier: Modifier,
-    onClick: () -> Unit,
-) {
-    TextButton(onClick = onClick, modifier = modifier.fillMaxHeight()) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(19.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
     }
 }
