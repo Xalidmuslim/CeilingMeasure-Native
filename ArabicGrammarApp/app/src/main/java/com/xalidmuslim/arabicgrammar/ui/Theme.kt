@@ -13,6 +13,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
 import com.xalidmuslim.arabicgrammar.data.ReaderSettings
 
+val CardHeadlineBrown = Color(0xFF765943)
+val NestedSage = Color(0xFFE1E8DC)
+val NestedSageStrong = Color(0xFFD5E0D0)
+val NestedSageBorder = Color(0xFFB4C2AE)
+
 private val Light = lightColorScheme(
     primary = Color(0xFF17384A),
     onPrimary = Color(0xFFFFFAF2),
