@@ -132,9 +132,9 @@ fun QuizScreen(
                             }
                         } else {
                             Text(
-                                question.prompt,
+                                styledMixedText(question.prompt, progress.settings),
                                 style = MaterialTheme.typography.bodyLarge.copy(
-                                    textDirection = TextDirection.ContentOrLtr,
+                                    textDirection = TextDirection.Ltr,
                                 ),
                             )
                         }
