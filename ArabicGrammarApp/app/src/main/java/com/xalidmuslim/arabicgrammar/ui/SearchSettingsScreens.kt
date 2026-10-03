@@ -97,9 +97,9 @@ fun SearchScreen(
                     Text(result.section.title, style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(5.dp))
                     Text(
-                        result.snippet,
+                        styledMixedText(result.snippet, progress.settings),
                         style = MaterialTheme.typography.bodySmall.copy(
-                            textDirection = TextDirection.ContentOrRtl,
+                            textDirection = TextDirection.Ltr,
                         ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 4,
@@ -220,9 +220,9 @@ fun SettingsScreen(progress: ProgressStore) {
             SettingsCard("Арабский шрифт") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(
-                        "serif" to "Книжный",
-                        "sans" to "Sans",
-                        "mono" to "Моно",
+                        "serif" to "Насх",
+                        "sans" to "Современный",
+                        "system" to "Системный",
                     ).forEach { pair ->
                         FilterChip(
                             selected = settings.arabicFontChoice == pair.first,
@@ -234,15 +234,23 @@ fun SettingsScreen(progress: ProgressStore) {
                     }
                 }
                 Text(
-                    "النَّحْوُ وَالصَّرْفُ",
+                    "النَّحْوُ وَالصَّرْفُ · الطَّالِبُ مُجْتَهِدٌ",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .padding(top = 10.dp),
                     textAlign = TextAlign.End,
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontFamily = arabicFont(settings),
-                        fontSize = (28f * settings.arabicScale).sp,
+                        fontSize = (27f * settings.arabicScale).sp,
+                        lineHeight = (40f * settings.arabicScale).sp,
                     ),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Шрифт меняется отдельно только для арабского текста, " +
+                        "русский шрифт остаётся прежним.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
