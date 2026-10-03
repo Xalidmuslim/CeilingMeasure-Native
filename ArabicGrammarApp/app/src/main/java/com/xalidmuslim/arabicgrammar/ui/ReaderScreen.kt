@@ -189,7 +189,7 @@ fun ReaderScreen(
             }
 
             item {
-                LessonDiagram(section)
+                LessonDiagram(section, settings)
             }
 
             itemsIndexed(
