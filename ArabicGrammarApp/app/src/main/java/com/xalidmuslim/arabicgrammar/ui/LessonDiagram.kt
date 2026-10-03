@@ -1,5 +1,6 @@
 package com.xalidmuslim.arabicgrammar.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -32,7 +33,7 @@ private fun DiagramShell(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
     ) {
         Column(
@@ -40,7 +41,7 @@ private fun DiagramShell(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Kicker("Схема для запоминания")
-            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(title, style = MaterialTheme.typography.titleSmall, color = CardHeadlineBrown)
             Spacer(Modifier.height(12.dp))
             content()
         }
@@ -52,7 +53,8 @@ private fun PartsOfSpeechDiagram() {
     DiagramShell("Слово и три части речи") {
         Surface(
             shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.secondaryContainer,
+            color = NestedSageStrong,
+            border = BorderStroke(1.dp, NestedSageBorder),
         ) {
             Text("Слово", modifier = Modifier.padding(horizontal = 24.dp, vertical = 9.dp))
         }
@@ -62,8 +64,9 @@ private fun PartsOfSpeechDiagram() {
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 1.dp,
+                    color = NestedSage,
+                    border = BorderStroke(1.dp, NestedSageBorder),
+                    tonalElevation = 0.dp,
                 ) {
                     Text(
                         label,
@@ -88,8 +91,9 @@ private fun CasesDiagram(settings: ReaderSettings) {
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 1.dp,
+                    color = NestedSage,
+                    border = BorderStroke(1.dp, NestedSageBorder),
+                    tonalElevation = 0.dp,
                 ) {
                     Text(
                         styledMixedText(label, settings),
@@ -110,10 +114,8 @@ private fun VerbMapDiagram() {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(13.dp),
-                color = if (index == 0)
-                    MaterialTheme.colorScheme.secondaryContainer
-                else
-                    MaterialTheme.colorScheme.surface,
+                color = if (index == 0) NestedSageStrong else NestedSage,
+                border = BorderStroke(1.dp, NestedSageBorder),
             ) {
                 Text(
                     step,
