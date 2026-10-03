@@ -12,8 +12,8 @@ android {
         applicationId = "com.xalidmuslim.arabicgrammar"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.2.0-native"
+        versionCode = 7
+        versionName = "1.3.0-native"
     }
 
     buildFeatures {

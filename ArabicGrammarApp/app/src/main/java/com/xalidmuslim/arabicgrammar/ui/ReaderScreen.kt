@@ -203,6 +203,10 @@ fun ReaderScreen(
             }
 
             item {
+                LessonDiagram(section)
+            }
+
+            item {
                 LinearProgressIndicator(
                     progress = readingProgress,
                     modifier = Modifier.fillMaxWidth().height(2.dp),

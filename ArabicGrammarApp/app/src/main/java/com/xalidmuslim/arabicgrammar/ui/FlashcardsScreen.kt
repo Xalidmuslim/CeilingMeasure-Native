@@ -269,7 +269,7 @@ private fun FlashFinish(
 }
 
 @Composable
-private fun EmptyStudyState(
+fun EmptyStudyState(
     title: String,
     description: String,
     back: () -> Unit,

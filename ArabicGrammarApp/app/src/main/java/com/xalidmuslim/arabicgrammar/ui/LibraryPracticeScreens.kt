@@ -131,10 +131,152 @@ fun PracticeScreen(
             )
             Spacer(Modifier.height(5.dp))
             Text(
-                "Авторские упражнения + короткие проверки по реальным фрагментам книги.",
+                "Карточки, спряжение, быстрые проверки и упражнения из книги.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        item { SectionTitle("Активное повторение", "Вспомнить без подсказки") }
+
+        item {
+            ElevatedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { navigate(Screen.Flashcards(false)) },
+                shape = RoundedCornerShape(22.dp),
+            ) {
+                Column(Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Outlined.Quiz,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(9.dp))
+                        Text("Карточки", style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Правило → ответ и арабский пример → тема. Ответ сначала скрыт.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AssistChip(
+                            onClick = {},
+                            label = { Text(progress.flashKnown.size.toString() + " знаю") },
+                        )
+                        AssistChip(
+                            onClick = {},
+                            label = { Text(progress.flashRepeat.size.toString() + " повторить") },
+                        )
+                    }
+                }
+            }
+        }
+
+        if (progress.flashRepeat.isNotEmpty()) {
+            item {
+                OutlinedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { navigate(Screen.Flashcards(true)) },
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.ErrorOutline,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text("Повторить карточки", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                progress.flashRepeat.size.toString() + " карточек отмечено как сложные",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            ElevatedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { navigate(Screen.ConjugationTrainer(false)) },
+                shape = RoundedCornerShape(22.dp),
+            ) {
+                Column(Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.MenuBook,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(9.dp))
+                        Text("Тренажёр спряжения", style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Приложение показывает лицо и число. Арабскую форму вводишь сам.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    AssistChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                progress.conjugationAccuracy().toString() +
+                                    "% точность"
+                            )
+                        },
+                    )
+                }
+            }
+        }
+
+        if (progress.conjugationWrong.isNotEmpty()) {
+            item {
+                OutlinedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { navigate(Screen.ConjugationTrainer(true)) },
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.ErrorOutline,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text("Повторить формы", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                progress.conjugationWrong.size.toString() +
+                                    " форм требуют повторения",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        item { SectionTitle("Проверка понимания", "Узнать тему по фрагменту") }
 
         item {
             ElevatedCard(
@@ -155,11 +297,11 @@ fun PracticeScreen(
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "10 вопросов: определить тему по фрагменту из книги.",
+                        "10 вопросов по реальным фрагментам книги.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AssistChip(
                             onClick = {},
@@ -185,10 +327,10 @@ fun PracticeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { navigate(Screen.Quiz(true)) },
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(18.dp),
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(15.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
@@ -197,8 +339,8 @@ fun PracticeScreen(
                             tint = MaterialTheme.colorScheme.secondary,
                         )
                         Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Повторить ошибки", style = MaterialTheme.typography.titleSmall)
+                        Column {
+                            Text("Повторить ошибки теста", style = MaterialTheme.typography.titleSmall)
                             Text(
                                 progress.quizWrongSections.size.toString() +
                                     " тем требуют повторения",
