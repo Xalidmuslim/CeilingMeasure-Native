@@ -20,6 +20,7 @@ const mail = nodemailer.createTransport({
   host:need('SMTP_HOST'),
   port:Number(process.env.SMTP_PORT || 587),
   secure:process.env.SMTP_SECURE === 'true',
+  requireTLS:true,
   auth:{user:need('SMTP_USER'),pass:need('SMTP_PASS')}
 });
 const from=need('SMTP_FROM');
@@ -123,8 +124,8 @@ async function handler(req,res) {
       const email=normalizeEmail(b.email),kind=b.kind,ref=String(b.external_ref||''),source=String(b.source||'');
       const paidUntil=b.paid_until;
       if(!EMAIL.test(email)||!['monthly','lifetime'].includes(kind)||
-         !/^[A-Za-z0-9_:.\\-]{6,160}$/.test(ref)||
-         !/^[A-Za-z0-9_\\-]{2,40}$/.test(source)||
+         !/^[A-Za-z0-9_:.-]{6,160}$/.test(ref)||
+         !/^[A-Za-z0-9_-]{2,40}$/.test(source)||
          (kind==='monthly' && (!paidUntil||Number.isNaN(new Date(paidUntil).getTime())||new Date(paidUntil).getTime()<=Date.now()))||
          (kind==='lifetime' && paidUntil!=null))return fail(res,400,'invalid_grant');
       const found=await db.query('SELECT id FROM users WHERE email=$1',[email]);
@@ -138,7 +139,7 @@ async function handler(req,res) {
     if(req.url==='/v1/admin/revoke' && req.method==='POST'){
       if(!safeEqual(req.headers['x-admin-key'],adminKey))return fail(res,403,'forbidden');
       const b=await readJson(req),ref=String(b.external_ref||'');
-      if(!/^[A-Za-z0-9_:.\\-]{6,160}$/.test(ref))return fail(res,400,'invalid_reference');
+      if(!/^[A-Za-z0-9_:.-]{6,160}$/.test(ref))return fail(res,400,'invalid_reference');
       const updated=await db.query('UPDATE grants SET revoked=TRUE WHERE external_ref=$1 AND revoked=FALSE RETURNING id',[ref]);
       return reply(res,200,{revoked:!!updated.rowCount});
     }
