@@ -78,6 +78,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private static final int DANGER = NativeVisualTokens.DANGER;
 
     private NativeProjectStore store;
+    private NativeLicenseClient licenseClient;
     private NativeProjectStore.ProjectData project;
     private LinearLayout root;
     private LinearLayout roomRow;
@@ -142,7 +143,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         NativeShellInsets.configureWindow(this);
-        if (!new NativeLicenseClient(this).canEdit()) {
+        licenseClient = new NativeLicenseClient(this);
+        if (!licenseClient.canEdit()) {
             returnToLicenseScreen();
             return;
         }
@@ -202,7 +204,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     protected void onResume() {
         super.onResume();
         // Prevent expired licenses from bypassing the home screen via Android Recents.
-        if (!new NativeLicenseClient(this).canEdit() && !isFinishing()) {
+        if (licenseClient != null && !licenseClient.canEdit() && !isFinishing()) {
             returnToLicenseScreen();
         }
     }
