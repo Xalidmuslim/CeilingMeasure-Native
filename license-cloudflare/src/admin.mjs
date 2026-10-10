@@ -49,6 +49,18 @@ button:disabled{opacity:.45;cursor:default}
 <div id="items" class="status">Введите ключ администратора и загрузите заявки.</div>
 </section>
 <section>
+<h2 style="font-size:18px;margin:0">Выдать лицензию вручную</h2>
+<p>Если покупатель сообщил только ID приложения, можно активировать его здесь после проверки оплаты в lava.top.</p>
+<label for="buyer">ID покупателя из приложения</label>
+<input type="text" id="buyer" spellcheck="false" autocomplete="off" placeholder="UUID покупателя">
+<label for="paidorder">Уникальный номер оплаченного заказа</label>
+<input type="text" id="paidorder" spellcheck="false" autocomplete="off" placeholder="Например 20261011ABC123">
+<label for="plan">Купленный вариант</label>
+<select id="plan"><option value="monthly">30 дней (без автопродления)</option><option value="lifetime">Навсегда</option></select>
+<button id="activate">Активировать подтверждённую покупку</button>
+<p id="manualResult" class="status"></p>
+</section>
+<section>
 <p class="note">Номер заказа и ID покупателя — не подтверждение поступления денег. Перед одобрением сверьте платёж в кабинете платформы, стоимость и вариант лицензии. Никогда не запрашивайте у клиента секретный код восстановления.</p>
 </section>
 </main>
@@ -112,6 +124,25 @@ async function refresh(){
    }
  }catch(e){area.textContent='';displayError(e.message)}
 }
+byId('activate').addEventListener('click',async()=>{
+  const user_id=byId('buyer').value.trim();
+  const reference=byId('paidorder').value.trim();
+  const kind=byId('plan').value;
+  const output=byId('manualResult');
+  output.textContent='';
+  if(!/^[a-f0-9-]{36}$/i.test(user_id)){output.textContent='Проверьте ID покупателя';return}
+  if(!/^[A-Za-z0-9_:.-]{6,120}$/.test(reference)){output.textContent='Введите номер заказа (6–120 символов без пробелов)';return}
+  if(!confirm('Вы проверили успешную оплату этого заказа в lava.top?'))return;
+  byId('activate').disabled=true;
+  const payload={user_id,kind,source:'manual_lava',external_ref:'manual_lava:'+reference};
+  if(kind==='monthly')payload.period_days=30;
+  try{
+    const result=await api('/v1/admin/grants','POST',payload);
+    output.textContent='Лицензия выдана. Покупатель может нажать «Обновить лицензию».';
+    byId('paidorder').value='';
+  }catch(e){output.textContent=e.message}
+  finally{byId('activate').disabled=false}
+});
 byId('fetch').addEventListener('click',refresh);
 byId('status').addEventListener('change',()=>{
  if(byId('key').value.trim())refresh();
