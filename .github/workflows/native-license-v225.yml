@@ -1,0 +1,59 @@
+name: Native License v225 APK
+
+on:
+  push:
+    branches:
+      - feature/license-server-v225
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-license-v225-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-server-and-android:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify license backend
+        run: |
+          cd license-server
+          npm install --no-audit --no-fund
+          node --check src/server.mjs
+          node --check src/domain.mjs
+          npm test
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Native-only verification
+        run: |
+          set -euo pipefail
+          test ! -f app/src/main/assets/index.html
+          if grep -R -E "android\\.webkit\\.WebView|androidx\\.webkit" app/src/main/java app/build.gradle; then
+            echo 'WebView found in native build'
+            exit 1
+          fi
+      - name: Lint, unit tests and debug APK
+        run: gradle --no-daemon clean lintDebug testDebugUnitTest assembleDebug
+      - name: Upload test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-native-v225-license-preview
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
