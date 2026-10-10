@@ -135,7 +135,7 @@ final class NativeOwnerLicenseDialog {
             if (!id.matches("[a-fA-F0-9-]{36}")) {
                 buyer.setError("Проверьте ID покупателя");return;
             }
-            if (!reference.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{5,127}")) {
+            if (!reference.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{5,122}")) {
                 transaction.setError("Нужен уникальный номер перевода, минимум 6 символов");return;
             }
             if (key.getText().toString().length()<32) {
