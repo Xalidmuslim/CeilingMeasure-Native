@@ -43,6 +43,13 @@ public final class NativeHomeActivity extends ComponentActivity {
         setContentView(content);
         NativeMotion.enter(content);
         content.requestApplyInsets();
+        // First launch automatically starts the server-anchored 7-day trial.
+        // If offline, the existing License dialog offers a manual retry.
+        if (NativeLicenseClient.enabled() && licenseClient.recoveryCode().isEmpty()) {
+            licenseClient.startTrial((ok, message) -> {
+                if (!isFinishing()) refreshHomeMeta();
+            });
+        }
     }
 
     @Override
@@ -180,7 +187,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         View license = actionCard(
                 R.drawable.ic_shell_sliders,
                 "Лицензия",
-                "7 дней бесплатно · активация без почты",
+                "7 дней бесплатно · оплата по договорённости",
                 false,
                 "native_home_license",
                 v -> showLicense());
