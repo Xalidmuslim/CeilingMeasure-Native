@@ -1,0 +1,57 @@
+name: Native Manual WhatsApp License v226 APK
+
+on:
+  push:
+    branches:
+      - feature/manual-whatsapp-v226
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-cloudflare-license-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-worker-and-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test Cloudflare worker signatures and entitlements
+        run: |
+          cd license-cloudflare
+          npm run check
+          npm test
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Verify native-only
+        run: |
+          set -euo pipefail
+          test ! -f app/src/main/assets/index.html
+          if grep -R -E "android\\.webkit\\.WebView|androidx\\.webkit" app/src/main/java app/build.gradle; then
+            echo 'WebView found'
+            exit 1
+          fi
+      - name: Lint unit tests and assemble APK
+        run: gradle --no-daemon clean lintDebug testDebugUnitTest assembleDebug
+      - name: Upload preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-v226-whatsapp-preview
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
