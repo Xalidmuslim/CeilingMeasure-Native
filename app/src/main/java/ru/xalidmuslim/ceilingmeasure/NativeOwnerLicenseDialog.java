@@ -35,7 +35,7 @@ final class NativeOwnerLicenseDialog {
 
     private static String displayExpiry(JSONObject object) {
         if (object == null) return "Покупатель не найден";
-        String kind = object.optString("status","unknown");
+        String kind = object.optString("status",object.optString("kind","unknown"));
         String label;
         switch (kind) {
             case "trial": label="Пробный период"; break;
