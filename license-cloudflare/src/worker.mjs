@@ -134,7 +134,7 @@ async function manualGrant(request,env) {
   if(!UUID.test(id)||!['monthly','lifetime'].includes(kind)||!REF.test(ref))return error('invalid_grant',400);
   if(kind==='monthly' && body.period_days!==30)return error('requires_30_day_period',400);
   if(kind==='lifetime' && body.period_days!=null)return error('lifetime_has_no_period',400);
-  const user=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
+  const user=await env.DB.prepare('SELECT id,trial_started_ms FROM users WHERE id=?').bind(id).first();
   if(!user)return error('user_not_found',404);
   // Idempotency check: never extend a paid month twice with the same transfer reference.
   const existing=await env.DB.prepare('SELECT id FROM grants WHERE external_ref=?').bind(ref).first();
@@ -145,7 +145,8 @@ async function manualGrant(request,env) {
     const r=await env.DB.prepare(
       "SELECT MAX(paid_until_ms) AS until_ms FROM grants WHERE user_id=? AND kind='monthly' AND revoked=0"
     ).bind(id).first();
-    until=Math.max(now,Number(r?.until_ms||0))+30*DAY;
+    // Preserve remaining trial days if the buyer pays before the free period ends.
+    until=Math.max(now,Number(user.trial_started_ms)+7*DAY,Number(r?.until_ms||0))+30*DAY;
   }
   const grantId=crypto.randomUUID();
   try{
