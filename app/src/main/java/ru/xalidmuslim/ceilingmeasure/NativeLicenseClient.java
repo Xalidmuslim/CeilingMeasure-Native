@@ -60,11 +60,9 @@ final class NativeLicenseClient {
 
     private String deviceId() { return prefs.getString(DEVICE, ""); }
 
-    private JSONObject validPayload() {
-        if (!enabled()) return null;
+    private JSONObject signedPayload(String token) {
         try {
-            String token = prefs.getString(LICENSE, "");
-            String[] pieces = token.split("\\.");
+            String[] pieces = token.split("\\\\.");
             if (pieces.length != 2) return null;
             PublicKey key = KeyFactory.getInstance("RSA").generatePublic(
                     new X509EncodedKeySpec(Base64.decode(BuildConfig.LICENSE_PUBLIC_KEY_B64, Base64.DEFAULT)));
@@ -76,16 +74,24 @@ final class NativeLicenseClient {
             JSONObject claims = new JSONObject(new String(
                     Base64.decode(pieces[0], Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING),
                     StandardCharsets.UTF_8));
-            long now = System.currentTimeMillis();
-            long seen = prefs.getLong(LAST_CLOCK, 0L);
-            // Fail closed if local time has moved substantially backwards.
-            if (seen > now + FIVE_MIN) return null;
-            if (now > seen) prefs.edit().putLong(LAST_CLOCK, now).apply();
             if (claims.optInt("schema") != 1
                     || !"ceilingmeasure-license".equals(claims.optString("issuer"))
                     || !"ru.xalidmuslim.ceilingmeasure".equals(claims.optString("audience"))
-                    || !deviceId().equals(claims.optString("device_id"))
-                    || "expired".equals(claims.optString("kind"))) return null;
+                    || !deviceId().equals(claims.optString("device_id"))) return null;
+            return claims;
+        } catch (Exception exception) { return null; }
+    }
+
+    private JSONObject validPayload() {
+        if (!enabled()) return null;
+        try {
+            JSONObject claims = signedPayload(prefs.getString(LICENSE, ""));
+            if (claims == null) return null;
+            long now = System.currentTimeMillis();
+            long seen = prefs.getLong(LAST_CLOCK, 0L);
+            if (seen > now + FIVE_MIN) return null;
+            if (now > seen) prefs.edit().putLong(LAST_CLOCK, now).apply();
+            if ("expired".equals(claims.optString("kind"))) return null;
             long issued = claims.getLong("issued_at"), lease = claims.getLong("lease_until");
             if (issued > now + FIVE_MIN || lease <= now) return null;
             if (!claims.isNull("access_until") && claims.getLong("access_until") <= now) return null;
@@ -138,13 +144,12 @@ final class NativeLicenseClient {
             if (error != null) { callback.done(false, error); return; }
             String license = result.optString("license");
             if (license.isEmpty()) { callback.done(false, "Сервер не вернул лицензию"); return; }
-            String previous = prefs.getString(LICENSE, "");
-            prefs.edit().putString(LICENSE, license).apply();
-            if (!canEdit() && !"expired".equals(result.optString("status"))) {
-                prefs.edit().putString(LICENSE, previous).apply();
+            JSONObject signed = signedPayload(license);
+            if (signed == null) {
                 callback.done(false, "Подпись сервера не прошла проверку");
                 return;
             }
+            prefs.edit().putString(LICENSE, license).apply();
             callback.done(true, status());
         });
     }
