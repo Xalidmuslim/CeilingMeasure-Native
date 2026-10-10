@@ -2,11 +2,13 @@
 <data-extraction-rules>
     <cloud-backup>
         <include domain="sharedpref" path="."/>
+        <exclude domain="sharedpref" path="native_license_access.xml"/>
         <include domain="database" path="."/>
         <include domain="file" path="."/>
     </cloud-backup>
     <device-transfer>
         <include domain="sharedpref" path="."/>
+        <exclude domain="sharedpref" path="native_license_access.xml"/>
         <include domain="database" path="."/>
         <include domain="file" path="."/>
     </device-transfer>
