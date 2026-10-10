@@ -194,34 +194,55 @@ final class NativeLicenseClient {
         call("GET", "/v1/catalog", null, "", callback::done);
     }
 
-    void submitPaymentClaim(String plan, String orderReference, Callback callback) {
-        if (recoveryCode().isEmpty()) {
-            callback.done(false, "Сначала активируйте пробный период");
+    interface AdminCallback { void done(boolean ok, String message, JSONObject details); }
+
+    /**
+     * Administration on the owner's phone without saving the administrator key.
+     * The server alone decides whether a license can be granted.
+     */
+    void lookupCustomer(String adminKey, String buyerId, AdminCallback callback) {
+        if (!buyerId.matches("[a-fA-F0-9-]{36}") || adminKey.length() < 32) {
+            callback.done(false, "Проверьте ID покупателя и ключ владельца", null);
             return;
         }
-        if (!"monthly".equals(plan) && !"lifetime".equals(plan)) {
-            callback.done(false, "Выберите тип лицензии");
+        String path = "/v1/admin/customer?user_id=" + buyerId;
+        call("GET", path, null, "", adminKey, (result, error) -> {
+            callback.done(error == null, error == null ? "Покупатель найден" : error, result);
+        });
+    }
+
+    void grantManually(String adminKey, String buyerId, String kind, String transferRef, AdminCallback callback) {
+        if (!buyerId.matches("[a-fA-F0-9-]{36}") ||
+                !("monthly".equals(kind) || "lifetime".equals(kind)) ||
+                !transferRef.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{5,127}") ||
+                adminKey.length() < 32) {
+            callback.done(false, "Проверьте ID, ключ и уникальный номер перевода", null);
             return;
         }
-        String reference = orderReference == null ? "" : orderReference.trim();
-        if (!reference.matches("[A-Za-z0-9][A-Za-z0-9:_./-]{5,127}")) {
-            callback.done(false, "Укажите номер заказа без пробелов, минимум 6 символов");
-            return;
-        }
-        JSONObject input = new JSONObject();
+        JSONObject request = new JSONObject();
         try {
-            input.put("plan", plan);
-            input.put("order_reference", reference);
+            request.put("user_id", buyerId);
+            request.put("kind", kind);
+            request.put("external_ref", "bank_" + transferRef);
+            if ("monthly".equals(kind)) request.put("period_days", 30);
         } catch (Exception ignored) {}
-        call("POST", "/v1/payment-claims", input, recoveryCode(), (response,error) -> {
-            if (error != null) {callback.done(false,error);return;}
-            callback.done(true, "Заявка принята. Доступ откроется после проверки оплаты продавцом.");
+        call("POST", "/v1/admin/grants", request, "", adminKey, (response, error) -> {
+            if (error != null) {
+                callback.done(false, error, response);
+            } else {
+                callback.done(true, "Доступ открыт. Попросите покупателя нажать «Обновить лицензию».", response);
+            }
         });
     }
 
     private interface Result { void accept(JSONObject result, String error); }
 
     private void call(String method, String path, JSONObject data, String bearer, Result done) {
+        call(method, path, data, bearer, "", done);
+    }
+
+    private void call(String method, String path, JSONObject data, String bearer,
+            String adminKey, Result done) {
         if (!enabled()) {main.post(() -> done.accept(null, "Сервер не настроен"));return;}
         worker.execute(() -> {
             HttpURLConnection connection = null;
@@ -235,6 +256,8 @@ final class NativeLicenseClient {
                 connection.setRequestProperty("Accept", "application/json");
                 if (!bearer.isEmpty())
                     connection.setRequestProperty("Authorization", "Bearer " + bearer);
+                if (!adminKey.isEmpty())
+                    connection.setRequestProperty("X-Admin-Key", adminKey);
                 if (data != null) {
                     connection.setDoOutput(true);
                     connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
@@ -257,6 +280,9 @@ final class NativeLicenseClient {
                 if (status < 200 || status >= 300) {
                     String error = result.optString("error");
                     problem = status == 401 ? "Код восстановления не найден" :
+                            status == 403 ? "Неверный ключ владельца" :
+                            status == 409 ? "Такой перевод уже активирован" :
+                            status == 404 ? "Покупатель не найден" :
                             status == 429 ? "Лимит пробных регистраций. Попробуйте завтра" :
                             "Сервер вернул ошибку: " + error;
                 }
