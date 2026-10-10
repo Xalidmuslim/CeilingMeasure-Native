@@ -29,6 +29,8 @@ public final class NativeHomeActivity extends ComponentActivity {
     private TextView savedMeta;
     private TextView drawingMeta;
     private NativeUiSettingsDialog settingsDialog;
+    private NativeLicenseClient licenseClient;
+    private TextView licenseMeta;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -36,6 +38,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         NativeShellInsets.configureWindow(this);
         store = new NativeProjectStore(this);
         uiPrefs = NativeUiPrefs.load(this);
+        licenseClient = new NativeLicenseClient(this);
         View content = createContent();
         setContentView(content);
         NativeMotion.enter(content);
@@ -48,6 +51,9 @@ public final class NativeHomeActivity extends ComponentActivity {
         uiPrefs = NativeUiPrefs.load(this);
         if (shellRoot != null) NativeTypography.applyTree(shellRoot, uiPrefs);
         refreshHomeMeta();
+        if (NativeLicenseClient.enabled() && !licenseClient.email().isEmpty()) {
+            licenseClient.refresh((success, message) -> refreshHomeMeta());
+        }
     }
 
     private View createContent() {
@@ -171,6 +177,16 @@ public final class NativeHomeActivity extends ComponentActivity {
         actions.addView(drawing, cardParams(7));
         drawingMeta = drawing.findViewWithTag("native_home_drawing_meta");
 
+        View license = actionCard(
+                R.drawable.ic_shell_sliders,
+                "Лицензия",
+                "7 дней бесплатно · месяц или навсегда",
+                false,
+                "native_home_license",
+                v -> showLicense());
+        actions.addView(license, cardParams(7));
+        licenseMeta = license.findViewWithTag("native_home_license_meta");
+
         shellRoot = screen;
         NativeShellInsets.bindHome(screen, scroll);
         refreshHomeMeta();
@@ -271,7 +287,8 @@ public final class NativeHomeActivity extends ComponentActivity {
         subtitleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
         subtitleView.setTag("Замеры".equals(title)
                 ? "native_home_saved_meta"
-                : ("Чертёж".equals(title) ? "native_home_drawing_meta" : null));
+                : ("Чертёж".equals(title) ? "native_home_drawing_meta"
+                : ("Лицензия".equals(title) ? "native_home_license_meta" : null)));
         LinearLayout.LayoutParams subtitleLp = wrap();
         subtitleLp.topMargin = dp(2);
         copy.addView(subtitleView, subtitleLp);
@@ -323,6 +340,9 @@ public final class NativeHomeActivity extends ComponentActivity {
 
     private void refreshHomeMeta() {
         if (store == null) return;
+        if (licenseMeta != null && licenseClient != null) {
+            licenseMeta.setText(licenseClient.status());
+        }
         if (savedMeta != null) {
             int count = store.loadSaved().size();
             savedMeta.setText(count > 0 ? count + " сохранённых" : "Сохранённых пока нет");
@@ -363,7 +383,16 @@ public final class NativeHomeActivity extends ComponentActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
+    private void showLicense() {
+        NativeLicenseDialog.show(this, licenseClient, this::refreshHomeMeta);
+    }
+
     private void openWorkspace(String action) {
+        // Gate entry in one place. Existing projects are never erased or migrated.
+        if (licenseClient != null && !licenseClient.canEdit()) {
+            showLicense();
+            return;
+        }
         Intent intent = new Intent(this, NativeWorkspaceActivity.class);
         intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, action);
         startActivity(intent);
