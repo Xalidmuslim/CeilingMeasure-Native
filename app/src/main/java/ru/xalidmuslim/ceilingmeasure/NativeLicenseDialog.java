@@ -2,57 +2,71 @@ package ru.xalidmuslim.ceilingmeasure;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.text.InputType;
-import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-/** Lightweight activation dialog; no payment card data enters the APK. */
+/** Registration-free license screen. All purchases are external to this activity. */
 final class NativeLicenseDialog {
     private NativeLicenseDialog() {}
 
     static void show(Activity activity, NativeLicenseClient client, Runnable onChanged) {
-        int pad = Math.round(18 * activity.getResources().getDisplayMetrics().density);
+        int dp = Math.round(16 * activity.getResources().getDisplayMetrics().density);
         LinearLayout layout = new LinearLayout(activity);
         layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(pad, pad, pad, pad);
+        layout.setPadding(dp, dp, dp, dp);
 
-        TextView description = new TextView(activity);
-        description.setText(client.status() + "\n\n7 дней бесплатно после подтверждения почты. " +
-                "Доступ на месяц и навсегда выдаётся после подтверждения оплаты продавцом.");
-        description.setTextSize(14);
-        layout.addView(description);
+        TextView status = new TextView(activity);
+        status.setTextSize(15);
+        layout.addView(status);
 
-        EditText email = new EditText(activity);
-        email.setHint("Электронная почта");
-        email.setSingleLine(true);
-        email.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
-        email.setText(client.email());
-        layout.addView(email);
+        TextView recoveryTitle = new TextView(activity);
+        recoveryTitle.setTextSize(13);
+        recoveryTitle.setText("Ваш код восстановления. Сохраните его вне телефона.");
+        layout.addView(recoveryTitle);
 
-        EditText code = new EditText(activity);
-        code.setHint("Шестизначный код из письма");
-        code.setSingleLine(true);
-        code.setInputType(InputType.TYPE_CLASS_NUMBER);
-        layout.addView(code);
+        EditText codeDisplay = new EditText(activity);
+        codeDisplay.setSingleLine(true);
+        codeDisplay.setTextIsSelectable(true);
+        codeDisplay.setInputType(InputType.TYPE_CLASS_TEXT);
+        codeDisplay.setEnabled(false);
+        layout.addView(codeDisplay);
+
+        Button copy = new Button(activity);
+        copy.setText("Копировать мой код");
+        layout.addView(copy);
+
+        Button begin = new Button(activity);
+        begin.setText("Начать 7 дней бесплатно");
+        layout.addView(begin);
+
+        Button refresh = new Button(activity);
+        refresh.setText("Обновить лицензию");
+        layout.addView(refresh);
+
+        TextView restoreTitle = new TextView(activity);
+        restoreTitle.setText("Сменили телефон? Введите ранее сохранённый код:");
+        restoreTitle.setTextSize(13);
+        layout.addView(restoreTitle);
+
+        EditText recoveryInput = new EditText(activity);
+        recoveryInput.setSingleLine(true);
+        recoveryInput.setHint("cm1_…");
+        recoveryInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        layout.addView(recoveryInput);
+
+        Button restore = new Button(activity);
+        restore.setText("Восстановить доступ");
+        layout.addView(restore);
 
         TextView result = new TextView(activity);
-        result.setGravity(Gravity.CENTER_VERTICAL);
         result.setTextSize(13);
         layout.addView(result);
-
-        Button request = new Button(activity);
-        request.setText("Отправить код");
-        layout.addView(request);
-        Button enter = new Button(activity);
-        enter.setText("Войти и активировать");
-        layout.addView(enter);
-        Button refresh = new Button(activity);
-        refresh.setText("Проверить лицензию");
-        layout.addView(refresh);
 
         AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setTitle("Лицензия — Замер потолка")
@@ -60,62 +74,70 @@ final class NativeLicenseDialog {
                 .setNegativeButton("Закрыть", null)
                 .create();
 
-        if (!NativeLicenseClient.enabled()) {
-            result.setText("Сервер ещё не подключён. Пока действует прежний бесплатный режим.");
-            email.setEnabled(false);
-            code.setEnabled(false);
-            request.setEnabled(false);
-            enter.setEnabled(false);
-            refresh.setEnabled(false);
-        }
-        request.setOnClickListener(view -> {
-            String address = email.getText().toString().trim();
-            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(address).matches()) {
-                email.setError("Укажи правильный адрес почты");
-                return;
-            }
-            request.setEnabled(false);
-            result.setText("Отправляем код…");
-            client.requestCode(address, (ok, message) -> {
+        Runnable render = () -> {
+            boolean ready = NativeLicenseClient.enabled();
+            boolean hasCode = !client.recoveryCode().isEmpty();
+            status.setText(client.status());
+            codeDisplay.setText(hasCode ? client.recoveryCode() : "Код появится после начала пробного периода");
+            begin.setEnabled(ready && !hasCode);
+            refresh.setEnabled(ready && hasCode);
+            copy.setEnabled(hasCode);
+            restore.setEnabled(ready);
+            recoveryInput.setEnabled(ready);
+            if (!ready) result.setText("Сервер лицензий ещё не подключён. Действует бесплатный режим.");
+        };
+
+        begin.setOnClickListener(view -> {
+            begin.setEnabled(false);
+            result.setText("Создаём пробную лицензию…");
+            client.startTrial((ok, message) -> {
                 if (!activity.isFinishing() && dialog.isShowing()) {
-                    request.setEnabled(true);
-                    result.setText(message);
-                }
-            });
-        });
-        enter.setOnClickListener(view -> {
-            String address = email.getText().toString().trim();
-            String otp = code.getText().toString().trim();
-            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(address).matches()) {
-                email.setError("Проверь адрес");
-                return;
-            }
-            if (!otp.matches("[0-9]{6}")) {
-                code.setError("Введите 6 цифр");
-                return;
-            }
-            enter.setEnabled(false);
-            result.setText("Проверяем код…");
-            client.verifyCode(address, otp, (ok, message) -> {
-                if (!activity.isFinishing() && dialog.isShowing()) {
-                    enter.setEnabled(true);
-                    description.setText(client.status());
+                    render.run();
                     result.setText(message);
                     onChanged.run();
                 }
             });
         });
+
         refresh.setOnClickListener(view -> {
             refresh.setEnabled(false);
+            result.setText("Проверяем лицензию…");
             client.refresh((ok, message) -> {
                 if (!activity.isFinishing() && dialog.isShowing()) {
-                    refresh.setEnabled(true);
-                    description.setText(client.status());
+                    render.run();
                     result.setText(message);
                     onChanged.run();
                 }
             });
         });
+
+        restore.setOnClickListener(view -> {
+            String entered=recoveryInput.getText().toString().trim();
+            if (!entered.matches("cm1_[A-Za-z0-9_-]{43}")) {
+                recoveryInput.setError("Проверьте полный код восстановления");
+                return;
+            }
+            restore.setEnabled(false);
+            result.setText("Восстанавливаем покупку…");
+            client.restore(entered,(ok,message) -> {
+                if (!activity.isFinishing() && dialog.isShowing()) {
+                    render.run();
+                    result.setText(message);
+                    onChanged.run();
+                }
+            });
+        });
+
+        copy.setOnClickListener(view -> {
+            String key=client.recoveryCode();
+            if (key.isEmpty()) return;
+            ClipboardManager clipboard=(ClipboardManager)activity.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(ClipData.newPlainText("Код восстановления Замера потолка",key));
+                result.setText("Код скопирован. Храните его в надёжном месте.");
+            }
+        });
+        render.run();
         dialog.show();
     }
 }
