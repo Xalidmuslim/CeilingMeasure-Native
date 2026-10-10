@@ -25,9 +25,17 @@ final class NativeLicenseDialog {
         status.setTextSize(15);
         layout.addView(status);
 
+        TextView buyerId = new TextView(activity);
+        buyerId.setTextSize(13);
+        layout.addView(buyerId);
+
+        Button copyBuyerId = new Button(activity);
+        copyBuyerId.setText("Копировать ID покупателя для продавца");
+        layout.addView(copyBuyerId);
+
         TextView recoveryTitle = new TextView(activity);
         recoveryTitle.setTextSize(13);
-        recoveryTitle.setText("Ваш код восстановления. Сохраните его вне телефона.");
+        recoveryTitle.setText("Секретный код восстановления. Сохраните его. Никому не сообщайте — даже продавцу.");
         layout.addView(recoveryTitle);
 
         EditText codeDisplay = new EditText(activity);
@@ -78,6 +86,8 @@ final class NativeLicenseDialog {
             boolean ready = NativeLicenseClient.enabled();
             boolean hasCode = !client.recoveryCode().isEmpty();
             status.setText(client.status());
+            buyerId.setText(hasCode ? "ID покупателя: " + client.userId() : "ID появится после активации");
+            copyBuyerId.setEnabled(hasCode);
             codeDisplay.setText(hasCode ? client.recoveryCode() : "Код появится после начала пробного периода");
             begin.setEnabled(ready && !hasCode);
             refresh.setEnabled(ready && hasCode);
@@ -126,6 +136,16 @@ final class NativeLicenseDialog {
                     onChanged.run();
                 }
             });
+        });
+
+        copyBuyerId.setOnClickListener(view -> {
+            String id=client.userId();
+            if (id.isEmpty()) return;
+            ClipboardManager clipboard=(ClipboardManager)activity.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(ClipData.newPlainText("ID покупателя Замера потолка",id));
+                result.setText("Отправьте продавцу только ID покупателя, не секретный код.");
+            }
         });
 
         copy.setOnClickListener(view -> {
