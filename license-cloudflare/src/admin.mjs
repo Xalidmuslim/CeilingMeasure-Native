@@ -81,11 +81,11 @@ async function refresh(){
      const div=document.createElement('div');
      div.className='entry';
      const title=document.createElement('b');
-     title.textContent=item.plan==='monthly'?'30 дней — 299 ₽':'Навсегда — 2 990 ₽';
+     title.textContent=item.plan==='monthly'?'30 дней':'Бессрочная лицензия';
      div.append(title);
      const info=document.createElement('p');
      info.className='meta';
-     info.textContent='Заказ: '+item.order_reference+'\nID покупателя: '+item.user_id+'\nЗаявка: '+new Date(item.created_ms).toLocaleString('ru-RU');
+     info.textContent='Заказ: '+item.order_reference+'\\nID покупателя: '+item.user_id+'\\nЗаявка: '+new Date(item.created_ms).toLocaleString('ru-RU');
      info.style.whiteSpace='pre-line';
      div.append(info);
      if(item.status==='pending'){
