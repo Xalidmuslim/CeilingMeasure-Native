@@ -59,8 +59,12 @@ final class NativeLicenseDialog {
         layout.addView(refresh);
 
         Button purchase = new Button(activity);
-        purchase.setText("Купить на 30 дней или навсегда");
+        purchase.setText("Связаться с продавцом / купить доступ");
         layout.addView(purchase);
+
+        Button owner = new Button(activity);
+        owner.setText("Режим владельца");
+        layout.addView(owner);
 
         TextView restoreTitle = new TextView(activity);
         restoreTitle.setText("Сменили телефон? Введите ранее сохранённый код:");
@@ -149,6 +153,11 @@ final class NativeLicenseDialog {
         purchase.setOnClickListener(view -> {
             dialog.dismiss();
             NativePurchaseDialog.show(activity, client, onChanged);
+        });
+
+        owner.setOnClickListener(view -> {
+            dialog.dismiss();
+            NativeOwnerLicenseDialog.show(activity, client);
         });
 
         copyBuyerId.setOnClickListener(view -> {
