@@ -1,155 +1,109 @@
 /**
- * Minimal mobile-first administrator interface. The browser does not persist
- * the API key or store it in a cookie/URL. Every privileged request sends it
- * in X-Admin-Key over HTTPS. Never serve payment card data here.
+ * Mobile-only seller fallback: buyers use native app; owner can grant
+ * licences in the native Owner Mode or through this browser page.
+ *
+ * No password, bank-card data, transfer details or tokens are ever persisted.
  */
 export function adminPage() {
-  const page = `<!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+  const html=`<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Лицензии — Замер потолка</title>
+<title>Владелец · Замер потолка</title>
 <style>
-:root{font-family:system-ui,-apple-system,Roboto,sans-serif;color:#21384b;background:#f6f7f8}
 *{box-sizing:border-box}
-body{margin:0;padding:18px 12px 40px}
-main{max-width:690px;margin:auto}
-h1{font-size:23px;margin:8px 0}
-p{font-size:14px;color:#526778;line-height:1.55}
-section{border:1px solid #dce3e7;background:white;border-radius:16px;padding:16px;margin:14px 0}
-label{font-size:13px;color:#526778;display:block;margin:12px 0 6px}
-input,select{font-size:16px;width:100%;border-radius:10px;border:1px solid #bac9d1;padding:12px}
-button{font-size:14px;padding:11px 15px;border:0;border-radius:10px;background:#244e67;color:white;cursor:pointer;margin:6px 6px 0 0}
-button.secondary{background:#e9eff2;color:#274153}
-button.danger{background:#ae4343}
-button:disabled{opacity:.45;cursor:default}
-.entry{border-top:1px solid #e6ecef;padding:14px 0}
-.entry b{display:block;font-size:15px}
-.meta{font-size:12px;line-height:1.6;color:#516573;overflow-wrap:anywhere}
-.note{border-left:3px solid #d1a667;padding-left:10px}
-#error{min-height:24px;white-space:pre-wrap;color:#9a3131}
-.status{min-height:24px;font-size:13px}
-</style>
-</head>
-<body><main>
-<h1>Замер потолка · Лицензии</h1>
-<p>Панель продавца. Подтверждайте заявки <b>только после проверки реальной оплаты в lava.top</b>.</p>
+body{margin:0;padding:16px 10px 42px;background:#f6f8f9;color:#253c4c;font:15px/1.45 system-ui,-apple-system,Roboto,sans-serif}
+main{max-width:570px;margin:0 auto}
+h1{font-size:23px;line-height:1.2;margin:4px 0}
+h2{font-size:17px}
+section{border-radius:15px;border:1px solid #dce4e9;background:white;margin:15px 0;padding:16px}
+label{display:block;color:#526976;font-size:13px;margin:12px 0 5px}
+input,select{width:100%;font:16px system-ui;border:1px solid #bacbd3;padding:12px;border-radius:9px}
+button{border:0;border-radius:9px;background:#26566f;color:white;padding:12px 16px;font:14px system-ui;margin:10px 0 0;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+p,small{color:#617580}
+.warning{background:#fffaf2;padding:10px;border-left:3px solid #b78c3a}
+.status{font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+</style></head><body><main>
+<h1>Замер потолка · Владелец</h1>
+<p>Управление лицензиями с телефона после личной проверки банковского перевода.</p>
 <section>
-<label for="key">Секретный ключ администратора</label>
-<input type="password" id="key" autocomplete="off" placeholder="Ключ из Cloudflare Secrets">
-<button id="fetch">Загрузить заявки</button>
-<span id="error"></span>
+<label for="key">Секретный ключ владельца (не сохраняется)</label>
+<input id="key" type="password" autocomplete="off" placeholder="ADMIN_API_KEY из Cloudflare">
+<label for="customer">ID покупателя из WhatsApp</label>
+<input id="customer" type="text" autocomplete="off" spellcheck="false" placeholder="UUID">
+<button id="lookup">Проверить лицензию</button>
+<p class="status" id="existing"></p>
 </section>
 <section>
-<h2 style="font-size:18px;margin:0 0 12px">Заявки на активацию</h2>
-<label for="status">Статус</label>
-<select id="status"><option value="pending">Ожидают проверки</option><option value="approved">Подтверждены</option><option value="rejected">Отклонены</option></select>
-<div id="items" class="status">Введите ключ администратора и загрузите заявки.</div>
+<h2>Открыть доступ</h2>
+<label for="plan">Вариант лицензии</label>
+<select id="plan">
+<option value="monthly">30 дней — без автопродления</option>
+<option value="lifetime">Навсегда</option>
+</select>
+<label for="ref">Уникальный номер полученного перевода</label>
+<input id="ref" type="text" autocomplete="off" spellcheck="false" placeholder="Например transfer_20261011_01">
+<button id="grant">Активировать доступ</button>
+<p class="status" id="result"></p>
+<p class="warning">Сначала проверьте поступление денег в приложении банка. Скриншот покупателя не является доказательством. Не просите у него секретный код восстановления.</p>
 </section>
-<section>
-<h2 style="font-size:18px;margin:0">Выдать лицензию вручную</h2>
-<p>Если покупатель сообщил только ID приложения, можно активировать его здесь после проверки оплаты в lava.top.</p>
-<label for="buyer">ID покупателя из приложения</label>
-<input type="text" id="buyer" spellcheck="false" autocomplete="off" placeholder="UUID покупателя">
-<label for="paidorder">Уникальный номер оплаченного заказа</label>
-<input type="text" id="paidorder" spellcheck="false" autocomplete="off" placeholder="Например 20261011ABC123">
-<label for="plan">Купленный вариант</label>
-<select id="plan"><option value="monthly">30 дней (без автопродления)</option><option value="lifetime">Навсегда</option></select>
-<button id="activate">Активировать подтверждённую покупку</button>
-<p id="manualResult" class="status"></p>
-</section>
-<section>
-<p class="note">Номер заказа и ID покупателя — не подтверждение поступления денег. Перед одобрением сверьте платёж в кабинете платформы, стоимость и вариант лицензии. Никогда не запрашивайте у клиента секретный код восстановления.</p>
-</section>
-</main>
-<script>
+</main><script>
 'use strict';
-const byId=id=>document.getElementById(id);
-function label(value){const span=document.createElement('span');span.textContent=value;return span}
-function displayError(message){byId('error').textContent=message||''}
-async function api(path,method='GET',body=null){
- const key=byId('key').value.trim();
- if(!key)throw Error('Введите ключ администратора');
- const response=await fetch(path,{
-   method,headers:{'X-Admin-Key':key,'Accept':'application/json',...(body?{'Content-Type':'application/json'}:{})},
-   body:body?JSON.stringify(body):null,cache:'no-store',credentials:'omit'
- });
- const data=await response.json();
- if(!response.ok)throw Error('Ошибка '+response.status+': '+(data.error||'неизвестная'));
- return data;
+const el=id=>document.getElementById(id);
+function validation(){
+ const id=el('customer').value.trim(),key=el('key').value;
+ if(!/^[a-f0-9-]{36}$/i.test(id))throw Error('Неправильный ID покупателя');
+ if(key.length<32)throw Error('Введите секретный ключ владельца');
+ return {id,key};
 }
-async function refresh(){
- displayError('');
- const area=byId('items');
- area.textContent='Загружаем…';
+async function api(path,method,body){
+ const data=validation(),headers={'X-Admin-Key':data.key,'Accept':'application/json'};
+ if(body)headers['Content-Type']='application/json';
+ const resp=await fetch(path,{method,headers,body:body?JSON.stringify(body):null,credentials:'omit',cache:'no-store'});
+ const json=await resp.json();
+ if(!resp.ok)throw Error('Ошибка '+resp.status+': '+(json.error||'неизвестная'));
+ return json;
+}
+function humanStatus(value){
+ const terms={trial:'Пробный период',monthly:'Оплачен доступ на 30 дней',lifetime:'Бессрочно',expired:'Лицензия истекла'};
+ let s=terms[value.status]||'Неизвестный статус';
+ if(value.access_until&&value.status!=='lifetime')s+=' · до '+new Date(value.access_until).toLocaleString('ru-RU');
+ return s;
+}
+el('lookup').onclick=async()=>{
+ el('existing').textContent='Проверяем…';
+ el('lookup').disabled=true;
  try{
-   const data=await api('/v1/admin/payment-claims?status='+encodeURIComponent(byId('status').value));
-   const claims=data.claims||[];
-   area.replaceChildren();
-   if(!claims.length){area.textContent='Заявок с таким статусом нет.';return}
-   for(const item of claims){
-     const div=document.createElement('div');
-     div.className='entry';
-     const title=document.createElement('b');
-     title.textContent=item.plan==='monthly'?'30 дней':'Бессрочная лицензия';
-     div.append(title);
-     const info=document.createElement('p');
-     info.className='meta';
-     info.textContent='Заказ: '+item.order_reference+'\\nID покупателя: '+item.user_id+'\\nЗаявка: '+new Date(item.created_ms).toLocaleString('ru-RU');
-     info.style.whiteSpace='pre-line';
-     div.append(info);
-     if(item.status==='pending'){
-       const approve=document.createElement('button');
-       approve.textContent='Подтвердить оплату';
-       approve.onclick=async()=>{
-         if(!confirm('Вы действительно нашли этот платёж в кабинете lava.top и проверили сумму?'))return;
-         approve.disabled=true;
-         try{await api('/v1/admin/claims/approve','POST',{claim_id:item.id});await refresh()}
-         catch(e){displayError(e.message);approve.disabled=false}
-       };
-       const reject=document.createElement('button');
-       reject.textContent='Отклонить';
-       reject.className='danger';
-       reject.onclick=async()=>{
-         if(!confirm('Отклонить заявку № '+item.order_reference+'?'))return;
-         reject.disabled=true;
-         try{await api('/v1/admin/claims/reject','POST',{claim_id:item.id});await refresh()}
-         catch(e){displayError(e.message);reject.disabled=false}
-       };
-       div.append(approve,reject);
-     }
-     area.append(div);
-   }
- }catch(e){area.textContent='';displayError(e.message)}
-}
-byId('activate').addEventListener('click',async()=>{
-  const user_id=byId('buyer').value.trim();
-  const reference=byId('paidorder').value.trim();
-  const kind=byId('plan').value;
-  const output=byId('manualResult');
-  output.textContent='';
-  if(!/^[a-f0-9-]{36}$/i.test(user_id)){output.textContent='Проверьте ID покупателя';return}
-  if(!/^[A-Za-z0-9_:.-]{6,120}$/.test(reference)){output.textContent='Введите номер заказа (6–120 символов без пробелов)';return}
-  if(!confirm('Вы проверили успешную оплату этого заказа в lava.top?'))return;
-  byId('activate').disabled=true;
-  const payload={user_id,kind,source:'manual_lava',external_ref:'manual_lava:'+reference};
-  if(kind==='monthly')payload.period_days=30;
-  try{
-    const result=await api('/v1/admin/grants','POST',payload);
-    output.textContent='Лицензия выдана. Покупатель может нажать «Обновить лицензию».';
-    byId('paidorder').value='';
-  }catch(e){output.textContent=e.message}
-  finally{byId('activate').disabled=false}
-});
-byId('fetch').addEventListener('click',refresh);
-byId('status').addEventListener('change',()=>{
- if(byId('key').value.trim())refresh();
-});
-</script>
-</body></html>`;
-  return new Response(page,{
+  const id=validation().id;
+  const out=await api('/v1/admin/customer?user_id='+encodeURIComponent(id),'GET');
+  el('existing').textContent=humanStatus(out);
+ }catch(e){el('existing').textContent=e.message}
+ finally{el('lookup').disabled=false}
+};
+el('grant').onclick=async()=>{
+ const output=el('result');output.textContent='';
+ let id,key,ref;
+ try{
+  ({id,key}=validation());
+  ref=el('ref').value.trim();
+  if(!/^[A-Za-z0-9][A-Za-z0-9_.:-]{5,127}$/.test(ref))throw Error('Нужен уникальный номер перевода (6–128 символов)');
+ }catch(e){output.textContent=e.message;return}
+ const plan=el('plan').value;
+ if(!confirm('Вы лично проверили поступление денег на банковский счёт? Открыть клиенту '+(plan==='monthly'?'30 дней':'бессрочный доступ')+'?'))return;
+ el('grant').disabled=true;
+ try{
+  const payload={user_id:id,kind:plan,external_ref:'bank_'+ref};
+  if(plan==='monthly')payload.period_days=30;
+  const result=await api('/v1/admin/grants','POST',payload);
+  output.textContent='Готово. Лицензия выдана. Попросите покупателя нажать «Обновить лицензию».';
+  el('ref').value='';
+  el('lookup').click();
+ }catch(e){output.textContent=e.message}
+ finally{el('grant').disabled=false}
+};
+</script></body></html>`;
+  return new Response(html,{
     headers:{
       'content-type':'text/html; charset=utf-8',
       'cache-control':'no-store',
