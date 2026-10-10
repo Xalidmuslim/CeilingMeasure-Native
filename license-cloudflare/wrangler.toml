@@ -1,0 +1,12 @@
+name = "ceilingmeasure-license"
+main = "src/worker.mjs"
+compatibility_date = "2026-09-01"
+
+# Free hostname after deployment: https://ceilingmeasure-license.<account>.workers.dev
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ceilingmeasure-licenses"
+database_id = "REPLACE_WITH_ACTUAL_D1_DATABASE_ID"
+migrations_dir = "migrations"
