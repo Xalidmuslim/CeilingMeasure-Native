@@ -51,7 +51,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         uiPrefs = NativeUiPrefs.load(this);
         if (shellRoot != null) NativeTypography.applyTree(shellRoot, uiPrefs);
         refreshHomeMeta();
-        if (NativeLicenseClient.enabled() && !licenseClient.email().isEmpty()) {
+        if (NativeLicenseClient.enabled() && !licenseClient.recoveryCode().isEmpty()) {
             licenseClient.refresh((success, message) -> refreshHomeMeta());
         }
     }
@@ -180,7 +180,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         View license = actionCard(
                 R.drawable.ic_shell_sliders,
                 "Лицензия",
-                "7 дней бесплатно · месяц или навсегда",
+                "7 дней бесплатно · активация без почты",
                 false,
                 "native_home_license",
                 v -> showLicense());
