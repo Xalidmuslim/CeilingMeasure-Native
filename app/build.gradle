@@ -1,13 +1,13 @@
 import groovy.json.JsonOutput
 
+plugins {
+    id 'com.android.application'
+}
+
 def licenseUrl = (findProperty('ceilingLicenseUrl') ?: System.getenv('CEILING_LICENSE_URL') ?: '').toString().trim()
 def licenseKey = (findProperty('ceilingLicensePublicKeyB64') ?: System.getenv('CEILING_LICENSE_PUBLIC_KEY_B64') ?: '').toString().trim()
 if ((licenseUrl.isEmpty() != licenseKey.isEmpty()) || (!licenseUrl.isEmpty() && !licenseUrl.startsWith('https://'))) {
     throw new GradleException('Set BOTH CEILING_LICENSE_URL (https) and CEILING_LICENSE_PUBLIC_KEY_B64 or neither')
-}
-
-plugins {
-    id 'com.android.application'
 }
 
 android {
