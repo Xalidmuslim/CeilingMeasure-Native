@@ -8,10 +8,8 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.text.InputType;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -21,188 +19,174 @@ import android.widget.TextView;
 import org.json.JSONObject;
 
 /**
- * One-off sales only. Uses a real, seller-configured external checkout link.
- * The app never handles card details and never trusts a buyer-supplied receipt
- * as proof of payment; seller reviews purchases on the license server.
+ * Manual direct-transfer purchase flow with no payment processor or card entry.
+ * Buyer contacts seller, sends only public user ID, and waits for seller's
+ * bank-receipt verification before license activation.
  */
 final class NativePurchaseDialog {
     private NativePurchaseDialog() {}
 
-    private static TextView label(Activity activity, String value) {
-        TextView item = new TextView(activity);
-        item.setText(value);
-        item.setTextSize(14);
-        item.setPadding(0, 9, 0, 9);
-        return item;
+    private static TextView text(Activity activity, String value, int sp) {
+        TextView label = new TextView(activity);
+        label.setText(value);
+        label.setTextSize(sp);
+        int p = Math.round(activity.getResources().getDisplayMetrics().density * 6);
+        label.setPadding(0,p,0,p);
+        return label;
     }
 
-    private static String safeCheckoutUrl(String value) {
-        if (value == null || value.isEmpty()) return "";
-        try {
-            Uri uri = Uri.parse(value);
-            String host = uri.getHost();
-            if (!"https".equals(uri.getScheme()) || host == null
-                    || uri.getUserInfo() != null) return "";
-            host = host.toLowerCase(java.util.Locale.ROOT);
-            if (host.equals("lava.top") || host.endsWith(".lava.top")
-                    || host.equals("boosty.to") || host.endsWith(".boosty.to"))
-                return value;
-            return "";
-        } catch (Exception ignored) {
-            return "";
-        }
+    private static String checkedPhone(String value) {
+        return value != null && value.matches("[1-9][0-9]{7,14}") ? value : "";
     }
 
-    private static void openExternalCheckout(Activity activity, String url, TextView status) {
-        String accepted = safeCheckoutUrl(url);
-        if (accepted.isEmpty()) {
-            status.setText("Продавец ещё не подключил безопасную ссылку для оплаты.");
+    private static void writeClipboard(Activity activity, String title, String value) {
+        ClipboardManager manager=(ClipboardManager)activity.getSystemService(Context.CLIPBOARD_SERVICE);
+        if(manager!=null)manager.setPrimaryClip(ClipData.newPlainText(title,value));
+    }
+
+    private static void openWhatsApp(Activity activity, String number, String message, TextView status) {
+        String safe = checkedPhone(number);
+        if (safe.isEmpty()) {
+            status.setText("Продавец ещё не указал номер WhatsApp.");
             return;
         }
+        Uri uri=new Uri.Builder().scheme("https").authority("wa.me")
+                .appendPath(safe).appendQueryParameter("text",message).build();
         try {
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(accepted));
-            activity.startActivity(intent);
-            status.setText("После оплаты вернитесь сюда и отправьте номер заказа для проверки.");
-        } catch (ActivityNotFoundException ignored) {
-            status.setText("На устройстве не найден браузер для оплаты.");
+            activity.startActivity(new Intent(Intent.ACTION_VIEW,uri));
+        } catch (ActivityNotFoundException ex) {
+            status.setText("Не удалось открыть WhatsApp. Позвоните продавцу по указанному номеру.");
         }
     }
 
     static void show(Activity activity, NativeLicenseClient client, Runnable onChanged) {
-        final int inset = Math.round(16 * activity.getResources().getDisplayMetrics().density);
-
-        ScrollView scroll = new ScrollView(activity);
-        scroll.setFillViewport(false);
-        LinearLayout column = new LinearLayout(activity);
-        column.setPadding(inset, inset / 2, inset, inset);
+        int inset=Math.round(16*activity.getResources().getDisplayMetrics().density);
+        ScrollView scroll=new ScrollView(activity);
+        LinearLayout column=new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
+        column.setPadding(inset,inset,inset,inset);
         scroll.addView(column);
 
-        column.addView(label(activity, "Обычная оплата российской банковской картой или через СБП. Без автосписаний."));
+        column.addView(text(activity,
+                "7 дней бесплатно. Затем свяжитесь с продавцом, переведите деньги по сообщённым им реквизитам — и он откроет доступ.",14));
+        column.addView(text(activity,"Никаких автоматических списаний и оплаты внутри приложения.",13));
+        TextView buyerId=text(activity,"Ваш ID покупателя: "+client.userId(),13);
+        buyerId.setTextIsSelectable(true);
+        column.addView(buyerId);
 
-        TextView buyer = label(activity, "ID покупателя: " + client.userId());
-        buyer.setTextIsSelectable(true);
-        column.addView(buyer);
-        Button copyBuyer = new Button(activity);
-        copyBuyer.setText("Скопировать ID для продавца");
-        column.addView(copyBuyer);
+        Button copyId=new Button(activity);
+        copyId.setText("Скопировать ID покупателя");
+        column.addView(copyId);
 
-        TextView catalogueStatus = label(activity, "Проверяем доступность ссылок оплаты…");
-        column.addView(catalogueStatus);
+        RadioGroup plans=new RadioGroup(activity);
+        plans.setOrientation(LinearLayout.VERTICAL);
+        RadioButton month=new RadioButton(activity);
+        month.setId(View.generateViewId());
+        month.setText("30 дней — 299 ₽");
+        plans.addView(month);
+        RadioButton lifetime=new RadioButton(activity);
+        lifetime.setId(View.generateViewId());
+        lifetime.setText("Навсегда — 2 990 ₽");
+        plans.addView(lifetime);
+        plans.check(month.getId());
+        column.addView(plans);
 
-        RadioGroup selection = new RadioGroup(activity);
-        selection.setOrientation(LinearLayout.VERTICAL);
-        RadioButton monthlyOption = new RadioButton(activity);
-        monthlyOption.setText("30 дней — 299 ₽");
-        monthlyOption.setId(View.generateViewId());
-        selection.addView(monthlyOption);
-        RadioButton foreverOption = new RadioButton(activity);
-        foreverOption.setText("Навсегда — 2 990 ₽");
-        foreverOption.setId(View.generateViewId());
-        selection.addView(foreverOption);
-        selection.check(monthlyOption.getId());
-        column.addView(selection);
+        TextView contact=text(activity,"Загружаем номер продавца…",14);
+        column.addView(contact);
 
-        Button month = new Button(activity);
-        month.setText("Оплатить 30 дней");
-        month.setEnabled(false);
-        column.addView(month);
+        Button chat=new Button(activity);
+        chat.setText("Написать в WhatsApp");
+        chat.setEnabled(false);
+        column.addView(chat);
 
-        Button forever = new Button(activity);
-        forever.setText("Купить навсегда");
-        forever.setEnabled(false);
-        column.addView(forever);
+        Button call=new Button(activity);
+        call.setText("Позвонить продавцу");
+        call.setEnabled(false);
+        column.addView(call);
 
-        column.addView(label(activity,
-                "После оплаты укажите номер заказа. Продавец проверит поступление денег и активирует лицензию. " +
-                "Код восстановления никому отправлять не нужно."));
+        Button refresh=new Button(activity);
+        refresh.setText("Проверить, открыт ли доступ");
+        column.addView(refresh);
 
-        EditText receipt = new EditText(activity);
-        receipt.setHint("Номер заказа / платежа (не менее 6 символов)");
-        receipt.setSingleLine(true);
-        receipt.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        column.addView(receipt);
-
-        Button send = new Button(activity);
-        send.setText("Отправить заявку на активацию");
-        column.addView(send);
-
-        TextView result = label(activity, "");
+        TextView result=text(activity,"",13);
         column.addView(result);
-        column.addView(label(activity,
-                "На стороне lava.top для первой покупки может потребоваться email. " +
-                "В самом приложении email, пароль и платёжные реквизиты не нужны."));
+        column.addView(text(activity,
+                "Важно: в России WhatsApp может не открываться. В этом случае позвоните продавцу. " +
+                "Сообщайте ему только ID покупателя, но никогда секретный код восстановления.",12));
 
-        AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setTitle("Покупка лицензии")
+        AlertDialog dialog=new AlertDialog.Builder(activity)
+                .setTitle("Приобрести лицензию")
                 .setView(scroll)
-                .setNegativeButton("Закрыть", null)
+                .setNegativeButton("Закрыть",null)
                 .create();
 
-        copyBuyer.setOnClickListener(v -> {
+        copyId.setOnClickListener(v -> {
             if (client.userId().isEmpty()) return;
-            ClipboardManager clipboard = (ClipboardManager)activity.getSystemService(Context.CLIPBOARD_SERVICE);
-            if (clipboard != null) {
-                clipboard.setPrimaryClip(ClipData.newPlainText("ID покупателя",client.userId()));
-                result.setText("ID скопирован. Не передавайте секретный код восстановления.");
-            }
-        });
-        send.setOnClickListener(v -> {
-            boolean isMonthly = selection.getCheckedRadioButtonId() == monthlyOption.getId();
-            send.setEnabled(false);
-            result.setText("Отправляем номер заказа на проверку…");
-            client.submitPaymentClaim(isMonthly ? "monthly" : "lifetime",
-                    receipt.getText().toString().trim(), (success,message) -> {
-                        if (!activity.isFinishing() && dialog.isShowing()) {
-                            send.setEnabled(true);
-                            result.setText(message);
-                            onChanged.run();
-                        }
-                    });
+            writeClipboard(activity,"ID Замера потолка",client.userId());
+            result.setText("ID скопирован — отправьте его продавцу.");
         });
 
-        if (!NativeLicenseClient.enabled()) {
-            catalogueStatus.setText("Сервис лицензий ещё не подключён. Покупка недоступна.");
-            send.setEnabled(false);
-        } else if (client.userId().isEmpty()) {
-            catalogueStatus.setText("Сначала активируйте бесплатные 7 дней.");
-            send.setEnabled(false);
+        refresh.setOnClickListener(v -> {
+            refresh.setEnabled(false);
+            result.setText("Проверяем лицензию на сервере…");
+            client.refresh((ok,message) -> {
+                if(!activity.isFinishing() && dialog.isShowing()) {
+                    refresh.setEnabled(true);
+                    result.setText(message);
+                    onChanged.run();
+                }
+            });
+        });
+
+        if(!NativeLicenseClient.enabled()) {
+            contact.setText("Сервер лицензий пока не подключён. Текущая бесплатная версия продолжает работать.");
+            refresh.setEnabled(false);
+        } else if(client.userId().isEmpty()) {
+            contact.setText("Сначала начните бесплатный 7-дневный период в разделе «Лицензия».");
+            refresh.setEnabled(false);
         } else {
             client.loadCatalogue((catalogue,error) -> {
                 if (activity.isFinishing() || !dialog.isShowing()) return;
-                if (error != null) {
-                    catalogueStatus.setText("Не удалось получить ссылки оплаты: " + error);
+                if (error != null || catalogue == null) {
+                    contact.setText("Не удалось загрузить номер. Проверьте интернет или попробуйте позже.");
                     return;
                 }
-                JSONObject plans = catalogue.optJSONObject("plans");
-                JSONObject monthData = plans == null ? null : plans.optJSONObject("monthly");
-                JSONObject lifeData = plans == null ? null : plans.optJSONObject("lifetime");
-                if (monthData == null || lifeData == null) {
-                    catalogueStatus.setText("Варианты оплаты ещё не настроены.");
+                JSONObject plansJson=catalogue.optJSONObject("plans");
+                JSONObject m=plansJson==null?null:plansJson.optJSONObject("monthly");
+                JSONObject l=plansJson==null?null:plansJson.optJSONObject("lifetime");
+                final int monthPrice=m==null?299:m.optInt("price_rub",299);
+                final int foreverPrice=l==null?2990:l.optInt("price_rub",2990);
+                month.setText("30 дней — "+monthPrice+" ₽");
+                lifetime.setText("Навсегда — "+foreverPrice+" ₽");
+                String whatsapp=checkedPhone(catalogue.optString("whatsapp_number",""));
+                String telephone=checkedPhone(catalogue.optString("call_number",""));
+                if (whatsapp.isEmpty() && telephone.isEmpty()) {
+                    contact.setText("Продавец ещё не указал контакт. Покупка пока не открыта.");
                     return;
                 }
-                int monthPrice = monthData.optInt("price_rub",299);
-                int foreverPrice = lifeData.optInt("price_rub",2990);
-                monthlyOption.setText("30 дней — " + monthPrice + " ₽");
-                foreverOption.setText("Навсегда — " + foreverPrice + " ₽");
-
-                String monthUrl = safeCheckoutUrl(monthData.optString("checkout_url",""));
-                String foreverUrl = safeCheckoutUrl(lifeData.optString("checkout_url",""));
-                month.setEnabled(!monthUrl.isEmpty());
-                forever.setEnabled(!foreverUrl.isEmpty());
-                month.setOnClickListener(v -> {
-                    selection.check(monthlyOption.getId());
-                    openExternalCheckout(activity,monthUrl,result);
+                contact.setText("Связь с продавцом: +"+(!whatsapp.isEmpty()?whatsapp:telephone));
+                chat.setEnabled(!whatsapp.isEmpty());
+                call.setEnabled(!telephone.isEmpty());
+                chat.setOnClickListener(v -> {
+                    boolean monthly=plans.getCheckedRadioButtonId()==month.getId();
+                    String name=monthly?"на 30 дней":"навсегда";
+                    String price=monthly?monthPrice+" ₽":foreverPrice+" ₽";
+                    String text="Здравствуйте! Хочу купить лицензию «Замер потолка» "+
+                            name+" за "+price+". Мой ID покупателя: "+client.userId()+
+                            ". Напишите, пожалуйста, как оплатить переводом.";
+                    openWhatsApp(activity,whatsapp,text,result);
                 });
-                forever.setOnClickListener(v -> {
-                    selection.check(foreverOption.getId());
-                    openExternalCheckout(activity,foreverUrl,result);
+                call.setOnClickListener(v -> {
+                    try {
+                        activity.startActivity(new Intent(Intent.ACTION_DIAL,
+                                Uri.parse("tel:+"+telephone)));
+                    } catch (ActivityNotFoundException ex) {
+                        result.setText("Нет приложения для звонков. Номер: +"+telephone);
+                    }
                 });
-                catalogueStatus.setText(monthUrl.isEmpty() && foreverUrl.isEmpty()
-                        ? "Продавец ещё не добавил ссылки на оплату."
-                        : "Ссылки готовы. Выберите вариант и перейдите к оплате.");
             });
         }
+
         dialog.show();
     }
 }
