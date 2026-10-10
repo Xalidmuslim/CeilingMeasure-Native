@@ -9,6 +9,7 @@ import android.text.InputType;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 /** Registration-free license screen. All purchases are external to this activity. */
@@ -57,6 +58,10 @@ final class NativeLicenseDialog {
         refresh.setText("Обновить лицензию");
         layout.addView(refresh);
 
+        Button purchase = new Button(activity);
+        purchase.setText("Купить на 30 дней или навсегда");
+        layout.addView(purchase);
+
         TextView restoreTitle = new TextView(activity);
         restoreTitle.setText("Сменили телефон? Введите ранее сохранённый код:");
         restoreTitle.setTextSize(13);
@@ -76,9 +81,11 @@ final class NativeLicenseDialog {
         result.setTextSize(13);
         layout.addView(result);
 
+        ScrollView scroll = new ScrollView(activity);
+        scroll.addView(layout);
         AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setTitle("Лицензия — Замер потолка")
-                .setView(layout)
+                .setView(scroll)
                 .setNegativeButton("Закрыть", null)
                 .create();
 
@@ -91,6 +98,7 @@ final class NativeLicenseDialog {
             codeDisplay.setText(hasCode ? client.recoveryCode() : "Код появится после начала пробного периода");
             begin.setEnabled(ready && !hasCode);
             refresh.setEnabled(ready && hasCode);
+            purchase.setEnabled(ready && hasCode);
             copy.setEnabled(hasCode);
             restore.setEnabled(ready);
             recoveryInput.setEnabled(ready);
@@ -136,6 +144,11 @@ final class NativeLicenseDialog {
                     onChanged.run();
                 }
             });
+        });
+
+        purchase.setOnClickListener(view -> {
+            dialog.dismiss();
+            NativePurchaseDialog.show(activity, client, onChanged);
         });
 
         copyBuyerId.setOnClickListener(view -> {
