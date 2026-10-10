@@ -5,6 +5,15 @@ compatibility_date = "2026-09-01"
 # Free hostname after deployment: https://ceilingmeasure-license.<account>.workers.dev
 workers_dev = true
 
+
+# Optional public checkout links. Leave empty until seller products have passed
+# moderation and payment account has been verified.
+[vars]
+MONTHLY_PRICE_RUB = "299"
+LIFETIME_PRICE_RUB = "2990"
+PAYMENT_MONTH_URL = ""
+PAYMENT_LIFETIME_URL = ""
+
 [[d1_databases]]
 binding = "DB"
 database_name = "ceilingmeasure-licenses"
