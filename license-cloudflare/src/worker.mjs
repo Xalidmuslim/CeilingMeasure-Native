@@ -87,27 +87,36 @@ async function recoverOrRefresh(request, env, allowRecovery) {
 }
 
 async function adminGrant(request,env) {
-  if (!env.ADMIN_API_KEY || env.ADMIN_API_KEY.length<32 ||
-      !equalSecrets(request.headers.get('x-admin-key'), env.ADMIN_API_KEY)) return error('forbidden',403);
+  if (!sellerAuthorized(request,env)) return error('forbidden',403);
   const data=await readJson(request);
   const userId=String(data.user_id||'');
   const kind=String(data.kind||'');
   const source=String(data.source||'');
   const externalRef=String(data.external_ref||'');
-  const until=kind==='monthly' ? Date.parse(String(data.paid_until||'')) : null;
+  const fixed30 = kind==='monthly' && data.period_days===30 && data.paid_until == null;
+  const explicitEnd = kind==='monthly' && !fixed30 ? Date.parse(String(data.paid_until||'')) : null;
   if (!UUID.test(userId) || !['monthly','lifetime'].includes(kind) ||
       !SOURCE.test(source) || !EXT_REF.test(externalRef) ||
-      (kind==='monthly' && (!Number.isFinite(until) || until<=Date.now())) ||
-      (kind==='lifetime' && data.paid_until != null)) return error('invalid_grant',400);
+      (kind==='monthly' && !fixed30 && (!Number.isFinite(explicitEnd) || explicitEnd<=Date.now())) ||
+      (kind==='monthly' && data.period_days!=null && !fixed30) ||
+      (kind==='lifetime' && (data.paid_until!=null || data.period_days!=null)))
+    return error('invalid_grant',400);
   const user=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(userId).first();
-  if (!user) return error('user_not_found',404);
-  const id=crypto.randomUUID();
+  if (!user) return error('user_not_registered',404);
+  let until = kind==='monthly' ? explicitEnd : null;
+  if (fixed30) {
+    const existing=await env.DB.prepare(
+      "SELECT MAX(paid_until_ms) AS valid_until FROM grants WHERE user_id=? AND kind='monthly' AND revoked=0"
+    ).bind(userId).first();
+    until=Math.max(Date.now(), Number(existing?.valid_until||0))+30*DAY;
+  }
+  const grantId=crypto.randomUUID();
   try {
     const result=await env.DB.prepare(
       'INSERT INTO grants (id,user_id,kind,source,external_ref,paid_until_ms,created_ms) VALUES (?,?,?,?,?,?,?)'
-    ).bind(id,userId,kind,source,externalRef,until,Date.now()).run();
+    ).bind(grantId,userId,kind,source,externalRef,until,Date.now()).run();
     if (!result.success) return error('grant_failed',500);
-    return asJson({grant_id:id},201);
+    return asJson({grant_id:grantId,kind,user_id:userId,access_until:until},201);
   } catch(e) {
     if (String(e.message||'').includes('UNIQUE')) return error('duplicate_payment_reference',409);
     throw e;
