@@ -6,7 +6,7 @@
   "engines": {"node": ">=20"},
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "node --check src/domain.mjs && node --check src/worker.mjs"
+    "check": "node --check src/domain.mjs && node --check src/worker.mjs && node --check src/admin.mjs"
   },
   "devDependencies": {}
 }
