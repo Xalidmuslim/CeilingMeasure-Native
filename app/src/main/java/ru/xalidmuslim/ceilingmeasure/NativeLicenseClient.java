@@ -188,6 +188,37 @@ final class NativeLicenseClient {
         } catch (Exception ignored) {return false;}
     }
 
+    interface CatalogueCallback { void done(JSONObject catalogue, String error); }
+
+    void loadCatalogue(CatalogueCallback callback) {
+        call("GET", "/v1/catalog", null, "", callback::done);
+    }
+
+    void submitPaymentClaim(String plan, String orderReference, Callback callback) {
+        if (recoveryCode().isEmpty()) {
+            callback.done(false, "Сначала активируйте пробный период");
+            return;
+        }
+        if (!"monthly".equals(plan) && !"lifetime".equals(plan)) {
+            callback.done(false, "Выберите тип лицензии");
+            return;
+        }
+        String reference = orderReference == null ? "" : orderReference.trim();
+        if (!reference.matches("[A-Za-z0-9][A-Za-z0-9:_./-]{5,127}")) {
+            callback.done(false, "Укажите номер заказа без пробелов, минимум 6 символов");
+            return;
+        }
+        JSONObject input = new JSONObject();
+        try {
+            input.put("plan", plan);
+            input.put("order_reference", reference);
+        } catch (Exception ignored) {}
+        call("POST", "/v1/payment-claims", input, recoveryCode(), (response,error) -> {
+            if (error != null) {callback.done(false,error);return;}
+            callback.done(true, "Заявка принята. Доступ откроется после проверки оплаты продавцом.");
+        });
+    }
+
     private interface Result { void accept(JSONObject result, String error); }
 
     private void call(String method, String path, JSONObject data, String bearer, Result done) {
