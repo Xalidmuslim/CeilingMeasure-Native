@@ -217,7 +217,7 @@ final class NativeLicenseClient {
     void grantManually(String adminKey, String buyerId, String kind, String transferRef, AdminCallback callback) {
         if (!buyerId.matches("[a-fA-F0-9-]{36}") ||
                 !("monthly".equals(kind) || "lifetime".equals(kind)) ||
-                !transferRef.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{5,127}") ||
+                !transferRef.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{5,122}") ||
                 adminKey.length() < 32) {
             callback.done(false, "Проверьте ID, ключ и уникальный номер перевода", null);
             return;
