@@ -124,6 +124,118 @@ async function adminRevoke(request,env) {
   return asJson({revoked: (result.meta?.changes||0)>0});
 }
 
+const PAYMENT_ORDER = /^[A-Za-z0-9][A-Za-z0-9:_./-]{5,127}$/;
+
+function sellerAuthorized(request, env) {
+  return typeof env.ADMIN_API_KEY === 'string'
+    && env.ADMIN_API_KEY.length >= 32
+    && equalSecrets(request.headers.get('x-admin-key'), env.ADMIN_API_KEY);
+}
+function trustedCheckoutLink(value) {
+  try {
+    if (!value) return null;
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (url.protocol !== 'https:') return null;
+    if (!(host === 'lava.top' || host.endsWith('.lava.top') ||
+          host === 'boosty.to' || host.endsWith('.boosty.to'))) return null;
+    if (url.username || url.password) return null;
+    return url.toString();
+  } catch { return null; }
+}
+function priceRub(value, fallback) {
+  const n = Number(value);
+  return Number.isSafeInteger(n) && n >= 50 && n <= 1000000 ? n : fallback;
+}
+function catalogue(env) {
+  const monthlyUrl = trustedCheckoutLink(env.PAYMENT_MONTH_URL);
+  const lifetimeUrl = trustedCheckoutLink(env.PAYMENT_LIFETIME_URL);
+  return asJson({
+    currency: 'RUB',
+    provider: 'external_checkout',
+    manual_activation: true,
+    needs_seller_confirmation: true,
+    plans: {
+      monthly: {name: '30 дней',days: 30,price_rub: priceRub(env.MONTHLY_PRICE_RUB,299), checkout_url:monthlyUrl},
+      lifetime: {name: 'Навсегда',days: null,price_rub: priceRub(env.LIFETIME_PRICE_RUB,2990), checkout_url:lifetimeUrl}
+    }
+  });
+}
+async function createPaymentClaim(request,env) {
+  const recoveryCode = bearer(request);
+  const user = await userForRecovery(env.DB,recoveryCode);
+  if (!user) return error('invalid_recovery_code',401);
+  const input = await readJson(request);
+  const plan = String(input.plan || '');
+  const ref = String(input.order_reference || '').trim();
+  if (!['monthly','lifetime'].includes(plan) || !PAYMENT_ORDER.test(ref))
+    return error('invalid_payment_claim',400);
+  const existing = await env.DB.prepare('SELECT id, user_id, plan, status FROM payment_claims WHERE order_reference=?').bind(ref).first();
+  if (existing) {
+    if (existing.user_id === user.id && existing.plan === plan)
+      return asJson({claim_id: existing.id, status: existing.status});
+    return error('order_reference_already_used',409);
+  }
+  const pending = await env.DB.prepare("SELECT COUNT(*) AS n FROM payment_claims WHERE user_id=? AND status='pending'").bind(user.id).first();
+  if (Number(pending?.n || 0)>=5) return error('too_many_pending_claims',429);
+  const id=crypto.randomUUID();
+  try {
+    await env.DB.prepare('INSERT INTO payment_claims (id,user_id,plan,order_reference,status,created_ms) VALUES (?,?,?,?,?,?)')
+      .bind(id,user.id,plan,ref,'pending',Date.now()).run();
+  } catch (e) {
+    if (String(e.message||'').includes('UNIQUE')) return error('order_reference_already_used',409);
+    throw e;
+  }
+  return asJson({claim_id:id,status:'pending',message:'awaiting_manual_review'},201);
+}
+async function listPaymentClaims(request,env) {
+  if (!sellerAuthorized(request,env)) return error('forbidden',403);
+  const status=new URL(request.url).searchParams.get('status') || 'pending';
+  if (!['pending','approved','rejected'].includes(status)) return error('invalid_status',400);
+  const rows = await env.DB.prepare(
+    'SELECT id,user_id,plan,order_reference,status,created_ms,reviewed_ms FROM payment_claims WHERE status=? ORDER BY created_ms DESC LIMIT 100'
+  ).bind(status).all();
+  return asJson({status,claims:rows.results || []});
+}
+async function reviewPaymentClaim(request,env,decision) {
+  if (!sellerAuthorized(request,env)) return error('forbidden',403);
+  const body=await readJson(request);
+  const id=String(body.claim_id || '');
+  if (!UUID.test(id)) return error('invalid_claim',400);
+  const claim=await env.DB.prepare('SELECT * FROM payment_claims WHERE id=?').bind(id).first();
+  if (!claim) return error('claim_not_found',404);
+  if (claim.status!=='pending') return error('claim_already_reviewed',409);
+  const now=Date.now();
+  if (decision==='reject') {
+    const update=await env.DB.prepare("UPDATE payment_claims SET status='rejected',reviewed_ms=? WHERE id=? AND status='pending'")
+      .bind(now,id).run();
+    return asJson({status: (update.meta?.changes||0)>0 ? 'rejected':'unchanged'});
+  }
+  // Only the seller may approve, and only AFTER separately verifying the
+  // matching payment and amount in the official payment-provider account.
+  const externalRef = 'manual_lava:' + claim.order_reference;
+  let paidUntil=null;
+  if (claim.plan==='monthly') {
+    const current=await env.DB.prepare(
+      "SELECT MAX(paid_until_ms) AS valid_until FROM grants WHERE user_id=? AND kind='monthly' AND revoked=0"
+    ).bind(claim.user_id).first();
+    paidUntil=Math.max(now,Number(current?.valid_until||0))+30*DAY;
+  }
+  // Cloudflare D1 executes batch statements as a single transaction.
+  try {
+    const changes=await env.DB.batch([
+      env.DB.prepare("UPDATE payment_claims SET status='approved',reviewed_ms=? WHERE id=? AND status='pending'").bind(now,id),
+      env.DB.prepare('INSERT INTO grants (id,user_id,kind,source,external_ref,paid_until_ms,created_ms) VALUES (?,?,?,?,?,?,?)')
+        .bind(crypto.randomUUID(),claim.user_id,claim.plan,'manual_lava',externalRef,paidUntil,now)
+    ]);
+    if (!changes[0].meta?.changes) return error('claim_already_reviewed',409);
+    return asJson({status:'approved',user_id:claim.user_id,kind:claim.plan,access_until:paidUntil});
+  } catch(e) {
+    if (String(e.message||'').includes('UNIQUE')) return error('duplicate_payment_reference',409);
+    throw e;
+  }
+}
+
 export default {
   async fetch(request, env) {
     try {
@@ -139,6 +251,11 @@ export default {
       if(method==='POST' && url.pathname==='/v1/license')return await recoverOrRefresh(request,env,false);
       if(method==='POST' && url.pathname==='/v1/admin/grants')return await adminGrant(request,env);
       if(method==='POST' && url.pathname==='/v1/admin/revoke')return await adminRevoke(request,env);
+      if(method==='GET' && url.pathname==='/v1/catalog')return catalogue(env);
+      if(method==='POST' && url.pathname==='/v1/payment-claims')return await createPaymentClaim(request,env);
+      if(method==='GET' && url.pathname==='/v1/admin/payment-claims')return await listPaymentClaims(request,env);
+      if(method==='POST' && url.pathname==='/v1/admin/claims/approve')return await reviewPaymentClaim(request,env,'approve');
+      if(method==='POST' && url.pathname==='/v1/admin/claims/reject')return await reviewPaymentClaim(request,env,'reject');
       return error('not_found',404);
     } catch(e) {
       if (e.message==='invalid_request')return error('invalid_request',400);
