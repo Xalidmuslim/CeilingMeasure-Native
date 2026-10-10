@@ -62,7 +62,7 @@ final class NativeLicenseClient {
 
     private JSONObject signedPayload(String token) {
         try {
-            String[] pieces = token.split("\\\\.");
+            String[] pieces = token.split("\\.");
             if (pieces.length != 2) return null;
             PublicKey key = KeyFactory.getInstance("RSA").generatePublic(
                     new X509EncodedKeySpec(Base64.decode(BuildConfig.LICENSE_PUBLIC_KEY_B64, Base64.DEFAULT)));
