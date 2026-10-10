@@ -142,6 +142,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         NativeShellInsets.configureWindow(this);
+        if (!new NativeLicenseClient(this).canEdit()) {
+            returnToLicenseScreen();
+            return;
+        }
         store = new NativeProjectStore(this);
         uiPrefs = NativeUiPrefs.load(this);
 
@@ -192,6 +196,22 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 goHome();
             }
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Prevent expired licenses from bypassing the home screen via Android Recents.
+        if (!new NativeLicenseClient(this).canEdit() && !isFinishing()) {
+            returnToLicenseScreen();
+        }
+    }
+
+    private void returnToLicenseScreen() {
+        Intent home = new Intent(this, NativeHomeActivity.class);
+        home.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(home);
+        finish();
     }
 
     @Override
