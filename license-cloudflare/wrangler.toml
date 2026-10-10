@@ -6,13 +6,15 @@ compatibility_date = "2026-09-01"
 workers_dev = true
 
 
-# Optional public checkout links. Leave empty until seller products have passed
-# moderation and payment account has been verified.
+# Public contact details (no bank-card data or transfer credentials in the APK).
+# International digits ONLY, no + sign. Example 79001234567.
+# Leave blank until the seller provides a confirmed WhatsApp number.
 [vars]
 MONTHLY_PRICE_RUB = "299"
 LIFETIME_PRICE_RUB = "2990"
-PAYMENT_MONTH_URL = ""
-PAYMENT_LIFETIME_URL = ""
+WHATSAPP_NUMBER = ""
+# Optional fallback. If empty, clients can call WHATSAPP_NUMBER.
+SUPPORT_CALL_NUMBER = ""
 
 [[d1_databases]]
 binding = "DB"
