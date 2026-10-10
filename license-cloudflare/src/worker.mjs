@@ -1,4 +1,5 @@
 import {entitlement, issueLicense, randomRecoveryCode, sha256Hex, hashIp, validRecoveryCode} from './domain.mjs';
+import {adminPage} from './admin.mjs';
 
 const DEVICE = /^[a-zA-Z0-9_-]{16,128}$/;
 const UUID = /^[a-f0-9-]{36}$/i;
@@ -251,6 +252,7 @@ export default {
       if(method==='POST' && url.pathname==='/v1/license')return await recoverOrRefresh(request,env,false);
       if(method==='POST' && url.pathname==='/v1/admin/grants')return await adminGrant(request,env);
       if(method==='POST' && url.pathname==='/v1/admin/revoke')return await adminRevoke(request,env);
+      if(method==='GET' && url.pathname==='/admin')return adminPage();
       if(method==='GET' && url.pathname==='/v1/catalog')return catalogue(env);
       if(method==='POST' && url.pathname==='/v1/payment-claims')return await createPaymentClaim(request,env);
       if(method==='GET' && url.pathname==='/v1/admin/payment-claims')return await listPaymentClaims(request,env);
