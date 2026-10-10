@@ -18,8 +18,8 @@ Requires Node.js >=20, PostgreSQL, SMTP with real account, HTTPS reverse proxy, 
 2. Generate your *own* RSA private key, which MUST never be committed:
    ```bash
    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out private.pem
-   openssl pkey -in private.pem -pubout -outform DER | base64 | tr -d '\\n'
-   base64 < private.pem | tr -d '\\n'
+   openssl pkey -in private.pem -pubout -outform DER | base64 | tr -d '\n'
+   base64 < private.pem | tr -d '\n'
    ```
    The first base64 value is the **public** SPKI key to embed in the Android build; the second is the **private** PEM encoded as base64 for `LICENSE_PRIVATE_KEY_B64` on the server.
 3. Set `OTP_PEPPER` and `ADMIN_API_KEY` to independent random secrets at least 32 characters each. Set SMTP variables and `PORT`. See `.env.example` (the Node process **does not automatically load** the file).
@@ -31,8 +31,8 @@ The Android project defaults to **legacy/free access** if the license service ha
 
 For a controlled, license-enabled release, build with BOTH:
 ```bash
-gradle assembleRelease \\
-  -PceilingLicenseUrl=https://licenses.example.com \\
+gradle assembleRelease \
+  -PceilingLicenseUrl=https://licenses.example.com \
   -PceilingLicensePublicKeyB64=PUBLIC_BASE64_SPKI
 ```
 (The URLs/keys above are placeholders.) The two values may also be set using the `CEILING_LICENSE_URL` and `CEILING_LICENSE_PUBLIC_KEY_B64` environment variables. Neither value is secret. The server's PRIVATE key must **never** be stored in an APK.
