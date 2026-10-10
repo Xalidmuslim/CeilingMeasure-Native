@@ -110,7 +110,10 @@ final class NativeLicenseClient {
                 ? "7 дней бесплатно · без регистрации и почты"
                 : "Требуется проверка или продление лицензии";
         switch (claims.optString("kind")) {
-            case "trial": return "Пробный доступ активен";
+            case "trial":
+                long remainingMs = Math.max(0L, claims.optLong("access_until",0L) - System.currentTimeMillis());
+                long days = Math.max(1L, (remainingMs + 86400000L - 1L) / 86400000L);
+                return "Пробный период: осталось " + days + " дн.";
             case "monthly": return "Месячная лицензия активна";
             case "lifetime": return "Бессрочная лицензия активна";
             default: return "Лицензия неактивна";
