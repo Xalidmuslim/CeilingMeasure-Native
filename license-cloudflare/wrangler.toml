@@ -12,9 +12,9 @@ workers_dev = true
 [vars]
 MONTHLY_PRICE_RUB = "299"
 LIFETIME_PRICE_RUB = "2990"
-WHATSAPP_NUMBER = ""
+WHATSAPP_NUMBER = "79019221000"
 # Optional fallback. If empty, clients can call WHATSAPP_NUMBER.
-SUPPORT_CALL_NUMBER = ""
+SUPPORT_CALL_NUMBER = "79019221000"
 
 [[d1_databases]]
 binding = "DB"
