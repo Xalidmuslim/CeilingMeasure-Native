@@ -1,9 +1,9 @@
-name: Native Cloudflare License v225 APK
+name: Native Manual WhatsApp License v226 APK
 
 on:
   push:
     branches:
-      - feature/license-cloudflare-v225
+      - feature/license-cloudflare-v226
   workflow_dispatch:
 
 permissions:
@@ -51,7 +51,7 @@ jobs:
       - name: Upload preview APK
         uses: actions/upload-artifact@v4
         with:
-          name: CeilingMeasure-v225-cloudflare-preview
+          name: CeilingMeasure-v226-cloudflare-preview
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
