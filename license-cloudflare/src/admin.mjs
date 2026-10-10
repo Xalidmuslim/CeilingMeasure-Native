@@ -87,7 +87,7 @@ el('grant').onclick=async()=>{
  try{
   ({id,key}=validation());
   ref=el('ref').value.trim();
-  if(!/^[A-Za-z0-9][A-Za-z0-9_.:-]{5,127}$/.test(ref))throw Error('Нужен уникальный номер перевода (6–128 символов)');
+  if(!/^[A-Za-z0-9][A-Za-z0-9_.:-]{5,122}$/.test(ref))throw Error('Нужен уникальный номер перевода (6–128 символов)');
  }catch(e){output.textContent=e.message;return}
  const plan=el('plan').value;
  if(!confirm('Вы лично проверили поступление денег на банковский счёт? Открыть клиенту '+(plan==='monthly'?'30 дней':'бессрочный доступ')+'?'))return;
