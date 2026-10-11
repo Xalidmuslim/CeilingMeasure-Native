@@ -1,14 +1,15 @@
 package ru.xalidmuslim.ceilingmeasure;
 
 import android.app.Activity;
-import android.app.AlertDialog;
+import android.content.res.ColorStateList;
 import android.text.InputType;
+import android.view.Gravity;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
 import org.json.JSONObject;
@@ -17,112 +18,135 @@ import java.text.DateFormat;
 import java.util.Date;
 
 /**
- * Secure manual licensing on the seller's own Android phone.
- * The admin API key is typed each time; never written to disk or embedded
- * in the APK. Bank transfer confirmation always happens outside the app.
+ * Compact seller-only activation panel with matching native app design.
+ * The admin secret is entered manually, never embedded or persisted by the APK.
  */
 final class NativeOwnerLicenseDialog {
     private NativeOwnerLicenseDialog() {}
 
-    private static TextView text(Activity activity, String value) {
-        TextView label = new TextView(activity);
-        label.setText(value);
-        label.setTextSize(13);
-        int pad=Math.round(5*activity.getResources().getDisplayMetrics().density);
-        label.setPadding(0,pad,0,pad);
-        return label;
+    private static RadioButton option(Activity activity, String label) {
+        RadioButton button = new RadioButton(activity);
+        button.setId(View.generateViewId());
+        button.setText(label);
+        button.setTextColor(NativeVisualTokens.HOME_CARD_TEXT);
+        button.setTextSize(12.5f);
+        button.setGravity(Gravity.CENTER_VERTICAL);
+        button.setButtonTintList(ColorStateList.valueOf(NativeVisualTokens.ACCENT));
+        button.setPadding(NativeLicenseUi.dp(activity, 8), 0,
+                NativeLicenseUi.dp(activity, 4), 0);
+        button.setBackground(NativeVisualTokens.outlined(
+                NativeVisualTokens.SURFACE_SOFT, NativeVisualTokens.LINE,
+                NativeLicenseUi.dp(activity, 11), NativeLicenseUi.dp(activity, 1)));
+        return button;
     }
 
-    private static String displayExpiry(JSONObject object) {
-        if (object == null) return "Покупатель не найден";
-        String kind = object.optString("status",object.optString("kind","unknown"));
-        String label;
+    private static String displayExpiry(JSONObject data) {
+        if (data == null) return "Покупатель не найден";
+        String kind = data.optString("status", data.optString("kind", "expired"));
+        String description;
         switch (kind) {
-            case "trial": label="Пробный период"; break;
-            case "monthly": label="Оплачен доступ на 30 дней"; break;
-            case "lifetime": label="Бессрочная лицензия"; break;
-            default: label="Срок доступа истёк"; break;
+            case "trial": description = "Пробный период"; break;
+            case "monthly": description = "Доступ на 30 дней"; break;
+            case "lifetime": description = "Бессрочный доступ"; break;
+            default: description = "Доступ истёк"; break;
         }
-        if (!object.isNull("access_until") && object.has("access_until")) {
-            long until=object.optLong("access_until",0L);
-            if (until>0L) label+=". Срок до: "+DateFormat.getDateTimeInstance(
-                    DateFormat.MEDIUM,DateFormat.SHORT).format(new Date(until));
+        long expiration = data.optLong("access_until", 0);
+        if (expiration > 0 && !"lifetime".equals(kind)) {
+            description += " · до " + DateFormat.getDateTimeInstance(
+                    DateFormat.SHORT, DateFormat.SHORT).format(new Date(expiration));
         }
-        return label;
+        return description;
     }
 
     static void show(Activity activity, NativeLicenseClient client) {
-        int p=Math.round(16*activity.getResources().getDisplayMetrics().density);
-        ScrollView scroll=new ScrollView(activity);
-        LinearLayout body=new LinearLayout(activity);
-        body.setPadding(p,p,p,p);
-        body.setOrientation(LinearLayout.VERTICAL);
-        scroll.addView(body);
+        NativeLicenseUi.Sheet sheet = new NativeLicenseUi.Sheet(
+                activity, "Режим владельца", "Выдача лицензий после оплаты");
 
-        body.addView(text(activity,
-                "Только для владельца. Здесь можно открыть покупателю 30 дней или бессрочный доступ " +
-                "после проверки реального поступления перевода в банковском приложении."));
+        sheet.body.addView(NativeLicenseUi.notice(activity,
+                "Сначала проверьте поступление перевода в банковском приложении."),
+                NativeLicenseUi.spaced(activity, 11));
 
-        EditText key=new EditText(activity);
-        key.setHint("Секретный ключ владельца");
-        key.setSingleLine(true);
-        key.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        body.addView(key);
+        sheet.body.addView(NativeLicenseUi.heading(activity, "Ключ владельца"),
+                NativeLicenseUi.spaced(activity, 12));
+        EditText key = NativeLicenseUi.field(activity, "Секретный ключ",
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        sheet.body.addView(key, NativeLicenseUi.spaced(activity, 5));
 
-        EditText buyer=new EditText(activity);
-        buyer.setHint("ID покупателя из WhatsApp");
-        buyer.setSingleLine(true);
-        buyer.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        body.addView(buyer);
+        sheet.body.addView(NativeLicenseUi.heading(activity, "ID покупателя"),
+                NativeLicenseUi.spaced(activity, 11));
+        LinearLayout lookup = NativeLicenseUi.row(activity, 8);
+        EditText buyer = NativeLicenseUi.field(activity, "Вставьте ID из WhatsApp",
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        lookup.addView(buyer, NativeLicenseUi.weighted(activity, 0));
+        Button check = NativeLicenseUi.button(activity, "Найти", false);
+        lookup.addView(check, new LinearLayout.LayoutParams(
+                NativeLicenseUi.dp(activity, 83), NativeLicenseUi.dp(activity, 43)));
+        sheet.body.addView(lookup, NativeLicenseUi.spaced(activity, 5));
 
-        Button check=new Button(activity);
-        check.setText("Проверить покупателя");
-        body.addView(check);
+        TextView current = NativeLicenseUi.text(activity, "", 11.5f, false);
+        sheet.body.addView(current, NativeLicenseUi.spaced(activity, 5));
 
-        TextView current=text(activity,"");
-        body.addView(current);
+        sheet.body.addView(NativeLicenseUi.heading(activity, "Тип лицензии"),
+                NativeLicenseUi.spaced(activity, 12));
 
-        RadioGroup plans=new RadioGroup(activity);
-        plans.setOrientation(LinearLayout.VERTICAL);
-        RadioButton monthly=new RadioButton(activity);
-        monthly.setId(android.view.View.generateViewId());
-        monthly.setText("Открыть на 30 дней");
-        plans.addView(monthly);
-        RadioButton lifetime=new RadioButton(activity);
-        lifetime.setId(android.view.View.generateViewId());
-        lifetime.setText("Открыть навсегда");
-        plans.addView(lifetime);
-        plans.check(monthly.getId());
-        body.addView(plans);
+        RadioGroup plans = new RadioGroup(activity);
+        plans.setOrientation(RadioGroup.HORIZONTAL);
+        RadioButton month = option(activity, "30 дней");
+        RadioButton forever = option(activity, "Навсегда");
+        RadioGroup.LayoutParams first = new RadioGroup.LayoutParams(
+                0, NativeLicenseUi.dp(activity, 45), 1f);
+        plans.addView(month, first);
+        RadioGroup.LayoutParams second = new RadioGroup.LayoutParams(
+                0, NativeLicenseUi.dp(activity, 45), 1f);
+        second.leftMargin = NativeLicenseUi.dp(activity, 8);
+        plans.addView(forever, second);
+        plans.setOnCheckedChangeListener((group, checkedId) -> {
+            month.setBackground(NativeVisualTokens.outlined(
+                    checkedId == month.getId() ? NativeVisualTokens.ACCENT_SOFT
+                            : NativeVisualTokens.SURFACE_SOFT,
+                    checkedId == month.getId() ? NativeVisualTokens.ACCENT
+                            : NativeVisualTokens.LINE,
+                    NativeLicenseUi.dp(activity, 11), NativeLicenseUi.dp(activity, 1)));
+            forever.setBackground(NativeVisualTokens.outlined(
+                    checkedId == forever.getId() ? NativeVisualTokens.ACCENT_SOFT
+                            : NativeVisualTokens.SURFACE_SOFT,
+                    checkedId == forever.getId() ? NativeVisualTokens.ACCENT
+                            : NativeVisualTokens.LINE,
+                    NativeLicenseUi.dp(activity, 11), NativeLicenseUi.dp(activity, 1)));
+        });
+        plans.check(forever.getId());
+        plans.check(month.getId());
+        sheet.body.addView(plans, NativeLicenseUi.spaced(activity, 6));
 
-        EditText transaction=new EditText(activity);
-        transaction.setHint("Уникальный номер подтверждённого перевода");
-        transaction.setSingleLine(true);
-        transaction.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        body.addView(transaction);
-        body.addView(text(activity,
-                "Для каждого перевода укажите отдельный номер или учётную метку длиной от 6 символов, " +
-                "без пробелов. Один номер нельзя активировать дважды."));
+        sheet.body.addView(NativeLicenseUi.heading(activity, "Номер перевода"),
+                NativeLicenseUi.spaced(activity, 12));
+        EditText transaction = NativeLicenseUi.field(activity,
+                "Уникальный номер или метка от 6 символов",
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        sheet.body.addView(transaction, NativeLicenseUi.spaced(activity, 5));
 
-        Button activate=new Button(activity);
-        activate.setText("Открыть доступ после проверки оплаты");
-        body.addView(activate);
+        Button activate = NativeLicenseUi.button(activity, "Открыть доступ", true);
+        sheet.body.addView(activate, NativeLicenseUi.spaced(activity, 12));
 
-        TextView result=text(activity,"");
-        body.addView(result);
+        TextView result = NativeLicenseUi.text(activity, "", 11.5f, false);
+        sheet.body.addView(result, NativeLicenseUi.spaced(activity, 7));
 
-        AlertDialog dialog=new AlertDialog.Builder(activity)
-                .setTitle("Режим владельца")
-                .setView(scroll)
-                .setNegativeButton("Закрыть",null)
-                .create();
+        if (!NativeLicenseClient.enabled()) {
+            check.setEnabled(false);
+            activate.setEnabled(false);
+            result.setText("Тестовая версия: сервер лицензий пока не подключён.");
+        }
 
         check.setOnClickListener(v -> {
+            String id = buyer.getText().toString().trim();
+            if (id.isEmpty()) {
+                buyer.setError("Введите ID покупателя");
+                return;
+            }
             check.setEnabled(false);
-            current.setText("Проверяем ID покупателя…");
-            client.lookupCustomer(key.getText().toString(),
-                    buyer.getText().toString().trim(),(ok,message,data) -> {
-                if(!activity.isFinishing() && dialog.isShowing()) {
+            current.setText("Проверяем покупателя…");
+            client.lookupCustomer(key.getText().toString(), id, (ok, message, data) -> {
+                if (sheet.visible()) {
                     check.setEnabled(true);
                     current.setText(ok ? displayExpiry(data) : message);
                 }
@@ -130,44 +154,59 @@ final class NativeOwnerLicenseDialog {
         });
 
         activate.setOnClickListener(v -> {
-            String id=buyer.getText().toString().trim();
-            String reference=transaction.getText().toString().trim();
+            String id = buyer.getText().toString().trim();
+            String reference = transaction.getText().toString().trim();
             if (!id.matches("[a-fA-F0-9-]{36}")) {
-                buyer.setError("Проверьте ID покупателя");return;
+                buyer.setError("Проверьте ID покупателя");
+                return;
             }
             if (!reference.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{5,122}")) {
-                transaction.setError("Нужен уникальный номер перевода, минимум 6 символов");return;
+                transaction.setError("Введите уникальную метку от 6 символов");
+                return;
             }
-            if (key.getText().toString().length()<32) {
-                key.setError("Введите секретный ключ владельца");return;
+            if (key.getText().toString().length() < 32) {
+                key.setError("Требуется секретный ключ владельца");
+                return;
             }
-            boolean isMonthly=plans.getCheckedRadioButtonId()==monthly.getId();
-            String period=isMonthly?"30 дней":"навсегда";
-            new AlertDialog.Builder(activity)
-                    .setTitle("Подтверждение оплаты")
-                    .setMessage("Ты лично проверил, что перевод за лицензию «Замер потолка» " +
-                            "поступил на банковский счёт?\n\nID: "+id+"\nЛицензия: "+period+
-                            "\nНомер перевода: "+reference+
-                            "\n\nСкриншота от покупателя недостаточно.")
-                    .setNegativeButton("Отмена",null)
-                    .setPositiveButton("Да, деньги получены",(confirmed,which) -> {
-                        activate.setEnabled(false);
-                        result.setText("Выдаём подписанную лицензию…");
-                        client.grantManually(
-                                key.getText().toString(),id,
-                                isMonthly?"monthly":"lifetime",reference,
-                                (success,message,details) -> {
-                                    if(!activity.isFinishing() && dialog.isShowing()) {
-                                        activate.setEnabled(true);
-                                        result.setText(message);
-                                        if(success) {
-                                            transaction.setText("");
-                                            current.setText(displayExpiry(details));
-                                        }
-                                    }
-                                });
-                    }).show();
+            final boolean monthly = plans.getCheckedRadioButtonId() == month.getId();
+            NativeLicenseUi.Sheet confirm = new NativeLicenseUi.Sheet(
+                    activity, "Подтвердить перевод", "Проверка перед выдачей доступа");
+            confirm.body.addView(NativeLicenseUi.notice(activity,
+                    "Деньги должны реально поступить на ваш счёт. Скриншота недостаточно."),
+                    NativeLicenseUi.spaced(activity, 9));
+            confirm.body.addView(NativeLicenseUi.text(activity,
+                    "Лицензия: " + (monthly ? "30 дней" : "навсегда"),
+                    13f, true), NativeLicenseUi.spaced(activity, 12));
+            confirm.body.addView(NativeLicenseUi.text(activity,
+                    "Номер перевода: " + reference, 12f, false),
+                    NativeLicenseUi.spaced(activity, 5));
+            LinearLayout buttons = NativeLicenseUi.row(activity, 8);
+            Button cancel = NativeLicenseUi.button(activity, "Отмена", false);
+            Button approve = NativeLicenseUi.button(activity, "Деньги получены", true);
+            buttons.addView(cancel, NativeLicenseUi.weighted(activity, 0));
+            buttons.addView(approve, NativeLicenseUi.weighted(activity, 8));
+            confirm.body.addView(buttons, NativeLicenseUi.spaced(activity, 14));
+            cancel.setOnClickListener(view -> confirm.dismiss());
+            approve.setOnClickListener(view -> {
+                confirm.dismiss();
+                activate.setEnabled(false);
+                result.setText("Активируем лицензию…");
+                client.grantManually(key.getText().toString(), id,
+                        monthly ? "monthly" : "lifetime", reference,
+                        (ok, message, details) -> {
+                            if (sheet.visible()) {
+                                activate.setEnabled(true);
+                                result.setText(message);
+                                if (ok) {
+                                    transaction.setText("");
+                                    current.setText(displayExpiry(details));
+                                }
+                            }
+                        });
+            });
+            confirm.show();
         });
-        dialog.show();
+
+        sheet.show();
     }
 }
