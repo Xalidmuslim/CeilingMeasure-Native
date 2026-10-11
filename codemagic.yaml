@@ -1,0 +1,61 @@
+# Independent APK build when GitHub Actions is blocked by GitHub billing.
+# Codemagic personal plans have a free Mac mini M2 build-minute quota.
+# This is a DEBUG PREVIEW. It is not the paid commercial APK:
+# no license server URL/public verification key is included.
+workflows:
+  ceilingmeasure-v226-preview:
+    name: "Замер потолка v226 — тестовый APK"
+    instance_type: mac_mini_m2
+    max_build_duration: 100
+    environment:
+      java: 17
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: "feature/manual-whatsapp-v226"
+          include: true
+          source: true
+    scripts:
+      - name: "Проверить нативный проект"
+        script: |
+          set -e
+          test -f app/build.gradle
+          test -f settings.gradle
+          test ! -f app/src/main/assets/index.html
+          if grep -R -E 'android\.webkit\.WebView|androidx\.webkit' app/src/main/java app/build.gradle; then
+            echo "ERROR: Native APK must not use WebView"
+            exit 1
+          fi
+      - name: "Проверить сервер лицензий"
+        script: |
+          set -e
+          cd license-cloudflare
+          node --version
+          npm run check
+          npm test
+      - name: "Установить Gradle 8.9"
+        script: |
+          set -e
+          mkdir -p "$CM_BUILD_DIR/.ci-tools"
+          curl --fail --location --retry 3 --silent --show-error \
+            --output "$CM_BUILD_DIR/.ci-tools/gradle-8.9-bin.zip" \
+            "https://services.gradle.org/distributions/gradle-8.9-bin.zip"
+          unzip -q "$CM_BUILD_DIR/.ci-tools/gradle-8.9-bin.zip" -d "$CM_BUILD_DIR/.ci-tools"
+          "$CM_BUILD_DIR/.ci-tools/gradle-8.9/bin/gradle" --version
+      - name: "Подготовить Android SDK"
+        script: |
+          set -e
+          test -n "$ANDROID_SDK_ROOT"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
+          if command -v sdkmanager >/dev/null 2>&1; then
+            sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          fi
+      - name: "Собрать нативную тестовую APK v226"
+        script: |
+          set -e
+          "$CM_BUILD_DIR/.ci-tools/gradle-8.9/bin/gradle" \
+            --no-daemon --stacktrace testDebugUnitTest assembleDebug
+          test -s app/build/outputs/apk/debug/app-debug.apk
+    artifacts:
+      - app/build/outputs/apk/debug/app-debug.apk
