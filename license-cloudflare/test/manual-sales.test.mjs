@@ -59,7 +59,7 @@ const post=(path,body,admin)=>{
 };
 
 test('manual RUB catalogue shows WhatsApp and fallback number but not bank details',async()=>{
-  const env={DB:new TestDb(),WHATSAPP_NUMBER:'79001234567',MONTHLY_PRICE_RUB:'299',LIFETIME_PRICE_RUB:'2990'};
+  const env={DB:new TestDb(),WHATSAPP_NUMBER:'79001234567',MONTHLY_PRICE_RUB:'299',LIFETIME_PRICE_RUB:'1900'};
   const res=await worker.fetch(new Request(origin+'/v1/catalog'),env);
   assert.equal(res.status,200);
   const data=await res.json();
@@ -68,7 +68,7 @@ test('manual RUB catalogue shows WhatsApp and fallback number but not bank detai
   assert.equal(data.whatsapp_number,'79001234567');
   assert.equal(data.call_number,'79001234567');
   assert.equal(data.plans.monthly.days,30);
-  assert.equal(data.plans.lifetime.price_rub,2990);
+  assert.equal(data.plans.lifetime.price_rub,1900);
   assert.equal(data.plans.monthly.checkout_url,undefined);
 });
 test('missing or malicious phone never produces an untrusted wa.me address',async()=>{
