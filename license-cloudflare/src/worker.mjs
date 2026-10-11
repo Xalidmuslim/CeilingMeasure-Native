@@ -106,7 +106,7 @@ function catalogue(env) {
     call_number:validWhatsAppNumber(env.SUPPORT_CALL_NUMBER || env.WHATSAPP_NUMBER),
     plans:{
       monthly:{name:'30 дней',days:30,price_rub:safePrice(env.MONTHLY_PRICE_RUB,299)},
-      lifetime:{name:'Навсегда',days:null,price_rub:safePrice(env.LIFETIME_PRICE_RUB,2990)}
+      lifetime:{name:'Навсегда',days:null,price_rub:safePrice(env.LIFETIME_PRICE_RUB,1900)}
     }
   });
 }
