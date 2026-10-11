@@ -51,22 +51,8 @@ install_with_retry app/build/outputs/apk/androidTest/debug/app-debug-androidTest
 # Resolve the installed instrumentation component instead of assuming a fixed
 # applicationId. Debug variants can add suffixes such as ".preview".
 installed_instrumentation="$(adb shell pm list instrumentation | tr -d '\r')"
-instrumentation_pattern='^instrumentation:([^[:space:]]+)[[:space:]]+\(target=([^)]+)\)
-
-grep -Eq "OK \([1-9][0-9]* tests\)" /tmp/instrumentation.txt
-
-if grep -q "FAILURES!!!" /tmp/instrumentation.txt; then
-  exit 1
-fi
-
-target_pattern='^ru[.]xalidmuslim[.]ceilingmeasure([.][A-Za-z0-9_]+)*
-
-grep -Eq "OK \([1-9][0-9]* tests\)" /tmp/instrumentation.txt
-
-if grep -q "FAILURES!!!" /tmp/instrumentation.txt; then
-  exit 1
-fi
-
+instrumentation_pattern='^instrumentation:([^[:space:]]+)[[:space:]]+\(target=([^)]+)\)$'
+target_pattern='^ru[.]xalidmuslim[.]ceilingmeasure([.][A-Za-z0-9_]+)*$'
 runner_components=()
 while IFS= read -r line; do
   if [[ "$line" =~ $instrumentation_pattern ]]; then
