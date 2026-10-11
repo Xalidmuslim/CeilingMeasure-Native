@@ -48,9 +48,29 @@ install_with_retry() {
 install_with_retry app/build/outputs/apk/debug/app-debug.apk
 install_with_retry app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
-adb shell am instrument -w -r \
-  ru.xalidmuslim.ceilingmeasure.test/androidx.test.runner.AndroidJUnitRunner \
-  | tee /tmp/instrumentation.txt
+# Resolve the installed instrumentation component instead of assuming a fixed
+# applicationId. Debug variants can add suffixes such as ".preview".
+installed_instrumentation="$(adb shell pm list instrumentation | tr -d '\r')"
+instrumentation_pattern='^instrumentation:([^[:space:]]+)[[:space:]]+\(target=([^)]+)\)$'
+target_pattern='^ru[.]xalidmuslim[.]ceilingmeasure([.][A-Za-z0-9_]+)*$'
+runner_components=()
+while IFS= read -r line; do
+  if [[ "$line" =~ $instrumentation_pattern ]]; then
+    component="${BASH_REMATCH[1]}"
+    target="${BASH_REMATCH[2]}"
+    if [[ "$target" =~ $target_pattern && "$component" == "${target}.test/androidx.test.runner.AndroidJUnitRunner" ]]; then
+      runner_components+=("$component")
+    fi
+  fi
+done <<< "$installed_instrumentation"
+
+if [[ "${#runner_components[@]}" -ne 1 ]]; then
+  echo "Expected exactly one CeilingMeasure AndroidJUnitRunner; found ${#runner_components[@]}" >&2
+  printf '%s\n' "$installed_instrumentation" >&2
+  exit 1
+fi
+
+adb shell am instrument -w -r "${runner_components[0]}" | tee /tmp/instrumentation.txt
 
 grep -Eq "OK \([1-9][0-9]* tests\)" /tmp/instrumentation.txt
 

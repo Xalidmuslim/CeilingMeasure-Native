@@ -15,6 +15,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check instrumentation runner selection
+        shell: bash
+        run: bash scripts/test_run_android_smoke.sh
+
       - name: Verify restored web golden master
         shell: bash
         run: |
