@@ -36,6 +36,9 @@ android {
     buildTypes {
         debug {
             minifyEnabled false
+            // Side-by-side preview APK: cannot overwrite production v224/v226
+            // or change a customer's saved ceiling drawings.
+            applicationIdSuffix '.preview'
         }
         release {
             minifyEnabled false
