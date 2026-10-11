@@ -11,7 +11,7 @@ workers_dev = true
 # Leave blank until the seller provides a confirmed WhatsApp number.
 [vars]
 MONTHLY_PRICE_RUB = "299"
-LIFETIME_PRICE_RUB = "2990"
+LIFETIME_PRICE_RUB = "1900"
 WHATSAPP_NUMBER = "79019221000"
 # Optional fallback. If empty, clients can call WHATSAPP_NUMBER.
 SUPPORT_CALL_NUMBER = "79019221000"
