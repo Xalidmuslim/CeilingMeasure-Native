@@ -38,6 +38,7 @@ fun TripHomeV7(
     var showFinance by remember { mutableStateOf(false) }
     val vehicle=fleet.firstOrNull{it.id==state.vehicleId}
         ?: demoFleet.firstOrNull{it.id==state.vehicleId}
+    val phoneGps=rememberPhoneGpsV96()
     Column(Modifier.fillMaxSize().background(Light)
         .verticalScroll(rememberScrollState())
         .padding(horizontal=14.dp,vertical=12.dp),
@@ -69,12 +70,43 @@ fun TripHomeV7(
                     "Стоимость",Modifier.weight(1f))
             }
         }
+        Surface(color=Color.White,shape=RoundedCornerShape(16.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp),
+                verticalAlignment=Alignment.CenterVertically) {
+                Icon(Icons.Rounded.MyLocation,null,
+                    tint=if(phoneGps.enabled)Color(0xFF2365D7) else Green,
+                    modifier=Modifier.size(21.dp))
+                Spacer(Modifier.width(9.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Местоположение телефона",
+                        fontSize=12.sp,fontWeight=FontWeight.Bold,color=Black)
+                    Text(if(phoneGps.fix!=null && phoneGps.enabled)
+                            "GPS · точность ±${phoneGps.fix.accuracyMeters.toInt()} м"
+                        else phoneGps.status,
+                        fontSize=10.sp,color=Soft)
+                }
+                TextButton(onClick={
+                    if(phoneGps.enabled)phoneGps.disable() else phoneGps.enable()
+                }) {
+                    Text(if(phoneGps.enabled)"Выключить" else "Включить GPS",
+                        fontSize=12.sp,fontWeight=FontWeight.Bold)
+                }
+            }
+        }
         StreetMapV7(
             fleet=fleet.filter { it.enabled && it.id == state.vehicleId },
             selectedId=state.vehicleId,
             onSelect={},
-            modifier=Modifier.fillMaxWidth().height(266.dp),
-            tripKm=state.distanceKm
+            modifier=Modifier.fillMaxWidth().height(286.dp),
+            tripKm=state.distanceKm,
+            phoneFix=phoneGps.fix,
+            usePhoneGps=phoneGps.enabled
+        )
+        Text(
+            if(phoneGps.enabled) "Синяя точка — реальное положение телефона, не автомобиля. Координаты никуда не отправляются."
+            else "Маршрут и маркер автомобиля условные. Включите GPS для отображения реального положения телефона.",
+            fontSize=10.sp,lineHeight=14.sp,color=Soft,
+            modifier=Modifier.padding(horizontal=4.dp)
         )
         Surface(color=Color.White,shape=RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(15.dp)) {
