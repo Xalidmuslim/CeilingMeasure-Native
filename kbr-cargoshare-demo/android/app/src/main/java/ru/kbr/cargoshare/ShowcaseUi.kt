@@ -136,7 +136,7 @@ fun ShowcaseApp() {
                                 onNotice = { notice = it }
                             )
                             Spacer(Modifier.height(12.dp))
-                            InfoPanel("Как работает демо", "Пройдите процесс от регистрации до возврата залога. Все документы, суммы и автомобили — примеры. Настоящие данные не вводите.")
+                            InfoPanel("Как работает демо", "Пройдите процесс от регистрации до завершения аренды. Все документы, суммы и автомобили — примеры. Настоящие данные не вводите.")
                             Spacer(Modifier.height(18.dp))
                         }
                     }
@@ -430,7 +430,6 @@ private fun FlowPanel(
                         }
                         Spacer(Modifier.height(15.dp))
                         DemoLine("Аренда",sumRub(RentalRules.fare(chosen,hours)))
-                        DemoLine("Залог",sumRub(RentalRules.DEMO_DEPOSIT))
                         Spacer(Modifier.height(8.dp))
                         DemoPrimary("Перейти к договору") {
                             act { ShowcaseEngine.reserve(state,chosen.id,hours,day,time,
@@ -446,7 +445,6 @@ private fun FlowPanel(
                     DemoLine("Место",state.pickup)
                     DemoLine("Срок","${state.day}, ${state.time} · ${state.hours} ч")
                     DemoLine("Арендная плата",sumRub(state.fare))
-                    DemoLine("Возвратный залог",sumRub(RentalRules.DEMO_DEPOSIT))
                     Spacer(Modifier.height(5.dp))
                     Text("Арендатор обязан иметь действующее удостоверение нужной категории, соблюдать ПДД, правила загрузки и возврата. Передача управления третьим лицам без согласования запрещена.",
                         fontSize=12.sp,color=SSecondary,lineHeight=18.sp)
@@ -461,11 +459,10 @@ private fun FlowPanel(
                     }
                 }
                 ShowcaseStage.PAYMENT -> {
-                    DemoTitle("Оплата и залог","Полная имитация эквайринга без реального списания")
+                    DemoTitle("Оплата аренды","Имитация оплаты без списания")
                     DemoLine("Стоимость аренды",sumRub(state.fare))
-                    DemoLine("Обеспечительный платёж",sumRub(RentalRules.DEMO_DEPOSIT))
                     HorizontalDivider(color=SBorder,modifier=Modifier.padding(vertical=5.dp))
-                    DemoLine("Итого в демо",sumRub(state.fare+RentalRules.DEMO_DEPOSIT))
+                    DemoLine("Итого в демо",sumRub(state.fare))
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement=Arrangement.spacedBy(9.dp)) {
                         listOf("Карта","СБП").forEach {
@@ -491,7 +488,7 @@ private fun FlowPanel(
                 }
                 ShowcaseStage.HANDOVER -> {
                     DemoTitle("Получение автомобиля","Проверка состояния перед передачей ключей")
-                    InfoPanel("Оплата выполнена · Демонстрация","Аренда ${sumRub(state.fare)}, залог ${sumRub(RentalRules.DEMO_DEPOSIT)} — условно удержан.")
+                    InfoPanel("Оплата выполнена · Демонстрация","Аренда ${sumRub(state.fare)} условно оплачена.")
                     Spacer(Modifier.height(13.dp))
                     DemoLine("Грузовик",state.vehicleTitle)
                     DemoLine("Пункт выдачи",state.pickup)
@@ -553,7 +550,7 @@ private fun FlowPanel(
                         fontSize=11.sp,color=SSecondary,modifier=Modifier.padding(top=8.dp))
                 }
                 ShowcaseStage.RETURN -> {
-                    DemoTitle("Возврат грузовика","Финальный осмотр, закрытие аренды и залога")
+                    DemoTitle("Возврат грузовика","Финальный осмотр и завершение аренды")
                     DemoLine("Место возврата",state.pickup)
                     DemoLine("Одометр после поездки","42 184 км (пример)")
                     DemoLine("Топливо после поездки","¾ бака (пример)")
@@ -563,9 +560,9 @@ private fun FlowPanel(
                         inspectedReturn,onToggle={inspectedReturn=it},
                         onDetails={onNotice("В реальной версии новые фотографии сравниваются с актом выдачи; спорные повреждения передаются оператору.")})
                     Spacer(Modifier.height(11.dp))
-                    InfoPanel("Итог без повреждений","В этой демонстрации залог ${sumRub(RentalRules.DEMO_DEPOSIT)} будет полностью возвращён условной операцией.")
+                    InfoPanel("Завершение аренды","После фотоосмотра поездка завершится без дополнительных обязательных платежей.")
                     Spacer(Modifier.height(14.dp))
-                    DemoPrimary("Сдать машину и вернуть залог",enabled=inspectedReturn) {
+                    DemoPrimary("Сдать автомобиль",enabled=inspectedReturn) {
                         act { ShowcaseEngine.completeReturn(state,inspectedReturn) }
                     }
                 }
@@ -576,10 +573,8 @@ private fun FlowPanel(
                             horizontalAlignment=Alignment.CenterHorizontally) {
                             Icon(Icons.Rounded.CheckCircle,null,tint=SGreen,modifier=Modifier.size(44.dp))
                             Spacer(Modifier.height(8.dp))
-                            Text("Залог возвращён",fontSize=18.sp,fontWeight=FontWeight.ExtraBold,color=SGreen)
-                            Text(sumRub(RentalRules.DEMO_DEPOSIT),fontSize=24.sp,
-                                fontWeight=FontWeight.Bold,color=SGreen)
-                            Text("Симуляция возврата, не банковский перевод",
+                            Text("Аренда завершена",fontSize=18.sp,fontWeight=FontWeight.ExtraBold,color=SGreen)
+                            Text("Все операции — демонстрационные",
                                 color=SSecondary,fontSize=11.sp)
                         }
                     }
@@ -591,7 +586,7 @@ private fun FlowPanel(
                     DemoLine("Чек","Демо-чек № 0001")
                     Spacer(Modifier.height(10.dp))
                     DemoPrimary("Посмотреть итоговый документ") {
-                        onNotice("ДЕМО-ЧЕК № 0001\nАвтомобиль: ${state.vehicleTitle}\nАренда: ${sumRub(state.fare)}\nПродление: ${sumRub(state.extensionCharge)}\nЗалог: ${sumRub(RentalRules.DEMO_DEPOSIT)} — возвращён.\nДокумент не фискальный.")
+                        onNotice("ДЕМО-ЧЕК № 0001\nАвтомобиль: ${state.vehicleTitle}\nАренда: ${sumRub(state.fare)}\nПродление: ${sumRub(state.extensionCharge)}\nДокумент не фискальный.")
                     }
                 }
                 else -> { Text("Продолжите оформление в новой версии главного экрана") }
