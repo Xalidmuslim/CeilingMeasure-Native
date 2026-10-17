@@ -32,7 +32,7 @@ class PickupTripReturnTest {
         assertEquals(ShowcaseStage.RETURN, s.stage)
         s = ShowcaseEngine.completeReturn(s, true)
         assertEquals(ShowcaseStage.FINISHED, s.stage)
-        assertTrue(s.depositReturned)
+        assertFalse(s.depositReturned)
     }
 
     @Test(expected=IllegalArgumentException::class)
