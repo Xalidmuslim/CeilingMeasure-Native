@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -119,6 +120,21 @@ fun ClientV5App() {
             .onFailure { dialog=it.message ?: "Этот шаг ещё недоступен" }
     }
 
+    // System back button and Android edge-swipe use the same safe navigation.
+    // On the root booking screen Back is consumed; it must never terminate the app.
+    BackHandler(enabled = true) {
+        when {
+            adminGate -> adminGate = false
+            dialog != null -> dialog = null
+            tab != 0 -> tab = 0
+            else -> {
+                val previous = ShowcaseEngine.backStep(state)
+                if (previous != state) commit(previous)
+                // READY / active rental / completed screens intentionally stay open.
+            }
+        }
+    }
+
     MaterialTheme(colorScheme=lightColorScheme(primary=MainGreen,
         onPrimary=Color.White,background=Paper,surface=Color.White,
         onSurface=MainInk)) {
@@ -170,12 +186,23 @@ fun ClientV5App() {
                 when(tab) {
                     0 -> ClientJourneyV5(state=state,fleet=fleet,dispatch=::dispatch,
                         onAdmin={adminGate=true},onInfo={dialog=it},
-                        onNewDemo={commit(ShowcaseEngine.reset())})
+                        onNewDemo={dispatch {
+                            if (state.stage == ShowcaseStage.FINISHED)
+                                ShowcaseEngine.beginNextRental(state)
+                            else ShowcaseEngine.resetRetainingVerification(state)
+                        }})
                     1 -> ClientRentalV5(state=state,onJourney={tab=0},
                         dispatch=::dispatch,onInfo={dialog=it})
                     else -> ClientProfileV5(state=state,onJourney={tab=0},
                         onAdmin={adminGate=true},onInfo={dialog=it},
-                        onNewDemo={commit(ShowcaseEngine.reset());tab=0})
+                        onNewDemo={
+                            dispatch {
+                                if (state.stage == ShowcaseStage.FINISHED)
+                                    ShowcaseEngine.beginNextRental(state)
+                                else ShowcaseEngine.resetRetainingVerification(state)
+                            }
+                            tab=0
+                        })
                 }
             }
         }
