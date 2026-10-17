@@ -29,7 +29,7 @@ class DemoStore(context: Context) {
                     enabled = o.optBoolean("enabled", true)
                 )
             }
-        }.getOrDefault(demoFleet)
+        }.getOrDefault(demoFleet).map(DemoMapData::normalizePickup)
     }
 
     fun saveFleet(fleet: List<DemoVehicle>) {
