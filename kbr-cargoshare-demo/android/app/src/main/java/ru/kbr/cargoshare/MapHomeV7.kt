@@ -180,9 +180,8 @@ fun MapHomeV7(
                     Surface(color=Paper,shape=RoundedCornerShape(15.dp)) {
                         Column(Modifier.padding(12.dp)) {
                             QuoteLineV7("Аренда",sumRub(quote.rental),true)
-                            QuoteLineV7("Залог (возвращается)",sumRub(quote.refundableDeposit),false)
                             HorizontalDivider(color=Divider,modifier=Modifier.padding(vertical=8.dp))
-                            QuoteLineV7("Итого условно",sumRub(quote.totalToday),true)
+                            QuoteLineV7("К оплате (демо)",sumRub(quote.totalToday),true)
                         }
                     }
                     Spacer(Modifier.height(11.dp))
@@ -202,17 +201,7 @@ fun MapHomeV7(
         Box(Modifier.fillMaxSize().padding(contentPadding)) {
             StreetMapV7(fleet=filtered,selectedId=chosen?.id ?: "",onSelect={selectedId=it},
                 modifier=Modifier.fillMaxSize())
-            Surface(color=Color.White,shape=RoundedCornerShape(14.dp),
-                shadowElevation=3.dp,
-                modifier=Modifier.align(Alignment.TopStart).padding(start=12.dp,top=61.dp)) {
-                Row(Modifier.padding(horizontal=12.dp,vertical=10.dp),
-                    verticalAlignment=Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Place,null,modifier=Modifier.size(16.dp),tint=Deep)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Нальчик • КБР",fontWeight=FontWeight.Bold,
-                        color=Ink,fontSize=12.sp)
-                }
-            }
+
         }
     }
 }
