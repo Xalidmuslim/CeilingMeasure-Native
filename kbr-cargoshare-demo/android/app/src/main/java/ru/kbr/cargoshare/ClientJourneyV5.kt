@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -267,11 +268,19 @@ fun ClientJourneyV5(
                     V5Item("Точка выдачи",state.pickup)
                     V5Item("Начало",state.day+" · "+state.time)
                     Spacer(Modifier.height(9.dp))
-                    MovableDemoTruckMap(
-                        fleet = fleet.filter { it.enabled && it.id == state.vehicleId },
-                        selectedId = state.vehicleId,
-                        onSelect = { }
-                    )
+                    Box(Modifier.fillMaxWidth().height(295.dp)
+                        .clip(RoundedCornerShape(17.dp))) {
+                        StreetMapV7(
+                            fleet = fleet.filter { it.id == state.vehicleId },
+                            selectedId = state.vehicleId,
+                            onSelect = {},
+                            modifier = Modifier.fillMaxSize(),
+                            tripKm = 0
+                        )
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Text("Карта улиц Нальчика · точка машины и маршрут условные",
+                        fontSize=11.sp,color=Grey)
                     Spacer(Modifier.height(10.dp))
                     V5Note("Оплата и залог условно подтверждены. На следующем экране проверьте номер машины, кузов и салон.")
                     Spacer(Modifier.height(13.dp))
