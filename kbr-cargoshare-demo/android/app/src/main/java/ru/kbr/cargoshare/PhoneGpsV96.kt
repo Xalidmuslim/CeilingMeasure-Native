@@ -11,6 +11,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
 import androidx.core.content.ContextCompat
 
 /** Phone's real foreground position only. No server, history, or car tracker integration. */
@@ -44,6 +48,18 @@ fun rememberPhoneGpsV96(): PhoneGpsUiV96 {
     var enabled by remember { mutableStateOf(PhoneGpsPolicyV96.ENABLED_BY_DEFAULT) }
     var fix by remember { mutableStateOf<PhoneGpsFixV96?>(null) }
     var status by remember { mutableStateOf("GPS выключен") }
+    val lifecycleOwner=LocalLifecycleOwner.current
+    var foreground by remember { mutableStateOf(
+        lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+    ) }
+    DisposableEffect(lifecycleOwner) {
+        val observer=LifecycleEventObserver { _,event ->
+            if(event==Lifecycle.Event.ON_START)foreground=true
+            if(event==Lifecycle.Event.ON_STOP)foreground=false
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     fun granted():Boolean {
         val fine=ContextCompat.checkSelfPermission(appContext,
             Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED
@@ -63,8 +79,8 @@ fun rememberPhoneGpsV96(): PhoneGpsUiV96 {
             status="Доступ к местоположению запрещён"
         }
     }
-    DisposableEffect(enabled) {
-        if (!enabled || !granted()) {
+    DisposableEffect(enabled,foreground) {
+        if (!enabled || !foreground || !granted()) {
             onDispose { }
         } else {
             val manager=appContext.getSystemService(Context.LOCATION_SERVICE)
@@ -107,6 +123,17 @@ fun rememberPhoneGpsV96(): PhoneGpsUiV96 {
             }
             onDispose {
                 if(registered)runCatching { manager.removeUpdates(listener) }
+            }
+        }
+    }
+    LaunchedEffect(enabled,fix?.measuredAtMillis) {
+        val current=fix
+        if(enabled && current!=null) {
+            delay(121_000L)
+            if(fix==current && !PhoneGpsPolicyV96.fresh(
+                current.measuredAtMillis,System.currentTimeMillis())) {
+                fix=null
+                status="GPS: нет свежих координат"
             }
         }
     }
