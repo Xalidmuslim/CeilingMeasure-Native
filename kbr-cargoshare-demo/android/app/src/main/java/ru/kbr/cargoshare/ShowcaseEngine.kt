@@ -8,6 +8,9 @@ enum class ShowcaseStage(val title: String) {
     CONTRACT("Договор аренды"),
     PAYMENT("Оплата аренды"),
     HANDOVER("Получение автомобиля"),
+    PICKUP_INSPECTION("Осмотр перед выдачей"),
+    UNLOCK("Открытие автомобиля"),
+    READY_TO_DRIVE("Готов к поездке"),
     DRIVING("Аренда активна"),
     RETURN("Возврат автомобиля"),
     FINISHED("Аренда завершена")
@@ -34,7 +37,11 @@ data class ShowcaseSession(
     val extensionCharge: Int = 0,
     val returnChecked: Boolean = false,
     val depositReturned: Boolean = false,
-    val damageCharge: Int = 0
+    val damageCharge: Int = 0,
+    val elapsedMinutes: Int = 0,
+    val distanceKm: Int = 0,
+    val fuelPercent: Int = 75,
+    val odometerStart: Int = 42150
 )
 
 object ShowcaseEngine {
@@ -90,6 +97,46 @@ object ShowcaseEngine {
         if (!confirmed) return s
         require(s.signatureAccepted)
         return s.copy(stage = ShowcaseStage.HANDOVER, rentPaid = true, depositHeld = true)
+    }
+
+
+    /** Drive-only virtual telemetry. This does not connect to an actual car or GPS. */
+    fun remainingMinutes(s: ShowcaseSession): Int =
+        ((s.hours + s.extraHours) * 60 - s.elapsedMinutes).coerceAtLeast(0)
+
+    fun arriveAtVehicle(s: ShowcaseSession): ShowcaseSession {
+        requireStage(s, ShowcaseStage.HANDOVER)
+        require(s.rentPaid && s.depositHeld)
+        return s.copy(stage = ShowcaseStage.PICKUP_INSPECTION)
+    }
+
+    fun confirmPickupInspection(s: ShowcaseSession, body: Boolean, tyres: Boolean,
+                                cabin: Boolean, fuel: Boolean): ShowcaseSession {
+        requireStage(s, ShowcaseStage.PICKUP_INSPECTION)
+        require(body && tyres && cabin && fuel) { "Нужно проверить все четыре пункта" }
+        return s.copy(preTripChecked = true, stage = ShowcaseStage.UNLOCK)
+    }
+
+    fun unlockForPickup(s: ShowcaseSession): ShowcaseSession {
+        requireStage(s, ShowcaseStage.UNLOCK)
+        require(s.preTripChecked && s.rentPaid)
+        return s.copy(stage = ShowcaseStage.READY_TO_DRIVE, doorsOpen = true)
+    }
+
+    fun startDriving(s: ShowcaseSession): ShowcaseSession {
+        requireStage(s, ShowcaseStage.READY_TO_DRIVE)
+        require(s.preTripChecked && s.doorsOpen)
+        return s.copy(stage = ShowcaseStage.DRIVING, doorsOpen = false)
+    }
+
+    fun advanceTrip(s: ShowcaseSession, minutes: Int, km: Int): ShowcaseSession {
+        requireStage(s, ShowcaseStage.DRIVING)
+        require(minutes > 0 && minutes <= 180 && km >= 0 && km <= 300) { "Недопустимые данные поездки" }
+        return s.copy(
+            elapsedMinutes = s.elapsedMinutes + minutes,
+            distanceKm = s.distanceKm + km,
+            fuelPercent = (s.fuelPercent - (km / 10)).coerceAtLeast(1)
+        )
     }
 
     fun handover(s: ShowcaseSession, inspected: Boolean): ShowcaseSession {
