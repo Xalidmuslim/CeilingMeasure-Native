@@ -2,7 +2,7 @@ name: KBR CargoShare APK demo
 on:
   push:
     branches:
-      - codex/kbr-cargoshare-v092-clean-map
+      - codex/kbr-cargoshare-v093-install-fix
     paths:
       - 'kbr-cargoshare-demo/**'
       - '.github/workflows/kbr-cargoshare-demo-apk.yml'
@@ -36,7 +36,7 @@ jobs:
           )
           for i in 0 1 2; do
             n=$(printf 'truck_g%02d.jpg' "$((i+1))")
-            curl -L --retry 1 --connect-timeout 8 --max-time 25 -f -sS -A "GruzSherKBR/0.9.2 (CC0 demo photos)" "${urls[$i]}" -o "$n" || rm -f "$n"
+            curl -L --retry 1 --connect-timeout 8 --max-time 25 -f -sS -A "GruzSherKBR/0.9.3 (CC0 demo photos)" "${urls[$i]}" -o "$n" || rm -f "$n"
             if [ -f "$n" ] && ! file --mime-type "$n" | grep -q 'image/jpeg'; then rm -f "$n"; fi
             if [ -f "$n" ]; then echo "CC0 image $n downloaded"; else echo "Offline image fallback: $n"; fi
           done
@@ -73,10 +73,19 @@ jobs:
       - name: Build installable APK
         working-directory: kbr-cargoshare-demo/android
         run: gradle --no-daemon --stacktrace testDebugUnitTest assembleDebug
+      - name: Verify installable APK signature and alignment
+        run: |
+          set -euo pipefail
+          APK=kbr-cargoshare-demo/android/app/build/outputs/apk/debug/app-debug.apk
+          SDK_BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          "$SDK_BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          "$SDK_BUILD_TOOLS/zipalign" -c -v 4 "$APK"
+          "$SDK_BUILD_TOOLS/aapt" dump badging "$APK" | head -10
+          test "$(stat -c%s "$APK")" -gt 1000000
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: GruzSher-KBR-v0.9.2-Clean-Map-APK
+          name: GruzSher-KBR-v0.9.3-Install-Fix-APK
           path: kbr-cargoshare-demo/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
