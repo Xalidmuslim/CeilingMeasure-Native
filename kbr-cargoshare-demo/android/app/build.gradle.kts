@@ -7,11 +7,11 @@ android {
     namespace = "ru.kbr.cargoshare"
     compileSdk = 35
     defaultConfig {
-        applicationId = "ru.kbr.cargoshare.v095"
+        applicationId = "ru.kbr.cargoshare.v096"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.9.5-no-deposit-history"
+        versionCode = 14
+        versionName = "0.9.6-live-phone-gps"
     }
     buildFeatures { compose = true }
     compileOptions {
