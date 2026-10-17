@@ -117,6 +117,7 @@ fun ClientV5App() {
     var tab by remember { mutableIntStateOf(0) }
     var dialog by remember { mutableStateOf<String?>(null) }
     var adminGate by remember { mutableStateOf(false) }
+    var productionEnrollment by remember { mutableStateOf(false) }
     var demoCode by remember { mutableStateOf("2468") }
 
     val lifecycleOwner=androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -144,6 +145,7 @@ fun ClientV5App() {
     // On the root booking screen Back is consumed; it must never terminate the app.
     BackHandler(enabled = true) {
         when {
+            productionEnrollment -> productionEnrollment = false
             adminGate -> adminGate = false
             dialog != null -> dialog = null
             tab != 0 -> tab = 0
@@ -227,16 +229,25 @@ fun ClientV5App() {
                     }
                     1 -> ClientRentalV5(state=state,onJourney={tab=0},
                         dispatch=::dispatch,onInfo={dialog=it})
-                    else -> ClientProfileV5(state=state,onJourney={tab=0},
-                        onAdmin={adminGate=true},onInfo={dialog=it},
-                        onNewDemo={
-                            dispatch {
-                                if (state.stage == ShowcaseStage.FINISHED)
-                                    ShowcaseEngine.beginNextRental(state)
-                                else ShowcaseEngine.resetRetainingVerification(state)
-                            }
-                            tab=0
-                        })
+                    else -> {
+                        if(productionEnrollment) {
+                            ProductionEnrollmentV100(
+                                onBack={productionEnrollment=false}
+                            )
+                        } else {
+                            ClientProfileV5(state=state,onJourney={tab=0},
+                                onAdmin={adminGate=true},onInfo={dialog=it},
+                                onProductionEnrollment={productionEnrollment=true},
+                                onNewDemo={
+                                    dispatch {
+                                        if (state.stage == ShowcaseStage.FINISHED)
+                                            ShowcaseEngine.beginNextRental(state)
+                                        else ShowcaseEngine.resetRetainingVerification(state)
+                                    }
+                                    tab=0
+                                })
+                        }
+                    }
                 }
             }
         }
