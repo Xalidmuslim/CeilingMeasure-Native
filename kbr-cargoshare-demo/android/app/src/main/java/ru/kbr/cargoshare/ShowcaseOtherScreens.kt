@@ -49,11 +49,6 @@ fun DemoOrderScreen(state:ShowcaseSession,onGo:()->Unit,onReset:()->Unit) {
                     DemoLine("Стоимость",sumRub(state.fare))
                     DemoLine("Продление",sumRub(state.extensionCharge))
                     DemoLine("Оплата",if(state.rentPaid)"Демо-оплата принята" else "Ожидается")
-                    DemoLine("Залог",when {
-                        state.depositReturned -> "Возвращён: ${sumRub(RentalRules.DEMO_DEPOSIT)}"
-                        state.depositHeld -> "Условно удержан: ${sumRub(RentalRules.DEMO_DEPOSIT)}"
-                        else -> "Не оплачен"
-                    })
                     if(state.incidentReported) DemoLine("Обращение","ДТП / поломка · демо-заявка")
                 }
             }
@@ -68,11 +63,11 @@ fun DemoOrderScreen(state:ShowcaseSession,onGo:()->Unit,onReset:()->Unit) {
                     ShowcaseStage.DOCUMENTS to "Паспорт и водительские права",
                     ShowcaseStage.REVIEW to "Решение администратора",
                     ShowcaseStage.CONTRACT to "Договор",
-                    ShowcaseStage.PAYMENT to "Оплата и залог",
+                    ShowcaseStage.PAYMENT to "Оплата",
                     ShowcaseStage.HANDOVER to "Осмотр и получение",
                     ShowcaseStage.DRIVING to "Аренда грузовика",
                     ShowcaseStage.RETURN to "Возврат автомобиля",
-                    ShowcaseStage.FINISHED to "Закрытие и возврат залога"
+                    ShowcaseStage.FINISHED to "Закрытие аренды"
                 )
                 val current = ShowcaseStage.entries.indexOf(state.stage)
                 steps.forEachIndexed { i, pair ->
@@ -140,10 +135,9 @@ fun DemoProfileScreen(
                     onNotice("В демонстрации нет настоящих персональных данных. Паспорт и права представлены учебными образцами. В рабочей версии потребуется отдельный защищённый сервер.")
                 }
                 HorizontalDivider(color=SBorder)
-                ProfileLink(Icons.Rounded.CreditCard,"Оплата и залог",
-                    if(state.depositReturned)"Залог возвращён (демо)"
-                    else if(state.rentPaid)"Условная оплата выполнена" else "Тестовая карта / СБП") {
-                    onNotice("В учебном режиме нет списания денег. История показывает имитацию оплаты аренды и возврата залога.")
+                ProfileLink(Icons.Rounded.CreditCard,"Оплата аренды",
+                    if(state.rentPaid)"Условная оплата выполнена" else "Тестовая карта / СБП") {
+                    onNotice("В учебном режиме нет списания денег. Оплата аренды только имитируется.")
                 }
                 HorizontalDivider(color=SBorder)
                 ProfileLink(Icons.Rounded.Description,"Электронные документы",
@@ -263,11 +257,6 @@ fun DemoAdminScreen(
                 DemoLine("Автомобиль",state.vehicleTitle.ifBlank{"Не выбран"})
                 DemoLine("Аренда",sumRub(state.fare+state.extensionCharge))
                 DemoLine("Оплачено",if(state.rentPaid)"Да · условно" else "Нет")
-                DemoLine("Залог",when {
-                    state.depositReturned -> "Условно возвращён"
-                    state.depositHeld -> "Условно удержан"
-                    else -> "Не поступил"
-                })
                 if(state.incidentReported) {
                     Spacer(Modifier.height(6.dp))
                     InfoPanel("Зарегистрирован инцидент","Учебная заявка о ДТП или поломке без реального обращения.")
