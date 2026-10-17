@@ -80,9 +80,9 @@ fun TripHomeV7(
                     Text("DEMO",fontSize=10.sp,color=Color.White.copy(alpha=.7f))
                 }
                 Spacer(Modifier.height(6.dp))
-                val hours=remaining / 60
-                val minutes=remaining % 60
-                val timer=String.format(java.util.Locale.US,"%02d:%02d:%02d",hours,minutes,59-fakeSeconds)
+                val seconds=(remaining*60-fakeSeconds).coerceAtLeast(0)
+                val timer=String.format(java.util.Locale.US,"%02d:%02d:%02d",
+                    seconds/3600,(seconds%3600)/60,seconds%60)
                 Text(timer,fontSize=38.sp,fontWeight=FontWeight.ExtraBold,color=Color.White)
                 Spacer(Modifier.height(10.dp))
                 LinearProgressIndicator(
