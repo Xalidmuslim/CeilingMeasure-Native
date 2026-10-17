@@ -45,14 +45,14 @@ fun VehiclePhotoV7(
         }.getOrNull()
     }
     Box(modifier.clip(RoundedCornerShape(16.dp))
-        .background(Color(0xFFE9EEE9))) {
+        .background(Color.White)) {
         if (bitmap!=null) {
             Image(bitmap=bitmap,contentDescription="Пример фотографии грузовика",
-                modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+                modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Fit)
         } else {
             Canvas(Modifier.fillMaxSize()) {
-                drawRect(Color(0xFFE8EEE9))
-                drawRect(Color(0xFFD9E4D9),topLeft=Offset(0f,size.height*.67f),
+                drawRect(Color.White)
+                drawRect(Color(0xFFFAFAF9),topLeft=Offset(0f,size.height*.77f),
                     size=androidx.compose.ui.geometry.Size(size.width,size.height*.33f))
                 drawLine(Color.White,Offset(size.width*.10f,size.height*.78f),
                     Offset(size.width*.93f,size.height*.78f),strokeWidth=4.dp.toPx())
@@ -64,7 +64,7 @@ fun VehiclePhotoV7(
             Surface(
                 color=Color(0xDBFFFFFF),shape=RoundedCornerShape(7.dp),
                 modifier=Modifier.align(Alignment.BottomStart).padding(7.dp)) {
-                Text("Фото-пример",fontSize=10.sp,fontWeight=FontWeight.SemiBold,
+                Text("Демо-фото",fontSize=10.sp,fontWeight=FontWeight.SemiBold,
                     modifier=Modifier.padding(horizontal=7.dp,vertical=4.dp),
                     color=Color(0xFF47564C))
             }
