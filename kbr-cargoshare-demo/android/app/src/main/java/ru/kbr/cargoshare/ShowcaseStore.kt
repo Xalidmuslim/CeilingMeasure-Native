@@ -9,7 +9,7 @@ class ShowcaseStore(context: Context) {
 
     fun read(): ShowcaseSession {
         val json = prefs.getString("session", null) ?: return ShowcaseSession()
-        return runCatching {
+        val parsed = runCatching {
             val o = JSONObject(json)
             ShowcaseSession(
                 stage = ShowcaseStage.valueOf(o.optString("stage", "PHONE")),
@@ -36,9 +36,13 @@ class ShowcaseStore(context: Context) {
                 elapsedMinutes = o.optInt("elapsedMinutes"),
                 distanceKm = o.optInt("distanceKm"),
                 fuelPercent = o.optInt("fuelPercent",75),
-                odometerStart = o.optInt("odometerStart",42150)
+                odometerStart = o.optInt("odometerStart",42150),
+                ridesCompleted = o.optInt("ridesCompleted", if (o.optString("stage") == "FINISHED") 1 else 0)
             )
         }.getOrElse { ShowcaseSession() }
+        val current = ShowcaseEngine.resume(parsed)
+        if (current != parsed) save(current)
+        return current
     }
 
     fun save(s: ShowcaseSession) {
@@ -68,6 +72,7 @@ class ShowcaseStore(context: Context) {
             .put("distanceKm", s.distanceKm)
             .put("fuelPercent", s.fuelPercent)
             .put("odometerStart", s.odometerStart)
+            .put("ridesCompleted", s.ridesCompleted)
         prefs.edit().putString("session", o.toString()).apply()
     }
 }
