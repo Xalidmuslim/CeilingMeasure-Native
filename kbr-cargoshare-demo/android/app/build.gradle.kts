@@ -10,8 +10,8 @@ android {
         applicationId = "ru.kbr.cargoshare"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.9.0-performance-nalchik"
+        versionCode = 10
+        versionName = "0.9.2-clean-map"
     }
     buildFeatures { compose = true }
     compileOptions {
