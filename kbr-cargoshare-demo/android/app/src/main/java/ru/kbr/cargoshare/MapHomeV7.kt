@@ -105,19 +105,19 @@ fun MapHomeV7(
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    if(!expanded) {
+                    run {
                         Button(
                             onClick={scope.launch { sheetState.expand() }},
                             modifier=Modifier.fillMaxWidth().height(46.dp),
                             colors=ButtonDefaults.buttonColors(containerColor=Deep),
                             shape=RoundedCornerShape(13.dp)
-                        ) { Text("Выбрать автомобиль",fontWeight=FontWeight.Bold) }
+                        ) { Text(if(expanded)"Указать время аренды" else "Выбрать автомобиль",fontWeight=FontWeight.Bold) }
                     }
                 } else {
                     Text("Нет доступных автомобилей",color=Secondary,
                         modifier=Modifier.padding(vertical=14.dp))
                 }
-                if(expanded && chosen!=null) {
+                if(chosen!=null) {
                     Spacer(Modifier.height(5.dp))
                     Row(horizontalArrangement=Arrangement.spacedBy(7.dp),
                         modifier=Modifier.horizontalScroll(rememberScrollState())) {
