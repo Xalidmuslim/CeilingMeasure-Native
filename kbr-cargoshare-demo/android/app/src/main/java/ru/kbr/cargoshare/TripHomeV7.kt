@@ -35,12 +35,13 @@ fun TripHomeV7(
     val rate=fleet.firstOrNull{it.id==state.vehicleId}?.hourPrice
         ?: demoFleet.firstOrNull{it.id==state.vehicleId}?.hourPrice ?: 650
     val total=(state.hours+state.extraHours)*60
-    val remaining=ShowcaseEngine.remainingMinutes(state)
     var fakeSeconds by remember(state.stage) { mutableIntStateOf(0) }
+    val remainingSeconds=(((state.hours+state.extraHours)*60-state.elapsedMinutes)*60-fakeSeconds).coerceAtLeast(0)
+    val remaining=(remainingSeconds+59)/60
     LaunchedEffect(state.stage) {
         while(state.stage==ShowcaseStage.DRIVING) {
             delay(1000)
-            fakeSeconds=(fakeSeconds+1)%60
+            fakeSeconds=(fakeSeconds+1).coerceAtMost(86400)
         }
     }
     var dialog by remember { mutableStateOf(false) }
@@ -80,13 +81,13 @@ fun TripHomeV7(
                     Text("DEMO",fontSize=10.sp,color=Color.White.copy(alpha=.7f))
                 }
                 Spacer(Modifier.height(6.dp))
-                val seconds=(remaining*60-fakeSeconds).coerceAtLeast(0)
+                val seconds=remainingSeconds
                 val timer=String.format(java.util.Locale.US,"%02d:%02d:%02d",
                     seconds/3600,(seconds%3600)/60,seconds%60)
                 Text(timer,fontSize=38.sp,fontWeight=FontWeight.ExtraBold,color=Color.White)
                 Spacer(Modifier.height(10.dp))
                 LinearProgressIndicator(
-                    progress={(state.elapsedMinutes.toFloat()/(total.coerceAtLeast(1))).coerceIn(0f,1f)},
+                    progress={((state.elapsedMinutes*60f+fakeSeconds)/(total.coerceAtLeast(1)*60f)).coerceIn(0f,1f)},
                     color=Color(0xFFD6EFA8),
                     trackColor=Color.White.copy(alpha=.20f),
                     modifier=Modifier.fillMaxWidth().height(6.dp),
