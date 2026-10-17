@@ -44,15 +44,16 @@ fun MovableDemoTruckMap(
     fleet: List<DemoVehicle>,
     selectedId: String,
     onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    fullWindow: Boolean = false
 ) {
     var zoom by remember { mutableFloatStateOf(1f) }
     var drag by remember { mutableStateOf(Offset.Zero) }
     val selected=DemoMapData.selectedVehicle(fleet,selectedId)
     Column(modifier) {
         BoxWithConstraints(
-            modifier=Modifier.fillMaxWidth().height(300.dp)
-                .clip(RoundedCornerShape(19.dp)).background(CanvasBG)
+            modifier=(if (fullWindow) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(300.dp))
+                .clip(RoundedCornerShape(if (fullWindow) 0.dp else 19.dp)).background(CanvasBG)
         ) {
             val mapWidth = maxWidth
             val mapHeight = maxHeight
@@ -159,8 +160,8 @@ fun MovableDemoTruckMap(
                     modifier=Modifier.padding(horizontal=9.dp,vertical=7.dp))
             }
         }
-        Spacer(Modifier.height(9.dp))
-        if(selected!=null) {
+        if (!fullWindow) Spacer(Modifier.height(9.dp))
+        if(selected!=null && !fullWindow) {
             Surface(shape=RoundedCornerShape(15.dp),color=Color.White,
                 border=BorderStroke(1.dp,Color(0xFFE4EBE3))) {
                 Row(Modifier.fillMaxWidth().clickable { onSelect(selected.id) }.padding(12.dp),
