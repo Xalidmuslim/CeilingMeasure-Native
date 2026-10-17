@@ -7,11 +7,11 @@ android {
     namespace = "ru.kbr.cargoshare"
     compileSdk = 35
     defaultConfig {
-        applicationId = "ru.kbr.cargoshare"
+        applicationId = "ru.kbr.cargoshare.installfix"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.9.2-clean-map"
+        versionCode = 11
+        versionName = "0.9.3-install-fix"
     }
     buildFeatures { compose = true }
     compileOptions {
