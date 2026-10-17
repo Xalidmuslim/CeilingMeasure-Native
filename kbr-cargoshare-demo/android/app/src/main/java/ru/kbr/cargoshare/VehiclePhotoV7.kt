@@ -42,7 +42,7 @@ private object CatalogPhotos {
     }
 }
 
-/** CC0 example photos are bundled by the APK build, not actual fleet images. */
+/** User-selected example truck images are bundled in source before signing the APK. */
 @Composable
 fun VehiclePhotoV7(
     vehicle: DemoVehicle,
@@ -51,16 +51,16 @@ fun VehiclePhotoV7(
 ) {
     val context=LocalContext.current
     val asset=when (vehicle.id) {
-        "g01"->"truck_g01.jpg"
-        "g02"->"truck_g02.jpg"
-        "g03"->"truck_g03.jpg"
-        else->"truck_g01.jpg"
+        "g01"->"truck_g01.webp"
+        "g02"->"truck_g02.webp"
+        "g03"->"truck_g03.webp"
+        else->"truck_g01.webp"
     }
     val bitmap=remember(asset) { CatalogPhotos.read(context.applicationContext,asset) }
     Box(modifier.clip(RoundedCornerShape(16.dp))
         .background(Color.White)) {
         if (bitmap!=null) {
-            Image(bitmap=bitmap,contentDescription="Пример фотографии грузовика",
+            Image(bitmap=bitmap,contentDescription="Демонстрационное изображение грузовика",
                 modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Fit)
         } else {
             Canvas(Modifier.fillMaxSize()) {
