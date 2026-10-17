@@ -37,13 +37,13 @@ private val Gold = Color(0xFFFFEBC5)
 
 class AdminActivity : ComponentActivity() {
     private val store by lazy { ShowcaseStore(applicationContext) }
-    private val fleet by lazy { DemoStore(applicationContext) }
+    private val adminFleetStore by lazy { DemoStore(applicationContext) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme(colorScheme = lightColorScheme(primary=MainGreen, surface=Color.White)) {
                 var state by remember { mutableStateOf(store.read()) }
-                var vehicles by remember { mutableStateOf(fleet.fleet()) }
+                var vehicles by remember { mutableStateOf(adminFleetStore.fleet()) }
                 var message by remember { mutableStateOf<String?>(null) }
                 Column(Modifier.fillMaxSize().background(Paper).statusBarsPadding()
                     .navigationBarsPadding()) {
@@ -71,7 +71,7 @@ class AdminActivity : ComponentActivity() {
                             },
                             onChangeFleet={updated->
                                 vehicles=updated
-                                fleet.save(updated)
+                                adminFleetStore.saveFleet(updated)
                             },
                             onClient={finish()},
                             onNotice={message=it})
