@@ -54,6 +54,8 @@ fun MovableDemoTruckMap(
             modifier=Modifier.fillMaxWidth().height(300.dp)
                 .clip(RoundedCornerShape(19.dp)).background(CanvasBG)
         ) {
+            val mapWidth = maxWidth
+            val mapHeight = maxHeight
             val maxPanX = with(androidx.compose.ui.platform.LocalDensity.current) {
                 (maxWidth * 1.15f).toPx()
             }
@@ -108,9 +110,9 @@ fun MovableDemoTruckMap(
                         drawPath(p,Street,style=Stroke(width=wide,cap=StrokeCap.Round))
                     }
                 }
-                TextMarker("ЦЕНТР",x=maxWidth*.44f,y=maxHeight*.16f)
-                TextMarker("СТРЕЛКА",x=maxWidth*.70f,y=maxHeight*.73f)
-                TextMarker("НАЛЬЧИК",x=maxWidth*.12f,y=maxHeight*.52f)
+                TextMarker("ЦЕНТР",x=mapWidth*.44f,y=mapHeight*.16f)
+                TextMarker("СТРЕЛКА",x=mapWidth*.70f,y=mapHeight*.73f)
+                TextMarker("НАЛЬЧИК",x=mapWidth*.12f,y=mapHeight*.52f)
                 fleet.filter{it.enabled}.forEachIndexed { i,car ->
                     val pt=DemoMapData.pointFor(car.id,i)
                     val isSelected=car.id==selected?.id
@@ -119,8 +121,8 @@ fun MovableDemoTruckMap(
                         color=if(isSelected)Selected else Color.White,
                         shadowElevation=if(isSelected)9.dp else 5.dp,
                         shape=RoundedCornerShape(13.dp),
-                        modifier=Modifier.offset(x=maxWidth*pt.first-45.dp,
-                            y=maxHeight*pt.second-18.dp)
+                        modifier=Modifier.offset(x=mapWidth*pt.first-45.dp,
+                            y=mapHeight*pt.second-18.dp)
                     ) {
                         Row(Modifier.padding(horizontal=11.dp,vertical=9.dp),
                             verticalAlignment=Alignment.CenterVertically) {
