@@ -76,10 +76,10 @@ fun MapHomeV7(
             ) {
                 Row(verticalAlignment=Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Свободные грузовики",fontSize=21.sp,
+                        Text("Грузовики рядом",fontSize=19.sp,
                             fontWeight=FontWeight.ExtraBold,color=Ink)
                         Spacer(Modifier.height(1.dp))
-                        Text("Выберите машину на карте или в списке",
+                        Text("На карте и в каталоге · демо",
                             color=Secondary,fontSize=11.sp)
                     }
                     Surface(color=Pale,shape=RoundedCornerShape(10.dp)) {
@@ -90,7 +90,7 @@ fun MapHomeV7(
                 Spacer(Modifier.height(10.dp))
                 if(chosen!=null) {
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                        VehiclePhotoV7(chosen,modifier=Modifier.size(112.dp,88.dp),showDisclaimer=true)
+                        VehiclePhotoV7(chosen,modifier=Modifier.size(125.dp,93.dp),showDisclaimer=true)
                         Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
                             Text(chosen.title,fontWeight=FontWeight.ExtraBold,
@@ -100,7 +100,7 @@ fun MapHomeV7(
                             Spacer(Modifier.height(5.dp))
                             Text(chosen.pickup,color=Secondary,fontSize=10.sp,maxLines=2)
                             Spacer(Modifier.height(5.dp))
-                            Text("от "+sumRub(chosen.hourPrice)+"/час",
+                            Text("от "+sumRub(chosen.hourPrice)+"/ч",
                                 color=Deep,fontSize=15.sp,fontWeight=FontWeight.ExtraBold)
                         }
                     }
@@ -111,7 +111,7 @@ fun MapHomeV7(
                             modifier=Modifier.fillMaxWidth().height(46.dp),
                             colors=ButtonDefaults.buttonColors(containerColor=Deep),
                             shape=RoundedCornerShape(13.dp)
-                        ) { Text("Выбрать и указать время",fontWeight=FontWeight.Bold) }
+                        ) { Text("Выбрать автомобиль",fontWeight=FontWeight.Bold) }
                     }
                 } else {
                     Text("Нет доступных автомобилей",color=Secondary,
@@ -141,14 +141,14 @@ fun MapHomeV7(
                                     Spacer(Modifier.height(6.dp))
                                     Text(car.title,fontSize=12.sp,color=Ink,
                                         fontWeight=FontWeight.Bold,maxLines=1)
-                                    Text(sumRub(car.hourPrice)+"/ч",fontSize=12.sp,
+                                    Text("● Свободен · "+sumRub(car.hourPrice)+"/ч",fontSize=11.sp,
                                         color=Deep,fontWeight=FontWeight.Bold)
                                 }
                             }
                         }
                     }
                     Spacer(Modifier.height(14.dp))
-                    Text("Дата и время",fontSize=14.sp,
+                    Text("Когда заберёте автомобиль?",fontSize=14.sp,
                         color=Ink,fontWeight=FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement=Arrangement.spacedBy(7.dp),
@@ -190,7 +190,7 @@ fun MapHomeV7(
                         modifier=Modifier.fillMaxWidth().height(51.dp),
                         shape=RoundedCornerShape(14.dp),
                         colors=ButtonDefaults.buttonColors(containerColor=Deep)) {
-                        Text("Перейти к договору",fontWeight=FontWeight.Bold,fontSize=14.sp)
+                        Text("Продолжить оформление",fontWeight=FontWeight.Bold,fontSize=14.sp)
                         Spacer(Modifier.width(9.dp))
                         Icon(Icons.Rounded.ArrowForward,null,modifier=Modifier.size(17.dp))
                     }
