@@ -2,7 +2,7 @@ package ru.kbr.cargoshare
 import org.junit.Assert.*
 import org.junit.Test
 class EndToEndDemoTest {
-    @Test fun fullJourneyReturnsDeposit() {
+    @Test fun fullJourneyWithoutDeposit() {
         var s = ShowcaseSession()
         assertEquals(ShowcaseStage.PHONE, s.stage)
         s = ShowcaseEngine.verifyPhone(s, "0000")
@@ -11,12 +11,12 @@ class EndToEndDemoTest {
         s = ShowcaseEngine.reserve(s, "g01", 4, "Сегодня", "12:00")
         s = ShowcaseEngine.signContract(s, true)
         s = ShowcaseEngine.simulatePayment(s, true)
-        assertTrue(s.depositHeld)
+        assertFalse(s.depositHeld)
         s = ShowcaseEngine.handover(s, true)
         s = ShowcaseEngine.requestReturn(s)
         s = ShowcaseEngine.completeReturn(s, true)
         assertEquals(ShowcaseStage.FINISHED, s.stage)
-        assertTrue(s.depositReturned)
+        assertFalse(s.depositReturned)
         assertFalse(s.depositHeld)
     }
     @Test(expected=IllegalArgumentException::class)
