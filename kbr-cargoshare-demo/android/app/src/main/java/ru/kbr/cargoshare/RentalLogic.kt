@@ -33,7 +33,7 @@ data class DemoOrder(
 
 object RentalRules {
     val allowedHours = listOf(2, 4, 8, 24)
-    const val DEMO_DEPOSIT = 5000
+    const val DEMO_DEPOSIT = 0 // Retained for backward compatibility; no deposit exists
 
     fun fare(vehicle: DemoVehicle, hours: Int): Int {
         require(hours in allowedHours) { "Unsupported rental duration" }
