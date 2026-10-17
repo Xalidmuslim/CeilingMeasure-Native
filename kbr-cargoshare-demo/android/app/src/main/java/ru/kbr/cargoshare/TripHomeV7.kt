@@ -36,7 +36,7 @@ fun TripHomeV7(
         ?: demoFleet.firstOrNull{it.id==state.vehicleId}?.hourPrice ?: 650
     val total=(state.hours+state.extraHours)*60
     var fakeSeconds by remember(state.stage) { mutableIntStateOf(0) }
-    val remainingSeconds=(((state.hours+state.extraHours)*60-state.elapsedMinutes)*60-fakeSeconds).coerceAtLeast(0)
+    val remainingSeconds=TripClockV8.remainingSeconds(state,fakeSeconds)
     val remaining=(remainingSeconds+59)/60
     LaunchedEffect(state.stage) {
         while(state.stage==ShowcaseStage.DRIVING) {
@@ -81,9 +81,7 @@ fun TripHomeV7(
                     Text("DEMO",fontSize=10.sp,color=Color.White.copy(alpha=.7f))
                 }
                 Spacer(Modifier.height(6.dp))
-                val seconds=remainingSeconds
-                val timer=String.format(java.util.Locale.US,"%02d:%02d:%02d",
-                    seconds/3600,(seconds%3600)/60,seconds%60)
+                val timer=TripClockV8.display(state,fakeSeconds)
                 Text(timer,fontSize=38.sp,fontWeight=FontWeight.ExtraBold,color=Color.White)
                 Spacer(Modifier.height(10.dp))
                 LinearProgressIndicator(
