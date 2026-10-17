@@ -172,7 +172,7 @@ private fun OSMNativeMapV7(
                 if(previousTrip != tripKm.toString()) {
                     view.controller.animateTo(marker.position)
                 }
-            } else {
+            } else if (tripKm == null) {
                 fleet.filter{it.enabled}.forEach { vehicle ->
                     val pos=demoCoord(vehicle)
                     val isSelected=selectedId==vehicle.id
@@ -220,7 +220,7 @@ private fun OSMNativeMapV7(
             } else if (tripKm != null && !usePhoneGps) {
                 val now=NalchikTripMap.current(selectedId,tripKm)
                 view.controller.animateTo(GeoPoint(now.lat,now.lon))
-            } else {
+            } else if (tripKm == null) {
                 fleet.firstOrNull { it.id == selectedId }?.let {
                     view.controller.animateTo(demoCoord(it))
                 }
