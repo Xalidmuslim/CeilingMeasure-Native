@@ -1,6 +1,8 @@
 package ru.kbr.cargoshare
 
 import android.Manifest
+import android.content.Intent
+import android.provider.Settings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
@@ -38,7 +40,8 @@ class PhoneGpsUiV96(
     val fix:PhoneGpsFixV96?,
     val status:String,
     val enable:()->Unit,
-    val disable:()->Unit
+    val disable:()->Unit,
+    val openSettings:()->Unit
 )
 
 @Composable
@@ -126,6 +129,15 @@ fun rememberPhoneGpsV96(): PhoneGpsUiV96 {
             }
         }
     }
+    LaunchedEffect(enabled,fix?.measuredAtMillis,foreground) {
+        if(enabled && foreground && fix==null &&
+           status=="Поиск местоположения…") {
+            delay(25_000L)
+            if(fix==null && status=="Поиск местоположения…") {
+                status="Нет сигнала GPS. Проверьте геолокацию телефона."
+            }
+        }
+    }
     LaunchedEffect(enabled,fix?.measuredAtMillis) {
         val current=fix
         if(enabled && current!=null) {
@@ -152,6 +164,12 @@ fun rememberPhoneGpsV96(): PhoneGpsUiV96 {
             enabled=false
             fix=null
             status="GPS выключен"
+        },
+        openSettings={
+            val settings=Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            appContext.startActivity(settings)
         }
     )
 }
