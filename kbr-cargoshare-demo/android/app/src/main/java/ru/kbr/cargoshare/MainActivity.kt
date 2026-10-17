@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
                 primary = Green, onPrimary = Color.White,
                 secondary = Accent, background = Back,
                 surface = Color.White, onSurface = Dark)) {
-                ShowcaseApp()
+                ClientV5App()
             }
         }
     }
