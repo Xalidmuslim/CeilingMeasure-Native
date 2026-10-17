@@ -11,7 +11,8 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 18
-        versionName = "1.0.0-auth-foundation"\n        buildConfigField("String","REAL_AUTH_API_URL","\\\"${System.getenv("GRUZSHER_REAL_API_URL") ?: ""}\\\"")
+        versionName = "1.0.0-auth-foundation"
+        buildConfigField("String", "REAL_AUTH_API_URL", "\"" + (System.getenv("GRUZSHER_REAL_API_URL") ?: "") + "\"")
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {
