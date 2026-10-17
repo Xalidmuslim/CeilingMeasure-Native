@@ -9,12 +9,9 @@ import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Layers
-import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,8 +27,8 @@ import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 
 /**
- * Real Nalchik OpenStreetMap basemap; ALL vehicle pins and tracks are fictitious.
- * Reuses MapView, caches rendered pin icons, and does not rebuild overlays on recomposition.
+ * Nalchik OpenStreetMap basemap. Points and routes remain illustrative demo data.
+ * No location permission required; map tiles use internet/cache.
  */
 @Composable
 fun StreetMapV7(
@@ -41,109 +38,40 @@ fun StreetMapV7(
     modifier:Modifier=Modifier,
     tripKm:Int?=null
 ) {
-    var realMap by rememberSaveable { mutableStateOf(true) }
     var recenterCount by remember { mutableIntStateOf(0) }
     Box(modifier) {
-        if (realMap) {
-            OSMNativeMapV7(
-                fleet=fleet,selectedId=selectedId,onSelect=onSelect,
-                tripKm=tripKm,recenterCount=recenterCount,
-                modifier=Modifier.fillMaxSize())
-        } else {
-            MovableDemoTruckMap(
-                fleet=fleet,selectedId=selectedId,onSelect=onSelect,
-                modifier=Modifier.fillMaxSize(),fullWindow=true)
-        }
+        OSMNativeMapV7(
+            fleet=fleet,selectedId=selectedId,onSelect=onSelect,
+            tripKm=tripKm,recenterCount=recenterCount,
+            modifier=Modifier.fillMaxSize()
+        )
         if (tripKm != null) {
-            // Trip mode: only recenter and layer toggle. No large top labels.
-            Column(
+            Surface(
+                onClick={recenterCount++},
+                color=Color.White,
+                shape=RoundedCornerShape(12.dp),
+                shadowElevation=2.dp,
                 modifier=Modifier.align(Alignment.TopEnd)
-                    .padding(top=10.dp,end=11.dp),
-                verticalArrangement=Arrangement.spacedBy(7.dp)
+                    .padding(10.dp)
             ) {
-                Surface(
-                    onClick={ recenterCount++ },
-                    color=Color.White,
-                    shape=RoundedCornerShape(12.dp),
-                    shadowElevation=2.dp
-                ) {
-                    Box(Modifier.size(42.dp),contentAlignment=Alignment.Center) {
-                        Icon(Icons.Rounded.CenterFocusStrong,
-                            contentDescription="Центрировать на автомобиле",
-                            tint=Color(0xFF20523F),modifier=Modifier.size(21.dp))
-                    }
+                Box(Modifier.size(42.dp),contentAlignment=Alignment.Center) {
+                    Icon(Icons.Rounded.CenterFocusStrong,
+                        contentDescription="Центрировать карту на машине",
+                        tint=Color(0xFF20523F),
+                        modifier=Modifier.size(21.dp))
                 }
-                Surface(
-                    onClick={ realMap=!realMap },
-                    color=Color.White,
-                    shape=RoundedCornerShape(12.dp),
-                    shadowElevation=2.dp
-                ) {
-                    Box(Modifier.size(42.dp),contentAlignment=Alignment.Center) {
-                        Icon(Icons.Rounded.Layers,
-                            contentDescription="Переключить карту и схему",
-                            tint=Color(0xFF20523F),modifier=Modifier.size(21.dp))
-                    }
-                }
-            }
-            Surface(
-                color=Color.White.copy(alpha=.92f),
-                shape=RoundedCornerShape(7.dp),
-                modifier=Modifier.align(Alignment.BottomStart)
-                    .padding(start=8.dp,bottom=9.dp)
-            ) {
-                Text("ДЕМО · маршрут условный",
-                    modifier=Modifier.padding(horizontal=7.dp,vertical=4.dp),
-                    fontSize=9.sp,color=Color(0xFF53645B))
-            }
-        } else {
-            Row(Modifier.align(Alignment.TopCenter).padding(top=11.dp),
-                horizontalArrangement=Arrangement.spacedBy(7.dp)) {
-                Surface(onClick={realMap=true},
-                    shape=RoundedCornerShape(12.dp),
-                    color=if(realMap)Color(0xFF20523F) else Color.White) {
-                    Row(Modifier.padding(horizontal=10.dp,vertical=8.dp),
-                        verticalAlignment=Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Map,null,modifier=Modifier.size(16.dp),
-                            tint=if(realMap)Color.White else Color(0xFF20523F))
-                        Spacer(Modifier.width(5.dp))
-                        Text("Нальчик",fontSize=11.sp,
-                            color=if(realMap)Color.White else Color(0xFF20523F))
-                    }
-                }
-                Surface(onClick={realMap=false},
-                    shape=RoundedCornerShape(12.dp),
-                    color=if(!realMap)Color(0xFF20523F) else Color.White) {
-                    Row(Modifier.padding(horizontal=10.dp,vertical=8.dp),
-                        verticalAlignment=Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Layers,null,modifier=Modifier.size(16.dp),
-                            tint=if(!realMap)Color.White else Color(0xFF20523F))
-                        Spacer(Modifier.width(5.dp))
-                        Text("Без сети",fontSize=11.sp,
-                            color=if(!realMap)Color.White else Color(0xFF20523F))
-                    }
-                }
-            }
-            Surface(
-                color=Color.White.copy(alpha=.94f),
-                shape=RoundedCornerShape(8.dp),
-                modifier=Modifier.align(Alignment.TopStart)
-                    .padding(top=52.dp,start=9.dp)
-            ) {
-                Text("Демо-точки · не GPS",
-                    modifier=Modifier.padding(horizontal=7.dp,vertical=5.dp),
-                    fontSize=10.sp,color=Color(0xFF3A554A))
             }
         }
-        if (realMap) {
-            Surface(color=Color.White.copy(alpha=.9f),
-                shape=RoundedCornerShape(7.dp),
-                modifier=Modifier.align(Alignment.BottomEnd)
-                    .padding(bottom=9.dp,end=8.dp)) {
-                Text("© OpenStreetMap",
-                    fontSize=9.sp,color=Color(0xFF58685E),
-                    modifier=Modifier.padding(horizontal=7.dp,vertical=4.dp))
-            }
+        // Source attribution is required for OpenStreetMap usage.
+        Surface(
+            color=Color.White.copy(alpha=.92f),
+            shape=RoundedCornerShape(7.dp),
+            modifier=Modifier.align(Alignment.BottomEnd)
+                .padding(bottom=8.dp,end=8.dp)
+        ) {
+            Text("© OpenStreetMap contributors",
+                modifier=Modifier.padding(horizontal=7.dp,vertical=4.dp),
+                fontSize=9.sp,color=Color(0xFF58685E))
         }
     }
 }
