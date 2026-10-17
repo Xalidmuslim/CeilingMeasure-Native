@@ -10,8 +10,8 @@ android {
         applicationId = "ru.kbr.cargoshare.v094"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.9.4-merged-photo-fix"
+        versionCode = 13
+        versionName = "0.9.5-no-deposit-history"
     }
     buildFeatures { compose = true }
     compileOptions {
