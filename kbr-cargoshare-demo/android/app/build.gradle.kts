@@ -10,8 +10,8 @@ android {
         applicationId = "ru.kbr.cargoshare"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.6.0-map-repeat-rental"
+        versionCode = 7
+        versionName = "0.7.0-premium-map"
     }
     buildFeatures { compose = true }
     compileOptions {
@@ -25,6 +25,7 @@ dependencies {
     implementation(bom)
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
