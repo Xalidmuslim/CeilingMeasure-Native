@@ -144,7 +144,7 @@ object ShowcaseEngine {
 
     fun handover(s: ShowcaseSession, inspected: Boolean): ShowcaseSession {
         requireStage(s, ShowcaseStage.HANDOVER)
-        require(s.rentPaid && s.depositHeld)
+        require(s.rentPaid)
         require(inspected) { "Перед выдачей подтвердите демонстрационный фотоосмотр" }
         return s.copy(stage = ShowcaseStage.DRIVING, preTripChecked = true)
     }
