@@ -69,19 +69,13 @@ fun TripHomeV7(
                     "Стоимость",Modifier.weight(1f))
             }
         }
-        Box(Modifier.fillMaxWidth().height(225.dp)) {
-            StreetMapV7(
-                fleet=fleet.filter{it.enabled && it.id==state.vehicleId},
-                selectedId=state.vehicleId, onSelect={},
-                modifier=Modifier.fillMaxSize(),
-                tripKm=state.distanceKm)
-            Surface(color=Color.White.copy(alpha=.96f),
-                modifier=Modifier.align(Alignment.BottomEnd).padding(10.dp),
-                shape=RoundedCornerShape(10.dp)) {
-                Text("Нальчик · демо-маршрут, не GPS",
-                    modifier=Modifier.padding(8.dp),fontSize=10.sp,color=Soft)
-            }
-        }
+        StreetMapV7(
+            fleet=fleet.filter { it.enabled && it.id == state.vehicleId },
+            selectedId=state.vehicleId,
+            onSelect={},
+            modifier=Modifier.fillMaxWidth().height(266.dp),
+            tripKm=state.distanceKm
+        )
         Surface(color=Color.White,shape=RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(15.dp)) {
                 Row(verticalAlignment=Alignment.CenterVertically) {
