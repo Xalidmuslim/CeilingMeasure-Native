@@ -2,6 +2,7 @@ package ru.kbr.cargoshare
 
 import android.content.Context
 import org.json.JSONObject
+import org.json.JSONArray
 
 /** Synthetic flow state only; real identity documents or payment credentials are never stored. */
 class ShowcaseStore(context: Context) {
@@ -51,11 +52,76 @@ class ShowcaseStore(context: Context) {
         val newAddress = DemoMapData.addressFor(updated.vehicleId)
         val current = if (newAddress != null && updated.pickup in oldPickup)
             updated.copy(pickup = newAddress) else updated
+        // Import a completed demo trip from an older APK once.
+        if (current.stage == ShowcaseStage.FINISHED &&
+            current.returnChecked && current.ridesCompleted > 0 &&
+            history().none { it.rideNumber == current.ridesCompleted }) {
+            writeHistory((listOf(TripHistoryLedger.fromFinished(current, System.currentTimeMillis())) +
+                history()).take(200))
+        }
         if (current != parsed) save(current)
         return current
     }
 
+    fun history(): List<RentalHistoryEntry> {
+        val raw = prefs.getString("completed_trips", null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            (0 until array.length()).map { index ->
+                val o = array.getJSONObject(index)
+                RentalHistoryEntry(
+                    id = o.optString("id"),
+                    rideNumber = o.optInt("rideNumber"),
+                    vehicleId = o.optString("vehicleId"),
+                    vehicleTitle = o.optString("vehicleTitle"),
+                    pickup = o.optString("pickup"),
+                    start = o.optString("start"),
+                    durationHours = o.optInt("durationHours"),
+                    elapsedMinutes = o.optInt("elapsedMinutes"),
+                    distanceKm = o.optInt("distanceKm"),
+                    rentalPaid = o.optInt("rentalPaid"),
+                    extensionPaid = o.optInt("extensionPaid"),
+                    completedAtMillis = o.optLong("completedAtMillis"),
+                    incidentReported = o.optBoolean("incidentReported")
+                )
+            }
+        }.getOrElse { emptyList() }
+    }
+
+    private fun writeHistory(entries: List<RentalHistoryEntry>) {
+        val array = JSONArray()
+        entries.forEach { e ->
+            array.put(JSONObject()
+                .put("id", e.id)
+                .put("rideNumber", e.rideNumber)
+                .put("vehicleId", e.vehicleId)
+                .put("vehicleTitle", e.vehicleTitle)
+                .put("pickup", e.pickup)
+                .put("start", e.start)
+                .put("durationHours", e.durationHours)
+                .put("elapsedMinutes", e.elapsedMinutes)
+                .put("distanceKm", e.distanceKm)
+                .put("rentalPaid", e.rentalPaid)
+                .put("extensionPaid", e.extensionPaid)
+                .put("completedAtMillis", e.completedAtMillis)
+                .put("incidentReported", e.incidentReported))
+        }
+        prefs.edit().putString("completed_trips", array.toString()).commit()
+    }
+
     fun save(s: ShowcaseSession) {
+        // Archive only once upon actual completion, never on incidental UI saves.
+        val before = prefs.getString("session", null)?.let { raw ->
+            runCatching {
+                val o = JSONObject(raw)
+                ShowcaseSession(
+                    stage = ShowcaseStage.valueOf(o.optString("stage", "PHONE")),
+                    ridesCompleted = o.optInt("ridesCompleted")
+                )
+            }.getOrNull()
+        } ?: ShowcaseSession()
+        val updated = TripHistoryLedger.append(history(), before, s)
+        if (updated.size != history().size) writeHistory(updated)
         val o = JSONObject()
             .put("stage", s.stage.name)
             .put("documentsSubmitted", s.documentsSubmitted)
@@ -69,14 +135,14 @@ class ShowcaseStore(context: Context) {
             .put("fare", s.fare)
             .put("signatureAccepted", s.signatureAccepted)
             .put("rentPaid", s.rentPaid)
-            .put("depositHeld", s.depositHeld)
+            .put("depositHeld", false)
             .put("preTripChecked", s.preTripChecked)
             .put("doorsOpen", s.doorsOpen)
             .put("incidentReported", s.incidentReported)
             .put("extraHours", s.extraHours)
             .put("extensionCharge", s.extensionCharge)
             .put("returnChecked", s.returnChecked)
-            .put("depositReturned", s.depositReturned)
+            .put("depositReturned", false)
             .put("damageCharge", s.damageCharge)
             .put("elapsedMinutes", s.elapsedMinutes)
             .put("distanceKm", s.distanceKm)
