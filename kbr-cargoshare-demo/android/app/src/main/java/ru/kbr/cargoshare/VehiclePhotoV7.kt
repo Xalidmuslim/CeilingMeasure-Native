@@ -1,6 +1,7 @@
 package ru.kbr.cargoshare
 
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -23,7 +24,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Built-in CC0 example photos are embedded by the Android APK workflow. Missing photo = safe illustration. */
+/** Reuse compact decoded studio photos across vehicle cards and rental screens. */
+private object CatalogPhotos {
+    private val bitmaps=LruCache<String, androidx.compose.ui.graphics.ImageBitmap>(8)
+    @Synchronized fun read(context:android.content.Context,asset:String):androidx.compose.ui.graphics.ImageBitmap? {
+        bitmaps.get(asset)?.let { return it }
+        val image=runCatching {
+            context.assets.open(asset).use { input ->
+                val options=BitmapFactory.Options().apply {
+                    inPreferredConfig=android.graphics.Bitmap.Config.RGB_565
+                }
+                BitmapFactory.decodeStream(input,null,options)?.asImageBitmap()
+            }
+        }.getOrNull()
+        if(image!=null)bitmaps.put(asset,image)
+        return image
+    }
+}
+
+/** CC0 example photos are bundled by the APK build, not actual fleet images. */
 @Composable
 fun VehiclePhotoV7(
     vehicle: DemoVehicle,
@@ -37,13 +56,7 @@ fun VehiclePhotoV7(
         "g03"->"truck_g03.jpg"
         else->"truck_g01.jpg"
     }
-    val bitmap=remember(asset) {
-        runCatching {
-            context.assets.open(asset).use { input ->
-                BitmapFactory.decodeStream(input)?.asImageBitmap()
-            }
-        }.getOrNull()
-    }
+    val bitmap=remember(asset) { CatalogPhotos.read(context.applicationContext,asset) }
     Box(modifier.clip(RoundedCornerShape(16.dp))
         .background(Color.White)) {
         if (bitmap!=null) {
