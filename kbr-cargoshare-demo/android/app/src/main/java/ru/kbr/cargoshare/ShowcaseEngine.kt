@@ -41,7 +41,8 @@ data class ShowcaseSession(
     val elapsedMinutes: Int = 0,
     val distanceKm: Int = 0,
     val fuelPercent: Int = 75,
-    val odometerStart: Int = 42150
+    val odometerStart: Int = 42150,
+    val ridesCompleted: Int = 0
 )
 
 object ShowcaseEngine {
@@ -58,10 +59,11 @@ object ShowcaseEngine {
     fun submitDocuments(s: ShowcaseSession, passport: Boolean, licence: Boolean): ShowcaseSession {
         requireStage(s, ShowcaseStage.DOCUMENTS)
         require(passport && licence) { "Оба образца документов должны быть отмечены" }
-        return s.copy(stage = ShowcaseStage.REVIEW, documentsSubmitted = true)
+        return s.copy(stage = ShowcaseStage.READY, documentsSubmitted = true, demoApproved = true)
     }
 
     fun approve(s: ShowcaseSession): ShowcaseSession {
+        if (s.stage == ShowcaseStage.READY && s.demoApproved) return s
         requireStage(s, ShowcaseStage.REVIEW)
         require(s.documentsSubmitted)
         return s.copy(stage = ShowcaseStage.READY, demoApproved = true)
@@ -172,7 +174,55 @@ object ShowcaseEngine {
         requireStage(s, ShowcaseStage.RETURN)
         require(inspected) { "Перед завершением проверьте состояние автомобиля" }
         return s.copy(stage = ShowcaseStage.FINISHED,
-            returnChecked = true, depositHeld = false, depositReturned = true)
+            returnChecked = true, depositHeld = false, depositReturned = true,
+            ridesCompleted = s.ridesCompleted + 1)
+    }
+
+    /** Legacy sessions created before automatic demo verification are upgraded once on read. */
+    fun resume(s: ShowcaseSession): ShowcaseSession = when {
+        s.stage == ShowcaseStage.REVIEW && s.documentsSubmitted ->
+            s.copy(stage = ShowcaseStage.READY, demoApproved = true)
+        s.stage == ShowcaseStage.DOCUMENTS && s.demoApproved ->
+            s.copy(stage = ShowcaseStage.READY, documentsSubmitted = true)
+        else -> s
+    }
+
+    /** A new rental clears only booking-specific details, not verified driver status. */
+    fun beginNextRental(s: ShowcaseSession): ShowcaseSession {
+        require(s.stage == ShowcaseStage.FINISHED) { "Текущую поездку необходимо завершить" }
+        require(s.demoApproved)
+        return ShowcaseSession(
+            stage = ShowcaseStage.READY,
+            documentsSubmitted = true,
+            demoApproved = true,
+            ridesCompleted = s.ridesCompleted
+        )
+    }
+
+    /** Explicit showcase reset retains completed registration and driver verification. */
+    fun resetRetainingVerification(s: ShowcaseSession): ShowcaseSession {
+        require(s.stage == ShowcaseStage.FINISHED || s.stage == ShowcaseStage.READY ||
+            s.stage == ShowcaseStage.PHONE || s.stage == ShowcaseStage.DOCUMENTS)
+        return ShowcaseSession(
+            stage = if (s.demoApproved) ShowcaseStage.READY else ShowcaseStage.PHONE,
+            documentsSubmitted = s.demoApproved,
+            demoApproved = s.demoApproved,
+            ridesCompleted = s.ridesCompleted
+        )
+    }
+
+    /** Android Back is safe: paid/active orders must never roll back or clear deposit. */
+    fun backStep(s: ShowcaseSession): ShowcaseSession = when (s.stage) {
+        ShowcaseStage.DOCUMENTS -> s.copy(stage = ShowcaseStage.PHONE)
+        ShowcaseStage.CONTRACT -> s.copy(stage = ShowcaseStage.READY, vehicleId = "",
+            vehicleTitle = "", pickup = "", fare = 0)
+        ShowcaseStage.PAYMENT -> s.copy(stage = ShowcaseStage.CONTRACT,
+            signatureAccepted = false)
+        ShowcaseStage.PICKUP_INSPECTION -> s.copy(stage = ShowcaseStage.HANDOVER,
+            preTripChecked = false)
+        ShowcaseStage.UNLOCK -> s.copy(stage = ShowcaseStage.PICKUP_INSPECTION,
+            preTripChecked = false)
+        else -> s
     }
 
     fun reset(): ShowcaseSession = ShowcaseSession()
