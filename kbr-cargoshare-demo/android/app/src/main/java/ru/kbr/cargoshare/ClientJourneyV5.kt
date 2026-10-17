@@ -112,13 +112,13 @@ fun ClientJourneyV5(
                 V5Card {
                     V5StepHead(Icons.Rounded.Badge,"Документы водителя","Проверка до первой аренды")
                     Spacer(Modifier.height(12.dp))
-                    V5Note("Ничего не фотографируйте и не отправляйте. Отметьте учебные образцы.")
+                    V5Note("Демо-проверка происходит автоматически сразу после подтверждения обоих образцов. Настоящие документы не загружайте.")
                     Spacer(Modifier.height(10.dp))
                     V5Toggle("Паспорт РФ","Условная загрузка разворота и регистрации",passport){passport=it}
                     Spacer(Modifier.height(7.dp))
                     V5Toggle("Водительское удостоверение","Лицевая и обратная стороны, категория B",license){license=it}
                     Spacer(Modifier.height(14.dp))
-                    V5MainAction("Отправить на проверку",enabled=passport&&license) {
+                    V5MainAction("Подтвердить документы автоматически",enabled=passport&&license) {
                         dispatch { ShowcaseEngine.submitDocuments(state,passport,license) }
                     }
                 }
@@ -127,13 +127,15 @@ fun ClientJourneyV5(
             }
             ShowcaseStage.REVIEW -> {
                 V5Card {
-                    V5StepHead(Icons.Rounded.HourglassTop,"Проверка выполняется","Заявка № DEMO-001")
+                    V5StepHead(Icons.Rounded.CheckCircle,"Проверка завершена","Документы подтверждены автоматически в демо")
                     Spacer(Modifier.height(12.dp))
-                    V5Note("Образцы паспорта и прав получены. Администратор должен одобрить или отклонить заявку.")
+                    V5Note("Сведения подтверждены в демонстрационном режиме. Дополнительного одобрения администратора не требуется.")
                     Spacer(Modifier.height(15.dp))
-                    V5MainAction("Открыть кабинет администратора",click=onAdmin)
+                    V5MainAction("Продолжить к выбору машины") {
+                        dispatch { ShowcaseEngine.resume(state) }
+                    }
                     Spacer(Modifier.height(9.dp))
-                    Text("В кабинете одобрите заявку, затем вернитесь к клиенту. История сохранится.",
+                    Text("Проверка не повторяется при следующей аренде.",
                         color=Grey,fontSize=11.sp,lineHeight=17.sp)
                 }
             }
@@ -141,29 +143,10 @@ fun ClientJourneyV5(
                 V5Card {
                     V5StepHead(Icons.Rounded.Place,"Место получения","Нальчик · автомобили на демонстрационной карте")
                     Spacer(Modifier.height(10.dp))
-                    Surface(color=Sky,shape=RoundedCornerShape(13.dp)) {
-                        Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                            Row(verticalAlignment=Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.Map,null,tint=Pine,modifier=Modifier.size(24.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Column {
-                                    Text("Нальчик",fontSize=15.sp,color=Ink,fontWeight=FontWeight.Bold)
-                                    Text("Точки машин условные · GPS не подключён",color=Grey,fontSize=10.sp)
-                                }
-                            }
-                            Spacer(Modifier.height(9.dp))
-                            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                                available.take(3).forEach { v ->
-                                    Surface(onClick={selectedId=v.id},color=if(vehicle?.id==v.id)Pine else Color.White,
-                                        shape=RoundedCornerShape(9.dp)) {
-                                        Text(sumRub(v.hourPrice),modifier=Modifier.padding(8.dp),
-                                            fontSize=11.sp,color=if(vehicle?.id==v.id)Color.White else Pine,
-                                            fontWeight=FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    MovableDemoTruckMap(
+                        fleet = available, selectedId = vehicle?.id ?: "",
+                        onSelect = { selectedId = it }
+                    )
                     Spacer(Modifier.height(12.dp))
                     V5SectionTitle("Свободные грузовики")
                     if(available.isEmpty()) V5Note("Нет машин в демокаталоге. Включите их в кабинете владельца.")
@@ -274,6 +257,12 @@ fun ClientJourneyV5(
                     V5Item("Автомобиль",state.vehicleTitle)
                     V5Item("Точка выдачи",state.pickup)
                     V5Item("Начало",state.day+" · "+state.time)
+                    Spacer(Modifier.height(9.dp))
+                    MovableDemoTruckMap(
+                        fleet = fleet.filter { it.enabled && it.id == state.vehicleId },
+                        selectedId = state.vehicleId,
+                        onSelect = { }
+                    )
                     Spacer(Modifier.height(10.dp))
                     V5Note("Оплата и залог условно подтверждены. На следующем экране проверьте номер машины, кузов и салон.")
                     Spacer(Modifier.height(13.dp))
@@ -381,7 +370,7 @@ fun ClientJourneyV5(
                     Spacer(Modifier.height(11.dp))
                     V5Note("Залог возвращён только в демонстрационном учёте. Фискального чека и банковского возврата нет.")
                     Spacer(Modifier.height(13.dp))
-                    V5MainAction("Начать новую демоаренду",click=onNewDemo)
+                    V5MainAction("Взять следующий автомобиль",click=onNewDemo)
                 }
             }
         }
