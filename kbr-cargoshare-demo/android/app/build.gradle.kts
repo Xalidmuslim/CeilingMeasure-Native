@@ -10,8 +10,8 @@ android {
         applicationId = "ru.kbr.cargoshare"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0-offline-demo"
+        versionCode = 3
+        versionName = "0.3.0-ux-demo"
     }
     buildFeatures { compose = true }
     compileOptions {
@@ -27,6 +27,8 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
