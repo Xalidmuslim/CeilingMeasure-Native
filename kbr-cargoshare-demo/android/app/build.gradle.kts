@@ -7,11 +7,11 @@ android {
     namespace = "ru.kbr.cargoshare"
     compileSdk = 35
     defaultConfig {
-        applicationId = "ru.kbr.cargoshare.v098"
+        applicationId = "ru.kbr.cargoshare.v099"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "0.9.8-reliable-gps"
+        versionCode = 17
+        versionName = "0.9.9-gps-button-fix"
     }
     buildFeatures { compose = true }
     compileOptions {
