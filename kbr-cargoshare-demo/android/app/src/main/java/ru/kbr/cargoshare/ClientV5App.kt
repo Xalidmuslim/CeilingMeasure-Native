@@ -45,6 +45,8 @@ class AdminActivity : ComponentActivity() {
             MaterialTheme(colorScheme = lightColorScheme(primary=MainGreen, surface=Color.White)) {
                 var state by remember { mutableStateOf(store.read()) }
                 var vehicles by remember { mutableStateOf(adminFleetStore.fleet()) }
+                var completedTrips by remember { mutableStateOf(store.history()) }
+                var adminTab by remember { mutableIntStateOf(0) }
                 var message by remember { mutableStateOf<String?>(null) }
                 Column(Modifier.fillMaxSize().background(Paper).statusBarsPadding()
                     .navigationBarsPadding()) {
@@ -62,20 +64,38 @@ class AdminActivity : ComponentActivity() {
                         Icon(Icons.Rounded.AdminPanelSettings,null,tint=Color.White,
                             modifier=Modifier.size(24.dp))
                     }
+                    TabRow(
+                        selectedTabIndex=adminTab,
+                        containerColor=Color.White,
+                        contentColor=MainGreen
+                    ) {
+                        Tab(selected=adminTab==0,onClick={adminTab=0},
+                            text={Text("Автопарк",fontWeight=FontWeight.SemiBold)})
+                        Tab(selected=adminTab==1,onClick={
+                            completedTrips=store.history()
+                            adminTab=1
+                        },text={Text("История (${completedTrips.size})",
+                            fontWeight=FontWeight.SemiBold)})
+                    }
                     Box(Modifier.weight(1f)) {
-                        DemoAdminScreen(state=state,fleet=vehicles,
-                            onAction={block->
-                                runCatching { block() }.onSuccess {
-                                    state=it
-                                    store.save(it)
-                                }.onFailure { message=it.message }
-                            },
-                            onChangeFleet={updated->
-                                vehicles=updated
-                                adminFleetStore.saveFleet(updated)
-                            },
-                            onClient={finish()},
-                            onNotice={message=it})
+                        if(adminTab==0) {
+                            DemoAdminScreen(state=state,fleet=vehicles,
+                                onAction={block->
+                                    runCatching { block() }.onSuccess {
+                                        state=it
+                                        store.save(it)
+                                        completedTrips=store.history()
+                                    }.onFailure { message=it.message }
+                                },
+                                onChangeFleet={updated->
+                                    vehicles=updated
+                                    adminFleetStore.saveFleet(updated)
+                                },
+                                onClient={finish()},
+                                onNotice={message=it})
+                        } else {
+                            AdminHistoryV95(completedTrips)
+                        }
                     }
                 }
                 if(message!=null) AlertDialog(onDismissRequest={message=null},
