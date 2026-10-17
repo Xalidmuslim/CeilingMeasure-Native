@@ -594,6 +594,7 @@ private fun FlowPanel(
                         onNotice("ДЕМО-ЧЕК № 0001\nАвтомобиль: ${state.vehicleTitle}\nАренда: ${sumRub(state.fare)}\nПродление: ${sumRub(state.extensionCharge)}\nЗалог: ${sumRub(RentalRules.DEMO_DEPOSIT)} — возвращён.\nДокумент не фискальный.")
                     }
                 }
+                else -> { Text("Продолжите оформление в новой версии главного экрана") }
             }
         }
     }
