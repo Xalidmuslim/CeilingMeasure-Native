@@ -34,16 +34,6 @@ fun TripHomeV7(
 ) {
     val rate=fleet.firstOrNull{it.id==state.vehicleId}?.hourPrice
         ?: demoFleet.firstOrNull{it.id==state.vehicleId}?.hourPrice ?: 650
-    val total=(state.hours+state.extraHours)*60
-    var fakeSeconds by remember(state.stage) { mutableIntStateOf(0) }
-    val remainingSeconds=TripClockV8.remainingSeconds(state,fakeSeconds)
-    val remaining=(remainingSeconds+59)/60
-    LaunchedEffect(state.stage) {
-        while(state.stage==ShowcaseStage.DRIVING) {
-            delay(1000)
-            fakeSeconds=(fakeSeconds+1).coerceAtMost(86400)
-        }
-    }
     var dialog by remember { mutableStateOf(false) }
     var showFinance by remember { mutableStateOf(false) }
     val vehicle=fleet.firstOrNull{it.id==state.vehicleId}
@@ -69,37 +59,7 @@ fun TripHomeV7(
             }
         }
 
-        Surface(shape=RoundedCornerShape(20.dp),color=Green) {
-            Column(Modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=16.dp)) {
-                Row(verticalAlignment=Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Schedule,null,tint=Color.White,
-                        modifier=Modifier.size(19.dp))
-                    Spacer(Modifier.width(7.dp))
-                    Text("Осталось по демотарифу",
-                        fontSize=12.sp,color=Color.White.copy(alpha=.83f),
-                        modifier=Modifier.weight(1f))
-                    Text("DEMO",fontSize=10.sp,color=Color.White.copy(alpha=.7f))
-                }
-                Spacer(Modifier.height(6.dp))
-                val timer=TripClockV8.display(state,fakeSeconds)
-                Text(timer,fontSize=38.sp,fontWeight=FontWeight.ExtraBold,color=Color.White)
-                Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(
-                    progress={((state.elapsedMinutes*60f+fakeSeconds)/(total.coerceAtLeast(1)*60f)).coerceIn(0f,1f)},
-                    color=Color(0xFFD6EFA8),
-                    trackColor=Color.White.copy(alpha=.20f),
-                    modifier=Modifier.fillMaxWidth().height(6.dp),
-                    strokeCap=androidx.compose.ui.graphics.StrokeCap.Round)
-                Spacer(Modifier.height(8.dp))
-                Row {
-                    Text("Начало: ${state.day}, ${state.time}",
-                        color=Color.White.copy(alpha=.72f),fontSize=11.sp,
-                        modifier=Modifier.weight(1f))
-                    Text("Длительность ${state.hours+state.extraHours} ч",
-                        color=Color.White.copy(alpha=.72f),fontSize=11.sp)
-                }
-            }
-        }
+        TripTimerV9(state)
         Surface(color=Color.White,shape=RoundedCornerShape(18.dp)) {
             Row(Modifier.fillMaxWidth().padding(12.dp),
                 horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -113,11 +73,12 @@ fun TripHomeV7(
             StreetMapV7(
                 fleet=fleet.filter{it.enabled && it.id==state.vehicleId},
                 selectedId=state.vehicleId, onSelect={},
-                modifier=Modifier.fillMaxSize())
+                modifier=Modifier.fillMaxSize(),
+                tripKm=state.distanceKm)
             Surface(color=Color.White.copy(alpha=.96f),
                 modifier=Modifier.align(Alignment.BottomEnd).padding(10.dp),
                 shape=RoundedCornerShape(10.dp)) {
-                Text("Движение и точки — демонстрация",
+                Text("Нальчик · демо-маршрут, не GPS",
                     modifier=Modifier.padding(8.dp),fontSize=10.sp,color=Soft)
             }
         }
