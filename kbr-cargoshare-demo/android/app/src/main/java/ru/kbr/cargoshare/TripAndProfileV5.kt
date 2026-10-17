@@ -352,16 +352,16 @@ fun ClientProfileV5(
             V5ProfileRow(Icons.Rounded.AdminPanelSettings,"Кабинет администратора",
                 "Отдельный вход · демо-PIN 2468",onAdmin)
             HorizontalDivider(color=TLine)
-            V5ProfileRow(Icons.Rounded.RestartAlt,"Начать демонстрацию заново",
-                "Сбросить текущий учебный сценарий") { restart=true }
+            V5ProfileRow(Icons.Rounded.RestartAlt,"Новая демонстрационная аренда",
+                "Подтверждённые документы сохраняются") { restart=true }
         }
         V5Note("Режим без настоящих документов, SMS, GPS, доступа к замкам или финансовых операций.")
         if(state.stage!=ShowcaseStage.FINISHED) V5MainAction("Вернуться к оформлению",click=onJourney)
         Spacer(Modifier.height(15.dp))
     }
     if(restart) AlertDialog(onDismissRequest={restart=false},
-        title={Text("Сбросить сценарий?")},
-        text={Text("Регистрация, оплата и поездка начнутся сначала. Автомобили и тарифы останутся.")},
+        title={Text("Начать новую аренду?")},
+        text={Text("Данные подтверждённых учебных документов сохранятся. Активную поездку нельзя сбросить до возврата машины.")},
         confirmButton={TextButton(onClick={restart=false;onNewDemo()}){Text("Сбросить")}},
         dismissButton={TextButton(onClick={restart=false}){Text("Отмена")}})
 }
