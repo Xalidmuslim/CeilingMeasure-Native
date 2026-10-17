@@ -28,7 +28,7 @@ import org.osmdroid.views.overlay.Polyline
 
 /**
  * Nalchik OpenStreetMap basemap. Points and routes remain illustrative demo data.
- * No location permission required; map tiles use internet/cache.
+ * Device location is shown only after explicit foreground runtime permission.
  */
 @Composable
 fun StreetMapV7(
@@ -55,7 +55,7 @@ fun StreetMapV7(
                 shape=RoundedCornerShape(12.dp),
                 shadowElevation=2.dp,
                 modifier=Modifier.align(Alignment.TopEnd)
-                    .padding(10.dp)
+                    .padding(end=12.dp,top=86.dp)
             ) {
                 Box(Modifier.size(42.dp),contentAlignment=Alignment.Center) {
                     Icon(Icons.Rounded.CenterFocusStrong,
@@ -111,6 +111,7 @@ private fun OSMNativeMapV7(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            zoomController.setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER)
             controller.setCenter(GeoPoint(43.485,43.608))
             controller.setZoom(14.0)
             minZoomLevel=10.0
