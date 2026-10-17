@@ -184,13 +184,27 @@ fun ClientV5App() {
         ) { inner ->
             Box(Modifier.fillMaxSize().padding(inner)) {
                 when(tab) {
-                    0 -> ClientJourneyV5(state=state,fleet=fleet,dispatch=::dispatch,
-                        onAdmin={adminGate=true},onInfo={dialog=it},
-                        onNewDemo={dispatch {
-                            if (state.stage == ShowcaseStage.FINISHED)
-                                ShowcaseEngine.beginNextRental(state)
-                            else ShowcaseEngine.resetRetainingVerification(state)
-                        }})
+                    0 -> when(state.stage) {
+                        ShowcaseStage.READY -> MapHomeV7(
+                            fleet=fleet,state=state,
+                            onReserve={vehicle,hours,day,time ->
+                                dispatch {
+                                    ShowcaseEngine.reserve(state,vehicle.id,hours,day,time,
+                                        vehicle.title,vehicle.pickup,RentalRules.fare(vehicle,hours))
+                                }
+                            }
+                        )
+                        ShowcaseStage.DRIVING -> TripHomeV7(
+                            state=state,fleet=fleet,dispatch=::dispatch,onInfo={dialog=it}
+                        )
+                        else -> ClientJourneyV5(state=state,fleet=fleet,dispatch=::dispatch,
+                            onAdmin={adminGate=true},onInfo={dialog=it},
+                            onNewDemo={dispatch {
+                                if (state.stage == ShowcaseStage.FINISHED)
+                                    ShowcaseEngine.beginNextRental(state)
+                                else ShowcaseEngine.resetRetainingVerification(state)
+                            }})
+                    }
                     1 -> ClientRentalV5(state=state,onJourney={tab=0},
                         dispatch=::dispatch,onInfo={dialog=it})
                     else -> ClientProfileV5(state=state,onJourney={tab=0},
