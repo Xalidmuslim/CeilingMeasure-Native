@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <application android:label="ГрузШер КБР · исправлено" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:supportsRtl="true">
+    <application android:label="ГрузШер КБР · GPS" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
