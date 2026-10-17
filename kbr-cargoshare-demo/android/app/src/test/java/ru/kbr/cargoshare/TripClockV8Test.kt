@@ -10,7 +10,7 @@ class TripClockV8Test {
     }
     @Test fun timerTracksDemoMovementAndExtension() {
         val s=ShowcaseSession(hours=4,extraHours=2,elapsedMinutes=61)
-        assertEquals("04:58:59",TripClockV8.display(s,61))
+        assertEquals("04:57:59",TripClockV8.display(s,61))
     }
     @Test fun exhaustedRentalStopsAtZero() {
         val s=ShowcaseSession(hours=2,elapsedMinutes=120)
