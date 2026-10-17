@@ -29,4 +29,13 @@ class PhoneGpsPolicyV96Test {
     @Test fun noDeviceTrackingStartsByDefault() {
         assertFalse(PhoneGpsPolicyV96.ENABLED_BY_DEFAULT)
     }
+
+    @Test fun permissionStatesGiveActionableExplanations() {
+        assertEquals("Точное местоположение разрешено",
+            PhoneGpsPolicyV96.permissionDescription(true,true))
+        assertTrue(PhoneGpsPolicyV96.permissionDescription(false,true)
+            .contains("приблизительное"))
+        assertTrue(PhoneGpsPolicyV96.permissionDescription(false,false)
+            .contains("не предоставлено"))
+    }
 }
