@@ -36,13 +36,16 @@ fun StreetMapV7(
     selectedId:String,
     onSelect:(String)->Unit,
     modifier:Modifier=Modifier,
-    tripKm:Int?=null
+    tripKm:Int?=null,
+    phoneFix:PhoneGpsFixV96?=null,
+    usePhoneGps:Boolean=false
 ) {
     var recenterCount by remember { mutableIntStateOf(0) }
     Box(modifier) {
         OSMNativeMapV7(
             fleet=fleet,selectedId=selectedId,onSelect=onSelect,
             tripKm=tripKm,recenterCount=recenterCount,
+            phoneFix=phoneFix,usePhoneGps=usePhoneGps,
             modifier=Modifier.fillMaxSize()
         )
         if (tripKm != null) {
@@ -56,7 +59,7 @@ fun StreetMapV7(
             ) {
                 Box(Modifier.size(42.dp),contentAlignment=Alignment.Center) {
                     Icon(Icons.Rounded.CenterFocusStrong,
-                        contentDescription="Центрировать карту на машине",
+                        contentDescription=if(usePhoneGps)"Центрировать на телефоне" else "Центрировать на машине",
                         tint=Color(0xFF20523F),
                         modifier=Modifier.size(21.dp))
                 }
@@ -94,6 +97,8 @@ private fun OSMNativeMapV7(
     onSelect:(String)->Unit,
     tripKm:Int?,
     recenterCount:Int,
+    phoneFix:PhoneGpsFixV96?,
+    usePhoneGps:Boolean,
     modifier:Modifier
 ) {
     val context=LocalContext.current
@@ -125,7 +130,16 @@ private fun OSMNativeMapV7(
     val applied=remember(map) { mutableMapOf<String,String>() }
     val fleetKey=fleet.filter{it.enabled}
         .joinToString("|") { "${it.id}:${it.title}:${it.hourPrice}:${it.pickup}" }
-    val signature="$selectedId/$tripKm/$fleetKey"
+    val signature="$selectedId/$tripKm/$fleetKey/$usePhoneGps"
+    val phoneMarker=remember(map) {
+        Marker(map).apply {
+            title="Моё местоположение · GPS телефона"
+            snippet="Это не GPS грузовика"
+            icon=phonePositionIconV96(context)
+            setAnchor(Marker.ANCHOR_CENTER,Marker.ANCHOR_CENTER)
+            setOnMarkerClickListener { _, _ -> true }
+        }
+    }
     AndroidView(factory={map},modifier=modifier,update={view->
         if(applied["signature"] != signature) {
             val previousSelected=applied["selected"]
@@ -134,7 +148,7 @@ private fun OSMNativeMapV7(
             applied["selected"]=selectedId
             applied["tripKm"]=tripKm.toString()
             view.overlays.clear()
-            if(tripKm!=null) {
+            if(tripKm!=null && !usePhoneGps) {
                 val positions=NalchikTripMap.routeFor(selectedId)
                     .map {GeoPoint(it.lat,it.lon)}
                 val route=Polyline().apply {
@@ -183,9 +197,27 @@ private fun OSMNativeMapV7(
             }
             view.invalidate()
         }
+        // Update only the blue phone marker on GPS changes. Don't rebuild the map,
+        // vehicle markers or routes on each location event.
+        if (usePhoneGps && tripKm != null && phoneFix != null) {
+            val coordinate=GeoPoint(phoneFix.latitude,phoneFix.longitude)
+            phoneMarker.position=coordinate
+            if (!view.overlays.contains(phoneMarker)) view.overlays.add(phoneMarker)
+            if (applied["phoneInitialCenter"] != "true") {
+                applied["phoneInitialCenter"]="true"
+                view.controller.setZoom(16.0)
+                view.controller.animateTo(coordinate)
+            }
+            view.invalidate()
+        } else {
+            if (view.overlays.remove(phoneMarker))view.invalidate()
+            applied.remove("phoneInitialCenter")
+        }
         if (recenterCount > 0 && applied["recenter"] != recenterCount.toString()) {
             applied["recenter"] = recenterCount.toString()
-            if (tripKm != null) {
+            if (usePhoneGps && phoneFix != null) {
+                view.controller.animateTo(GeoPoint(phoneFix.latitude,phoneFix.longitude))
+            } else if (tripKm != null && !usePhoneGps) {
                 val now=NalchikTripMap.current(selectedId,tripKm)
                 view.controller.animateTo(GeoPoint(now.lat,now.lon))
             } else {
@@ -227,4 +259,21 @@ private fun cachedTruckPin(
             9*density,25*density,paint)
         BitmapDrawable(context.resources,bitmap)
     }
+}
+
+/** Distinct blue dot: device position, never the telematics unit of a truck. */
+private fun phonePositionIconV96(context:Context):BitmapDrawable {
+    val d=context.resources.displayMetrics.density
+    val side=(36f*d).toInt()
+    val image=Bitmap.createBitmap(side,side,Bitmap.Config.ARGB_8888)
+    val canvas=Canvas(image)
+    val paint=Paint(Paint.ANTI_ALIAS_FLAG)
+    val c=side/2f
+    paint.color=android.graphics.Color.argb(60,35,101,215)
+    canvas.drawCircle(c,c,17f*d,paint)
+    paint.color=android.graphics.Color.WHITE
+    canvas.drawCircle(c,c,10f*d,paint)
+    paint.color=android.graphics.Color.rgb(35,101,215)
+    canvas.drawCircle(c,c,7f*d,paint)
+    return BitmapDrawable(context.resources,image)
 }
