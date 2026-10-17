@@ -130,12 +130,11 @@ fun TripHomeV7(
                 }
                 V5Item("Аренда",sumRub(state.fare))
                 if(state.extensionCharge>0)V5Item("Продление",sumRub(state.extensionCharge))
-                V5Item("Залог",sumRub(RentalRules.DEMO_DEPOSIT))
                 if(showFinance) {
                     HorizontalDivider(color=Border,modifier=Modifier.padding(vertical=8.dp))
-                    V5Item("Условно оплачено",sumRub(state.fare+RentalRules.DEMO_DEPOSIT))
-                    V5Item("Без залога",sumRub(state.fare+state.extensionCharge))
-                    V5Note("Демоучёт. После возврата машины залог будет условно возвращён.")
+                    V5Item("Условно оплачено",sumRub(state.fare))
+                    V5Item("Всего с продлением",sumRub(state.fare+state.extensionCharge))
+                    V5Note("Демоучёт: реальных банковских операций нет.")
                 }
             }
         }
