@@ -181,7 +181,6 @@ fun ClientJourneyV5(
                     }
                     Spacer(Modifier.height(10.dp))
                     V5Item("Аренда",sumRub(RentalRules.fare(vehicle,hours)),emphasis=true)
-                    V5Item("Залог (пример)",sumRub(RentalRules.DEMO_DEPOSIT))
                     V5Item("Получение",vehicle.pickup)
                     Spacer(Modifier.height(10.dp))
                     V5MainAction("Перейти к договору") {
@@ -207,7 +206,6 @@ fun ClientJourneyV5(
                     V5Item("Начало",state.day+" · "+state.time)
                     V5Item("Продолжительность",if(state.hours==24)"Сутки" else "${state.hours} ч")
                     V5Item("Аренда",sumRub(state.fare))
-                    V5Item("Залог",sumRub(RentalRules.DEMO_DEPOSIT))
                     HorizontalDivider(color=DividerBg,modifier=Modifier.padding(vertical=10.dp))
                     Text("Клиент обязан соблюдать ПДД, не передавать руль посторонним, соблюдать ограничения по грузу, зафиксировать состояние кузова до поездки и вернуть машину в согласованное место.",
                         fontSize=12.sp,color=Grey,lineHeight=18.sp)
@@ -221,7 +219,7 @@ fun ClientJourneyV5(
             }
             ShowcaseStage.PAYMENT -> {
                 V5Card {
-                    V5StepHead(Icons.Rounded.CreditCard,"Оплата аренды","Без банковского подключения")
+                    V5StepHead(Icons.Rounded.CreditCard,"Оплата аренды","Без залога и подключения к банку")
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         V5Pill("Банковская карта",paymentMethod=="Банковская карта"){paymentMethod="Банковская карта"}
@@ -240,9 +238,8 @@ fun ClientJourneyV5(
                     }
                     Spacer(Modifier.height(12.dp))
                     V5Item("Аренда",sumRub(state.fare))
-                    V5Item("Возвратный залог",sumRub(RentalRules.DEMO_DEPOSIT))
                     HorizontalDivider(color=DividerBg)
-                    V5Item("Итого условно",sumRub(state.fare+RentalRules.DEMO_DEPOSIT),emphasis=true)
+                    V5Item("Итого к оплате",sumRub(state.fare),emphasis=true)
                     Spacer(Modifier.height(9.dp))
                     OutlinedButton(onClick={
                         dispatch { ShowcaseEngine.simulatePayment(state,false) }
@@ -282,7 +279,7 @@ fun ClientJourneyV5(
                     Text("Карта улиц Нальчика · точка машины и маршрут условные",
                         fontSize=11.sp,color=Grey)
                     Spacer(Modifier.height(10.dp))
-                    V5Note("Оплата и залог условно подтверждены. На следующем экране проверьте номер машины, кузов и салон.")
+                    V5Note("Оплата аренды подтверждена в деморежиме. Проверьте номер машины, кузов и салон.")
                     Spacer(Modifier.height(13.dp))
                     V5MainAction("Я возле автомобиля") {
                         dispatch { ShowcaseEngine.arriveAtVehicle(state) }
@@ -362,7 +359,6 @@ fun ClientJourneyV5(
                     V5Toggle("Двери закрыты","Имитация блокировки замков",returnLocked){returnLocked=it}
                     Spacer(Modifier.height(12.dp))
                     V5Item("Стоимость аренды",sumRub(state.fare+state.extensionCharge),emphasis=true)
-                    V5Item("Залог к возврату",sumRub(RentalRules.DEMO_DEPOSIT))
                     Spacer(Modifier.height(10.dp))
                     V5MainAction("Подтвердить возврат",enabled=returnBody&&returnFuel&&returnBelongings&&returnLocked) {
                         dispatch { ShowcaseEngine.completeReturn(state,true) }
@@ -388,9 +384,8 @@ fun ClientJourneyV5(
                     V5Item("Продление",sumRub(state.extensionCharge))
                     HorizontalDivider(color=DividerBg,modifier=Modifier.padding(vertical=8.dp))
                     V5Item("Всего за аренду",sumRub(state.fare+state.extensionCharge),emphasis=true)
-                    V5Item("Возвращённый залог",sumRub(RentalRules.DEMO_DEPOSIT))
                     Spacer(Modifier.height(11.dp))
-                    V5Note("Залог возвращён только в демонстрационном учёте. Фискального чека и банковского возврата нет.")
+                    V5Note("Поездка завершена. Демонстрационная квитанция сформирована без списания денег.")
                     Spacer(Modifier.height(13.dp))
                     V5MainAction("Взять следующий автомобиль",click=onNewDemo)
                 }
