@@ -7,7 +7,7 @@ android {
     namespace = "ru.kbr.cargoshare"
     compileSdk = 35
     defaultConfig {
-        applicationId = "ru.kbr.cargoshare.v094"
+        applicationId = "ru.kbr.cargoshare.v095"
         minSdk = 26
         targetSdk = 35
         versionCode = 13
