@@ -7,13 +7,13 @@ android {
     namespace = "ru.kbr.cargoshare"
     compileSdk = 35
     defaultConfig {
-        applicationId = "ru.kbr.cargoshare.v099"
+        applicationId = "ru.kbr.cargoshare.v100"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "0.9.9-gps-button-fix"
+        versionCode = 18
+        versionName = "1.0.0-auth-foundation"\n        buildConfigField("String","REAL_AUTH_API_URL","\\\"${System.getenv("GRUZSHER_REAL_API_URL") ?: ""}\\\"")
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
