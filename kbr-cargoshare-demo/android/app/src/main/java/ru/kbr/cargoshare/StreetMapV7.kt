@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,59 +42,106 @@ fun StreetMapV7(
     tripKm:Int?=null
 ) {
     var realMap by rememberSaveable { mutableStateOf(true) }
+    var recenterCount by remember { mutableIntStateOf(0) }
     Box(modifier) {
         if (realMap) {
             OSMNativeMapV7(
                 fleet=fleet,selectedId=selectedId,onSelect=onSelect,
-                tripKm=tripKm,modifier=Modifier.fillMaxSize())
+                tripKm=tripKm,recenterCount=recenterCount,
+                modifier=Modifier.fillMaxSize())
         } else {
             MovableDemoTruckMap(
                 fleet=fleet,selectedId=selectedId,onSelect=onSelect,
                 modifier=Modifier.fillMaxSize(),fullWindow=true)
         }
-        Row(Modifier.align(Alignment.TopCenter).padding(top=11.dp),
-            horizontalArrangement=Arrangement.spacedBy(7.dp)) {
-            Surface(onClick={realMap=true},
-                shape=RoundedCornerShape(12.dp),
-                color=if(realMap)Color(0xFF20523F) else Color.White) {
-                Row(Modifier.padding(horizontal=10.dp,vertical=8.dp),
-                    verticalAlignment=Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Map,null,modifier=Modifier.size(16.dp),
-                        tint=if(realMap)Color.White else Color(0xFF20523F))
-                    Spacer(Modifier.width(5.dp))
-                    Text("Нальчик",fontSize=11.sp,
-                        color=if(realMap)Color.White else Color(0xFF20523F))
+        if (tripKm != null) {
+            // Trip mode: only recenter and layer toggle. No large top labels.
+            Column(
+                modifier=Modifier.align(Alignment.TopEnd)
+                    .padding(top=10.dp,end=11.dp),
+                verticalArrangement=Arrangement.spacedBy(7.dp)
+            ) {
+                Surface(
+                    onClick={ recenterCount++ },
+                    color=Color.White,
+                    shape=RoundedCornerShape(12.dp),
+                    shadowElevation=2.dp
+                ) {
+                    Box(Modifier.size(42.dp),contentAlignment=Alignment.Center) {
+                        Icon(Icons.Rounded.CenterFocusStrong,
+                            contentDescription="Центрировать на автомобиле",
+                            tint=Color(0xFF20523F),modifier=Modifier.size(21.dp))
+                    }
+                }
+                Surface(
+                    onClick={ realMap=!realMap },
+                    color=Color.White,
+                    shape=RoundedCornerShape(12.dp),
+                    shadowElevation=2.dp
+                ) {
+                    Box(Modifier.size(42.dp),contentAlignment=Alignment.Center) {
+                        Icon(Icons.Rounded.Layers,
+                            contentDescription="Переключить карту и схему",
+                            tint=Color(0xFF20523F),modifier=Modifier.size(21.dp))
+                    }
                 }
             }
-            Surface(onClick={realMap=false},
-                shape=RoundedCornerShape(12.dp),
-                color=if(!realMap)Color(0xFF20523F) else Color.White) {
-                Row(Modifier.padding(horizontal=10.dp,vertical=8.dp),
-                    verticalAlignment=Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Layers,null,modifier=Modifier.size(16.dp),
-                        tint=if(!realMap)Color.White else Color(0xFF20523F))
-                    Spacer(Modifier.width(5.dp))
-                    Text("Без сети",fontSize=11.sp,
-                        color=if(!realMap)Color.White else Color(0xFF20523F))
+            Surface(
+                color=Color.White.copy(alpha=.92f),
+                shape=RoundedCornerShape(7.dp),
+                modifier=Modifier.align(Alignment.BottomStart)
+                    .padding(start=8.dp,bottom=9.dp)
+            ) {
+                Text("ДЕМО · маршрут условный",
+                    modifier=Modifier.padding(horizontal=7.dp,vertical=4.dp),
+                    fontSize=9.sp,color=Color(0xFF53645B))
+            }
+        } else {
+            Row(Modifier.align(Alignment.TopCenter).padding(top=11.dp),
+                horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+                Surface(onClick={realMap=true},
+                    shape=RoundedCornerShape(12.dp),
+                    color=if(realMap)Color(0xFF20523F) else Color.White) {
+                    Row(Modifier.padding(horizontal=10.dp,vertical=8.dp),
+                        verticalAlignment=Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Map,null,modifier=Modifier.size(16.dp),
+                            tint=if(realMap)Color.White else Color(0xFF20523F))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Нальчик",fontSize=11.sp,
+                            color=if(realMap)Color.White else Color(0xFF20523F))
+                    }
+                }
+                Surface(onClick={realMap=false},
+                    shape=RoundedCornerShape(12.dp),
+                    color=if(!realMap)Color(0xFF20523F) else Color.White) {
+                    Row(Modifier.padding(horizontal=10.dp,vertical=8.dp),
+                        verticalAlignment=Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Layers,null,modifier=Modifier.size(16.dp),
+                            tint=if(!realMap)Color.White else Color(0xFF20523F))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Без сети",fontSize=11.sp,
+                            color=if(!realMap)Color.White else Color(0xFF20523F))
+                    }
                 }
             }
-        }
-        Surface(color=Color.White.copy(alpha=.95f),
-            shape=RoundedCornerShape(9.dp),
-            modifier=Modifier.align(Alignment.TopStart)
-                .padding(top=52.dp,start=9.dp)) {
-            Text(if(tripKm!=null)NalchikTripMap.disclaimer
-                else "Демо-точки грузовиков · не GPS",
-                modifier=Modifier.padding(horizontal=8.dp,vertical=6.dp),
-                fontSize=10.sp,color=Color(0xFF3A554A))
+            Surface(
+                color=Color.White.copy(alpha=.94f),
+                shape=RoundedCornerShape(8.dp),
+                modifier=Modifier.align(Alignment.TopStart)
+                    .padding(top=52.dp,start=9.dp)
+            ) {
+                Text("Демо-точки · не GPS",
+                    modifier=Modifier.padding(horizontal=7.dp,vertical=5.dp),
+                    fontSize=10.sp,color=Color(0xFF3A554A))
+            }
         }
         if (realMap) {
             Surface(color=Color.White.copy(alpha=.9f),
                 shape=RoundedCornerShape(7.dp),
-                modifier=Modifier.align(Alignment.BottomStart)
-                    .padding(bottom=9.dp,start=8.dp)) {
-                Text("© OpenStreetMap contributors",
-                    fontSize=10.sp,color=Color(0xFF58685E),
+                modifier=Modifier.align(Alignment.BottomEnd)
+                    .padding(bottom=9.dp,end=8.dp)) {
+                Text("© OpenStreetMap",
+                    fontSize=9.sp,color=Color(0xFF58685E),
                     modifier=Modifier.padding(horizontal=7.dp,vertical=4.dp))
             }
         }
@@ -117,6 +165,7 @@ private fun OSMNativeMapV7(
     selectedId:String,
     onSelect:(String)->Unit,
     tripKm:Int?,
+    recenterCount:Int,
     modifier:Modifier
 ) {
     val context=LocalContext.current
@@ -168,12 +217,6 @@ private fun OSMNativeMapV7(
                     title="Условный трек по Нальчику"
                 }
                 view.overlays.add(route)
-                val pickup=Marker(view).apply {
-                    position=positions.first()
-                    title="Пункт получения (демо)"
-                    setAnchor(Marker.ANCHOR_CENTER,Marker.ANCHOR_BOTTOM)
-                }
-                view.overlays.add(pickup)
                 val now=NalchikTripMap.current(selectedId,tripKm)
                 val marker=Marker(view).apply {
                     position=GeoPoint(now.lat,now.lon)
@@ -211,6 +254,17 @@ private fun OSMNativeMapV7(
                 }
             }
             view.invalidate()
+        }
+        if (recenterCount > 0 && applied["recenter"] != recenterCount.toString()) {
+            applied["recenter"] = recenterCount.toString()
+            if (tripKm != null) {
+                val now=NalchikTripMap.current(selectedId,tripKm)
+                view.controller.animateTo(GeoPoint(now.lat,now.lon))
+            } else {
+                fleet.firstOrNull { it.id == selectedId }?.let {
+                    view.controller.animateTo(demoCoord(it))
+                }
+            }
         }
     })
 }
