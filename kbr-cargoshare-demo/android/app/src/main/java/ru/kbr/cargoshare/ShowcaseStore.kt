@@ -32,7 +32,11 @@ class ShowcaseStore(context: Context) {
                 extensionCharge = o.optInt("extensionCharge"),
                 returnChecked = o.optBoolean("returnChecked"),
                 depositReturned = o.optBoolean("depositReturned"),
-                damageCharge = o.optInt("damageCharge")
+                damageCharge = o.optInt("damageCharge"),
+                elapsedMinutes = o.optInt("elapsedMinutes"),
+                distanceKm = o.optInt("distanceKm"),
+                fuelPercent = o.optInt("fuelPercent",75),
+                odometerStart = o.optInt("odometerStart",42150)
             )
         }.getOrElse { ShowcaseSession() }
     }
@@ -60,6 +64,10 @@ class ShowcaseStore(context: Context) {
             .put("returnChecked", s.returnChecked)
             .put("depositReturned", s.depositReturned)
             .put("damageCharge", s.damageCharge)
+            .put("elapsedMinutes", s.elapsedMinutes)
+            .put("distanceKm", s.distanceKm)
+            .put("fuelPercent", s.fuelPercent)
+            .put("odometerStart", s.odometerStart)
         prefs.edit().putString("session", o.toString()).apply()
     }
 }
