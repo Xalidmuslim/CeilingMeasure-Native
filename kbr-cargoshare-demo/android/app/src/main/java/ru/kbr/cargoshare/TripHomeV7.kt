@@ -114,6 +114,17 @@ fun TripHomeV7(
                             fontSize=11.sp,color=Soft,maxLines=2
                         )
                     }
+                    if(phoneGps.enabled && (
+                        phoneGps.status.contains("Включите геолокацию") ||
+                        phoneGps.status.contains("Нет сигнала")
+                    )) {
+                        IconButton(onClick=phoneGps.openSettings,
+                            modifier=Modifier.size(38.dp)) {
+                            Icon(Icons.Rounded.Settings,
+                                contentDescription="Настройки геолокации Android",
+                                tint=Green,modifier=Modifier.size(21.dp))
+                        }
+                    }
                     Button(
                         onClick={if(phoneGps.enabled) phoneGps.disable else phoneGps.enable},
                         shape=RoundedCornerShape(11.dp),
