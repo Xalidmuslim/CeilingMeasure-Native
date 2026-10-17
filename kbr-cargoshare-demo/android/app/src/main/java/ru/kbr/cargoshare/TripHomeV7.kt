@@ -11,6 +11,8 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -70,44 +72,77 @@ fun TripHomeV7(
                     "Стоимость",Modifier.weight(1f))
             }
         }
-        Surface(color=Color.White,shape=RoundedCornerShape(16.dp)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp),
-                verticalAlignment=Alignment.CenterVertically) {
-                Icon(Icons.Rounded.MyLocation,null,
-                    tint=if(phoneGps.enabled)Color(0xFF2365D7) else Green,
-                    modifier=Modifier.size(21.dp))
-                Spacer(Modifier.width(9.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Местоположение телефона",
-                        fontSize=12.sp,fontWeight=FontWeight.Bold,color=Black)
-                    Text(if(phoneGps.fix!=null && phoneGps.enabled)
-                            "GPS · точность ±${phoneGps.fix.accuracyMeters.toInt()} м"
-                        else phoneGps.status,
-                        fontSize=10.sp,color=Soft)
-                }
-                TextButton(onClick={
-                    if(phoneGps.enabled)phoneGps.disable() else phoneGps.enable()
-                }) {
-                    Text(if(phoneGps.enabled)"Выключить" else "Включить GPS",
-                        fontSize=12.sp,fontWeight=FontWeight.Bold)
+        // Map and location controls are one clipped Compose container.
+        // Keeping the controls ABOVE AndroidView fixes the hidden GPS button
+        // on devices where the native MapView overlaps adjacent scroll children.
+        Box(
+            Modifier.fillMaxWidth().height(340.dp)
+                .clip(RoundedCornerShape(17.dp))
+        ) {
+            StreetMapV7(
+                fleet=fleet.filter { it.enabled && it.id == state.vehicleId },
+                selectedId=state.vehicleId,
+                onSelect={},
+                modifier=Modifier.fillMaxSize(),
+                tripKm=state.distanceKm,
+                phoneFix=phoneGps.fix,
+                usePhoneGps=phoneGps.enabled
+            )
+            Surface(
+                color=Color.White.copy(alpha=.98f),
+                shadowElevation=3.dp,
+                shape=RoundedCornerShape(14.dp),
+                modifier=Modifier.align(Alignment.TopCenter)
+                    .fillMaxWidth().padding(start=10.dp,end=10.dp,top=10.dp)
+                    .zIndex(5f)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start=11.dp,end=6.dp,top=8.dp,bottom=8.dp),
+                    verticalAlignment=Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Rounded.MyLocation,null,
+                        tint=if(phoneGps.enabled)Color(0xFF2365D7) else Green,
+                        modifier=Modifier.size(23.dp))
+                    Spacer(Modifier.width(9.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("GPS телефона",fontSize=13.sp,
+                            fontWeight=FontWeight.Bold,color=Black)
+                        Text(
+                            if(phoneGps.fix!=null && phoneGps.enabled)
+                                "Точность ±${phoneGps.fix.accuracyMeters.toInt()} м · реальные координаты"
+                            else phoneGps.status,
+                            fontSize=11.sp,color=Soft,maxLines=2
+                        )
+                    }
+                    Button(
+                        onClick={if(phoneGps.enabled) phoneGps.disable else phoneGps.enable},
+                        shape=RoundedCornerShape(11.dp),
+                        colors=ButtonDefaults.buttonColors(
+                            containerColor=if(phoneGps.enabled)Color(0xFFE5F0E7) else Green,
+                            contentColor=if(phoneGps.enabled)Green else Color.White
+                        ),
+                        contentPadding=PaddingValues(horizontal=13.dp,vertical=7.dp)
+                    ) {
+                        Text(if(phoneGps.enabled)"Выкл." else "Включить",
+                            fontSize=12.sp,fontWeight=FontWeight.Bold)
+                    }
                 }
             }
+            Surface(
+                color=Color.White.copy(alpha=.93f),
+                shape=RoundedCornerShape(8.dp),
+                modifier=Modifier.align(Alignment.BottomStart)
+                    .padding(start=9.dp,bottom=9.dp).zIndex(4f)
+            ) {
+                Text(
+                    if(phoneGps.enabled)
+                        "Синяя точка — телефон, не грузовик"
+                    else "Маршрут демо · нажмите «Включить» для GPS",
+                    fontSize=10.sp,color=Soft,
+                    modifier=Modifier.padding(horizontal=7.dp,vertical=5.dp)
+                )
+            }
         }
-        StreetMapV7(
-            fleet=fleet.filter { it.enabled && it.id == state.vehicleId },
-            selectedId=state.vehicleId,
-            onSelect={},
-            modifier=Modifier.fillMaxWidth().height(286.dp),
-            tripKm=state.distanceKm,
-            phoneFix=phoneGps.fix,
-            usePhoneGps=phoneGps.enabled
-        )
-        Text(
-            if(phoneGps.enabled) "Синяя точка — реальное положение телефона, не автомобиля. Координаты никуда не отправляются."
-            else "Маршрут и маркер автомобиля условные. Включите GPS для отображения реального положения телефона.",
-            fontSize=10.sp,lineHeight=14.sp,color=Soft,
-            modifier=Modifier.padding(horizontal=4.dp)
-        )
         Surface(color=Color.White,shape=RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(15.dp)) {
                 Row(verticalAlignment=Alignment.CenterVertically) {
