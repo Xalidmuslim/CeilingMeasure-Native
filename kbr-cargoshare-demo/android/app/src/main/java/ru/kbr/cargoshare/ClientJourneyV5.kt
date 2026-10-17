@@ -56,6 +56,7 @@ fun ClientJourneyV5(
     var returnLocked by remember { mutableStateOf(false) }
     val available=fleet.filter{it.enabled}
     val vehicle=available.firstOrNull{it.id==selectedId} ?: available.firstOrNull()
+    val bookedVehicle=fleet.firstOrNull{it.id==state.vehicleId} ?: demoFleet.firstOrNull{it.id==state.vehicleId}
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
         .padding(horizontal=14.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(11.dp)) {
 
@@ -75,7 +76,7 @@ fun ClientJourneyV5(
                         ShowcaseStage.READY_TO_DRIVE -> "Начало поездки"
                         ShowcaseStage.RETURN -> "Возврат автомобиля"
                         else -> "Ваша аренда"
-                    },fontSize=23.sp,fontWeight=FontWeight.ExtraBold,color=Ink)
+                    },fontSize=20.sp,fontWeight=FontWeight.ExtraBold,color=Ink)
                     Text("Грузовой каршеринг · Нальчик и КБР",color=Grey,fontSize=11.sp)
                 }
                 Surface(color=Mist,shape=RoundedCornerShape(11.dp)) {
@@ -83,7 +84,7 @@ fun ClientJourneyV5(
                         verticalAlignment=Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Verified,null,tint=Pine,modifier=Modifier.size(15.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("${ShowcaseStage.entries.indexOf(state.stage)+1}/${ShowcaseStage.entries.size}",
+                        Text("${PresentationV7.groups.indexOf(PresentationV7.stepFor(state.stage))+1}/${PresentationV7.groups.size}",
                             color=Pine,fontSize=12.sp,fontWeight=FontWeight.Bold)
                     }
                 }
@@ -193,6 +194,10 @@ fun ClientJourneyV5(
             ShowcaseStage.CONTRACT -> {
                 V5Card {
                     V5StepHead(Icons.Rounded.Description,"Договор аренды","Электронное подписание · имитация")
+                    if(bookedVehicle!=null) {
+                        Spacer(Modifier.height(9.dp))
+                        VehiclePhotoV7(bookedVehicle,Modifier.fillMaxWidth().height(135.dp),true)
+                    }
                     Spacer(Modifier.height(10.dp))
                     V5Note("ОБРАЗЕЦ. Никакого юридически значимого договора сейчас не заключается.")
                     Spacer(Modifier.height(12.dp))
@@ -253,6 +258,10 @@ fun ClientJourneyV5(
             ShowcaseStage.HANDOVER -> {
                 V5Card {
                     V5StepHead(Icons.Rounded.Navigation,"Подойти к автомобилю","Передача грузовика без сотрудника — демонстрация")
+                    if(bookedVehicle!=null) {
+                        Spacer(Modifier.height(9.dp))
+                        VehiclePhotoV7(bookedVehicle,Modifier.fillMaxWidth().height(125.dp),true)
+                    }
                     Spacer(Modifier.height(11.dp))
                     V5Item("Автомобиль",state.vehicleTitle)
                     V5Item("Точка выдачи",state.pickup)
