@@ -1,0 +1,23 @@
+name: KBR Secure Backend Tests
+on:
+  push:
+    branches:
+      - codex/kbr-cargoshare-v100-secure-registration
+    paths:
+      - 'kbr-cargoshare-demo/secure-backend/**'
+      - '.github/workflows/kbr-cargoshare-secure-backend.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: kbr-cargoshare-demo/secure-backend/requirements.txt
+      - name: Install dependencies
+        run: pip install -r kbr-cargoshare-demo/secure-backend/requirements.txt
+      - name: Fail-closed OTP and authorization tests
+        working-directory: kbr-cargoshare-demo/secure-backend
+        run: pytest -q
