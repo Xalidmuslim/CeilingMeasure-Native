@@ -108,7 +108,7 @@ fun TripHomeV7(
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp),
                     verticalAlignment=Alignment.CenterVertically) {
                     Button(
-                        onClick={if(phoneGps.enabled)phoneGps.disable else phoneGps.enable},
+                        onClick={ GpsButtonActionV99.dispatch(phoneGps.enabled, phoneGps.enable, phoneGps.disable) },
                         modifier=Modifier.weight(1f).height(46.dp),
                         shape=RoundedCornerShape(12.dp),
                         colors=ButtonDefaults.buttonColors(containerColor=Green)
