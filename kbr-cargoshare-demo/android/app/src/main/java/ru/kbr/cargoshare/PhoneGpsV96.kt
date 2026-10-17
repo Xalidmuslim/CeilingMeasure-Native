@@ -113,13 +113,16 @@ fun rememberPhoneGpsV96():PhoneGpsUiV96 {
                 as LocationManager
             var active=true
             val fine=fineGranted()
+            fun available(provider:String):Boolean = runCatching {
+                manager.allProviders.contains(provider) && manager.isProviderEnabled(provider)
+            }.getOrDefault(false)
             val providers=buildList {
                 if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.S &&
-                   manager.isProviderEnabled(LocationManager.FUSED_PROVIDER))
+                   available(LocationManager.FUSED_PROVIDER))
                     add(LocationManager.FUSED_PROVIDER)
-                if(fine && manager.isProviderEnabled(LocationManager.GPS_PROVIDER))
+                if(fine && available(LocationManager.GPS_PROVIDER))
                     add(LocationManager.GPS_PROVIDER)
-                if(manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER))
+                if(available(LocationManager.NETWORK_PROVIDER))
                     add(LocationManager.NETWORK_PROVIDER)
             }.distinct()
 
