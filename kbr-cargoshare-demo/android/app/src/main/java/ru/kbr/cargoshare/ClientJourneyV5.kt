@@ -219,7 +219,7 @@ fun ClientJourneyV5(
             }
             ShowcaseStage.PAYMENT -> {
                 V5Card {
-                    V5StepHead(Icons.Rounded.CreditCard,"Оплата аренды","Без залога и подключения к банку")
+                    V5StepHead(Icons.Rounded.CreditCard,"Оплата аренды","Демонстрация без банковского подключения")
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         V5Pill("Банковская карта",paymentMethod=="Банковская карта"){paymentMethod="Банковская карта"}
