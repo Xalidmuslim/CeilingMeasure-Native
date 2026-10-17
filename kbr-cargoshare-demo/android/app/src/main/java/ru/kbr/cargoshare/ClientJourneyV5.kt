@@ -282,9 +282,11 @@ fun ClientJourneyV5(
             }
             ShowcaseStage.PICKUP_INSPECTION -> {
                 V5Card {
-                    V5StepHead(Icons.Rounded.FactCheck,"Проверка перед выездом","Чек-лист осмотра автомобиля")
-                    Spacer(Modifier.height(10.dp))
-                    V5Note("Реальное приложение потребует фотографии. Здесь отмечайте только условный фотоосмотр.")
+                    V5StepHead(Icons.Rounded.FactCheck,"Осмотр перед поездкой","Проверьте состояние автомобиля")
+                    Spacer(Modifier.height(11.dp))
+                    InspectionVisualV8(bookedVehicle,"При получении")
+                    Spacer(Modifier.height(12.dp))
+                    V5Note("Проверьте кузов, колёса, салон и топливо. Снимки здесь создаются условно; реальные фотографии потребуются после запуска сервиса.")
                     Spacer(Modifier.height(10.dp))
                     V5Toggle("Кузов и тент","Осмотр всех сторон, дверей и повреждений",body){body=it}
                     Spacer(Modifier.height(6.dp))
@@ -332,8 +334,10 @@ fun ClientJourneyV5(
             ShowcaseStage.DRIVING -> TripDashboardV5(state,fleet,dispatch,onInfo)
             ShowcaseStage.RETURN -> {
                 V5Card {
-                    V5StepHead(Icons.Rounded.AssignmentTurnedIn,"Вернуть грузовик","Проверка машины и закрытие аренды")
+                    V5StepHead(Icons.Rounded.AssignmentTurnedIn,"Завершение аренды","Проверьте грузовик перед возвратом")
                     Spacer(Modifier.height(11.dp))
+                    InspectionVisualV8(bookedVehicle,"При возврате")
+                    Spacer(Modifier.height(12.dp))
                     V5Item("Пункт возврата",state.pickup)
                     V5Item("Пробег при выдаче",formatKm(state.odometerStart))
                     V5Item("Пробег при возврате",formatKm(state.odometerStart+state.distanceKm))
