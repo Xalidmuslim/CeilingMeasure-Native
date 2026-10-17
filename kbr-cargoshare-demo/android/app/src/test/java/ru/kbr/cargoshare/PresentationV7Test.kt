@@ -15,12 +15,11 @@ class PresentationV7Test {
         assertEquals(PresentationV7.Step.TRIP, PresentationV7.stepFor(ShowcaseStage.DRIVING))
         assertEquals(PresentationV7.Step.TRIP, PresentationV7.stepFor(ShowcaseStage.FINISHED))
     }
-    @Test fun compactQuoteIncludesRefundableDepositSeparately() {
+    @Test fun compactQuoteChargesRentalOnly() {
         val v=demoFleet.first()
         val quote=PresentationV7.quote(v,4)
         assertEquals(2600, quote.rental)
-        assertEquals(5000, quote.refundableDeposit)
-        assertEquals(7600, quote.totalToday)
+        assertEquals(2600, quote.totalToday)
     }
     @Test fun disablingTruckRemovesItFromCarousel() {
         val fleet=demoFleet.map { if(it.id=="g01") it.copy(enabled=false) else it }
