@@ -1,5 +1,6 @@
 package ru.kbr.cargoshare
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -53,6 +54,7 @@ fun MapHomeV7(
     val scaffold=rememberBottomSheetScaffoldState(bottomSheetState=sheetState)
     val scope=rememberCoroutineScope()
     val expanded=sheetState.currentValue==SheetValue.Expanded
+    BackHandler(enabled=expanded) { scope.launch { sheetState.partialExpand() } }
     BottomSheetScaffold(
         scaffoldState=scaffold,
         sheetPeekHeight=252.dp,
