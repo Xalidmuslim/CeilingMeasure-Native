@@ -215,12 +215,12 @@ fun DemoAdminScreen(
     var editingId by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        DemoTitle("Панель владельца","Управление автопарком и проверкой клиентов")
-        InfoPanel("Административное демо","Для презентации доступ открыт без авторизации. В настоящей системе доступ будет защищён ролями и двухфакторной проверкой.")
+        DemoTitle("Автопарк и заказы","Управление демонстрационным сервисом")
+        InfoPanel("Демо-администратор","Для презентации используется локальный PIN. При коммерческом запуске потребуется отдельная защищённая авторизация и журнал действий.")
         Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
             AdminMetric("Автомобилей",fleet.count{it.enabled}.toString(),
                 modifier=Modifier.weight(1f))
-            AdminMetric("Клиент",if(state.demoApproved)"Одобрен" else "Новый",
+            AdminMetric("Клиент",if(state.demoApproved)"Проверен" else "Новый",
                 modifier=Modifier.weight(1f))
         }
         Surface(color=Color.White,shape=RoundedCornerShape(20.dp)) {
@@ -229,7 +229,7 @@ fun DemoAdminScreen(
                     Icon(Icons.Rounded.VerifiedUser,null,tint=SGreen,
                         modifier=Modifier.size(23.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Проверка документов",fontWeight=FontWeight.ExtraBold,
+                    Text("Статус водителя",fontWeight=FontWeight.ExtraBold,
                         color=SInk,fontSize=17.sp)
                 }
                 Spacer(Modifier.height(12.dp))
@@ -245,9 +245,9 @@ fun DemoAdminScreen(
                         Text("Отклонить · запросить повторную загрузку")
                     }
                 } else {
-                    InfoPanel("Решение администратора",if(state.demoApproved)
-                        "Проверка пройдена в учебном режиме"
-                        else "Новая заявка появится после демонстрационной отправки документов.")
+                    InfoPanel("Автоматическая демопроверка",if(state.demoApproved)
+                        "Образцы документов подтверждены. Повторная проверка при следующей аренде не нужна."
+                        else "До первой аренды клиент должен отметить образцы документов.")
                 }
             }
         }
@@ -294,12 +294,13 @@ fun DemoAdminScreen(
             Surface(color=Color.White,shape=RoundedCornerShape(18.dp)) {
                 Column(Modifier.fillMaxWidth().padding(15.dp)) {
                     Row(verticalAlignment=Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.LocalShipping,null,tint=SGreen,
-                            modifier=Modifier.size(26.dp))
+                        VehiclePhotoV7(v,modifier=Modifier.size(90.dp,67.dp),showDisclaimer=false)
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(v.title,color=SInk,fontWeight=FontWeight.Bold,fontSize=14.sp)
-                            Text(v.kind+" · "+v.pickup,color=SSecondary,fontSize=10.sp)
+                            Text(v.kind+" · "+v.pickup,color=SSecondary,fontSize=10.sp,maxLines=2)
+                            Spacer(Modifier.height(3.dp))
+                            Text(if(!v.enabled)"● Скрыт" else if(v.id==state.vehicleId && (state.stage==ShowcaseStage.DRIVING || state.stage==ShowcaseStage.RETURN))"● На аренде (демо)" else "● Свободен (демо)",fontSize=11.sp,color=SGreen,fontWeight=FontWeight.SemiBold)
                         }
                         Switch(checked=v.enabled,
                             onCheckedChange={visible ->
