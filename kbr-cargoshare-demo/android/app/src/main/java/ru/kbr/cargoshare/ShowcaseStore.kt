@@ -40,7 +40,17 @@ class ShowcaseStore(context: Context) {
                 ridesCompleted = o.optInt("ridesCompleted", if (o.optString("stage") == "FINISHED") 1 else 0)
             )
         }.getOrElse { ShowcaseSession() }
-        val current = ShowcaseEngine.resume(parsed)
+        val updated = ShowcaseEngine.resume(parsed)
+        // Older installed builds stored district names instead of illustrative addresses.
+        val oldPickup = when (updated.vehicleId) {
+            "g01" -> listOf("Нальчик · Центр", "Нальчик, центр")
+            "g02" -> listOf("Нальчик · Стрелка", "Нальчик, район Стрелка")
+            "g03" -> listOf("Нальчик · Александровка")
+            else -> emptyList()
+        }
+        val newAddress = DemoMapData.addressFor(updated.vehicleId)
+        val current = if (newAddress != null && updated.pickup in oldPickup)
+            updated.copy(pickup = newAddress) else updated
         if (current != parsed) save(current)
         return current
     }
