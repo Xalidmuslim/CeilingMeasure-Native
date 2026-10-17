@@ -131,7 +131,7 @@ object ShowcaseEngine {
 
     fun advanceTrip(s: ShowcaseSession, minutes: Int, km: Int): ShowcaseSession {
         requireStage(s, ShowcaseStage.DRIVING)
-        require(minutes > 0 && minutes <= 180 && km >= 0 && km <= 300) { "Недопустимые данные поездки" }
+        require(minutes > 0 && minutes <= 1440 && km >= 0 && km <= 300) { "Недопустимые данные поездки" }
         return s.copy(
             elapsedMinutes = s.elapsedMinutes + minutes,
             distanceKm = s.distanceKm + km,
