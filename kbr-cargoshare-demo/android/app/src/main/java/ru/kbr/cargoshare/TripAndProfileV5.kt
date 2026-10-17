@@ -164,8 +164,7 @@ fun TripDashboardV5(
             V5Item("Тариф",sumRub(hourRate)+"/час")
             V5Item("Аренда оплачена",sumRub(state.fare))
             V5Item("Дополнительные часы",sumRub(state.extensionCharge))
-            V5Item("Возвратный залог",sumRub(RentalRules.DEMO_DEPOSIT))
-            V5Item("Итого без залога",sumRub(state.fare+state.extensionCharge),emphasis=true)
+            V5Item("Итого за аренду",sumRub(state.fare+state.extensionCharge),emphasis=true)
             Spacer(Modifier.height(7.dp))
             V5Note("Все суммы условные. Реальных платежей и банковских операций не происходит.")
         }
@@ -250,11 +249,6 @@ fun ClientRentalV5(state:ShowcaseSession,onJourney:()->Unit,
                 if(state.extraHours>0)V5Item("Продление",sumRub(state.extensionCharge))
                 if(state.elapsedMinutes>0)V5Item("В пути",formatMinutes(state.elapsedMinutes))
                 V5Item("Дистанция","${state.distanceKm} км")
-                V5Item("Залог",when{
-                    state.depositReturned->"Возвращён (демо)"
-                    state.depositHeld->"Удержан (демо)"
-                    else->"Не оплачен"
-                })
             }
             Spacer(Modifier.height(11.dp))
             V5MainAction(if(state.stage==ShowcaseStage.DRIVING)"Открыть панель поездки"
@@ -268,14 +262,14 @@ fun ClientRentalV5(state:ShowcaseSession,onJourney:()->Unit,
                 ShowcaseStage.REVIEW to "Одобрение администратором",
                 ShowcaseStage.READY to "Подбор грузовика",
                 ShowcaseStage.CONTRACT to "Договор аренды",
-                ShowcaseStage.PAYMENT to "Оплата и залог",
+                ShowcaseStage.PAYMENT to "Оплата аренды",
                 ShowcaseStage.HANDOVER to "Поиск автомобиля",
                 ShowcaseStage.PICKUP_INSPECTION to "Осмотр кузова и салона",
                 ShowcaseStage.UNLOCK to "Открытие дверей",
                 ShowcaseStage.READY_TO_DRIVE to "Подготовка к выезду",
                 ShowcaseStage.DRIVING to "Поездка",
                 ShowcaseStage.RETURN to "Возврат и осмотр",
-                ShowcaseStage.FINISHED to "Возврат залога и чек"
+                ShowcaseStage.FINISHED to "Завершение и квитанция"
             )
             val current=ShowcaseStage.entries.indexOf(state.stage)
             checkpoints.forEachIndexed { idx,item->
@@ -335,7 +329,7 @@ fun ClientProfileV5(
             }
             HorizontalDivider(color=TLine)
             V5ProfileRow(Icons.Rounded.CreditCard,"Платёжные методы","Тестовая карта и СБП") {
-                onInfo("Подключения к банку нет. Демо-оплата и возврат залога хранятся локально.")
+                onInfo("Подключения к банку нет. Демо-оплата аренды учитывается только локально.")
             }
             HorizontalDivider(color=TLine)
             V5ProfileRow(Icons.Rounded.Description,"Договоры и акты",
