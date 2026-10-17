@@ -98,7 +98,8 @@ object ShowcaseEngine {
         requireStage(s, ShowcaseStage.PAYMENT)
         if (!confirmed) return s
         require(s.signatureAccepted)
-        return s.copy(stage = ShowcaseStage.HANDOVER, rentPaid = true, depositHeld = true)
+        return s.copy(stage = ShowcaseStage.HANDOVER, rentPaid = true,
+            depositHeld = false, depositReturned = false)
     }
 
 
@@ -108,7 +109,7 @@ object ShowcaseEngine {
 
     fun arriveAtVehicle(s: ShowcaseSession): ShowcaseSession {
         requireStage(s, ShowcaseStage.HANDOVER)
-        require(s.rentPaid && s.depositHeld)
+        require(s.rentPaid)
         return s.copy(stage = ShowcaseStage.PICKUP_INSPECTION)
     }
 
@@ -174,17 +175,21 @@ object ShowcaseEngine {
         requireStage(s, ShowcaseStage.RETURN)
         require(inspected) { "Перед завершением проверьте состояние автомобиля" }
         return s.copy(stage = ShowcaseStage.FINISHED,
-            returnChecked = true, depositHeld = false, depositReturned = true,
+            returnChecked = true, depositHeld = false, depositReturned = false,
             ridesCompleted = s.ridesCompleted + 1)
     }
 
     /** Legacy sessions created before automatic demo verification are upgraded once on read. */
-    fun resume(s: ShowcaseSession): ShowcaseSession = when {
-        s.stage == ShowcaseStage.REVIEW && s.documentsSubmitted ->
-            s.copy(stage = ShowcaseStage.READY, demoApproved = true)
-        s.stage == ShowcaseStage.DOCUMENTS && s.demoApproved ->
-            s.copy(stage = ShowcaseStage.READY, documentsSubmitted = true)
-        else -> s
+    fun resume(s: ShowcaseSession): ShowcaseSession {
+        // No deposit is charged in this demo, including restored earlier sessions.
+        val clean = s.copy(depositHeld = false, depositReturned = false)
+        return when {
+            clean.stage == ShowcaseStage.REVIEW && clean.documentsSubmitted ->
+                clean.copy(stage = ShowcaseStage.READY, demoApproved = true)
+            clean.stage == ShowcaseStage.DOCUMENTS && clean.demoApproved ->
+                clean.copy(stage = ShowcaseStage.READY, documentsSubmitted = true)
+            else -> clean
+        }
     }
 
     /** A new rental clears only booking-specific details, not verified driver status. */
@@ -211,7 +216,7 @@ object ShowcaseEngine {
         )
     }
 
-    /** Android Back is safe: paid/active orders must never roll back or clear deposit. */
+    /** Android Back is safe: paid/active bookings cannot be rolled back. */
     fun backStep(s: ShowcaseSession): ShowcaseSession = when (s.stage) {
         ShowcaseStage.DOCUMENTS -> s.copy(stage = ShowcaseStage.PHONE)
         ShowcaseStage.CONTRACT -> s.copy(stage = ShowcaseStage.READY, vehicleId = "",
