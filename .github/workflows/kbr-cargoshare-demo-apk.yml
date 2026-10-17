@@ -2,7 +2,7 @@ name: KBR CargoShare APK demo
 on:
   push:
     branches:
-      - codex/kbr-cargoshare-full-demo-v04
+      - codex/kbr-cargoshare-client-admin-v05
     paths:
       - 'kbr-cargoshare-demo/**'
       - '.github/workflows/kbr-cargoshare-demo-apk.yml'
@@ -31,7 +31,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: GruzSher-KBR-v0.4-Full-Demo-APK
+          name: GruzSher-KBR-v0.5-Client-Admin-Demo-APK
           path: kbr-cargoshare-demo/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
