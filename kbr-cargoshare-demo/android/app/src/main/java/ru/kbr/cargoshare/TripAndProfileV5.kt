@@ -298,7 +298,8 @@ fun ClientRentalV5(state:ShowcaseSession,onJourney:()->Unit,
 @Composable
 fun ClientProfileV5(
     state:ShowcaseSession,onJourney:()->Unit,onAdmin:()->Unit,
-    onInfo:(String)->Unit,onNewDemo:()->Unit
+    onInfo:(String)->Unit,onNewDemo:()->Unit,
+    onProductionEnrollment:()->Unit
 ) {
     var restart by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -340,6 +341,13 @@ fun ClientProfileV5(
             V5ProfileRow(Icons.Rounded.HelpOutline,"Поддержка","ДТП, поломка, вопросы") {
                 onInfo("Диспетчерская служба в демоверсии не подключена. При реальной аварии используйте установленные экстренные службы.")
             }
+        }
+        V5Card {
+            V5SectionTitle("Рабочая регистрация")
+            V5ProfileRow(Icons.Rounded.VerifiedUser,"Настоящая авторизация",
+                "SMS от сервера · документы через проверенного провайдера",
+                onProductionEnrollment)
+            V5Note("Рабочая регистрация отделена от демо. Пока сервер и провайдер не подключены, настоящие документы не принимаются.")
         }
         V5Card {
             V5SectionTitle("Для демонстрации бизнеса")
