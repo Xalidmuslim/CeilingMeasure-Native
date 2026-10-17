@@ -7,11 +7,11 @@ android {
     namespace = "ru.kbr.cargoshare"
     compileSdk = 35
     defaultConfig {
-        applicationId = "ru.kbr.cargoshare.installfix"
+        applicationId = "ru.kbr.cargoshare.v094"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "0.9.3-install-fix"
+        versionCode = 12
+        versionName = "0.9.4-merged-photo-fix"
     }
     buildFeatures { compose = true }
     compileOptions {
