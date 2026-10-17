@@ -7,8 +7,8 @@ object PresentationV7 {
         HANDOVER("Получение"), TRIP("Поездка")
     }
     val groups = Step.entries.toList()
-    data class Quote(val rental:Int, val refundableDeposit:Int) {
-        val totalToday:Int get() = rental + refundableDeposit
+    data class Quote(val rental:Int) {
+        val totalToday:Int get() = rental
     }
     fun stepFor(s:ShowcaseStage):Step = when(s) {
         ShowcaseStage.PHONE, ShowcaseStage.DOCUMENTS, ShowcaseStage.REVIEW -> Step.ACCOUNT
@@ -19,7 +19,7 @@ object PresentationV7 {
         ShowcaseStage.DRIVING, ShowcaseStage.RETURN, ShowcaseStage.FINISHED -> Step.TRIP
     }
     fun quote(vehicle: DemoVehicle, hours:Int): Quote =
-        Quote(RentalRules.fare(vehicle,hours),RentalRules.DEMO_DEPOSIT)
+        Quote(RentalRules.fare(vehicle,hours))
     fun pick(fleet: List<DemoVehicle>, id:String):DemoVehicle? =
         DemoMapData.selectedVehicle(fleet,id)
     fun mapFirst(s:ShowcaseStage)=s==ShowcaseStage.READY
