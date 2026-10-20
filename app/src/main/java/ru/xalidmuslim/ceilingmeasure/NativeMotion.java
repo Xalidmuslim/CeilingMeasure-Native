@@ -2,42 +2,37 @@ package ru.xalidmuslim.ceilingmeasure;
 
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
-
 import androidx.annotation.NonNull;
 
 /**
- * Cheap motion only: alpha + translation are GPU-friendly and do not trigger
- * repeated layout passes. Never use this on the drawing canvas during gestures.
+ * Non-displacing entrance animation. Never hide an entire editor frame:
+ * bottom navigation and drawing remain visible during re-attachment.
  */
 final class NativeMotion {
-    private static final long ENTER_MS = 140L;
-    private static final DecelerateInterpolator EASE = new DecelerateInterpolator(1.35f);
-
+    private static final DecelerateInterpolator EASE = new DecelerateInterpolator(1.2f);
     private NativeMotion() {}
 
     static void enter(@NonNull View view) {
-        float density = view.getResources().getDisplayMetrics().density;
-        view.animate().cancel();
-        view.setAlpha(1f);
-        view.setTranslationY(3f * density);
-        view.post(() -> view.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(ENTER_MS)
-                .setInterpolator(EASE)
-                .start());
+        fadeIn(view,135L);
     }
 
     static void enterCompact(@NonNull View view) {
-        float density = view.getResources().getDisplayMetrics().density;
+        fadeIn(view,105L);
+    }
+
+    private static void fadeIn(@NonNull View view,long duration) {
         view.animate().cancel();
-        view.setAlpha(0f);
-        view.setTranslationY(3f * density);
-        view.post(() -> view.animate()
+        view.setTranslationX(0f);
+        view.setTranslationY(0f);
+        view.setScaleX(1f);
+        view.setScaleY(1f);
+        // The root (including navigation) is always visible on the first frame.
+        // Fading from 0f on a detached/reused view caused apparent missing UI.
+        view.setAlpha(.94f);
+        view.animate()
                 .alpha(1f)
-                .translationY(0f)
-                .setDuration(115L)
+                .setDuration(duration)
                 .setInterpolator(EASE)
-                .start());
+                .start();
     }
 }
