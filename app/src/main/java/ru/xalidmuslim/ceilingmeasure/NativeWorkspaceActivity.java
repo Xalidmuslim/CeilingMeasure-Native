@@ -1515,7 +1515,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER);
         box.setPadding(dp(10),dp(8),dp(10),dp(8));
-        box.setBackground(rounded(Color.rgb(248,250,252),LINE,12,1));
+        box.setBackground(rounded(
+                NativeVisualTokens.SURFACE_SOFT,Color.TRANSPARENT,12,0));
         TextView l=text(label,11,MUTED,Typeface.NORMAL);
         TextView v=text("—",18,TEXT,Typeface.BOLD);
         box.addView(l);
@@ -2362,7 +2363,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         NativeTypography.register(search,13,false,uiPrefs);
         search.setTextColor(TEXT);
         search.setHintTextColor(MUTED);
-        search.setBackground(rounded(Color.WHITE,LINE,11,1));
+        search.setBackground(rounded(NativeVisualTokens.SURFACE_SOFT,LINE,12,1));
         search.setPadding(dp(12),0,dp(12),0);
         content.addView(search,new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,dp(44)));

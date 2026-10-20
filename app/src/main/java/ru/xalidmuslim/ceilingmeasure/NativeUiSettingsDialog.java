@@ -6,6 +6,8 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,6 +38,8 @@ final class NativeUiSettingsDialog extends Dialog {
     private LinearLayout sheet;
     private TextView sizeValue;
     private boolean closing;
+    private final Handler scaleHandler=new Handler(Looper.getMainLooper());
+    private Runnable pendingScaleApply;
 
     NativeUiSettingsDialog(
             @NonNull Activity activity,
@@ -100,6 +104,10 @@ final class NativeUiSettingsDialog extends Dialog {
 
     @Override
     public void dismiss() {
+        if(pendingScaleApply!=null){
+            scaleHandler.removeCallbacks(pendingScaleApply);
+            pendingScaleApply=null;
+        }
         if (closing) return;
         super.dismiss();
     }
@@ -290,13 +298,23 @@ final class NativeUiSettingsDialog extends Dialog {
                 int percent = 85 + progress;
                 sizeValue.setText(percent + "%");
                 if (fromUser) {
-                    changePrefs(prefs.withScale(percent / 100f), false);
-                    NativeTypography.applyTree(sheet, prefs);
+                    if(pendingScaleApply!=null)scaleHandler.removeCallbacks(pendingScaleApply);
+                    pendingScaleApply=()->{
+                        pendingScaleApply=null;
+                        applyLiveScale(percent);
+                    };
+                    scaleHandler.postDelayed(pendingScaleApply,55L);
                 }
             }
 
             @Override public void onStartTrackingTouch(SeekBar bar) {}
-            @Override public void onStopTrackingTouch(SeekBar bar) {}
+            @Override public void onStopTrackingTouch(SeekBar bar) {
+                if(pendingScaleApply!=null){
+                    scaleHandler.removeCallbacks(pendingScaleApply);
+                    pendingScaleApply=null;
+                }
+                applyLiveScale(85+bar.getProgress());
+            }
         });
         group.addView(slider, topMargin(dp(4)));
 
@@ -337,20 +355,20 @@ final class NativeUiSettingsDialog extends Dialog {
         preview.setOrientation(LinearLayout.VERTICAL);
         preview.setPadding(dp(10), dp(9), dp(10), dp(9));
         preview.setBackground(NativeVisualTokens.outlined(
-                Color.rgb(248, 251, 253),
-                Color.rgb(216, 228, 235),
+                NativeVisualTokens.SURFACE_SOFT,
+                NativeVisualTokens.LINE,
                 dp(12),
                 dp(1)));
         LinearLayout.LayoutParams params = matchWrap();
         params.topMargin = dp(6);
         sheet.addView(preview, params);
 
-        preview.addView(text("Предпросмотр", 10, Color.rgb(128,145,158), false));
-        preview.addView(text("Комната 1 · 28,00 м²", 16, Color.rgb(32,58,75), true));
+        preview.addView(text("Предпросмотр", 10, NativeVisualTokens.MUTED, false));
+        preview.addView(text("Комната 1 · 28,00 м²", 16, NativeVisualTokens.TEXT, true));
         preview.addView(text(
                 "Калькулятор, смета, кнопки и чертёж меняются сразу.",
                 11,
-                Color.rgb(102,123,139),
+                NativeVisualTokens.MUTED,
                 false));
     }
 
@@ -452,6 +470,14 @@ final class NativeUiSettingsDialog extends Dialog {
         view.setTextColor(color);
         view.setIncludeFontPadding(false);
         return NativeTypography.register(view, sp, strong, prefs);
+    }
+
+    private void applyLiveScale(int percent) {
+        if(closing || !isShowing())return;
+        float scale=Math.max(.85f,Math.min(1.30f,percent/100f));
+        if(Math.abs(prefs.scale-scale)<.0001f)return;
+        changePrefs(prefs.withScale(scale),false);
+        if(sheet!=null)NativeTypography.applyTree(sheet,prefs);
     }
 
     private void changePrefs(@NonNull NativeUiPrefs next, boolean rebuildChoices) {

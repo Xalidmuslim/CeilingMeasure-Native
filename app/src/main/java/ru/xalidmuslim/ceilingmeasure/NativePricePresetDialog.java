@@ -174,7 +174,7 @@ final class NativePricePresetDialog extends Dialog {
 
         TextView reorderHint=text(reorderMode
                 ?"Зажми маркер ≡ и перетащи позицию"
-                :"Можно также зажать строку, чтобы поменять порядок",
+                :"Для перестановки нажми «Изменить порядок»",
                 10.5f,MUTED,false);
         content.addView(reorderHint,top(6));
 
