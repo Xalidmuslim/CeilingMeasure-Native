@@ -75,13 +75,13 @@ final class NativeUiSettingsDialog extends Dialog {
         View decor = window == null ? null : window.getDecorView();
         if (decor != null) decor.requestApplyInsets();
         if (sheet != null) {
-            sheet.setAlpha(0f);
-            sheet.setScaleX(.985f);
-            sheet.setScaleY(.985f);
+            sheet.animate().cancel();
+            sheet.setScaleX(1f);
+            sheet.setScaleY(1f);
+            sheet.setTranslationY(0f);
+            sheet.setAlpha(.94f);
             sheet.animate()
                     .alpha(1f)
-                    .scaleX(1f)
-                    .scaleY(1f)
                     .setDuration(NativeVisualTokens.OVERLAY_MOTION_MS)
                     .start();
         }
@@ -121,8 +121,6 @@ final class NativeUiSettingsDialog extends Dialog {
         }
         sheet.animate()
                 .alpha(0f)
-                .scaleX(.985f)
-                .scaleY(.985f)
                 .setDuration(NativeVisualTokens.OVERLAY_MOTION_MS)
                 .withEndAction(() -> NativeUiSettingsDialog.super.dismiss())
                 .start();
