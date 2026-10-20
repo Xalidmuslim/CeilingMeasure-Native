@@ -428,10 +428,11 @@ public class NativeAppSmokeTest {
     }
 
     @Test
-    public void numbersModeLongPressOnDisplayedNumberOpensMeasurementEdit() throws Exception {
+    public void numbersModeLongPressRequestsMoveOrEditChoice() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         CountDownLatch edited = new CountDownLatch(1);
-        AtomicReference<String> editedEdge = new AtomicReference<>();
+        AtomicReference<String> selectedEdge = new AtomicReference<>();
+        AtomicReference<String> openedEditor = new AtomicReference<>();
         AtomicReference<CeilingDrawingView> viewRef = new AtomicReference<>();
         AtomicReference<float[]> touchRef = new AtomicReference<>();
         AtomicReference<Long> downRef = new AtomicReference<>();
@@ -452,8 +453,13 @@ public class NativeAppSmokeTest {
                 @Override public void onHistoryCheckpoint() {}
                 @Override public void onVertexLongPressed(String pointId) {}
                 @Override public void onWallLongPressed(String edgeId, float currentValue) {
-                    editedEdge.set(edgeId);
-                    edited.countDown();
+                    openedEditor.set(edgeId);
+                }
+                @Override public void onLabelActionRequested(String id,boolean diagonal){
+                    if(!diagonal){
+                        selectedEdge.set(id);
+                        edited.countDown();
+                    }
                 }
                 @Override public void onWallSequencePick(String edgeId) {}
                 @Override public void onDiagonalCreated(String diagonalId, float currentValue) {}
@@ -479,7 +485,7 @@ public class NativeAppSmokeTest {
             viewRef.set(view);
         });
 
-        assertTrue("holding a number must trigger measurement edit",
+        assertTrue("holding a number opens the move/edit chooser",
                 edited.await(1200, TimeUnit.MILLISECONDS));
 
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
@@ -492,7 +498,61 @@ public class NativeAppSmokeTest {
                     p[1]);
         });
 
-        assertNotNull(editedEdge.get());
+        assertNotNull(selectedEdge.get());
+        assertNull("the edit field opens only after an explicit choice",
+                openedEditor.get());
+    }
+
+    @Test
+    public void numbersModeNeverMovesOnTapOrUnarmedSwipe() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+            FrameLayout parent=new FrameLayout(context);
+            CeilingDrawingView view=new CeilingDrawingView(context);
+            parent.addView(view,new FrameLayout.LayoutParams(800,800));
+            parent.layout(0,0,800,800);
+            view.layout(0,0,800,800);
+            NativeProjectStore.RoomData room=measuredSquare(500f);
+            view.setRoom(room);
+            view.fitView();
+            view.setMode(CeilingDrawingView.Mode.LABEL);
+            NativeLabelEngine.Placement hit=null;
+            for(NativeLabelEngine.Placement p:view.labelPlacementsForTest()){
+                if(p.kind==NativeLabelEngine.Kind.EDGE){hit=p;break;}
+            }
+            assertNotNull(hit);
+            NativeProjectStore.EdgeData edge=null;
+            for(NativeProjectStore.EdgeData e:room.edges){
+                if(e.id.equals(hit.id)){edge=e;break;}
+            }
+            assertNotNull(edge);
+            float sx=hit.x*view.getScaleForTest()+view.getPanXForTest();
+            float sy=hit.y*view.getScaleForTest()+view.getPanYForTest();
+            float forty=40f*context.getResources().getDisplayMetrics().density;
+            long down=android.os.SystemClock.uptimeMillis();
+            dispatch(view,down,MotionEvent.ACTION_DOWN,sx,sy);
+            dispatch(view,down,MotionEvent.ACTION_UP,sx,sy);
+            assertFalse("a tap only selects, never saves a manual label pose",
+                    edge.labelManual);
+            down=android.os.SystemClock.uptimeMillis();
+            dispatch(view,down,MotionEvent.ACTION_DOWN,sx,sy);
+            dispatch(view,down,MotionEvent.ACTION_MOVE,sx+forty,sy);
+            dispatch(view,down,MotionEvent.ACTION_UP,sx+forty,sy);
+            assertFalse("swiping before choosing move must be a no-op",
+                    edge.labelManual);
+            assertFalse(view.labelMoveArmedForTest());
+
+            view.armLabelMove(edge.id,false);
+            assertTrue(view.labelMoveArmedForTest());
+            down=android.os.SystemClock.uptimeMillis();
+            dispatch(view,down,MotionEvent.ACTION_DOWN,sx,sy);
+            dispatch(view,down,MotionEvent.ACTION_MOVE,sx+forty,sy);
+            dispatch(view,down,MotionEvent.ACTION_UP,sx+forty,sy);
+            assertTrue("explicitly armed drag persists a moved number",
+                    edge.labelManual);
+            assertNotNull(edge.labelX);
+            assertFalse(view.labelMoveArmedForTest());
+        });
     }
 
     @Test
