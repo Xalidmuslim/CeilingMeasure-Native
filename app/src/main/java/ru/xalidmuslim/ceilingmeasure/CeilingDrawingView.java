@@ -73,6 +73,17 @@ final class CeilingDrawingView extends View {
     private final Paint diagonalRenderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint labelFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint labelHaloPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint selectionGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint selectionSoftPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint selectionWhitePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint selectionHandlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint selectionDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint selectionReadoutPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint selectionControlBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint selectionControlTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint.FontMetrics selectionFontMetrics = new Paint.FontMetrics();
+    private final RectF selectionBounds = new RectF();
+    private float selectionPaintScale = Float.NaN;
     private final Paint.FontMetrics labelFontMetrics = new Paint.FontMetrics();
     private List<NativeLabelEngine.Placement> labelPlacementCache;
     private NativeProjectStore.RoomData labelPlacementRoom;
@@ -174,6 +185,21 @@ final class CeilingDrawingView extends View {
         labelHaloPaint.setColor(Color.WHITE);
         labelHaloPaint.setStyle(Paint.Style.STROKE);
         labelHaloPaint.setStrokeJoin(Paint.Join.ROUND);
+
+        selectionGuidePaint.setColor(BLUE);
+        selectionGuidePaint.setStyle(Paint.Style.STROKE);
+        selectionSoftPaint.setColor(NativeVisualTokens.LINE_STRONG);
+        selectionSoftPaint.setStyle(Paint.Style.STROKE);
+        selectionWhitePaint.setColor(Color.WHITE);
+        selectionDotPaint.setColor(BLUE);
+        selectionHandlePaint.setColor(BLUE);
+        selectionHandlePaint.setStyle(Paint.Style.STROKE);
+        selectionReadoutPaint.set(textPaint);
+        selectionReadoutPaint.setColor(NativeVisualTokens.MUTED);
+        selectionControlBorderPaint.setColor(NativeVisualTokens.LINE_STRONG);
+        selectionControlBorderPaint.setStyle(Paint.Style.STROKE);
+        selectionControlTextPaint.set(textPaint);
+        selectionControlTextPaint.setColor(NativeVisualTokens.ACCENT_STRONG);
     }
 
     void setRoom(@NonNull NativeProjectStore.RoomData room) {
@@ -644,89 +670,71 @@ final class CeilingDrawingView extends View {
         canvas.restore();
     }
 
+    private void prepareSelectionPaints(){
+        if(Float.compare(selectionPaintScale,scale)==0)return;
+        selectionPaintScale=scale;
+        selectionGuidePaint.setStrokeWidth(dp(1.35f)/scale);
+        selectionGuidePaint.setPathEffect(new DashPathEffect(
+                new float[]{dp(5f)/scale,dp(4f)/scale},0));
+        selectionSoftPaint.setStrokeWidth(dp(1f)/scale);
+        selectionSoftPaint.setPathEffect(new DashPathEffect(
+                new float[]{dp(3f)/scale,dp(5f)/scale},0));
+        selectionHandlePaint.setStrokeWidth(dp(2f)/scale);
+        selectionControlBorderPaint.setStrokeWidth(dp(1.2f)/scale);
+    }
+
     private void drawLabelSelection(
             Canvas canvas,
             NativeLabelEngine.Placement placement) {
-        float width = placement.width * placement.size;
-        float height = placement.height * placement.size;
-        float radius = labelSelectionRadius(placement);
-        float controlY = radius + dp(26f) / scale;
-        float controlX = dp(48f) / scale;
-
-        Paint guide = new Paint(Paint.ANTI_ALIAS_FLAG);
-        guide.setColor(BLUE);
-        guide.setStyle(Paint.Style.STROKE);
-        guide.setStrokeWidth(dp(1.4f) / scale);
-        guide.setPathEffect(new DashPathEffect(
-                new float[]{dp(5f) / scale, dp(4f) / scale},
-                0));
-
-        Paint soft = new Paint(guide);
-        soft.setColor(Color.rgb(144, 191, 215));
-        soft.setStrokeWidth(dp(1f) / scale);
-        soft.setPathEffect(new DashPathEffect(
-                new float[]{dp(3f) / scale, dp(5f) / scale},
-                0));
+        prepareSelectionPaints();
+        float width=placement.width*placement.size;
+        float height=placement.height*placement.size;
+        float radius=labelSelectionRadius(placement);
+        float controlY=radius+dp(26f)/scale;
+        float controlX=dp(48f)/scale;
 
         canvas.save();
-        canvas.translate(placement.x, placement.y);
+        canvas.translate(placement.x,placement.y);
         canvas.rotate(placement.angle);
 
-        RectF rect = new RectF(
-                -width / 2f - dp(8f) / scale,
-                -height / 2f - dp(6f) / scale,
-                width / 2f + dp(8f) / scale,
-                height / 2f + dp(6f) / scale);
-        canvas.drawRoundRect(rect, dp(8f) / scale, dp(8f) / scale, guide);
-        canvas.drawCircle(0f, 0f, radius, soft);
+        selectionBounds.set(
+                -width/2f-dp(8f)/scale,
+                -height/2f-dp(6f)/scale,
+                width/2f+dp(8f)/scale,
+                height/2f+dp(6f)/scale);
+        canvas.drawRoundRect(selectionBounds,dp(8f)/scale,dp(8f)/scale,
+                selectionGuidePaint);
+        canvas.drawCircle(0f,0f,radius,selectionSoftPaint);
 
-        Paint white = new Paint(Paint.ANTI_ALIAS_FLAG);
-        white.setColor(Color.WHITE);
-        Paint handle = new Paint(Paint.ANTI_ALIAS_FLAG);
-        handle.setColor(BLUE);
-        handle.setStyle(Paint.Style.STROKE);
-        handle.setStrokeWidth(dp(2f) / scale);
+        float handleRadius=dp(9f)/scale;
+        canvas.drawCircle(0f,-radius,handleRadius,selectionWhitePaint);
+        canvas.drawCircle(0f,-radius,handleRadius,selectionHandlePaint);
+        canvas.drawCircle(0f,-radius,dp(4.5f)/scale,selectionDotPaint);
 
-        float handleRadius = dp(9f) / scale;
-        canvas.drawCircle(0f, -radius, handleRadius, white);
-        canvas.drawCircle(0f, -radius, handleRadius, handle);
+        drawLabelControl(canvas,-controlX,controlY,"−");
+        drawLabelControl(canvas,0f,controlY,Math.round(placement.size*100f)+"%");
+        drawLabelControl(canvas,controlX,controlY,"+");
 
-        Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
-        dot.setColor(BLUE);
-        canvas.drawCircle(0f, -radius, dp(4.5f) / scale, dot);
-
-        drawLabelControl(canvas, -controlX, controlY, "−");
-        drawLabelControl(canvas, 0f, controlY, Math.round(placement.size * 100f) + "%");
-        drawLabelControl(canvas, controlX, controlY, "+");
-
-        Paint readout = new Paint(textPaint);
-        readout.setTextSize(dp(11f) / scale);
-        readout.setColor(Color.rgb(71, 113, 135));
-        Paint.FontMetrics rfm = readout.getFontMetrics();
-        float rb = -radius - dp(20f) / scale - (rfm.ascent + rfm.descent) / 2f;
-        canvas.drawText(Math.round(placement.angle) + "°", 0f, rb, readout);
-
+        selectionReadoutPaint.setTextSize(dp(11f)/scale);
+        selectionReadoutPaint.getFontMetrics(selectionFontMetrics);
+        float baseline=-radius-dp(20f)/scale
+                -(selectionFontMetrics.ascent+selectionFontMetrics.descent)/2f;
+        canvas.drawText(Math.round(placement.angle)+"°",
+                0f,baseline,selectionReadoutPaint);
         canvas.restore();
     }
 
-    private void drawLabelControl(Canvas canvas, float x, float y, String text) {
-        float r = dp(text.endsWith("%") ? 22f : 20f) / scale;
-        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
-        bg.setColor(Color.WHITE);
-        canvas.drawCircle(x, y, r, bg);
+    private void drawLabelControl(Canvas canvas,float x,float y,String text) {
+        float radius=dp(text.endsWith("%")?22f:20f)/scale;
+        canvas.drawCircle(x,y,radius,selectionWhitePaint);
+        canvas.drawCircle(x,y,radius,selectionControlBorderPaint);
 
-        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
-        border.setColor(Color.rgb(170, 200, 216));
-        border.setStyle(Paint.Style.STROKE);
-        border.setStrokeWidth(dp(1.2f) / scale);
-        canvas.drawCircle(x, y, r, border);
-
-        Paint tp = new Paint(textPaint);
-        tp.setTextSize(dp(text.endsWith("%") ? 10f : 18f) / scale);
-        tp.setColor(Color.rgb(56, 107, 132));
-        Paint.FontMetrics fm = tp.getFontMetrics();
-        float baseline = y - (fm.ascent + fm.descent) / 2f;
-        canvas.drawText(text, x, baseline, tp);
+        selectionControlTextPaint.setTextSize(
+                dp(text.endsWith("%")?10f:18f)/scale);
+        selectionControlTextPaint.getFontMetrics(selectionFontMetrics);
+        float baseline=y-(selectionFontMetrics.ascent+
+                selectionFontMetrics.descent)/2f;
+        canvas.drawText(text,x,baseline,selectionControlTextPaint);
     }
 
     private float labelSelectionRadius(NativeLabelEngine.Placement placement) {
