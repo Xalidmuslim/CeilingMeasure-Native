@@ -6,11 +6,18 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.InputFilter;
+import android.text.InputType;
+import android.text.TextWatcher;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.GridLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -38,7 +45,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
     private final Listener listener;
     private final NativeUiPrefs uiPrefs;
     private String buffer;
-    private TextView display;
+    private EditText display;
 
     NativeDiagonalMeasureDialog(
             @NonNull Context context,
@@ -92,24 +99,32 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         auto.setTag("native_diag_auto");
         calc.addView(auto);
 
-        display=text(buffer,24,TEXT,true);
-        display.setGravity(Gravity.CENTER);
+        display=new EditText(getContext());
         display.setTag("native_diag_value");
+        display.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        display.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        display.setSingleLine(true);
+        display.setSelectAllOnFocus(true);
+        display.setFilters(new InputFilter[]{new InputFilter.LengthFilter(12)});
+        NativeTypography.register(display,24,true,uiPrefs);
+        display.setTextColor(TEXT);
+        display.setGravity(Gravity.CENTER);
+        display.setPadding(dp(12),0,dp(12),0);
         display.setBackground(rounded(Color.rgb(250,252,253),LINE,11,1));
+        display.setText(buffer);
+        display.setOnEditorActionListener((v,actionId,event)->{
+            if(actionId==EditorInfo.IME_ACTION_DONE){submit();return true;}
+            return false;
+        });
+        display.addTextChangedListener(new TextWatcher(){
+            @Override public void beforeTextChanged(CharSequence s,int start,int count,int after){}
+            @Override public void onTextChanged(CharSequence s,int start,int before,int count){}
+            @Override public void afterTextChanged(Editable s){buffer=s.toString();}
+        });
         LinearLayout.LayoutParams dpv=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,dp(46));
         dpv.topMargin=dp(9);
         shell.addView(display,dpv);
-
-        GridLayout grid=new GridLayout(getContext());
-        grid.setColumnCount(3);
-        LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        gp.topMargin=dp(7);
-        shell.addView(grid,gp);
-        String[] keys={"1","2","3","4","5","6","7","8","9",",","0","⌫"};
-        for(String key:keys)addKey(grid,key);
 
         Button delete=button("Удалить диагональ",false);
         delete.setTextColor(DANGER);
@@ -159,6 +174,21 @@ final class NativeDiagonalMeasureDialog extends Dialog {
             lp.height=WindowManager.LayoutParams.WRAP_CONTENT;
             lp.gravity=Gravity.CENTER;
             window.setAttributes(lp);
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                    |WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        }
+    }
+
+    @Override protected void onStart(){
+        super.onStart();
+        if(display!=null){
+            display.requestFocus();
+            display.post(()->{
+                InputMethodManager keyboard=(InputMethodManager)getContext().getSystemService(
+                        Context.INPUT_METHOD_SERVICE);
+                if(keyboard!=null)keyboard.showSoftInput(
+                        display,InputMethodManager.SHOW_IMPLICIT);
+            });
         }
     }
 
