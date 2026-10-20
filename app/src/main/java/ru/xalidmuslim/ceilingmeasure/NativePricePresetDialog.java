@@ -6,6 +6,8 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.content.ClipData;
+import android.view.DragEvent;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,6 +23,7 @@ import androidx.annotation.NonNull;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 
@@ -44,6 +47,9 @@ final class NativePricePresetDialog extends Dialog {
     private final NativeUiPrefs uiPrefs;
     private boolean manage;
     private LinearLayout content;
+    private LinearLayout priceRows;
+    private ScrollView priceScroll;
+    private ArrayList<String> priceOrder=new ArrayList<>();
 
     NativePricePresetDialog(
             @NonNull Context context,
@@ -78,9 +84,12 @@ final class NativePricePresetDialog extends Dialog {
     }
 
     private void render(){
+        int previousY=priceScroll==null?0:priceScroll.getScrollY();
         ScrollView scroll=new ScrollView(getContext());
+        priceScroll=scroll;
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(BG);
+        scroll.setVerticalScrollBarEnabled(false);
         content=new LinearLayout(getContext());
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(8),dp(10),dp(8),dp(16));
@@ -111,14 +120,41 @@ final class NativePricePresetDialog extends Dialog {
                 ?NativeEstimateEngine.CLIENT_META
                 :NativeEstimateEngine.INTERNAL_META;
 
+        ArrayList<NativeProjectStore.MaterialData> customs=store.loadDefaultCustom(client);
+        LinkedHashMap<String,NativeEstimateEngine.Meta> standards=new LinkedHashMap<>();
+        LinkedHashMap<String,NativeProjectStore.MaterialData> materials=new LinkedHashMap<>();
+        ArrayList<String> available=new ArrayList<>();
         for(NativeEstimateEngine.Meta item:meta){
-            boolean isHidden=hidden.contains(item.key);
-            if(isHidden&&!manage)continue;
-            addStandardRow(item,prices,isHidden);
+            String key=NativePriceOrder.standard(item.key);
+            standards.put(key,item);
+            available.add(key);
         }
+        for(NativeProjectStore.MaterialData item:customs){
+            String key=NativePriceOrder.custom(item.id);
+            materials.put(key,item);
+            available.add(key);
+        }
+        priceOrder=NativePriceOrder.normalized(store.loadDefaultPriceOrder(client),available);
 
-        for(NativeProjectStore.MaterialData item:store.loadDefaultCustom(client)){
-            addCustomRow(item);
+        TextView reorderHint=text(
+                "≡ Зажми маркер и перетащи позицию выше или ниже",10.5f,MUTED,false);
+        content.addView(reorderHint,top(8));
+
+        priceRows=new LinearLayout(getContext());
+        priceRows.setTag(client?"native_client_price_drag_list":"native_purchase_price_drag_list");
+        priceRows.setOrientation(LinearLayout.VERTICAL);
+        content.addView(priceRows,top(5));
+
+        for(String key:priceOrder){
+            NativeEstimateEngine.Meta standard=standards.get(key);
+            if(standard!=null){
+                boolean isHidden=hidden.contains(standard.key);
+                if(isHidden&&!manage)continue;
+                addStandardRow(standard,prices,isHidden);
+                continue;
+            }
+            NativeProjectStore.MaterialData material=materials.get(key);
+            if(material!=null)addCustomRow(material);
         }
 
         Button manageButton=button(manage?"Готово":"Редактировать материалы",false);
@@ -174,6 +210,7 @@ final class NativePricePresetDialog extends Dialog {
         content.addView(actions,top(6));
 
         setContentView(scroll);
+        if(previousY>0)scroll.post(()->scroll.scrollTo(0,previousY));
     }
 
     private void addStandardRow(
@@ -183,6 +220,7 @@ final class NativePricePresetDialog extends Dialog {
         LinearLayout row=card();
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setOrientation(LinearLayout.HORIZONTAL);
+        attachReorderHandle(row,NativePriceOrder.standard(meta.key));
 
         LinearLayout label=new LinearLayout(getContext());
         label.setOrientation(LinearLayout.VERTICAL);
@@ -236,13 +274,14 @@ final class NativePricePresetDialog extends Dialog {
                 row.addView(remove,rp);
             }
         }
-        content.addView(row,top(3));
+        priceRows.addView(row,top(3));
     }
 
     private void addCustomRow(NativeProjectStore.MaterialData item){
         LinearLayout row=card();
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setOrientation(LinearLayout.HORIZONTAL);
+        attachReorderHandle(row,NativePriceOrder.custom(item.id));
 
         LinearLayout label=new LinearLayout(getContext());
         label.setOrientation(LinearLayout.VERTICAL);
@@ -290,7 +329,57 @@ final class NativePricePresetDialog extends Dialog {
             row.addView(remove,rp);
         }
 
-        content.addView(row,top(3));
+        priceRows.addView(row,top(3));
+    }
+
+    private void attachReorderHandle(LinearLayout row,String key){
+        row.setTag("native_price_row_"+key);
+        Button grip=button("≡",false);
+        grip.setTextSize(22);
+        grip.setTag("native_price_grip_"+key);
+        grip.setContentDescription("Зажать и переместить "+key);
+        grip.setPadding(0,0,0,0);
+        grip.setBackground(NativeVisualTokens.rippleOutlined(
+                NativeVisualTokens.ACCENT_SOFT,NativeVisualTokens.DIVIDER,
+                dp(9),dp(1),Color.argb(32,47,143,190)));
+        LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(dp(30),dp(36));
+        gp.rightMargin=dp(6);
+        row.addView(grip,gp);
+        NativeFastLongPress.attach(grip,()->{
+            if(!row.isAttachedToWindow())return;
+            ClipData clip=ClipData.newPlainText("priceRow",key);
+            grip.startDragAndDrop(clip,new View.DragShadowBuilder(row),key,0);
+        });
+        row.setOnDragListener((view,event)->{
+            switch(event.getAction()){
+                case DragEvent.ACTION_DRAG_STARTED:
+                    return event.getLocalState() instanceof String;
+                case DragEvent.ACTION_DRAG_ENTERED:
+                    row.setBackground(NativeVisualTokens.outlined(
+                            NativeVisualTokens.ACCENT_SOFT,NativeVisualTokens.ACCENT,
+                            dp(14),dp(1)));
+                    return true;
+                case DragEvent.ACTION_DRAG_EXITED:
+                case DragEvent.ACTION_DRAG_ENDED:
+                    row.setBackground(NativeVisualTokens.outlined(
+                            NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,
+                            dp(14),dp(1)));
+                    return true;
+                case DragEvent.ACTION_DROP:
+                    row.setBackground(NativeVisualTokens.outlined(
+                            NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,
+                            dp(14),dp(1)));
+                    String moving=(String)event.getLocalState();
+                    ArrayList<String> ordered=NativePriceOrder.move(priceOrder,moving,key);
+                    if(!ordered.equals(priceOrder)){
+                        priceOrder=ordered;
+                        store.saveDefaultPriceOrder(client,priceOrder);
+                        render();
+                    }
+                    return true;
+                default: return true;
+            }
+        });
     }
 
     private void apply(boolean all){
@@ -321,7 +410,8 @@ final class NativePricePresetDialog extends Dialog {
     private LinearLayout card(){
         LinearLayout c=new LinearLayout(getContext());
         c.setPadding(dp(8),dp(4),dp(8),dp(4));
-        c.setBackground(rounded(Color.WHITE,LINE,10,1));
+        c.setBackground(NativeVisualTokens.outlined(
+                NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,dp(14),dp(1)));
         return c;
     }
 
