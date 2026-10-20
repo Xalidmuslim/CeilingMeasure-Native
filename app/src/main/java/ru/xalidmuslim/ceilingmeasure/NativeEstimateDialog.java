@@ -90,7 +90,7 @@ final class NativeEstimateDialog extends Dialog {
 
         content=new LinearLayout(getContext());
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(8),dp(10),dp(8),dp(16));
+        content.setPadding(dp(8),dp(6),dp(8),dp(12));
         scroll.addView(content,new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -246,14 +246,14 @@ final class NativeEstimateDialog extends Dialog {
 
         LinearLayout card=card();
         card.setTag((mode==Mode.CLIENT?"native_client_room_":"native_internal_room_")+room.id);
-        content.addView(card,top(5));
+        content.addView(card,top(4));
 
         LinearLayout head=new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout left=new LinearLayout(getContext());
         left.setOrientation(LinearLayout.VERTICAL);
-        left.setPadding(0,0,dp(6),dp(2));
+        left.setPadding(0,0,dp(6),0);
         String roomName=multi
                 ?projectLabel(owner)+" · "+room.name
                 :room.name;
@@ -283,7 +283,7 @@ final class NativeEstimateDialog extends Dialog {
             add.setOnClickListener(v->openMaterialPicker(owner,room));
             LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,adaptiveActionHeight(34,false));
-            addParams.topMargin=dp(4);
+            addParams.topMargin=dp(2);
             card.addView(add,addParams);
         }else{
             Button add=button("+ Другой материал",false);
@@ -299,10 +299,10 @@ final class NativeEstimateDialog extends Dialog {
                 10.5f,
                 cost.complete?NativeVisualTokens.OK:MUTED,
                 false);
-        card.addView(state,top(3));
+        card.addView(state,top(2));
 
         if(room.notes!=null&&!room.notes.trim().isEmpty()){
-            card.addView(text("Примечание: "+room.notes.trim(),10,MUTED,false),top(3));
+            card.addView(text("Примечание: "+room.notes.trim(),10,MUTED,false),top(2));
         }
     }
 
@@ -314,7 +314,7 @@ final class NativeEstimateDialog extends Dialog {
         LinearLayout item=new LinearLayout(getContext());
         item.setTag("native_estimate_line_"+line.key+"_"+room.id);
         item.setOrientation(LinearLayout.VERTICAL);
-        item.setPadding(dp(2),dp(9),dp(2),dp(8));
+        item.setPadding(dp(1),dp(4),dp(1),dp(4));
 
         LinearLayout heading=new LinearLayout(getContext());
         heading.setOrientation(LinearLayout.HORIZONTAL);
@@ -337,8 +337,8 @@ final class NativeEstimateDialog extends Dialog {
         controls.setOrientation(LinearLayout.HORIZONTAL);
         controls.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(46));
-        cp.topMargin=dp(4);
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(44));
+        cp.topMargin=dp(1);
         item.addView(controls,cp);
 
         boolean canEditQty=line.custom||line.qtyEditable
@@ -731,7 +731,7 @@ final class NativeEstimateDialog extends Dialog {
     private LinearLayout card(){
         LinearLayout c=new LinearLayout(getContext());
         c.setOrientation(LinearLayout.VERTICAL);
-        c.setPadding(dp(9),dp(7),dp(9),dp(7));
+        c.setPadding(dp(9),dp(5),dp(9),dp(5));
         c.setBackground(NativeVisualTokens.outlined(
                 NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,
                 dp(NativeVisualTokens.CARD_RADIUS_DP),dp(1)));
