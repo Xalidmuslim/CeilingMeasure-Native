@@ -372,6 +372,37 @@ final class NativeProjectStore {
         }
     }
 
+    ArrayList<String> loadDefaultPriceOrder(boolean client) {
+        JSONObject db=loadDb();
+        String key=client ? "defaultClientPriceOrder" : "defaultPurchasePriceOrder";
+        JSONArray array=db.optJSONArray(key);
+        ArrayList<String> result=new ArrayList<>();
+        if(array==null)return result;
+        HashSet<String> seen=new HashSet<>();
+        for(int i=0;i<array.length();i++){
+            String item=array.optString(i,"");
+            if((item.startsWith("std:")||item.startsWith("custom:"))
+                    && seen.add(item))result.add(item);
+        }
+        return result;
+    }
+
+    void saveDefaultPriceOrder(boolean client, @NonNull List<String> order) {
+        JSONObject db=loadDb();
+        String key=client ? "defaultClientPriceOrder" : "defaultPurchasePriceOrder";
+        JSONArray values=new JSONArray();
+        HashSet<String> seen=new HashSet<>();
+        for(String entry:order){
+            if(entry==null || !(entry.startsWith("std:")||entry.startsWith("custom:"))
+                    || !seen.add(entry))continue;
+            values.put(entry);
+        }
+        try{
+            db.put(key,values);
+            persistDb(db);
+        }catch(Exception ignored){}
+    }
+
     ArrayList<MaterialData> loadDefaultCustom(boolean client) {
         JSONObject db = loadDb();
         ArrayList<MaterialData> result = new ArrayList<>();
