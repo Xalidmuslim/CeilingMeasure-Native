@@ -40,7 +40,7 @@ final class NativeRoomPickerDialog extends Dialog {
         LinearLayout head = new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = text("Добавить помещение",18,Color.rgb(35,56,72),true);
+        TextView title = text("Добавить помещение",18,NativeVisualTokens.TEXT,true);
         head.addView(title,new LinearLayout.LayoutParams(0,dp(40),1f));
         Button close = button("×");
         close.setTag("native_room_picker_close");
@@ -56,15 +56,15 @@ final class NativeRoomPickerDialog extends Dialog {
         gp.topMargin=dp(8);
         shell.addView(grid,gp);
 
-        add(grid,"▣","Комната");
-        add(grid,"↔","Коридор");
-        add(grid,"◇","Ванная");
-        add(grid,"＋","Другое");
+        add(grid,"","Комната");
+        add(grid,"","Коридор");
+        add(grid,"","Ванная");
+        add(grid,"","Другое");
 
         TextView tip = text(
                 "Название потом можно изменить долгим нажатием по комнате.",
                 11,
-                Color.rgb(116,136,151),
+                NativeVisualTokens.MUTED,
                 false);
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -89,12 +89,12 @@ final class NativeRoomPickerDialog extends Dialog {
     }
 
     private void add(GridLayout grid,String icon,String label){
-        Button b=button(icon+"\n"+label);
+        Button b=button(label);
         b.setTag("native_room_type_"+label);
         b.setOnClickListener(v->{dismiss();listener.onRoomType(label);});
         GridLayout.LayoutParams p=new GridLayout.LayoutParams();
         p.width=0;
-        p.height=dp(82);
+        p.height=dp(62);
         p.columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f);
         p.setMargins(dp(4),dp(4),dp(4),dp(4));
         grid.addView(b,p);
@@ -105,10 +105,12 @@ final class NativeRoomPickerDialog extends Dialog {
         b.setAllCaps(false);
         b.setText(value);
         b.setTextSize(13);
-        b.setTextColor(Color.rgb(35,56,72));
+        b.setTextColor(NativeVisualTokens.TEXT);
         b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
         b.setGravity(Gravity.CENTER);
-        b.setBackground(rounded(Color.WHITE,NativeVisualTokens.LINE,14,1));
+        b.setBackground(NativeVisualTokens.rippleOutlined(
+                NativeVisualTokens.SURFACE_SOFT,NativeVisualTokens.LINE,
+                dp(13),dp(1),Color.argb(20,33,110,147)));
         return b;
     }
 

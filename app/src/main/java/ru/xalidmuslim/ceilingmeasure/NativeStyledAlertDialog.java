@@ -117,10 +117,10 @@ final class NativeStyledAlertDialog extends Dialog {
                 LinearLayout row = new LinearLayout(context);
                 row.setGravity(Gravity.CENTER_VERTICAL);
                 row.setPadding(dp(12), dp(5), dp(10), dp(5));
-                row.setMinimumHeight(dp(46));
+                row.setMinimumHeight(dp(48));
                 row.setBackground(NativeVisualTokens.rippleOutlined(
-                        NativeVisualTokens.SURFACE_SOFT, NativeVisualTokens.DIVIDER,
-                        dp(13), dp(1), Color.argb(24, 47, 143, 190)));
+                        NativeVisualTokens.SURFACE, Color.TRANSPARENT,
+                        dp(11), 0, Color.argb(20, 33, 110, 147)));
                 TextView label = text(config.items[index].toString(), 13.5f,
                         false, NativeVisualTokens.TEXT);
                 label.setMaxLines(3);
@@ -154,12 +154,12 @@ final class NativeStyledAlertDialog extends Dialog {
                 LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT);
-                rowParams.bottomMargin = dp(5);
+                rowParams.bottomMargin = dp(2);
                 list.addView(row, rowParams);
             }
             LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    Math.min(dp(465), config.items.length * dp(60)));
+                    Math.min(dp(465), config.items.length * dp(56)));
             shell.addView(listScroll, listParams);
         }
         if (config.negative != null || config.positive != null) {
@@ -167,7 +167,7 @@ final class NativeStyledAlertDialog extends Dialog {
             actions.setOrientation(LinearLayout.HORIZONTAL);
             actions.setGravity(Gravity.END);
             LinearLayout.LayoutParams bar = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, dp(45));
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(49));
             bar.topMargin = dp(8);
             shell.addView(actions, bar);
             if (config.negative != null) {
@@ -177,7 +177,7 @@ final class NativeStyledAlertDialog extends Dialog {
                     if (config.negativeListener != null)
                         config.negativeListener.onClick(this, DialogInterface.BUTTON_NEGATIVE);
                 });
-                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(44), 1f);
+                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(48), 1f);
                 p.rightMargin = dp(4);
                 actions.addView(cancel, p);
             }
@@ -188,7 +188,7 @@ final class NativeStyledAlertDialog extends Dialog {
                     if (config.positiveListener != null)
                         config.positiveListener.onClick(this, DialogInterface.BUTTON_POSITIVE);
                 });
-                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(44), 1f);
+                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(48), 1f);
                 p.leftMargin = dp(4);
                 actions.addView(okay, p);
             }

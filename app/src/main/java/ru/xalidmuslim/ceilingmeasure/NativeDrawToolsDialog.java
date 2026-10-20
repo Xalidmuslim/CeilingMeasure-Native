@@ -53,7 +53,7 @@ final class NativeDrawToolsDialog extends Dialog {
         LinearLayout head = new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = text("Еще", 18, TEXT, Typeface.BOLD);
+        TextView title = text("Инструменты чертежа", 17, TEXT, Typeface.BOLD);
         head.addView(title, new LinearLayout.LayoutParams(0, dp(38), 1f));
         Button close = toolButton("×", "", false, false);
         close.setTag("native_draw_tools_close");
@@ -131,7 +131,7 @@ final class NativeDrawToolsDialog extends Dialog {
 
         GridLayout.LayoutParams p = new GridLayout.LayoutParams();
         p.width = 0;
-        p.height = dp(64);
+        p.height = dp(54);
         p.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
         p.setMargins(dp(3), dp(3), dp(3), dp(3));
         grid.addView(button, p);
@@ -145,14 +145,15 @@ final class NativeDrawToolsDialog extends Dialog {
         Button button = new Button(getContext());
         button.setAllCaps(false);
         button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(5), dp(4), dp(5), dp(4));
-        button.setText(title.isEmpty() ? icon : icon + "\n" + title);
-        button.setTextSize(title.isEmpty() ? 20 : 11.5f);
+        button.setPadding(dp(8), dp(4), dp(8), dp(4));
+        button.setText(title.isEmpty() ? icon : title);
+        button.setTextSize(title.isEmpty() ? 20 : 12f);
         button.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
         button.setTextColor(danger ? DANGER : (active ? BLUE : TEXT));
-        int fill = active ? Color.rgb(239, 248, 252) : Color.WHITE;
-        int stroke = active ? Color.rgb(101, 172, 208) : LINE;
-        button.setBackground(rounded(fill, stroke, 14, 1));
+        int fill = active ? NativeVisualTokens.ACCENT_SOFT
+                : NativeVisualTokens.SURFACE_SOFT;
+        int stroke = active ? NativeVisualTokens.ACCENT : Color.TRANSPARENT;
+        button.setBackground(rounded(fill, stroke, 12, active ? 1 : 0));
         return button;
     }
 

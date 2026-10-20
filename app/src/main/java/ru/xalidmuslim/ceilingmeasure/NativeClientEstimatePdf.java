@@ -477,7 +477,6 @@ final class NativeClientEstimatePdf {
     }
 
     private static String money(double value) {
-        String s = String.format(Locale.getDefault(), "%.2f", value);
-        return s.replaceAll("0+$", "").replaceAll("[,.]$", "");
+        return NativeMoney.format(value);
     }
 }

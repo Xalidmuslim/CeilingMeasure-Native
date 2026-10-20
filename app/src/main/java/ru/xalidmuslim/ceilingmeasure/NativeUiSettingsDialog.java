@@ -145,7 +145,7 @@ final class NativeUiSettingsDialog extends Dialog {
                 NativeVisualTokens.LINE,
                 dp(18),
                 dp(1)));
-        sheet.setElevation(dp(10));
+        sheet.setElevation(dp(2));
         sheet.setClickable(true);
 
         int widthDp = Math.round(
@@ -271,8 +271,8 @@ final class NativeUiSettingsDialog extends Dialog {
         sizeValue.setTag("native_ui_size_value");
         sizeValue.setGravity(Gravity.CENTER);
         sizeValue.setBackground(NativeVisualTokens.outlined(
-                Color.rgb(238, 247, 251),
-                Color.rgb(207, 224, 233),
+                NativeVisualTokens.ACCENT_SOFT,
+                NativeVisualTokens.LINE,
                 dp(11),
                 dp(1)));
         valueRow.addView(sizeValue, new LinearLayout.LayoutParams(dp(66), dp(34)));
@@ -392,17 +392,17 @@ final class NativeUiSettingsDialog extends Dialog {
         params.topMargin = dp(2);
         sheet.addView(group, params);
 
-        TextView labelView = text(label, 12, Color.rgb(83,107,123), true);
+        TextView labelView = text(label, 12, NativeVisualTokens.TEXT, true);
         group.addView(labelView);
         if (hint != null) {
-            TextView hintView = text(hint, 10, Color.rgb(129,145,158), false);
+            TextView hintView = text(hint, 10, NativeVisualTokens.MUTED, false);
             LinearLayout.LayoutParams hp = wrapWrap();
             hp.topMargin = dp(2);
             group.addView(hintView, hp);
         }
 
         View divider = new View(activity);
-        divider.setBackgroundColor(Color.argb(199, 215, 225, 233));
+        divider.setBackgroundColor(NativeVisualTokens.DIVIDER);
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
         dividerParams.topMargin = dp(7);
@@ -435,13 +435,13 @@ final class NativeUiSettingsDialog extends Dialog {
         button.setPadding(dp(7), 0, dp(7), 0);
         NativeTypography.register(button, 10.5f, true, prefs);
         if (active) {
-            button.setBackground(NativeVisualTokens.primaryButton(dp(12), dp(1)));
+            button.setBackground(NativeVisualTokens.primaryButton(dp(12), 0));
         } else {
             button.setBackground(NativeVisualTokens.outlined(
-                    NativeVisualTokens.SURFACE,
-                    Color.rgb(217, 227, 234),
-                    dp(15),
-                    dp(1)));
+                    NativeVisualTokens.APP_SOFT,
+                    Color.TRANSPARENT,
+                    dp(12),
+                    0));
         }
         return button;
     }
