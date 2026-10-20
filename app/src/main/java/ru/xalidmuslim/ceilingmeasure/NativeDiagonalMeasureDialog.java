@@ -68,7 +68,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         LinearLayout shell=new LinearLayout(getContext());
         shell.setOrientation(LinearLayout.VERTICAL);
         shell.setPadding(dp(12),dp(12),dp(12),dp(14));
-        shell.setBackground(rounded(Color.WHITE,LINE,18,1));
+        shell.setBackground(rounded(Color.WHITE,LINE,19,1));
 
         LinearLayout head=new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
@@ -86,7 +86,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         LinearLayout calc=new LinearLayout(getContext());
         calc.setOrientation(LinearLayout.VERTICAL);
         calc.setPadding(dp(10),dp(8),dp(10),dp(8));
-        calc.setBackground(rounded(Color.rgb(247,250,252),LINE,11,1));
+        calc.setBackground(rounded(Color.rgb(247,250,252),LINE,13,1));
         LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -110,7 +110,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         display.setTextColor(TEXT);
         display.setGravity(Gravity.CENTER);
         display.setPadding(dp(12),0,dp(12),0);
-        display.setBackground(rounded(Color.rgb(250,252,253),LINE,11,1));
+        display.setBackground(rounded(Color.rgb(250,252,253),LINE,13,1));
         display.setText(buffer);
         display.setOnEditorActionListener((v,actionId,event)->{
             if(actionId==EditorInfo.IME_ACTION_DONE){submit();return true;}

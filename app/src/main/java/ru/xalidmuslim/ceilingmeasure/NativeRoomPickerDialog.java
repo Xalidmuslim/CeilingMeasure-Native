@@ -35,7 +35,7 @@ final class NativeRoomPickerDialog extends Dialog {
         LinearLayout shell = new LinearLayout(getContext());
         shell.setOrientation(LinearLayout.VERTICAL);
         shell.setPadding(dp(12),dp(12),dp(12),dp(14));
-        shell.setBackground(rounded(Color.WHITE,Color.rgb(220,229,235),18,1));
+        shell.setBackground(rounded(Color.WHITE,NativeVisualTokens.LINE,19,1));
 
         LinearLayout head = new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
@@ -108,7 +108,7 @@ final class NativeRoomPickerDialog extends Dialog {
         b.setTextColor(Color.rgb(35,56,72));
         b.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
         b.setGravity(Gravity.CENTER);
-        b.setBackground(rounded(Color.WHITE,Color.rgb(220,229,235),13,1));
+        b.setBackground(rounded(Color.WHITE,NativeVisualTokens.LINE,14,1));
         return b;
     }
 

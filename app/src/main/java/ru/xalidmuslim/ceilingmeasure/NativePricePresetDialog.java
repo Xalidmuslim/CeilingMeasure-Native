@@ -148,7 +148,7 @@ final class NativePricePresetDialog extends Dialog {
         priceOrder=NativePriceOrder.normalized(catalog.order,available);
 
         TextView reorderHint=text(
-                "≡ Зажми маркер и перетащи позицию выше или ниже",10.5f,MUTED,false);
+                "≡ Удерживай позицию и перемещай вверх или вниз",10.5f,MUTED,false);
         content.addView(reorderHint,top(8));
 
         priceRows=new LinearLayout(getContext());
@@ -231,6 +231,7 @@ final class NativePricePresetDialog extends Dialog {
         LinearLayout row=card();
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setMinimumHeight(dp(51));
         attachReorderHandle(row,NativePriceOrder.standard(meta.key));
 
         LinearLayout label=new LinearLayout(getContext());
@@ -238,7 +239,8 @@ final class NativePricePresetDialog extends Dialog {
         label.setGravity(Gravity.CENTER_VERTICAL);
         label.addView(text(meta.name,11.5f,TEXT,true));
         label.addView(text(meta.unit,9.5f,MUTED,false));
-        row.addView(label,new LinearLayout.LayoutParams(0,dp(38),1f));
+        row.addView(label,new LinearLayout.LayoutParams(
+                0,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
 
         if(hidden){
             Button restore=button("Вернуть",false);
@@ -292,6 +294,7 @@ final class NativePricePresetDialog extends Dialog {
         LinearLayout row=card();
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setMinimumHeight(dp(51));
         attachReorderHandle(row,NativePriceOrder.custom(item.id));
 
         LinearLayout label=new LinearLayout(getContext());
@@ -299,7 +302,8 @@ final class NativePricePresetDialog extends Dialog {
         label.setGravity(Gravity.CENTER_VERTICAL);
         label.addView(text(item.name,11.5f,TEXT,true));
         label.addView(text(item.unit,9.5f,MUTED,false));
-        row.addView(label,new LinearLayout.LayoutParams(0,dp(38),1f));
+        row.addView(label,new LinearLayout.LayoutParams(
+                0,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
 
         Button price=button(format(item.price),false);
         price.setOnClickListener(v->new NativeNumberPadDialog(
@@ -372,18 +376,18 @@ final class NativePricePresetDialog extends Dialog {
                 case DragEvent.ACTION_DRAG_ENTERED:
                     row.setBackground(NativeVisualTokens.outlined(
                             NativeVisualTokens.ACCENT_SOFT,NativeVisualTokens.ACCENT,
-                            dp(14),dp(1)));
+                            dp(16),dp(1)));
                     return true;
                 case DragEvent.ACTION_DRAG_EXITED:
                 case DragEvent.ACTION_DRAG_ENDED:
                     row.setBackground(NativeVisualTokens.outlined(
                             NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,
-                            dp(14),dp(1)));
+                            dp(16),dp(1)));
                     return true;
                 case DragEvent.ACTION_DROP:
                     row.setBackground(NativeVisualTokens.outlined(
                             NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,
-                            dp(14),dp(1)));
+                            dp(16),dp(1)));
                     String moving=(String)event.getLocalState();
                     ArrayList<String> ordered=NativePriceOrder.move(priceOrder,moving,key);
                     if(!ordered.equals(priceOrder)){
@@ -426,7 +430,7 @@ final class NativePricePresetDialog extends Dialog {
         LinearLayout c=new LinearLayout(getContext());
         c.setPadding(dp(8),dp(4),dp(8),dp(4));
         c.setBackground(NativeVisualTokens.outlined(
-                NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,dp(14),dp(1)));
+                NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,dp(16),dp(1)));
         return c;
     }
 

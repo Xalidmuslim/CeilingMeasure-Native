@@ -227,7 +227,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         card.setClickable(true);
         card.setFocusable(true);
         card.setClipToOutline(false);
-        card.setElevation(dp(primary ? 4 : 1));
+        card.setElevation(dp(primary ? 2 : 0));
 
         Drawable content = primary
                 ? NativeVisualTokens.homePrimary(dp(radius), dp(1))

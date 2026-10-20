@@ -59,15 +59,32 @@ final class NativeShellInsets {
             int navBaseBottomPx) {
         ViewCompat.setOnApplyWindowInsetsListener(owner, (view, windowInsets) -> {
             Insets safe = safeInsets(windowInsets);
+            Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+            int bottom=Math.max(safe.bottom,ime.bottom);
 
-            // Scroll owns system insets exactly once. The root content has a
-            // separate fixed-navigation reserve that does not contain system inset.
-            scroll.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+            // Re-layout only on genuine inset changes, keeping the floating
+            // navigation above the user's Android keyboard.
+            if(scroll.getPaddingLeft()!=safe.left || scroll.getPaddingTop()!=safe.top
+                    || scroll.getPaddingRight()!=safe.right
+                    || scroll.getPaddingBottom()!=bottom){
+                scroll.setPadding(safe.left,safe.top,safe.right,bottom);
+            }
 
             FrameLayout.LayoutParams navParams =
                     (FrameLayout.LayoutParams) historyNav.getLayoutParams();
-            navParams.bottomMargin = safe.bottom + navBaseBottomPx;
-            historyNav.setLayoutParams(navParams);
+            int horizontalBase=Math.round(
+                    12f*owner.getResources().getDisplayMetrics().density);
+            int left=horizontalBase+safe.left;
+            int right=horizontalBase+safe.right;
+            int navBottom=bottom+navBaseBottomPx;
+            if(navParams.bottomMargin!=navBottom
+                    || navParams.leftMargin!=left
+                    || navParams.rightMargin!=right){
+                navParams.bottomMargin=navBottom;
+                navParams.leftMargin=left;
+                navParams.rightMargin=right;
+                historyNav.setLayoutParams(navParams);
+            }
 
             owner.setTag(R.id.native_safe_top, safe.top);
             owner.setTag(R.id.native_safe_bottom, safe.bottom);

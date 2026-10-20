@@ -77,7 +77,7 @@ final class NativeWallMeasureDialog extends Dialog {
         LinearLayout shell=new LinearLayout(getContext());
         shell.setOrientation(LinearLayout.VERTICAL);
         shell.setPadding(dp(10),dp(9),dp(10),dp(9));
-        shell.setBackground(rounded(Color.WHITE,LINE,18,1));
+        shell.setBackground(rounded(Color.WHITE,LINE,19,1));
 
         LinearLayout head=new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);

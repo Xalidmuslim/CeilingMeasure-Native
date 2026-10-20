@@ -48,7 +48,7 @@ final class NativeDrawToolsDialog extends Dialog {
         LinearLayout shell = new LinearLayout(getContext());
         shell.setOrientation(LinearLayout.VERTICAL);
         shell.setPadding(dp(12), dp(11), dp(12), dp(14));
-        shell.setBackground(rounded(Color.WHITE, LINE, 18, 1));
+        shell.setBackground(rounded(Color.WHITE, LINE, 19, 1));
 
         LinearLayout head = new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
@@ -152,7 +152,7 @@ final class NativeDrawToolsDialog extends Dialog {
         button.setTextColor(danger ? DANGER : (active ? BLUE : TEXT));
         int fill = active ? Color.rgb(239, 248, 252) : Color.WHITE;
         int stroke = active ? Color.rgb(101, 172, 208) : LINE;
-        button.setBackground(rounded(fill, stroke, 12, 1));
+        button.setBackground(rounded(fill, stroke, 14, 1));
         return button;
     }
 
