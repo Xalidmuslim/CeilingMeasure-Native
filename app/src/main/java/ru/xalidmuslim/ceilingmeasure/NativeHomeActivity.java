@@ -9,7 +9,6 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -237,19 +236,8 @@ public final class NativeHomeActivity extends ComponentActivity {
                 ColorStateList.valueOf(ripple),
                 content,
                 mask));
+        // No physical shrink/jump on touch; the material ripple communicates press.
         card.setOnClickListener(listener);
-        card.setOnTouchListener((v, event) -> {
-            int action = event.getActionMasked();
-            if (action == MotionEvent.ACTION_DOWN) {
-                v.setScaleX(.985f);
-                v.setScaleY(.985f);
-            } else if (action == MotionEvent.ACTION_UP
-                    || action == MotionEvent.ACTION_CANCEL) {
-                v.setScaleX(1f);
-                v.setScaleY(1f);
-            }
-            return false;
-        });
 
         ImageView icon = new ImageView(this);
         icon.setImageResource(iconRes);
