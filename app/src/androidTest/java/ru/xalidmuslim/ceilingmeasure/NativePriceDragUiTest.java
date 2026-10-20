@@ -23,7 +23,10 @@ public final class NativePriceDragUiTest {
 
         try(ActivityScenario<NativeWorkspaceActivity> scenario=ActivityScenario.launch(intent)){
             scenario.onActivity(activity->{
-                NativeProjectStore store=new NativeProjectStore(activity);
+                NativeProjectStore store=new NativeProjectStore(
+                        activity.getSharedPreferences(
+                                "native_price_drag_isolated_"+System.nanoTime(),
+                                Context.MODE_PRIVATE));
                 NativeProjectStore.ProjectData project=new NativeProjectStore.ProjectData();
                 project.rooms.add(store.createRoom("Тест"));
                 NativeProjectStore.MaterialData item=new NativeProjectStore.MaterialData();
@@ -32,6 +35,11 @@ public final class NativePriceDragUiTest {
                 store.upsertDefaultCustom(true,item);
                 store.saveDefaultPriceOrder(true,Arrays.asList(
                         "custom:"+item.id,"std:canvas"));
+                assertEquals("order must be persisted before opening",
+                        Arrays.asList("custom:"+item.id,"std:canvas"),
+                        store.loadDefaultPriceOrder(true));
+                assertEquals("custom row must be preserved",item.id,
+                        store.loadDefaultCustom(true).get(0).id);
 
                 NativePricePresetDialog client=new NativePricePresetDialog(
                         activity,store,project,Collections.singletonList(project),

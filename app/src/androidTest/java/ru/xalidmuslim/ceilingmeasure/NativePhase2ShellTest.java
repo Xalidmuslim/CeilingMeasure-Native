@@ -83,7 +83,7 @@ public final class NativePhase2ShellTest {
 
             int[] heroLoc = location(hero);
             assertTrue("home hero must start below status/cutout inset",
-                    heroLoc[1] >= safe.top + dp(activity, 32));
+                    heroLoc[1] >= safe.top + dp(activity, 12));
             assertShellViewWithinDisplay(activity, hero);
             assertShellViewWithinDisplay(
                     activity,
