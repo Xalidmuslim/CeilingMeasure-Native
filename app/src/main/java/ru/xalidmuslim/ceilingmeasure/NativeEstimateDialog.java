@@ -347,16 +347,8 @@ final class NativeEstimateDialog extends Dialog {
         qtyButton.setAlpha(qtyButton.isEnabled()?1f:.55f);
         if(qtyButton.isEnabled()){
             qtyButton.setOnClickListener(v->editQty(owner,room,line));
-            qtyButton.setOnLongClickListener(v->{
-                v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
-                editQty(owner,room,line);
-                return true;
-            });
-            row.setOnLongClickListener(v->{
-                v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
-                editQty(owner,room,line);
-                return true;
-            });
+            NativeFastLongPress.attach(qtyButton,()->editQty(owner,room,line));
+            NativeFastLongPress.attach(row,()->editQty(owner,room,line));
         }
         LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(0,controlHeight,.72f);
         qp.leftMargin=dp(3);
@@ -488,7 +480,7 @@ final class NativeEstimateDialog extends Dialog {
             return;
         }
 
-        new AlertDialog.Builder(getContext())
+        new NativeStyledAlertDialog.Builder(getContext())
                 .setTitle("В какую комнату добавить?")
                 .setItems(labels.toArray(new String[0]),(d,which)->
                         openMaterialPicker(owners.get(which),rooms.get(which)))
@@ -512,7 +504,7 @@ final class NativeEstimateDialog extends Dialog {
         labels.add("Другое · своё название и единица");
         keys.add("other");
 
-        new AlertDialog.Builder(getContext())
+        new NativeStyledAlertDialog.Builder(getContext())
                 .setTitle("Дополнительный материал")
                 .setItems(labels.toArray(new String[0]),(d,which)->{
                     String key=keys.get(which);
@@ -635,7 +627,7 @@ final class NativeEstimateDialog extends Dialog {
             if(!p.id.equals(project.id))choices.add(p);
         }
         if(choices.isEmpty()){
-            new AlertDialog.Builder(getContext())
+            new NativeStyledAlertDialog.Builder(getContext())
                     .setTitle("Объединить заказы")
                     .setMessage("Других сохранённых заказов пока нет.")
                     .setPositiveButton("Готово",null)
@@ -652,7 +644,7 @@ final class NativeEstimateDialog extends Dialog {
             checked[i]=selected.contains(p.id);
         }
 
-        new AlertDialog.Builder(getContext())
+        new NativeStyledAlertDialog.Builder(getContext())
                 .setTitle("Объединить заказы")
                 .setMultiChoiceItems(labels,checked,(d,which,isChecked)->{
                     String id=choices.get(which).id;

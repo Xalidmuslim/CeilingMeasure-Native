@@ -46,8 +46,8 @@ final class CeilingDrawingView extends View {
     private static final int GRID = Color.rgb(232, 238, 243);
     private static final int RED = Color.rgb(217, 74, 74);
     private static final int GREEN = Color.rgb(47, 154, 105);
-    private static final long LONG_PRESS_MS = 330L;
-    private static final long FIRST_WALL_START_PRESS_MS = 180L;
+    private static final long LONG_PRESS_MS = NativeTouchTargetPolicy.EDIT_HOLD_MS;
+    private static final long FIRST_WALL_START_PRESS_MS = NativeTouchTargetPolicy.WALL_START_HOLD_MS;
     // Complex factual geometry can legitimately require less than the old 45%
     // floor to fit. Keep a low safety floor so the whole contour is recoverable.
     private static final float MIN_VIEW_SCALE = .08f;
@@ -781,26 +781,35 @@ final class CeilingDrawingView extends View {
                 }
 
                 if (mode == Mode.POINT) {
-                    NativeProjectStore.PointData point =
-                            nearestPoint(worldX, worldY, dp(48) / scale);
-                    if (point == null) {
+                    NativeProjectStore.EdgeData wall = preferredWallAt(worldX, worldY);
+                    if (wall != null) {
+                        scheduleLongPress("edge", wall.id);
                         return true;
                     }
+                    NativeProjectStore.PointData point =
+                            nearestPoint(worldX, worldY, dp(25) / scale);
+                    if (point == null) return true;
                     getParent().requestDisallowInterceptTouchEvent(true);
                     draggingPointId = point.id;
                     checkpoint();
-                    scheduleLongPress("vertex", point.id);
+                    if (distance(worldX, worldY, point.x, point.y)
+                            <= dp(NativeTouchTargetPolicy.PRECISE_CORNER_RADIUS_DP) / scale) {
+                        scheduleLongPress("vertex", point.id);
+                    }
                     return true;
                 }
 
                 if (mode == Mode.DIAGONAL) {
-                    NativeProjectStore.PointData point =
-                            nearestPoint(worldX, worldY, dp(48) / scale);
-                    NativeProjectStore.DiagonalData diagonal =
-                            nearestDiagonal(worldX, worldY, dp(20) / scale);
-                    if (point == null && diagonal == null) {
+                    NativeProjectStore.EdgeData wall = preferredWallAt(worldX, worldY);
+                    if (wall != null) {
+                        scheduleLongPress("edge", wall.id);
                         return true;
                     }
+                    NativeProjectStore.PointData point =
+                            nearestPoint(worldX, worldY, dp(25) / scale);
+                    NativeProjectStore.DiagonalData diagonal =
+                            nearestDiagonal(worldX, worldY, dp(20) / scale);
+                    if (point == null && diagonal == null) return true;
                     getParent().requestDisallowInterceptTouchEvent(true);
                     return beginDiagonalGesture(worldX, worldY);
                 }
@@ -814,9 +823,11 @@ final class CeilingDrawingView extends View {
                     pendingLabelGesture = heldLabel;
                     draggingLabel = null;
                     rotatingLabel = null;
-                    scheduleLongPress(
-                            heldLabel.kind == LabelKind.EDGE ? "edge" : "diag",
-                            heldLabel.id);
+                    if (preferredWallAt(worldX, worldY) == null) {
+                        scheduleLongPress(
+                                heldLabel.kind == LabelKind.EDGE ? "edge" : "diag",
+                                heldLabel.id);
+                    }
                     getParent().requestDisallowInterceptTouchEvent(true);
                     postInvalidateOnAnimation();
                 } else {
@@ -941,22 +952,28 @@ final class CeilingDrawingView extends View {
     }
 
     private boolean beginWallGesture(float x, float y) {
-        NativeProjectStore.PointData nearest = nearestPoint(x, y, dp(48) / scale);
-        NativeProjectStore.EdgeData edge = nearestEdge(x, y, dp(30) / scale);
+        NativeProjectStore.PointData nearest = nearestPoint(x, y, dp(25) / scale);
+        NativeProjectStore.EdgeData edge = nearestEdge(x, y, dp(22) / scale);
+        NativeProjectStore.EdgeData preferredWall = preferredWallAt(x, y);
         boolean closed = NativeGeometry.isClosed(room);
 
         if (closed) {
-            if (nearest != null) {
-                scheduleLongPress("vertex", nearest.id);
+            // A small wall must beat the large touch halo surrounding its corners.
+            if (preferredWall != null) {
+                if (wallSequenceActive) wallSequenceTapEdgeId = preferredWall.id;
+                else scheduleLongPress("edge", preferredWall.id);
+                return true;
+            }
+            NativeProjectStore.PointData precise =
+                    nearestPoint(x, y,
+                            dp(NativeTouchTargetPolicy.PRECISE_CORNER_RADIUS_DP) / scale);
+            if (precise != null) {
+                scheduleLongPress("vertex", precise.id);
                 return true;
             }
             if (edge != null) {
-                if (wallSequenceActive) {
-                    wallSequenceTapEdgeId = edge.id;
-                } else {
-                    scheduleLongPress("edge", edge.id);
-                }
-                return true;
+                if (wallSequenceActive) wallSequenceTapEdgeId = edge.id;
+                else scheduleLongPress("edge", edge.id);
             }
             return true;
         }
@@ -965,11 +982,17 @@ final class CeilingDrawingView extends View {
             scheduleFirstWallStartLongPress(x, y);
             return true;
         }
-
         getParent().requestDisallowInterceptTouchEvent(true);
 
+        if (preferredWall != null) {
+            scheduleLongPress("edge", preferredWall.id);
+            return true;
+        }
         if (nearest != null) {
-            scheduleLongPress("vertex", nearest.id);
+            if (distance(x, y, nearest.x, nearest.y)
+                    <= dp(NativeTouchTargetPolicy.PRECISE_CORNER_RADIUS_DP) / scale) {
+                scheduleLongPress("vertex", nearest.id);
+            }
             if (NativeGeometry.vertexDegree(room, nearest.id) >= 2) return true;
             wallDraft = new WallDraft(
                     nearest.id,
@@ -979,24 +1002,22 @@ final class CeilingDrawingView extends View {
                     false);
             return true;
         }
-
-        if (edge != null) {
-            scheduleLongPress("edge", edge.id);
-            return true;
-        }
+        if (edge != null) scheduleLongPress("edge", edge.id);
         return true;
     }
 
     private boolean beginDiagonalGesture(float x, float y) {
-        NativeProjectStore.DiagonalData existing = nearestDiagonal(x, y, dp(20) / scale);
-        NativeProjectStore.PointData point = nearestPoint(x, y, dp(48) / scale);
+        NativeProjectStore.DiagonalData existing =
+                nearestDiagonal(x, y, dp(20) / scale);
+        NativeProjectStore.PointData point = nearestPoint(x, y, dp(25) / scale);
 
         if (point != null) {
-            scheduleLongPress("vertex", point.id);
-            diagDraft = new DiagDraft(
-                    point.id,
-                    new PointF(point.x, point.y),
-                    new PointF(point.x, point.y));
+            if (distance(x, y, point.x, point.y)
+                    <= dp(NativeTouchTargetPolicy.PRECISE_CORNER_RADIUS_DP) / scale) {
+                scheduleLongPress("vertex", point.id);
+            }
+            diagDraft = new DiagDraft(point.id,
+                    new PointF(point.x, point.y), new PointF(point.x, point.y));
             return true;
         }
         if (existing != null) scheduleLongPress("diag", existing.id);
@@ -1462,7 +1483,30 @@ final class CeilingDrawingView extends View {
         return (float) Math.hypot(x1 - x2, y1 - y2);
     }
 
+    @Nullable
+    private NativeProjectStore.EdgeData preferredWallAt(float x, float y) {
+        NativeProjectStore.EdgeData wall = nearestEdge(
+                x, y, dp(NativeTouchTargetPolicy.WALL_HIT_RADIUS_DP) / scale);
+        if (wall == null) return null;
+        NativeProjectStore.PointData a = NativeGeometry.pointById(room, wall.a);
+        NativeProjectStore.PointData b = NativeGeometry.pointById(room, wall.b);
+        if (a == null || b == null) return null;
+        NativeProjectStore.PointData nearestCorner = nearestPoint(x, y, dp(32) / scale);
+        float density = getResources().getDisplayMetrics().density;
+        float cornerDp = nearestCorner == null ? Float.POSITIVE_INFINITY :
+                distance(x, y, nearestCorner.x, nearestCorner.y) * scale / density;
+        float wallDp = distanceToEdge(x, y, wall) * scale / density;
+        float wallLengthDp = distance(a.x, a.y, b.x, b.y) * scale / density;
+        return NativeTouchTargetPolicy.preferWall(cornerDp, wallDp, wallLengthDp)
+                ? wall : null;
+    }
+
     private void scheduleMeasurementLongPressIfHit(float x, float y) {
+        NativeProjectStore.EdgeData preferred = preferredWallAt(x, y);
+        if (preferred != null) {
+            scheduleLongPress("edge", preferred.id);
+            return;
+        }
         LabelHit label = nearestLabel(
                 x,
                 y,

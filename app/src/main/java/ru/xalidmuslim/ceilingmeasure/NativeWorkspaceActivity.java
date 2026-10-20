@@ -426,6 +426,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         leftHead.setOrientation(LinearLayout.VERTICAL);
         TextView eyebrow = text("Чертёж",10.5f,MUTED,Typeface.BOLD);
         drawingRoomTitle = text(activeRoom().name,17,TEXT,Typeface.BOLD);
+        drawingRoomTitle.setSingleLine(true);
+        drawingRoomTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        drawingRoomTitle.setMinWidth(0);
+        leftHead.setPadding(dp(3),dp(3),dp(8),dp(4));
         leftHead.addView(eyebrow);
         leftHead.addView(drawingRoomTitle);
         drawingHead.addView(leftHead, new LinearLayout.LayoutParams(
@@ -756,7 +760,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 "Заказ",
                 true,
                 "native_top_new_order");
-        fresh.setOnClickListener(v->new AlertDialog.Builder(this)
+        fresh.setOnClickListener(v->new NativeStyledAlertDialog.Builder(this)
                 .setTitle("Новый заказ?")
                 .setMessage("Текущий замер сохранён автоматически.")
                 .setNegativeButton("Отмена",null)
@@ -949,9 +953,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             b.setTag("native_room_"+index);
             NativeTypography.register(b,11,true,uiPrefs);
             b.setSingleLine(true);
-            b.setMinWidth(dp(54));
-            b.setMinimumWidth(dp(54));
-            b.setPadding(dp(11),0,dp(11),0);
+            b.setMinWidth(dp(96));
+            b.setMinimumWidth(dp(96));
+            b.setMaxWidth(dp(202));
+            b.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            b.setPadding(dp(13),0,dp(13),0);
             b.setAutoSizeTextTypeUniformWithConfiguration(
                     9,11,1,TypedValue.COMPLEX_UNIT_SP);
             if(i==project.activeRoom) styleSelected(b);
@@ -965,10 +971,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 updateStats();
                 updateDrawingChrome();
             });
-            b.setOnLongClickListener(v->{
-                showRoomActions(index);
-                return true;
-            });
+            NativeFastLongPress.attach(b,()->showRoomActions(index));
             LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,dp(44));
             p.rightMargin=dp(5);
@@ -985,15 +988,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private String roomButtonLabel(String name,int index){
         String value=name==null?"":name.trim();
-        if(value.isEmpty())return String.valueOf(index+1);
-        if(value.matches("(?i)комната\\s*\\d+"))return String.valueOf(index+1);
-        return value;
+        return value.isEmpty()?"Комната "+(index+1):value;
     }
 
     private void showRoomActions(int index){
         if(index<0||index>=project.rooms.size())return;
         NativeProjectStore.RoomData room=project.rooms.get(index);
-        new AlertDialog.Builder(this)
+        new NativeStyledAlertDialog.Builder(this)
                 .setTitle(room.name)
                 .setItems(new String[]{"Переименовать","Дублировать","Удалить"},(dialog,which)->{
                     if(which==0){
@@ -1074,7 +1075,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         }
 
         String roomName=project.rooms.get(index).name;
-        new AlertDialog.Builder(this)
+        new NativeStyledAlertDialog.Builder(this)
                 .setTitle("Удалить комнату?")
                 .setMessage(roomName+" и её чертёж будут удалены.")
                 .setNegativeButton("Отмена",null)
@@ -1277,7 +1278,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 if(room.geometryLocked)setMode(CeilingDrawingView.Mode.LABEL);
                 break;
             case "clear":
-                new AlertDialog.Builder(this)
+                new NativeStyledAlertDialog.Builder(this)
                         .setTitle("Очистить чертёж?")
                         .setMessage("Все линии и диагонали этой комнаты будут удалены.")
                         .setNegativeButton("Отмена",null)
@@ -1565,7 +1566,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         String title="Угол";
         if("A".equals(point.customLabel))title+=" A";
-        new AlertDialog.Builder(this)
+        new NativeStyledAlertDialog.Builder(this)
                 .setTitle(title)
                 .setItems(new String[]{"Добавить угол А","Удалить угол"},(dialog,which)->{
                     if(which==0){
@@ -1587,7 +1588,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         NativeProjectStore.PointData point=NativeGeometry.pointById(r,pointId);
         if(point==null)return;
 
-        new AlertDialog.Builder(this)
+        new NativeStyledAlertDialog.Builder(this)
                 .setTitle("Удалить угол?")
                 .setMessage("Будут удалены все стены и диагонали, связанные с этим углом.")
                 .setNegativeButton("Отмена",null)
@@ -1619,7 +1620,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(diagonal==null)return;
 
         String value=currentValue>0?format(currentValue):"без размера";
-        new AlertDialog.Builder(this)
+        new NativeStyledAlertDialog.Builder(this)
                 .setTitle("Диагональ · "+value)
                 .setItems(new String[]{"Изменить размер","Удалить"},(dialog,which)->{
                     if(which==0){
@@ -1697,7 +1698,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
                     @Override public void onDelete(){
                         closeWallDialog();
-                        new AlertDialog.Builder(NativeWorkspaceActivity.this)
+                        new NativeStyledAlertDialog.Builder(NativeWorkspaceActivity.this)
                                 .setTitle("Удалить стену?")
                                 .setMessage("Удаление произойдёт только после отдельного подтверждения.")
                                 .setNegativeButton("Отмена",null)
@@ -1840,7 +1841,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
                     @Override public void onDelete(){
                         holder[0].dismiss();
-                        new AlertDialog.Builder(NativeWorkspaceActivity.this)
+                        new NativeStyledAlertDialog.Builder(NativeWorkspaceActivity.this)
                                 .setTitle("Удалить диагональ?")
                                 .setMessage("Удаление произойдёт только после отдельного подтверждения.")
                                 .setNegativeButton("Отмена",null)
@@ -1998,7 +1999,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 NativeMeasurementSolver.solveFactual(room);
 
         if(!result.ok){
-            new AlertDialog.Builder(this)
+            new NativeStyledAlertDialog.Builder(this)
                     .setTitle("Фактическая геометрия")
                     .setMessage(result.message)
                     .setPositiveButton("Понятно",null)
@@ -2024,7 +2025,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         updateStats();
 
         if(result.maxError>NativeMeasurementSolver.FACTUAL_CONFLICT_TOL){
-            new AlertDialog.Builder(this)
+            new NativeStyledAlertDialog.Builder(this)
                     .setTitle("Фактическая геометрия построена")
                     .setMessage(result.message)
                     .setPositiveButton("Готово",null)
@@ -2041,7 +2042,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 NativeMeasurementSolver.solveMeasurementsOnly(room);
 
         if(!result.ok){
-            new AlertDialog.Builder(this)
+            new NativeStyledAlertDialog.Builder(this)
                     .setTitle("Точно по размерам")
                     .setMessage(result.message)
                     .setPositiveButton("Понятно",null)
@@ -2117,7 +2118,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private void showMeasurementValidation(){
         NativeMeasurementValidator.Result result =
                 NativeMeasurementValidator.validate(activeRoom());
-        new AlertDialog.Builder(this)
+        new NativeStyledAlertDialog.Builder(this)
                 .setTitle(result.ok() ? "Проверка замера" : "Нужно исправить")
                 .setMessage(result.message())
                 .setPositiveButton("Готово", null)
@@ -2479,10 +2480,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 editorOpenedFromSavedMeasurements = true;
                 saveProjectAsync(p);
             });
-            row.setOnLongClickListener(v->{
-                showSavedAction(p);
-                return true;
-            });
+            NativeFastLongPress.attach(row,()->showSavedAction(p));
 
             row.setPadding(dp(9),dp(7),dp(9),dp(7));
             row.setMinimumHeight(dp(76));
@@ -2519,11 +2517,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void showSavedAction(NativeProjectStore.ProjectData saved){
-        new AlertDialog.Builder(this)
+        new NativeStyledAlertDialog.Builder(this)
                 .setTitle("Замер")
                 .setMessage(saved.name==null||saved.name.isEmpty()?"Заказчик":saved.name)
                 .setNegativeButton("Закрыть",null)
-                .setPositiveButton("Удалить",(d,w)->new AlertDialog.Builder(this)
+                .setPositiveButton("Удалить",(d,w)->new NativeStyledAlertDialog.Builder(this)
                         .setTitle("Удалить замер?")
                         .setMessage("Будут удалены этот заказ, его комнаты и чертежи.")
                         .setNegativeButton("Отмена",null)
@@ -2596,7 +2594,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 int n;
                 while((n=in.read(buffer))>0)out.write(buffer,0,n);
                 String raw=out.toString(StandardCharsets.UTF_8.name());
-                new AlertDialog.Builder(this)
+                new NativeStyledAlertDialog.Builder(this)
                         .setTitle("Восстановить замеры?")
                         .setMessage("Текущие данные приложения будут заменены данными из выбранной резервной копии.")
                         .setNegativeButton("Отмена",null)
