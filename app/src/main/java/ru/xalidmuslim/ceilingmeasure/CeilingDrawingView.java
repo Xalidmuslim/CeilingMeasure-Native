@@ -929,6 +929,7 @@ final class CeilingDrawingView extends View {
                     getParent().requestDisallowInterceptTouchEvent(true);
                     postInvalidateOnAnimation();
                 } else {
+                    moveArmedLabel = null;
                     beginLabelGesture(worldX, worldY);
                     if (draggingLabel != null
                             || rotatingLabel != null
@@ -1703,6 +1704,8 @@ final class CeilingDrawingView extends View {
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
             if (listener == null) return;
             if ("labelEdge".equals(kind) || "labelDiag".equals(kind)) {
+                // A new choice supersedes any earlier armed move.
+                moveArmedLabel = null;
                 if(listener!=null)listener.onLabelActionRequested(id,"labelDiag".equals(kind));
             } else if ("vertex".equals(kind)) {
                 if (NativeGeometry.pointById(room, id) != null) {
