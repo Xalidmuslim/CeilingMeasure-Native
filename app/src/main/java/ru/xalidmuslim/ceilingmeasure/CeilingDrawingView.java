@@ -38,6 +38,8 @@ final class CeilingDrawingView extends View {
         void onWallSequencePick(@NonNull String edgeId);
         void onDiagonalCreated(@NonNull String diagonalId, float currentValue);
         void onDiagonalLongPressed(@NonNull String diagonalId, float currentValue);
+        // Explicit choice for long-pressed numeric labels; older listeners stay compatible.
+        default void onLabelActionRequested(@NonNull String id, boolean diagonal) {}
         void onContourClosed();
     }
 
@@ -138,6 +140,7 @@ final class CeilingDrawingView extends View {
     private LabelHit rotatingLabel;
     private LabelHit selectedLabel;
     private LabelHit pendingLabelGesture;
+    private LabelHit moveArmedLabel;
     private float labelTouchStartX;
     private float labelTouchStartY;
     private float labelStartDx;
@@ -241,6 +244,8 @@ final class CeilingDrawingView extends View {
     void setRoom(@NonNull NativeProjectStore.RoomData room) {
         cancelPendingLongPress();
         cancelTransientGestures();
+        moveArmedLabel = null;
+        selectedLabel = null;
 
         boolean changedRoom = displayedRoomId == null
                 || !displayedRoomId.equals(room.id);
@@ -269,12 +274,35 @@ final class CeilingDrawingView extends View {
         cancelPendingLongPress();
         cancelTransientGestures();
         this.mode = mode;
-        if (mode != Mode.LABEL) selectedLabel = null;
+        if (mode != Mode.LABEL) {
+            selectedLabel = null;
+            moveArmedLabel = null;
+        }
         postInvalidateOnAnimation();
     }
 
     Mode getMode() {
         return mode;
+    }
+
+    void armLabelMove(@NonNull String labelId, boolean diagonal) {
+        if (room == null || mode != Mode.LABEL) return;
+        LabelKind type = diagonal ? LabelKind.DIAGONAL : LabelKind.EDGE;
+        NativeLabelEngine.Placement placement = NativeLabelEngine.find(
+                labelPlacements(),diagonal
+                        ? NativeLabelEngine.Kind.DIAGONAL
+                        : NativeLabelEngine.Kind.EDGE,labelId);
+        if(placement==null)return;
+        selectedLabel = new LabelHit(type,labelId);
+        moveArmedLabel = selectedLabel;
+        pendingLabelGesture = null;
+        draggingLabel = null;
+        rotatingLabel = null;
+        postInvalidateOnAnimation();
+    }
+
+    boolean labelMoveArmedForTest(){
+        return moveArmedLabel != null;
     }
 
     void setWallSequenceActive(boolean active) {
@@ -835,7 +863,9 @@ final class CeilingDrawingView extends View {
                 // Editing measurements is mode-independent: holding a wall or
                 // its numeric label must open the same editor in Wall, Point,
                 // Diagonal and Numbers modes.
-                scheduleMeasurementLongPressIfHit(worldX, worldY);
+                if(mode != Mode.LABEL){
+                    scheduleMeasurementLongPressIfHit(worldX, worldY);
+                }
 
                 if (mode == Mode.WALL) {
                     // Open contour keeps one-finger ownership for wall drawing.
@@ -884,15 +914,18 @@ final class CeilingDrawingView extends View {
                         worldY,
                         dp(LABEL_TOUCH_RADIUS_DP) / Math.max(MIN_VIEW_SCALE, scale));
                 if (heldLabel != null) {
+                    if(moveArmedLabel != null
+                            && !(moveArmedLabel.kind==heldLabel.kind
+                            && moveArmedLabel.id.equals(heldLabel.id))){
+                        moveArmedLabel=null;
+                    }
                     selectedLabel = heldLabel;
                     pendingLabelGesture = heldLabel;
                     draggingLabel = null;
                     rotatingLabel = null;
-                    if (preferredWallAt(worldX, worldY) == null) {
-                        scheduleLongPress(
-                                heldLabel.kind == LabelKind.EDGE ? "edge" : "diag",
-                                heldLabel.id);
-                    }
+                    scheduleLongPress(
+                            heldLabel.kind == LabelKind.EDGE ? "labelEdge" : "labelDiag",
+                            heldLabel.id);
                     getParent().requestDisallowInterceptTouchEvent(true);
                     postInvalidateOnAnimation();
                 } else {
@@ -918,15 +951,30 @@ final class CeilingDrawingView extends View {
                 }
 
                 if (mode == Mode.LABEL && pendingLabelGesture != null) {
-                    if (distance <= dp(20)) {
-                        // Stationary hold: keep long-press alive and do not
-                        // accidentally move the number.
-                        return true;
+                    boolean explicitMove=moveArmedLabel!=null
+                            && moveArmedLabel.kind==pendingLabelGesture.kind
+                            && moveArmedLabel.id.equals(pendingLabelGesture.id);
+                    if(explicitMove && distance > dp(12)){
+                        // Start at the original label, not the moved fingertip;
+                        // otherwise quickly swiping could select another label.
+                        float originX=screenToWorldX(downScreenX);
+                        float originY=screenToWorldY(downScreenY);
+                        pendingLabelGesture=null;
+                        cancelPendingLongPress();
+                        beginLabelGesture(originX,originY);
+                        if(draggingLabel!=null){
+                            moveArmedLabel=null;
+                            updateLabelDrag(worldX,worldY);
+                        }
+                        moved=true;
+                    }else if(distance > dp(20)){
+                        // Until an explicit choice is made, swiping a number
+                        // is a no-op. A tap only selects its outline.
+                        cancelPendingLongPress();
+                        pendingLabelGesture=null;
+                        moved=true;
                     }
-                    cancelPendingLongPress();
-                    pendingLabelGesture = null;
-                    beginLabelGesture(worldX, worldY);
-                    moved = true;
+                    return true;
                 }
 
                 if (mode == Mode.WALL && wallDraft != null) {
@@ -1654,7 +1702,9 @@ final class CeilingDrawingView extends View {
             postInvalidateOnAnimation();
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
             if (listener == null) return;
-            if ("vertex".equals(kind)) {
+            if ("labelEdge".equals(kind) || "labelDiag".equals(kind)) {
+                if(listener!=null)listener.onLabelActionRequested(id,"labelDiag".equals(kind));
+            } else if ("vertex".equals(kind)) {
                 if (NativeGeometry.pointById(room, id) != null) {
                     listener.onVertexLongPressed(id);
                 }
