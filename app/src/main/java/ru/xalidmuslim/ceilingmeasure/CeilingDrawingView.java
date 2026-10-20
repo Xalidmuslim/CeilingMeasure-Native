@@ -73,6 +73,23 @@ final class CeilingDrawingView extends View {
     private final Paint diagonalRenderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint labelFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint labelHaloPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // All magnifier drawing resources are reused during a continuous touch gesture.
+    private final RectF magnifierBox = new RectF();
+    private final Path magnifierClip = new Path();
+    private final Paint lensBackgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lensBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lensGridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lensEdgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lensDiagonalPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lensWallDraftPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lensGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lensDiagonalDraftPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lensPointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lensCrossPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lensLabelFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lensLabelOutlinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint.FontMetrics lensLabelFontMetrics = new Paint.FontMetrics();
+    private float lensLastScale = Float.NaN;
     private final Paint selectionGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint selectionSoftPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint selectionWhitePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -185,6 +202,25 @@ final class CeilingDrawingView extends View {
         labelHaloPaint.setColor(Color.WHITE);
         labelHaloPaint.setStyle(Paint.Style.STROKE);
         labelHaloPaint.setStrokeJoin(Paint.Join.ROUND);
+        lensBackgroundPaint.setColor(Color.rgb(252, 253, 254));
+        lensBorderPaint.setColor(NativeVisualTokens.LINE_STRONG);
+        lensBorderPaint.setStyle(Paint.Style.STROKE);
+        lensBorderPaint.setStrokeWidth(dp(1));
+        lensGridPaint.setColor(GRID);
+        lensEdgePaint.set(linePaint);
+        lensDiagonalPaint.set(linePaint);
+        lensDiagonalPaint.setColor(NativeVisualTokens.MUTED);
+        lensWallDraftPaint.set(previewPaint);
+        lensGuidePaint.set(guidePaint);
+        lensDiagonalDraftPaint.set(previewPaint);
+        lensPointPaint.setColor(BLUE);
+        lensCrossPaint.setStrokeWidth(dp(1.2f));
+        lensCrossPaint.setStyle(Paint.Style.STROKE);
+        lensLabelFillPaint.set(textPaint);
+        lensLabelOutlinePaint.set(textPaint);
+        lensLabelOutlinePaint.setColor(Color.WHITE);
+        lensLabelOutlinePaint.setStyle(Paint.Style.STROKE);
+        lensLabelOutlinePaint.setStrokeJoin(Paint.Join.ROUND);
 
         selectionGuidePaint.setColor(BLUE);
         selectionGuidePaint.setStyle(Paint.Style.STROKE);
@@ -1979,20 +2015,14 @@ final class CeilingDrawingView extends View {
         float margin = dp(10);
         float left = Math.max(margin, getWidth() - width - margin);
         float top = margin;
-        RectF box = new RectF(left, top, left + width, top + height);
-
-        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
-        bg.setColor(Color.rgb(252, 253, 254));
-        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
-        border.setColor(Color.rgb(191, 204, 213));
-        border.setStyle(Paint.Style.STROKE);
-        border.setStrokeWidth(dp(1));
+        RectF box = magnifierBox;
+        box.set(left, top, left + width, top + height);
 
         canvas.save();
-        Path clip = new Path();
-        clip.addRoundRect(box, dp(8), dp(8), Path.Direction.CW);
-        canvas.clipPath(clip);
-        canvas.drawRoundRect(box, dp(8), dp(8), bg);
+        magnifierClip.reset();
+        magnifierClip.addRoundRect(box, dp(8), dp(8), Path.Direction.CW);
+        canvas.clipPath(magnifierClip);
+        canvas.drawRoundRect(box, dp(8), dp(8), lensBackgroundPaint);
 
         float lensScale = clamp(scale * 2.8f, 2f, 7.1f);
         float cx = box.centerX();
@@ -2003,9 +2033,7 @@ final class CeilingDrawingView extends View {
         canvas.scale(lensScale, lensScale);
         canvas.translate(-magnifierFocus.x, -magnifierFocus.y);
 
-        Paint fineGrid = new Paint(Paint.ANTI_ALIAS_FLAG);
-        fineGrid.setColor(Color.rgb(233, 238, 242));
-        fineGrid.setStrokeWidth(dp(.7f) / lensScale);
+        lensGridPaint.setStrokeWidth(dp(.7f) / lensScale);
         float halfW = width / 2f / lensScale + 20f;
         float halfH = height / 2f / lensScale + 20f;
         float minX = magnifierFocus.x - halfW;
@@ -2014,46 +2042,45 @@ final class CeilingDrawingView extends View {
         float maxY = magnifierFocus.y + halfH;
         float step = 5f;
         for (float x = (float) Math.floor(minX / step) * step; x <= maxX; x += step) {
-            canvas.drawLine(x, minY, x, maxY, fineGrid);
+            canvas.drawLine(x, minY, x, maxY, lensGridPaint);
         }
         for (float y = (float) Math.floor(minY / step) * step; y <= maxY; y += step) {
-            canvas.drawLine(minX, y, maxX, y, fineGrid);
+            canvas.drawLine(minX, y, maxX, y, lensGridPaint);
         }
 
-        Paint edgePaint = new Paint(linePaint);
-        edgePaint.setStrokeWidth(dp(2.8f) / lensScale);
+        lensEdgePaint.setStrokeWidth(dp(2.8f) / lensScale);
         for (NativeProjectStore.EdgeData edge : room.edges) {
             NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
             NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
-            if (a != null && b != null) canvas.drawLine(a.x, a.y, b.x, b.y, edgePaint);
+            if (a != null && b != null) canvas.drawLine(a.x, a.y, b.x, b.y, lensEdgePaint);
         }
 
-        Paint diagonalPaint = new Paint(linePaint);
-        diagonalPaint.setColor(Color.rgb(112, 130, 144));
-        diagonalPaint.setStrokeWidth(dp(1.8f) / lensScale);
-        diagonalPaint.setPathEffect(new DashPathEffect(
-                new float[]{dp(6f) / lensScale, dp(4f) / lensScale},
-                0));
+        lensDiagonalPaint.setStrokeWidth(dp(1.8f) / lensScale);
+        if (Float.compare(lensLastScale, lensScale) != 0) {
+            lensDiagonalPaint.setPathEffect(new DashPathEffect(
+                    new float[]{dp(6f) / lensScale, dp(4f) / lensScale}, 0));
+            lensGuidePaint.setPathEffect(new DashPathEffect(
+                    new float[]{dp(6f) / lensScale, dp(5f) / lensScale}, 0));
+            lensLastScale = lensScale;
+        }
         for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
             NativeProjectStore.PointData a = NativeGeometry.pointById(room, diagonal.a);
             NativeProjectStore.PointData b = NativeGeometry.pointById(room, diagonal.b);
             if (a != null && b != null) {
-                canvas.drawLine(a.x, a.y, b.x, b.y, diagonalPaint);
+                canvas.drawLine(a.x, a.y, b.x, b.y, lensDiagonalPaint);
             }
         }
 
         if (magnifierKind == MagnifierKind.WALL && wallDraft != null) {
-            Paint p = new Paint(previewPaint);
-            p.setStrokeWidth(dp(3f) / lensScale);
+            lensWallDraftPaint.setStrokeWidth(dp(3f) / lensScale);
             canvas.drawLine(
                     wallDraft.start.x,
                     wallDraft.start.y,
                     wallDraft.preview.x,
                     wallDraft.preview.y,
-                    p);
+                    lensWallDraftPaint);
             if (activeGuide != null) {
-                Paint gp = new Paint(guidePaint);
-                gp.setStrokeWidth(dp(1.3f) / lensScale);
+                lensGuidePaint.setStrokeWidth(dp(1.3f) / lensScale);
                 float half = 70f / lensScale;
                 float nx = -activeGuide.uy;
                 float ny = activeGuide.ux;
@@ -2062,26 +2089,23 @@ final class CeilingDrawingView extends View {
                         activeGuide.projected.y - ny * half,
                         activeGuide.projected.x + nx * half,
                         activeGuide.projected.y + ny * half,
-                        gp);
+                        lensGuidePaint);
             }
         }
 
         if (magnifierKind == MagnifierKind.DIAGONAL && diagDraft != null) {
-            Paint p = new Paint(previewPaint);
-            p.setStrokeWidth(dp(2.5f) / lensScale);
+            lensDiagonalDraftPaint.setStrokeWidth(dp(2.5f) / lensScale);
             canvas.drawLine(
                     diagDraft.start.x,
                     diagDraft.start.y,
                     diagDraft.preview.x,
                     diagDraft.preview.y,
-                    p);
+                    lensDiagonalDraftPaint);
         }
 
         float pointRadius = dp(3.5f) / lensScale;
-        Paint pp = new Paint(Paint.ANTI_ALIAS_FLAG);
-        pp.setColor(BLUE);
         for (NativeProjectStore.PointData point : room.points) {
-            canvas.drawCircle(point.x, point.y, pointRadius, pp);
+            canvas.drawCircle(point.x, point.y, pointRadius, lensPointPaint);
         }
 
         for (NativeLabelEngine.Placement placement : labelPlacements()) {
@@ -2093,35 +2117,27 @@ final class CeilingDrawingView extends View {
         int cross = magnifierKind == MagnifierKind.POINT && point90SnapActive
                 ? GREEN
                 : BLUE;
-        Paint crossPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        crossPaint.setColor(cross);
-        crossPaint.setStrokeWidth(dp(1.2f));
-        canvas.drawLine(cx - dp(9), cy, cx + dp(9), cy, crossPaint);
-        canvas.drawLine(cx, cy - dp(9), cx, cy + dp(9), crossPaint);
-        canvas.drawCircle(cx, cy, dp(2.8f), crossPaint);
+        lensCrossPaint.setColor(cross);
+        canvas.drawLine(cx - dp(9), cy, cx + dp(9), cy, lensCrossPaint);
+        canvas.drawLine(cx, cy - dp(9), cx, cy + dp(9), lensCrossPaint);
+        canvas.drawCircle(cx, cy, dp(2.8f), lensCrossPaint);
 
         canvas.restore();
-        canvas.drawRoundRect(box, dp(8), dp(8), border);
+        canvas.drawRoundRect(box, dp(8), dp(8), lensBorderPaint);
     }
 
     private void drawMagnifierLabel(
             Canvas canvas,
             NativeLabelEngine.Placement placement,
             float lensScale) {
-        Paint fill = new Paint(textPaint);
-        fill.setColor(TEXT);
-        fill.setTextSize(dp(placement.fontDp) * placement.size / lensScale);
-        fill.setStyle(Paint.Style.FILL);
-        fill.setStrokeWidth(0f);
-
-        Paint outline = new Paint(fill);
-        outline.setColor(Color.WHITE);
-        outline.setStyle(Paint.Style.STROKE);
+        Paint fill = lensLabelFillPaint;
+        Paint outline = lensLabelOutlinePaint;
+        float fontSize = dp(placement.fontDp) * placement.size / lensScale;
+        fill.setTextSize(fontSize);
+        outline.setTextSize(fontSize);
         outline.setStrokeWidth(dp(2.4f) / lensScale);
-        outline.setStrokeJoin(Paint.Join.ROUND);
-
-        Paint.FontMetrics fm = fill.getFontMetrics();
-        float baseline = -(fm.ascent + fm.descent) / 2f;
+        fill.getFontMetrics(lensLabelFontMetrics);
+        float baseline = -(lensLabelFontMetrics.ascent + lensLabelFontMetrics.descent) / 2f;
         canvas.save();
         canvas.translate(placement.x, placement.y);
         canvas.rotate(placement.angle);
