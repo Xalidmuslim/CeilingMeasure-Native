@@ -160,7 +160,7 @@ final class NativeEstimateDialog extends Dialog {
         summary.addView(text(
                 mode==Mode.CLIENT?"Итого к оплате":"Итого за все комнаты",
                 11,MUTED,false));
-        TextView grandTotal=text(money(total.total)+" ₽",24,TEXT,true);
+        TextView grandTotal=text(money(total.total)+" ₽",25,TEXT,true);
         grandTotal.setSingleLine(true);
         grandTotal.setAutoSizeTextTypeUniformWithConfiguration(
                 18,Math.max(24,Math.round(24f*uiPrefs.scale)),1,
@@ -295,9 +295,9 @@ final class NativeEstimateDialog extends Dialog {
         }
 
         TextView state=text(
-                cost.complete?"Расчёт готов.":"Расчёт неполный: не все обязательные размеры введены.",
-                10,
-                cost.complete?Color.rgb(58,132,94):MUTED,
+                cost.complete?"✓ Расчёт готов":"Не хватает обязательных размеров",
+                10.5f,
+                cost.complete?NativeVisualTokens.OK:MUTED,
                 false);
         card.addView(state,top(3));
 
@@ -311,86 +311,97 @@ final class NativeEstimateDialog extends Dialog {
             NativeProjectStore.ProjectData owner,
             NativeProjectStore.RoomData room,
             NativeEstimateEngine.Line line){
-        LinearLayout row=new LinearLayout(getContext());
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0,dp(3),0,dp(3));
-        int controlHeight=adaptiveActionHeight(34,false);
-        row.setMinimumHeight(controlHeight+dp(6));
+        LinearLayout item=new LinearLayout(getContext());
+        item.setTag("native_estimate_line_"+line.key+"_"+room.id);
+        item.setOrientation(LinearLayout.VERTICAL);
+        item.setPadding(dp(2),dp(9),dp(2),dp(8));
 
-        LinearLayout nameBox=new LinearLayout(getContext());
-        nameBox.setOrientation(LinearLayout.VERTICAL);
-        nameBox.setGravity(Gravity.CENTER_VERTICAL);
-        TextView name=text(line.name,12,TEXT,true);
-        name.setMaxLines(2);
-        name.setMinWidth(0);
-        nameBox.addView(name);
-        TextView qtyUnit=text(qty(line.qty)+" "+line.unit,10,MUTED,false);
-        qtyUnit.setSingleLine(true);
-        qtyUnit.setAutoSizeTextTypeUniformWithConfiguration(
-                8,Math.max(10,Math.round(10f*uiPrefs.scale)),1,
-                TypedValue.COMPLEX_UNIT_SP);
-        nameBox.addView(qtyUnit);
-        row.addView(nameBox,new LinearLayout.LayoutParams(
-                0,
+        LinearLayout heading=new LinearLayout(getContext());
+        heading.setOrientation(LinearLayout.HORIZONTAL);
+        heading.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title=text(line.name,12.5f,TEXT,true);
+        title.setMaxLines(2);
+        LinearLayout.LayoutParams titleParams=new LinearLayout.LayoutParams(
+                0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
+        titleParams.rightMargin=dp(8);
+        heading.addView(title,titleParams);
+        TextView total=text(NativeMoney.format(line.total)+" ₽",13,TEXT,true);
+        total.setSingleLine(true);
+        total.setGravity(Gravity.END);
+        heading.addView(total,new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                1.55f));
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        item.addView(heading);
 
-        Button qtyButton=button(qty(line.qty),false);
-        qtyButton.setTextSize(11);
-        qtyButton.setSingleLine(true);
-        qtyButton.setMinWidth(0);
-        qtyButton.setMinimumWidth(0);
-        qtyButton.setAutoSizeTextTypeUniformWithConfiguration(
-                8,11,1,TypedValue.COMPLEX_UNIT_SP);
-        qtyButton.setEnabled(line.custom||line.qtyEditable||(mode==Mode.INTERNAL&&isInternalExtra(line.key)));
-        qtyButton.setAlpha(qtyButton.isEnabled()?1f:.55f);
-        if(qtyButton.isEnabled()){
-            qtyButton.setOnClickListener(v->editQty(owner,room,line));
-            NativeFastLongPress.attach(qtyButton,()->editQty(owner,room,line));
-            NativeFastLongPress.attach(row,()->editQty(owner,room,line));
+        LinearLayout controls=new LinearLayout(getContext());
+        controls.setOrientation(LinearLayout.HORIZONTAL);
+        controls.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(46));
+        cp.topMargin=dp(4);
+        item.addView(controls,cp);
+
+        boolean canEditQty=line.custom||line.qtyEditable
+                ||(mode==Mode.INTERNAL&&isInternalExtra(line.key));
+        Button quantity=button(qty(line.qty),false);
+        quantity.setTag("native_estimate_qty_"+line.key+"_"+room.id);
+        quantity.setSingleLine(true);
+        quantity.setTextSize(12);
+        quantity.setEnabled(canEditQty);
+        quantity.setAlpha(canEditQty?1f:.76f);
+        quantity.setBackground(NativeVisualTokens.outlined(
+                canEditQty?NativeVisualTokens.SURFACE:NativeVisualTokens.APP_SOFT,
+                canEditQty?LINE:NativeVisualTokens.APP_SOFT,dp(10),canEditQty?dp(1):0));
+        if(canEditQty){
+            quantity.setOnClickListener(v->editQty(owner,room,line));
+            NativeFastLongPress.attach(quantity,()->editQty(owner,room,line));
         }
-        LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(0,controlHeight,.72f);
-        qp.leftMargin=dp(3);
-        row.addView(qtyButton,qp);
+        controls.addView(quantity,new LinearLayout.LayoutParams(dp(64),dp(44)));
 
-        Button price=button(money(line.price),false);
-        price.setTextSize(11);
-        price.setSingleLine(true);
-        price.setMinWidth(0);
-        price.setMinimumWidth(0);
-        price.setAutoSizeTextTypeUniformWithConfiguration(
-                8,11,1,TypedValue.COMPLEX_UNIT_SP);
-        price.setTag("native_estimate_price_"+line.key+"_"+room.id);
-        price.setOnClickListener(v->editPrice(owner,room,line));
-        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,controlHeight,.82f);
-        pp.leftMargin=dp(3);
-        row.addView(price,pp);
+        TextView unit=text(line.unit,10.5f,MUTED,false);
+        unit.setMaxLines(1);
+        unit.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(
+                0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
+        up.leftMargin=dp(6);
+        controls.addView(unit,up);
 
-        TextView sum=text(money(line.total)+" ₽",11,TEXT,true);
-        sum.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
-        sum.setSingleLine(true);
-        sum.setMinWidth(0);
-        sum.setAutoSizeTextTypeUniformWithConfiguration(
-                8,11,1,TypedValue.COMPLEX_UNIT_SP);
-        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,controlHeight,.90f);
-        sp.leftMargin=dp(3);
-        row.addView(sum,sp);
+        TextView times=text("×",14,MUTED,false);
+        times.setGravity(Gravity.CENTER);
+        controls.addView(times,new LinearLayout.LayoutParams(dp(18),dp(44)));
 
-        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,controlHeight,.34f);
-        rp.leftMargin=dp(2);
+        Button value=button(NativeMoney.format(line.price),false);
+        value.setTextSize(12);
+        value.setSingleLine(true);
+        value.setTag("native_estimate_price_"+line.key+"_"+room.id);
+        value.setContentDescription("Цена за "+line.unit+": "+line.name);
+        value.setOnClickListener(v->editPrice(owner,room,line));
+        LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(dp(90),dp(44));
+        vp.leftMargin=dp(5);
+        controls.addView(value,vp);
+
         if(line.removable){
-            Button remove=button("×",false);
-            remove.setTextColor(DANGER);
-            remove.setMinWidth(0);
-            remove.setMinimumWidth(0);
-            remove.setOnClickListener(v->removeLine(owner,room,line));
-            row.addView(remove,rp);
-        }else{
-            View actionSpacer=new View(getContext());
-            row.addView(actionSpacer,rp);
+            Button more=button("⋯",false);
+            more.setTag("native_estimate_actions_"+line.key+"_"+room.id);
+            more.setTextSize(18);
+            more.setContentDescription("Действия с позицией "+line.name);
+            more.setBackground(NativeVisualTokens.solid(
+                    NativeVisualTokens.SURFACE_SOFT,dp(10)));
+            more.setOnClickListener(v->
+                    new NativeStyledAlertDialog.Builder(getContext())
+                        .setTitle(line.name)
+                        .setItems(new String[]{"Удалить позицию"},
+                                (dialog,which)->removeLine(owner,room,line))
+                        .show());
+            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(dp(44),dp(44));
+            mp.leftMargin=dp(4);
+            controls.addView(more,mp);
         }
-        parent.addView(row);
+        parent.addView(item);
+        View divider=new View(getContext());
+        divider.setBackgroundColor(NativeVisualTokens.DIVIDER);
+        parent.addView(divider,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(1)));
     }
 
     private void editPrice(
@@ -781,9 +792,7 @@ final class NativeEstimateDialog extends Dialog {
     }
 
     private String money(double value){
-        return String.format(Locale.getDefault(),"%.2f",value)
-                .replaceAll("0+$","")
-                .replaceAll("[,.]$","");
+        return NativeMoney.format(value);
     }
 
     private GradientDrawable rounded(int fill,int stroke,int radius,int width){

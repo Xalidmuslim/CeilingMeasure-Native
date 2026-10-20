@@ -465,9 +465,7 @@ final class NativePricePresetDialog extends Dialog {
     }
 
     private String format(float value){
-        return String.format(Locale.getDefault(),"%.2f",value)
-                .replaceAll("0+$","")
-                .replaceAll("[,.]$","");
+        return NativeMoney.format(value);
     }
 
     private GradientDrawable rounded(int fill,int stroke,int radius,int width){
