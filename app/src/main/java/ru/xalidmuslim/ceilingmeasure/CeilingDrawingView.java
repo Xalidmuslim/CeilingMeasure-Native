@@ -1269,7 +1269,8 @@ final class CeilingDrawingView extends View {
         } else if (!right) {
             point90SnapActive = false;
         }
-        postInvalidateOnAnimation();
+        // Live vertex movement changes the geometry used by label placement.
+        invalidateLabels();
     }
 
     private void finishPointDrag() {
