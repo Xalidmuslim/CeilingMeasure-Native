@@ -28,9 +28,12 @@ final class NativePriceOrder {
         ArrayList<String> reordered=new ArrayList<>(previous);
         if(source.equals(target)||!reordered.contains(source)||!reordered.contains(target))
             return reordered;
+        int sourceIndex=reordered.indexOf(source);
+        int oldTargetIndex=reordered.indexOf(target);
         reordered.remove(source);
         int targetIndex=reordered.indexOf(target);
-        reordered.add(targetIndex,source);
+        // Drop below the target when moving down; above it when moving up.
+        reordered.add(sourceIndex<oldTargetIndex ? targetIndex+1 : targetIndex,source);
         return reordered;
     }
 

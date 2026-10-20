@@ -120,7 +120,7 @@ final class NativeStyledAlertDialog extends Dialog {
                 row.setMinimumHeight(dp(46));
                 row.setBackground(NativeVisualTokens.rippleOutlined(
                         NativeVisualTokens.SURFACE_SOFT, NativeVisualTokens.DIVIDER,
-                        dp(11), dp(1), Color.argb(24, 47, 143, 190)));
+                        dp(13), dp(1), Color.argb(24, 47, 143, 190)));
                 TextView label = text(config.items[index].toString(), 13.5f,
                         false, NativeVisualTokens.TEXT);
                 label.setMaxLines(3);

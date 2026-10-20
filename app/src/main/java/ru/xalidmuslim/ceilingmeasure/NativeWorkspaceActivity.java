@@ -1142,7 +1142,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_PADDING_DP),
                 dp(NativeVisualTokens.HISTORY_PADDING_DP),
                 dp(NativeVisualTokens.HISTORY_PADDING_DP));
-        nav.setElevation(dp(4));
+        nav.setElevation(dp(8));
+        nav.setClipChildren(false);
+        nav.setClipToPadding(false);
         nav.setBackground(NativeVisualTokens.outlined(
                 NativeVisualTokens.SURFACE,
                 NativeVisualTokens.LINE,
@@ -1196,17 +1198,19 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private LinearLayout.LayoutParams historyButtonParams(int leftMarginDp){
         LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(
-                dp(NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP),
-                dp(NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP));
+                0,
+                dp(NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP),1f);
         params.leftMargin=dp(leftMarginDp);
         return params;
     }
 
     private FrameLayout.LayoutParams historyNavParams(){
         FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(
-                dp(NativeVisualTokens.HISTORY_WIDTH_DP),
+                ViewGroup.LayoutParams.MATCH_PARENT,
                 dp(NativeVisualTokens.HISTORY_HEIGHT_DP),
                 Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);
+        p.leftMargin=dp(12);
+        p.rightMargin=dp(12);
         p.bottomMargin=dp(NativeVisualTokens.HISTORY_BOTTOM_DP);
         return p;
     }
@@ -1346,11 +1350,17 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             if(room.hintCollapsed){
                 drawingHint.setText("?");
                 ViewGroup.LayoutParams p=drawingHint.getLayoutParams();
-                if(p!=null){p.width=dp(40);drawingHint.setLayoutParams(p);}
+                if(p!=null&&p.width!=dp(40)){
+                    p.width=dp(40);
+                    drawingHint.setLayoutParams(p);
+                }
             }else{
                 drawingHint.setText(drawingHintText(room)+"\n×");
                 ViewGroup.LayoutParams p=drawingHint.getLayoutParams();
-                if(p!=null){p.width=dp(230);drawingHint.setLayoutParams(p);}
+                if(p!=null&&p.width!=dp(230)){
+                    p.width=dp(230);
+                    drawingHint.setLayoutParams(p);
+                }
             }
         }
         if(wallMode!=null)wallMode.setEnabled(!room.geometryLocked);
@@ -1661,7 +1671,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         if(wallDialog!=null)wallDialog.dismiss();
         drawingView.setWallSequenceActive(wallSequenceMode);
-        if(historyNavView!=null)historyNavView.setVisibility(View.GONE);
+        // Keep the bottom navigation mounted and visible while editing a wall.
+        // Hiding it here previously left the navigation missing if an editor
+        // was interrupted or a window resumed without the normal close path.
 
         wallDialog=new NativeWallMeasureDialog(
                 this,

@@ -79,14 +79,24 @@ final class NativeUiPrefs {
 
         // Persist canonical version 2 on load, exactly like web migration becomes
         // durable on the next settings/application persistence event.
-        prefs.edit()
-                .putString(KEY_CANONICAL, canonicalObject.toString())
-                .remove(KEY_FONT)
-                .remove(KEY_SCALE)
-                .remove(KEY_WEIGHT)
-                .remove(KEY_VERSION)
-                .remove(KEY_SIZE)
-                .apply();
+        String nextText=canonicalObject.toString();
+        // Dialogs can load typography dozens of times; avoid a disk write
+        // (and SharedPreferences notifications) when nothing has changed.
+        boolean needsMigration=prefs.contains(KEY_FONT)
+                || prefs.contains(KEY_SCALE)
+                || prefs.contains(KEY_WEIGHT)
+                || prefs.contains(KEY_VERSION)
+                || prefs.contains(KEY_SIZE);
+        if(!nextText.equals(canonical)||needsMigration){
+            prefs.edit()
+                    .putString(KEY_CANONICAL,nextText)
+                    .remove(KEY_FONT)
+                    .remove(KEY_SCALE)
+                    .remove(KEY_WEIGHT)
+                    .remove(KEY_VERSION)
+                    .remove(KEY_SIZE)
+                    .apply();
+        }
         return result;
     }
 

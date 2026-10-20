@@ -29,7 +29,7 @@ final class NativeVisualTokens {
     static final int SURFACE_SOFT = Color.rgb(251, 252, 254);    // #fbfcfe
     static final int APP_SOFT = Color.rgb(245, 248, 250);        // #f5f8fa
     static final int DIVIDER = Color.rgb(229, 235, 239);         // #e5ebef
-    static final int LINE = Color.rgb(216, 226, 234);            // #d8e2ea
+    static final int LINE = Color.rgb(224, 232, 239);            // #d8e2ea
     static final int LINE_STRONG = Color.rgb(203, 215, 224);     // #cbd7e0
     static final int TEXT = Color.rgb(30, 49, 68);               // #1e3144
     static final int TEXT_STRONG = Color.rgb(31, 52, 72);        // #1f3448
@@ -56,26 +56,26 @@ final class NativeVisualTokens {
     static final int HOME_PRIMARY_TOP = Color.rgb(53, 153, 199); // #3599c7
     static final int HOME_PRIMARY_BOTTOM = Color.rgb(43, 131, 176);// #2b83b0
 
-    static final int CARD_RADIUS_DP = 13;      // effective dense app-card radius
+    static final int CARD_RADIUS_DP = 16;      // effective dense app-card radius
     static final int COMPACT_RADIUS_DP = 16;
     static final int PREMIUM_RADIUS_DP = 22;
     static final int CONTROL_RADIUS_DP = 11;
-    static final int HISTORY_RADIUS_DP = 15;
-    static final int HISTORY_BUTTON_RADIUS_DP = 10;
+    static final int HISTORY_RADIUS_DP = 20;
+    static final int HISTORY_BUTTON_RADIUS_DP = 14;
     static final int HOME_RADIUS_MOBILE_DP = 19;
     static final int HOME_RADIUS_WIDE_DP = 22;
 
     static final int APP_COMPACT_GAP_DP = 7;
-    static final int HISTORY_BOTTOM_DP = 7;
-    static final int HISTORY_BUTTON_WIDTH_DP = 68;
-    static final int HISTORY_BUTTON_HEIGHT_DP = 44;
-    static final int HISTORY_GAP_DP = 3;
+    static final int HISTORY_BOTTOM_DP = 10;
+    static final int HISTORY_BUTTON_WIDTH_DP = 78;
+    static final int HISTORY_BUTTON_HEIGHT_DP = 53;
+    static final int HISTORY_GAP_DP = 4;
     static final int HISTORY_PADDING_DP = 3;
     static final int HISTORY_WIDTH_DP =
             HISTORY_BUTTON_WIDTH_DP * 4 + HISTORY_GAP_DP * 3 + HISTORY_PADDING_DP * 2; // 287
     static final int HISTORY_HEIGHT_DP =
             HISTORY_BUTTON_HEIGHT_DP + HISTORY_PADDING_DP * 2; // 50
-    static final int SCROLL_NAV_RESERVE_DP = 66;
+    static final int SCROLL_NAV_RESERVE_DP = 92;
 
     static final long OVERLAY_MOTION_MS = 115L;
     static final long COLLAPSE_MOTION_MS = 145L;
@@ -152,51 +152,67 @@ final class NativeVisualTokens {
         private final boolean home;
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private int alpha = 255;
+        // Shader allocations are O(1) per resize, not per scrolling/repaint frame.
+        private int cachedWidth = -1;
+        private int cachedHeight = -1;
+        private int cachedLeft = Integer.MIN_VALUE;
+        private int cachedTop = Integer.MIN_VALUE;
+        private Shader baseShader;
+        private Shader leftShader;
+        private Shader rightShader;
 
         ShellGradientDrawable(boolean home) {
             this.home = home;
+        }
+
+        private void ensureShaders(Rect b) {
+            if (cachedWidth == b.width() && cachedHeight == b.height()
+                    && cachedLeft == b.left && cachedTop == b.top) return;
+            cachedWidth = b.width();
+            cachedHeight = b.height();
+            cachedLeft = b.left;
+            cachedTop = b.top;
+            int top = home ? Color.rgb(247, 249, 251) : APP_BG_TOP;
+            int bottom = home ? Color.rgb(238, 243, 247) : APP_BG;
+            baseShader = new LinearGradient(
+                    b.left, b.top, b.left, b.bottom,
+                    top, bottom, Shader.TileMode.CLAMP);
+            float width = b.width();
+            float height = b.height();
+            if (home) {
+                leftShader = new RadialGradient(
+                        b.left + width * .85f,
+                        b.top + height * .04f,
+                        Math.max(1f, Math.max(width, height) * .42f),
+                        new int[]{Color.argb(26, 62, 151, 193), Color.TRANSPARENT},
+                        null, Shader.TileMode.CLAMP);
+                rightShader = null;
+            } else {
+                leftShader = new RadialGradient(
+                        b.left, b.top,
+                        Math.max(1f, Math.max(width, height) * .42f),
+                        new int[]{Color.argb(20, 47, 143, 190), Color.TRANSPARENT},
+                        null, Shader.TileMode.CLAMP);
+                rightShader = new RadialGradient(
+                        b.right, b.top,
+                        Math.max(1f, Math.max(width, height) * .34f),
+                        new int[]{Color.argb(13, 29, 70, 102), Color.TRANSPARENT},
+                        null, Shader.TileMode.CLAMP);
+            }
         }
 
         @Override
         public void draw(@NonNull Canvas canvas) {
             Rect b = getBounds();
             if (b.isEmpty()) return;
-
-            int top = home ? Color.rgb(247, 249, 251) : APP_BG_TOP;
-            int bottom = home ? Color.rgb(238, 243, 247) : APP_BG;
-            paint.setShader(new LinearGradient(
-                    b.left, b.top, b.left, b.bottom,
-                    top, bottom, Shader.TileMode.CLAMP));
+            ensureShaders(b);
+            paint.setShader(baseShader);
             paint.setAlpha(alpha);
             canvas.drawRect(b, paint);
-
-            if (home) {
-                float radius = Math.max(b.width(), b.height()) * .42f;
-                paint.setShader(new RadialGradient(
-                        b.left + b.width() * .85f,
-                        b.top + b.height() * .04f,
-                        Math.max(1f, radius),
-                        new int[]{Color.argb(26, 62, 151, 193), Color.TRANSPARENT},
-                        null,
-                        Shader.TileMode.CLAMP));
-                canvas.drawRect(b, paint);
-            } else {
-                float radiusLeft = Math.max(b.width(), b.height()) * .42f;
-                paint.setShader(new RadialGradient(
-                        b.left, b.top,
-                        Math.max(1f, radiusLeft),
-                        new int[]{Color.argb(20, 47, 143, 190), Color.TRANSPARENT},
-                        null,
-                        Shader.TileMode.CLAMP));
-                canvas.drawRect(b, paint);
-
-                float radiusRight = Math.max(b.width(), b.height()) * .34f;
-                paint.setShader(new RadialGradient(
-                        b.right, b.top,
-                        Math.max(1f, radiusRight),
-                        new int[]{Color.argb(13, 29, 70, 102), Color.TRANSPARENT},
-                        null,
-                        Shader.TileMode.CLAMP));
+            paint.setShader(leftShader);
+            canvas.drawRect(b, paint);
+            if (rightShader != null) {
+                paint.setShader(rightShader);
                 canvas.drawRect(b, paint);
             }
             paint.setShader(null);

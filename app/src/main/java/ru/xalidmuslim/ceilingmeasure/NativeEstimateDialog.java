@@ -721,7 +721,9 @@ final class NativeEstimateDialog extends Dialog {
         LinearLayout c=new LinearLayout(getContext());
         c.setOrientation(LinearLayout.VERTICAL);
         c.setPadding(dp(9),dp(7),dp(9),dp(7));
-        c.setBackground(rounded(Color.WHITE,LINE,12,1));
+        c.setBackground(NativeVisualTokens.outlined(
+                NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,
+                dp(NativeVisualTokens.CARD_RADIUS_DP),dp(1)));
         return c;
     }
 
