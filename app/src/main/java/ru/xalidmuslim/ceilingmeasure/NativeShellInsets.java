@@ -62,39 +62,63 @@ final class NativeShellInsets {
             @NonNull ScrollView scroll,
             @NonNull View historyNav,
             int navBaseBottomPx) {
-        ViewCompat.setOnApplyWindowInsetsListener(owner, (view, windowInsets) -> {
-            Insets safe = safeInsets(windowInsets);
-            Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-            int bottom=Math.max(safe.bottom,ime.bottom);
-
-            // Re-layout only on genuine inset changes, keeping the floating
-            // navigation above the user's Android keyboard.
-            if(scroll.getPaddingLeft()!=safe.left || scroll.getPaddingTop()!=safe.top
-                    || scroll.getPaddingRight()!=safe.right
-                    || scroll.getPaddingBottom()!=bottom){
-                scroll.setPadding(safe.left,safe.top,safe.right,bottom);
+        final int[] safe={0,0,0,0};
+        final int[] requestedBottom={navBaseBottomPx};
+        final Runnable placeNavigation=()->{
+            FrameLayout.LayoutParams navParams=
+                    (FrameLayout.LayoutParams)historyNav.getLayoutParams();
+            int dp=Math.round(12f*owner.getResources().getDisplayMetrics().density);
+            int left=dp+safe[0];
+            int right=dp+safe[2];
+            int baseHeight=historyNav.getHeight()>0
+                    ?historyNav.getHeight()
+                    :Math.round(NativeVisualTokens.HISTORY_HEIGHT_DP
+                        *owner.getResources().getDisplayMetrics().density);
+            int availableBottom=requestedBottom[0];
+            if(owner.getHeight()>0) {
+                // With edge-to-edge + ADJUST_RESIZE some manufacturers shrink
+                // the page AND deliver the full IME inset. Counting it twice
+                // places the navigation above the viewport (it "disappears").
+                int room=owner.getHeight()-safe[1]-baseHeight-dp;
+                availableBottom=Math.min(requestedBottom[0],
+                        Math.max(navBaseBottomPx,room));
             }
-
-            FrameLayout.LayoutParams navParams =
-                    (FrameLayout.LayoutParams) historyNav.getLayoutParams();
-            int horizontalBase=Math.round(
-                    12f*owner.getResources().getDisplayMetrics().density);
-            int left=horizontalBase+safe.left;
-            int right=horizontalBase+safe.right;
-            int navBottom=bottom+navBaseBottomPx;
-            if(navParams.bottomMargin!=navBottom
+            if(navParams.bottomMargin!=availableBottom
                     || navParams.leftMargin!=left
                     || navParams.rightMargin!=right){
-                navParams.bottomMargin=navBottom;
+                navParams.bottomMargin=availableBottom;
                 navParams.leftMargin=left;
                 navParams.rightMargin=right;
                 historyNav.setLayoutParams(navParams);
             }
+            if(historyNav.getVisibility()!=View.VISIBLE)historyNav.setVisibility(View.VISIBLE);
+        };
+        owner.addOnLayoutChangeListener((v,l,t,r,b,oldL,oldT,oldR,oldB)->{
+            if((b-t)!=(oldB-oldT))placeNavigation.run();
+        });
 
-            owner.setTag(R.id.native_safe_top, safe.top);
-            owner.setTag(R.id.native_safe_bottom, safe.bottom);
-            owner.setTag(R.id.native_safe_left, safe.left);
-            owner.setTag(R.id.native_safe_right, safe.right);
+        ViewCompat.setOnApplyWindowInsetsListener(owner,(view,windowInsets)->{
+            Insets system=safeInsets(windowInsets);
+            Insets keyboard=windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+            int bottom=Math.max(system.bottom,keyboard.bottom);
+            safe[0]=system.left;
+            safe[1]=system.top;
+            safe[2]=system.right;
+            safe[3]=system.bottom;
+            requestedBottom[0]=bottom+navBaseBottomPx;
+
+            if(scroll.getPaddingLeft()!=system.left || scroll.getPaddingTop()!=system.top
+                    || scroll.getPaddingRight()!=system.right
+                    || scroll.getPaddingBottom()!=bottom){
+                scroll.setPadding(system.left,system.top,system.right,bottom);
+            }
+
+            placeNavigation.run();
+
+            owner.setTag(R.id.native_safe_top, system.top);
+            owner.setTag(R.id.native_safe_bottom, system.bottom);
+            owner.setTag(R.id.native_safe_left, system.left);
+            owner.setTag(R.id.native_safe_right, system.right);
             return windowInsets;
         });
         ViewCompat.requestApplyInsets(owner);
