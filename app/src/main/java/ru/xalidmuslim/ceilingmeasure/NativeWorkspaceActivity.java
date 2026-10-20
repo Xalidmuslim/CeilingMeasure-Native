@@ -1679,6 +1679,32 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 .show();
     }
 
+    @Override public void onLabelActionRequested(String labelId,boolean diagonal){
+        if(drawingView==null || drawingView.getMode()!=CeilingDrawingView.Mode.LABEL)
+            return;
+        NativeProjectStore.RoomData room=activeRoom();
+        NativeProjectStore.DiagonalData diagonalItem=diagonal
+                ?findDiagonal(room,labelId):null;
+        NativeProjectStore.EdgeData wallItem=diagonal
+                ?null:findEdge(room,labelId);
+        if(diagonalItem==null && wallItem==null)return;
+        float value=diagonal ? diagonalItem.value : wallItem.value;
+        new NativeStyledAlertDialog.Builder(this)
+                .setTitle(diagonal?"Размер диагонали":"Размер стены")
+                .setItems(new String[]{"Переместить цифру","Редактировать размер"},
+                        (dialog,which)->{
+                    if(which==0){
+                        drawingView.armLabelMove(labelId,diagonal);
+                        Toast.makeText(this,
+                                "Теперь перетащи выбранную цифру пальцем",
+                                Toast.LENGTH_SHORT).show();
+                    }else{
+                        if(diagonal)editDiagonal(labelId,value);
+                        else editWall(labelId,value,false);
+                    }
+                }).show();
+    }
+
     @Override public void onWallLongPressed(String edgeId,float currentValue){
         editWall(edgeId,currentValue,false);
     }
