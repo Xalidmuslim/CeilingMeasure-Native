@@ -57,6 +57,11 @@ final class CeilingDrawingView extends View {
     private static final float LABEL_ROTATE_START_DP = 18f;
 
     private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint edgeNormalPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint edgeSelectedPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint pointLetterPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint.FontMetrics pointLetterFontMetrics = new Paint.FontMetrics();
+    private float edgePaintScale = Float.NaN;
     private final Paint pointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -129,6 +134,9 @@ final class CeilingDrawingView extends View {
         linePaint.setStrokeCap(Paint.Cap.ROUND);
         linePaint.setStrokeJoin(Paint.Join.ROUND);
 
+        edgeNormalPaint.set(linePaint);
+        edgeSelectedPaint.set(linePaint);
+        edgeSelectedPaint.setColor(BLUE);
         pointPaint.setStyle(Paint.Style.FILL);
 
         gridPaint.setColor(GRID);
@@ -140,6 +148,9 @@ final class CeilingDrawingView extends View {
         textPaint.setTypeface(android.graphics.Typeface.create(
                 "sans-serif",
                 android.graphics.Typeface.BOLD));
+
+        pointLetterPaint.set(textPaint);
+        pointLetterPaint.setColor(TEXT);
 
         previewPaint.setColor(BLUE);
         previewPaint.setStrokeWidth(dp(1.6f));
@@ -453,12 +464,12 @@ final class CeilingDrawingView extends View {
         // Stroke widths are screen-space constants. Previously linePaint was
         // scaled by Canvas, so zooming to 200–300% made walls look several
         // times thicker than at 100%.
-        Paint normalPaint = new Paint(linePaint);
-        normalPaint.setStrokeWidth(dp(1.35f) / Math.max(MIN_VIEW_SCALE, scale));
-
-        Paint activePaint = new Paint(normalPaint);
-        activePaint.setColor(BLUE);
-        activePaint.setStrokeWidth(dp(2.05f) / Math.max(MIN_VIEW_SCALE, scale));
+        if(Float.compare(edgePaintScale,scale)!=0){
+            float factor=Math.max(MIN_VIEW_SCALE,scale);
+            edgeNormalPaint.setStrokeWidth(dp(1.35f)/factor);
+            edgeSelectedPaint.setStrokeWidth(dp(2.05f)/factor);
+            edgePaintScale=scale;
+        }
 
         for (NativeProjectStore.EdgeData edge : room.edges) {
             NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
@@ -466,8 +477,8 @@ final class CeilingDrawingView extends View {
             if (a == null || b == null) continue;
 
             Paint paint = edge.id.equals(editingEdgeId)
-                    ? activePaint
-                    : normalPaint;
+                    ? edgeSelectedPaint
+                    : edgeNormalPaint;
             canvas.drawLine(a.x, a.y, b.x, b.y, paint);
         }
     }
@@ -533,26 +544,34 @@ final class CeilingDrawingView extends View {
 
     private void drawPoints(Canvas canvas) {
         float radius = dp(4.25f) / Math.max(MIN_VIEW_SCALE, scale);
-        for (NativeProjectStore.PointData point : room.points) {
+        boolean anyLetters = room.showAutoLetters;
+        if(!anyLetters){
+            for(NativeProjectStore.PointData p:room.points) {
+                if("A".equals(p.customLabel)){anyLetters=true;break;}
+            }
+        }
+        // One contour-centre calculation per frame, instead of per point label.
+        PointF letterCenter = anyLetters ? drawingCenter() : null;
+        for (int i=0;i<room.points.size();i++) {
+            NativeProjectStore.PointData point=room.points.get(i);
             boolean diagStart = diagDraft != null && diagDraft.startId.equals(point.id);
             boolean moving = point.id.equals(draggingPointId);
             pointPaint.setColor(diagStart ? RED : (moving ? GREEN : BLUE));
             canvas.drawCircle(point.x, point.y, radius, pointPaint);
-            drawPointLetter(canvas, point);
+            if(letterCenter!=null)drawPointLetter(canvas, point, i, letterCenter);
         }
     }
 
-    private void drawPointLetter(Canvas canvas, NativeProjectStore.PointData point) {
+    private void drawPointLetter(Canvas canvas, NativeProjectStore.PointData point,
+            int index, PointF center) {
         String value = "";
         if ("A".equals(point.customLabel)) {
             value = "A";
         } else if (room.showAutoLetters) {
-            int index = NativeGeometry.pointIndex(room, point.id);
-            if (index >= 0 && index < 26) value = String.valueOf((char) ('A' + index));
+            if (index < 26) value = String.valueOf((char) ('A' + index));
         }
         if (value.isEmpty()) return;
 
-        PointF center = drawingCenter();
         float vx = point.x - center.x;
         float vy = point.y - center.y;
         float len = (float) Math.hypot(vx, vy);
@@ -565,12 +584,11 @@ final class CeilingDrawingView extends View {
         float x = point.x + vx / len * offset;
         float y = point.y + vy / len * offset;
 
-        Paint tp = new Paint(textPaint);
-        tp.setTextSize(sp(12) / scale);
-        tp.setColor(TEXT);
-        Paint.FontMetrics fm = tp.getFontMetrics();
-        float baseline = y - (fm.ascent + fm.descent) / 2f;
-        canvas.drawText(value, x, baseline, tp);
+        pointLetterPaint.setTextSize(sp(12) / scale);
+        pointLetterPaint.getFontMetrics(pointLetterFontMetrics);
+        float baseline = y - (pointLetterFontMetrics.ascent
+                + pointLetterFontMetrics.descent) / 2f;
+        canvas.drawText(value, x, baseline, pointLetterPaint);
     }
 
     private void drawLabels(Canvas canvas) {

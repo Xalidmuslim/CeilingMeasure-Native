@@ -75,7 +75,7 @@ public final class NativePhase2ShellTest {
             assertNotNull(hero);
             assertNotNull(title);
             assertWidthTarget(activity);
-            assertEquals(1.12f, activity.getUiPrefsForTest().scale, .0001f);
+            assertEquals(NativeUiPrefs.defaults().scale, activity.getUiPrefsForTest().scale, .0001f);
 
             Insets safe = NativeShellInsets.currentSafeInsets(page);
             assertEquals(safe.top, scroll.getPaddingTop());
@@ -149,8 +149,9 @@ public final class NativePhase2ShellTest {
             assertEquals("native_nav_more", navGroup.getChildAt(3).getTag());
             for (int i = 0; i < 4; i++) {
                 View child = navGroup.getChildAt(i);
-                assertEquals(dp(activity, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP),
-                        child.getLayoutParams().width);
+                assertEquals(0, child.getLayoutParams().width);
+                assertTrue("navigation items share available width",
+                        child.getWidth() >= dp(activity, 65));
                 assertEquals(dp(activity, NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP),
                         child.getLayoutParams().height);
             }

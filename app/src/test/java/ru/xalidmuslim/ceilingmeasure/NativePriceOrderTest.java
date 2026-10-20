@@ -22,6 +22,12 @@ public final class NativePriceOrderTest {
                 NativePriceOrder.move(initial,"custom:a","std:insert"));
     }
 
+    @Test public void draggingDownPlacesSourceBelowTarget() {
+        List<String> original=Arrays.asList("std:canvas","std:insert","custom:a","custom:b");
+        assertEquals(Arrays.asList("std:insert","custom:a","std:canvas","custom:b"),
+                NativePriceOrder.move(original,"std:canvas","custom:a"));
+    }
+
     @Test public void missingSourceOrTargetCannotChangeOrder() {
         List<String> available=Arrays.asList("std:canvas","custom:a");
         assertEquals(available,NativePriceOrder.move(available,"missing","custom:a"));
