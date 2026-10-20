@@ -42,7 +42,12 @@ final class NativeShellInsets {
     static void bindHome(@NonNull View owner, @NonNull ScrollView scroll) {
         ViewCompat.setOnApplyWindowInsetsListener(owner, (view, windowInsets) -> {
             Insets safe = safeInsets(windowInsets);
-            scroll.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+            if(scroll.getPaddingLeft()!=safe.left
+                    || scroll.getPaddingTop()!=safe.top
+                    || scroll.getPaddingRight()!=safe.right
+                    || scroll.getPaddingBottom()!=safe.bottom){
+                scroll.setPadding(safe.left,safe.top,safe.right,safe.bottom);
+            }
             owner.setTag(R.id.native_safe_top, safe.top);
             owner.setTag(R.id.native_safe_bottom, safe.bottom);
             owner.setTag(R.id.native_safe_left, safe.left);

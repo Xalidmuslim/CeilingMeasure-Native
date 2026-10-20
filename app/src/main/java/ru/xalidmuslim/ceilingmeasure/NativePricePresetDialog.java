@@ -88,13 +88,18 @@ final class NativePricePresetDialog extends Dialog {
         int previousY=priceScroll==null?0:priceScroll.getScrollY();
         ScrollView scroll=new ScrollView(getContext());
         priceScroll=scroll;
+        final long[] lastScrollTime={0L};
         scroll.setOnDragListener((view,event)->{
             if(event.getAction()==DragEvent.ACTION_DRAG_STARTED)
                 return event.getLocalState() instanceof String;
             if(event.getAction()==DragEvent.ACTION_DRAG_LOCATION){
-                float edge=dp(64);
-                if(event.getY()<edge)scroll.scrollBy(0,-dp(20));
-                else if(event.getY()>scroll.getHeight()-edge)scroll.scrollBy(0,dp(20));
+                if(event.getEventTime()-lastScrollTime[0]>=16L){
+                    lastScrollTime[0]=event.getEventTime();
+                    float edge=dp(64);
+                    if(event.getY()<edge)scroll.scrollBy(0,-dp(20));
+                    else if(event.getY()>scroll.getHeight()-edge)
+                        scroll.scrollBy(0,dp(20));
+                }
             }
             return true;
         });
@@ -376,7 +381,8 @@ final class NativePricePresetDialog extends Dialog {
             row.addView(grip,gp);
             NativeFastLongPress.attach(grip,startDrag);
         }
-        NativeFastLongPress.attach(row,startDrag);
+        // Dragging is enabled only in the explicit reorder mode.
+        if(reorderMode)NativeFastLongPress.attach(row,startDrag);
         row.setOnDragListener((view,event)->{
             switch(event.getAction()){
                 case DragEvent.ACTION_DRAG_STARTED:

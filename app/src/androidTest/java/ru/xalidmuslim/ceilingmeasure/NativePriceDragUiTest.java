@@ -46,6 +46,11 @@ public final class NativePriceDragUiTest {
                         true,()->{});
                 client.show();
                 try{
+                    ViewGroup defaultRows=(ViewGroup)client.findViewById(android.R.id.content)
+                            .getRootView().findViewWithTag("native_client_price_drag_list");
+                    assertNotNull(defaultRows);
+                    assertFalse("ordinary price-list rows must not start drag",
+                            defaultRows.getChildAt(0).isClickable());
                     View reorderToggle=client.findViewById(android.R.id.content)
                             .getRootView().findViewWithTag("native_price_toggle_reorder");
                     assertNotNull(reorderToggle);

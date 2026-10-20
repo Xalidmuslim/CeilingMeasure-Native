@@ -2421,11 +2421,16 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         final boolean[] recentMode={true};
         final List<NativeProjectStore.ProjectData> savedSnapshot =
                 new java.util.ArrayList<>(store.loadSaved());
+        // Sort once per screen opening, not for each IME keypress.
+        savedSnapshot.sort((a,b)->Long.compare(
+                b.savedAt>0?b.savedAt:b.updatedAt,
+                a.savedAt>0?a.savedAt:a.updatedAt));
         Runnable render=()->renderSavedList(
                 list,
                 search.getText().toString(),
                 recentMode[0],
                 savedSnapshot);
+        final Runnable[] queuedSearch={null};
 
         recent.setOnClickListener(v->{
             recentMode[0]=true;
@@ -2442,7 +2447,15 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         search.addTextChangedListener(new TextWatcher(){
             @Override public void beforeTextChanged(CharSequence s,int start,int count,int after){}
-            @Override public void onTextChanged(CharSequence s,int start,int before,int count){render.run();}
+            @Override public void onTextChanged(CharSequence s,int start,int before,int count){
+                if(queuedSearch[0]!=null)list.removeCallbacks(queuedSearch[0]);
+                Runnable update=()->{
+                    queuedSearch[0]=null;
+                    if(list.isAttachedToWindow())render.run();
+                };
+                queuedSearch[0]=update;
+                list.postDelayed(update,90L);
+            }
             @Override public void afterTextChanged(Editable e){}
         });
 
@@ -2459,14 +2472,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             List<NativeProjectStore.ProjectData> savedSnapshot){
         list.removeAllViews();
         String q=query==null?"":query.trim().toLowerCase(Locale.ROOT);
-        List<NativeProjectStore.ProjectData> saved =
-                new java.util.ArrayList<>(savedSnapshot);
-        saved.sort((a,b)->Long.compare(
-                b.savedAt>0?b.savedAt:b.updatedAt,
-                a.savedAt>0?a.savedAt:a.updatedAt));
-
         java.util.ArrayList<NativeProjectStore.ProjectData> visible=new java.util.ArrayList<>();
-        for(NativeProjectStore.ProjectData p:saved){
+        for(NativeProjectStore.ProjectData p:savedSnapshot){
             StringBuilder hay=new StringBuilder()
                     .append(p.name).append(' ')
                     .append(p.phone).append(' ')
