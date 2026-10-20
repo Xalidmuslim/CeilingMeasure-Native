@@ -12,6 +12,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.GridLayout;
 import android.widget.FrameLayout;
+import android.widget.EditText;
+import android.text.InputType;
 import android.view.MotionEvent;
 
 import androidx.test.core.app.ActivityScenario;
@@ -137,7 +139,7 @@ public class NativeAppSmokeTest {
                 wall.show();
                 View root = wall.findViewById(android.R.id.content).getRootView();
                 assertNotNull(root.findViewWithTag("native_wall_value"));
-                assertNotNull(root.findViewWithTag("native_wall_decimal"));
+                assertTrue(root.findViewWithTag("native_wall_value") instanceof EditText);
                 assertNotNull(root.findViewWithTag("native_wall_meter_hint"));
                 assertNotNull(root.findViewWithTag("native_wall_done"));
                 wall.dismiss();
@@ -164,26 +166,18 @@ public class NativeAppSmokeTest {
     }
 
     @Test
-    public void wallKeypadMatchesWebEntryRules() {
+    public void wallInputUsesAndroidKeyboard() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Intent intent = new Intent(context, NativeWorkspaceActivity.class);
-        intent.putExtra(
-                NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
                 NativeWorkspaceActivity.ACTION_NEW_ORDER);
 
         try (ActivityScenario<NativeWorkspaceActivity> scenario =
                      ActivityScenario.launch(intent)) {
-            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
-            scenario.onActivity(ref::set);
-            NativeWorkspaceActivity activity = ref.get();
-            assertNotNull(activity);
+            scenario.onActivity(activity -> {
 
-            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
                 NativeWallMeasureDialog dialog = new NativeWallMeasureDialog(
-                        activity,
-                        "Стена 1 из 4",
-                        0f,
-                        true,
+                        activity,"Стена 1 из 4",0f,true,
                         new NativeWallMeasureDialog.Listener(){
                             public void onSave(float value){}
                             public void onDelete(){}
@@ -191,128 +185,77 @@ public class NativeAppSmokeTest {
                             public void onClose(){}
                         });
                 dialog.show();
-
-                GridLayout keypad = (GridLayout) dialog.findViewById(
-                        android.R.id.content).getRootView()
-                        .findViewWithTag("native_wall_keypad");
-                assertNotNull(keypad);
-                assertEquals(3, keypad.getColumnCount());
-
-                View five = dialog.findViewById(android.R.id.content).getRootView()
-                        .findViewWithTag("native_wall_key_5");
-                View eight = dialog.findViewById(android.R.id.content).getRootView()
-                        .findViewWithTag("native_wall_key_8");
-                assertNotNull(five);
-                assertNotNull(eight);
-                five.performClick();
-                eight.performClick();
-                assertEquals("58", dialog.rawValueForTest());
-                assertEquals(58f, dialog.currentUnitsOrNull(), .01f);
-
-                View backspace = dialog.findViewById(android.R.id.content).getRootView()
-                        .findViewWithTag("native_wall_key_⌫");
-                View decimal = dialog.findViewById(android.R.id.content).getRootView()
-                        .findViewWithTag("native_wall_decimal");
-                assertNotNull(backspace);
-                assertNotNull(decimal);
-                backspace.performClick();
-                backspace.performClick();
-                decimal.performClick();
-                five.performClick();
-                eight.performClick();
-                assertEquals("0,58", dialog.rawValueForTest());
-                assertEquals(58f, dialog.currentUnitsOrNull(), .01f);
+                EditText input = (EditText) dialog.findViewById(android.R.id.content)
+                        .getRootView().findViewWithTag("native_wall_value");
+                assertNotNull(input);
+                assertEquals(InputType.TYPE_CLASS_NUMBER,
+                        input.getInputType() & InputType.TYPE_MASK_CLASS);
+                input.setText("58");
+                assertEquals("58",dialog.rawValueForTest());
+                assertEquals(58f,dialog.currentUnitsOrNull(),.01f);
+                input.setText("0,58");
+                assertEquals("0,58",dialog.rawValueForTest());
+                assertEquals(58f,dialog.currentUnitsOrNull(),.01f);
                 dialog.dismiss();
             });
         }
     }
 
     @Test
-    public void nativeNumberPadUsesCustomKeysWithZeroBelowEight() {
+    public void nativeNumberEditorUsesSystemNumericKeyboard() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Intent intent = new Intent(context, NativeWorkspaceActivity.class);
-        intent.putExtra(
-                NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
                 NativeWorkspaceActivity.ACTION_NEW_ORDER);
 
         try (ActivityScenario<NativeWorkspaceActivity> scenario =
                      ActivityScenario.launch(intent)) {
-            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
-            scenario.onActivity(ref::set);
-            NativeWorkspaceActivity activity = ref.get();
-            assertNotNull(activity);
+            scenario.onActivity(activity -> {
 
-            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
                 NativeNumberPadDialog dialog = new NativeNumberPadDialog(
-                        activity,
-                        "Размер стены",
-                        0f,
-                        value -> {});
+                        activity,"Цена",150f,value -> {});
                 dialog.show();
-
-                View zero = dialog.findViewById(android.R.id.content)
-                        .getRootView()
-                        .findViewWithTag("native_number_pad_0");
-                View eight = dialog.findViewById(android.R.id.content)
-                        .getRootView()
-                        .findViewWithTag("native_number_pad_8");
-                View display = dialog.findViewById(android.R.id.content)
-                        .getRootView()
-                        .findViewWithTag("native_number_pad_display");
-                assertNotNull(zero);
-                assertNotNull(eight);
-                assertNotNull(display);
-                assertTrue(Math.abs(zero.getX() - eight.getX()) < activity.getResources()
-                        .getDisplayMetrics().density * 6f);
+                EditText input = (EditText) dialog.findViewById(android.R.id.content)
+                        .getRootView().findViewWithTag("native_number_pad_display");
+                assertNotNull(input);
+                assertEquals(InputType.TYPE_CLASS_NUMBER,
+                        input.getInputType() & InputType.TYPE_MASK_CLASS);
+                assertEquals("150",input.getText().toString());
                 dialog.dismiss();
             });
         }
     }
 
     @Test
-    public void nativeRoomControlsUseCompactButtonsAndCustomTextPad() {
+    public void nativeRoomControlsUseReadableNameAndSystemTextKeyboard() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Intent intent = new Intent(context, NativeWorkspaceActivity.class);
-        intent.putExtra(
-                NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
                 NativeWorkspaceActivity.ACTION_NEW_ORDER);
 
         try (ActivityScenario<NativeWorkspaceActivity> scenario =
                      ActivityScenario.launch(intent)) {
-            AtomicReference<NativeWorkspaceActivity> ref = new AtomicReference<>();
-            scenario.onActivity(ref::set);
-            NativeWorkspaceActivity activity = ref.get();
-            assertNotNull(activity);
+            scenario.onActivity(activity -> {
 
-            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
                 View root = activity.getWindow().getDecorView();
                 View room = root.findViewWithTag("native_room_0");
                 View add = root.findViewWithTag("native_room_add");
                 assertNotNull(room);
                 assertNotNull(add);
-                assertTrue(room.isLongClickable());
-                assertTrue(room.getLayoutParams().width <= activity.getResources()
-                        .getDisplayMetrics().density * 60f);
+                assertTrue(room instanceof android.widget.Button);
+                assertEquals("Комната 1",((android.widget.Button)room).getText().toString());
 
                 NativeTextPadDialog dialog = new NativeTextPadDialog(
-                        activity,
-                        "Переименовать комнату",
-                        "Комната 1",
-                        value -> {});
+                        activity,"Переименовать комнату","Комната 1",value -> {});
                 dialog.show();
-
-                View keyA = dialog.findViewById(android.R.id.content)
-                        .getRootView()
-                        .findViewWithTag("native_text_pad_key_А");
-                View space = dialog.findViewById(android.R.id.content)
-                        .getRootView()
-                        .findViewWithTag("native_text_pad_space");
-                View done = dialog.findViewById(android.R.id.content)
-                        .getRootView()
-                        .findViewWithTag("native_text_pad_done");
-                assertNotNull(keyA);
-                assertNotNull(space);
-                assertNotNull(done);
+                EditText input = (EditText) dialog.findViewById(android.R.id.content)
+                        .getRootView().findViewWithTag("native_text_pad_display");
+                assertNotNull(input);
+                assertEquals(InputType.TYPE_CLASS_TEXT,
+                        input.getInputType() & InputType.TYPE_MASK_CLASS);
+                assertEquals("Комната 1",input.getText().toString());
+                assertNotNull(dialog.findViewById(android.R.id.content)
+                        .getRootView().findViewWithTag("native_text_pad_done"));
                 dialog.dismiss();
             });
         }
