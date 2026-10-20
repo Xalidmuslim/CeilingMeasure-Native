@@ -114,13 +114,14 @@ final class NativePricePresetDialog extends Dialog {
         head.addView(close,new LinearLayout.LayoutParams(dp(82),dp(38)));
         content.addView(head);
 
-        HashMap<String,Float> prices=store.loadDefaultPricing(client);
-        HashSet<String> hidden=store.loadHiddenDefaultKeys(client);
+        NativeProjectStore.PricePresetSnapshot catalog=store.loadPricePresetSnapshot(client);
+        HashMap<String,Float> prices=catalog.prices;
+        HashSet<String> hidden=catalog.hidden;
         NativeEstimateEngine.Meta[] meta=client
                 ?NativeEstimateEngine.CLIENT_META
                 :NativeEstimateEngine.INTERNAL_META;
 
-        ArrayList<NativeProjectStore.MaterialData> customs=store.loadDefaultCustom(client);
+        ArrayList<NativeProjectStore.MaterialData> customs=catalog.custom;
         LinkedHashMap<String,NativeEstimateEngine.Meta> standards=new LinkedHashMap<>();
         LinkedHashMap<String,NativeProjectStore.MaterialData> materials=new LinkedHashMap<>();
         ArrayList<String> available=new ArrayList<>();
@@ -134,7 +135,7 @@ final class NativePricePresetDialog extends Dialog {
             materials.put(key,item);
             available.add(key);
         }
-        priceOrder=NativePriceOrder.normalized(store.loadDefaultPriceOrder(client),available);
+        priceOrder=NativePriceOrder.normalized(catalog.order,available);
 
         TextView reorderHint=text(
                 "≡ Зажми маркер и перетащи позицию выше или ниже",10.5f,MUTED,false);
@@ -374,7 +375,7 @@ final class NativePricePresetDialog extends Dialog {
                     if(!ordered.equals(priceOrder)){
                         priceOrder=ordered;
                         store.saveDefaultPriceOrder(client,priceOrder);
-                        render();
+                        content.post(this::render);
                     }
                     return true;
                 default: return true;

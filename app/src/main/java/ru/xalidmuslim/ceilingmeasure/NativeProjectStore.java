@@ -372,6 +372,44 @@ final class NativeProjectStore {
         }
     }
 
+    static final class PricePresetSnapshot {
+        final HashMap<String,Float> prices=new HashMap<>();
+        final HashSet<String> hidden=new HashSet<>();
+        final ArrayList<MaterialData> custom=new ArrayList<>();
+        final ArrayList<String> order=new ArrayList<>();
+    }
+
+    // Read prices, hidden items, custom entries and order in one database pass.
+    PricePresetSnapshot loadPricePresetSnapshot(boolean client) {
+        JSONObject db=loadDb();
+        PricePresetSnapshot result=new PricePresetSnapshot();
+        for(String key:client?CLIENT_PRICE_KEYS:INTERNAL_PRICE_KEYS)
+            result.prices.put(key,0f);
+        readFloatMap(db.optJSONObject(client?"defaultClientPricing":"defaultPricing"),
+                result.prices);
+        readStringSet(db.optJSONArray(
+                client?"hiddenDefaultClientKeys":"hiddenDefaultPurchaseKeys"),result.hidden);
+        JSONArray materials=db.optJSONArray(
+                client?"defaultClientCustomItems":"defaultPurchaseCustomItems");
+        if(materials!=null){
+            for(int i=0;i<materials.length();i++){
+                JSONObject entry=materials.optJSONObject(i);
+                if(entry!=null)result.custom.add(defaultMaterialFromJson(entry));
+            }
+        }
+        JSONArray order=db.optJSONArray(
+                client?"defaultClientPriceOrder":"defaultPurchasePriceOrder");
+        if(order!=null){
+            HashSet<String> seen=new HashSet<>();
+            for(int i=0;i<order.length();i++){
+                String entry=order.optString(i,"");
+                if((entry.startsWith("std:")||entry.startsWith("custom:"))
+                        && seen.add(entry))result.order.add(entry);
+            }
+        }
+        return result;
+    }
+
     ArrayList<String> loadDefaultPriceOrder(boolean client) {
         JSONObject db=loadDb();
         String key=client ? "defaultClientPriceOrder" : "defaultPurchasePriceOrder";
