@@ -87,6 +87,16 @@ final class NativePricePresetDialog extends Dialog {
         int previousY=priceScroll==null?0:priceScroll.getScrollY();
         ScrollView scroll=new ScrollView(getContext());
         priceScroll=scroll;
+        scroll.setOnDragListener((view,event)->{
+            if(event.getAction()==DragEvent.ACTION_DRAG_STARTED)
+                return event.getLocalState() instanceof String;
+            if(event.getAction()==DragEvent.ACTION_DRAG_LOCATION){
+                float edge=dp(64);
+                if(event.getY()<edge)scroll.scrollBy(0,-dp(20));
+                else if(event.getY()>scroll.getHeight()-edge)scroll.scrollBy(0,dp(20));
+            }
+            return true;
+        });
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(BG);
         scroll.setVerticalScrollBarEnabled(false);
@@ -346,11 +356,15 @@ final class NativePricePresetDialog extends Dialog {
         LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(dp(30),dp(36));
         gp.rightMargin=dp(6);
         row.addView(grip,gp);
-        NativeFastLongPress.attach(grip,()->{
+        Runnable startDrag=()->{
             if(!row.isAttachedToWindow())return;
             ClipData clip=ClipData.newPlainText("priceRow",key);
-            grip.startDragAndDrop(clip,new View.DragShadowBuilder(row),key,0);
-        });
+            row.startDragAndDrop(clip,new View.DragShadowBuilder(row),key,0);
+        };
+        NativeFastLongPress.attach(grip,startDrag);
+        // The label/background can also initiate the drag. Individual price
+        // and edit buttons keep their regular tap actions.
+        NativeFastLongPress.attach(row,startDrag);
         row.setOnDragListener((view,event)->{
             switch(event.getAction()){
                 case DragEvent.ACTION_DRAG_STARTED:
