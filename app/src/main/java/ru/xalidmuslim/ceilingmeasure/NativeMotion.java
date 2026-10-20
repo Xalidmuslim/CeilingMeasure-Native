@@ -18,8 +18,8 @@ final class NativeMotion {
     static void enter(@NonNull View view) {
         float density = view.getResources().getDisplayMetrics().density;
         view.animate().cancel();
-        view.setAlpha(0f);
-        view.setTranslationY(6f * density);
+        view.setAlpha(1f);
+        view.setTranslationY(3f * density);
         view.post(() -> view.animate()
                 .alpha(1f)
                 .translationY(0f)

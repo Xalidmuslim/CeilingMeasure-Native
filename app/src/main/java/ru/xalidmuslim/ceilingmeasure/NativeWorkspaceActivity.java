@@ -271,9 +271,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         root.setTag("native_workspace_main");
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(
-                dp(4),
+                dp(8),
                 0,
-                dp(4),
+                dp(8),
                 dp(NativeVisualTokens.SCROLL_NAV_RESERVE_DP));
         scrollContent.addView(root, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -281,7 +281,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         LinearLayout orderCard = card();
         orderCard.setTag("native_order_card");
-        orderCard.setPadding(dp(7),dp(4),dp(7),dp(5));
+        orderCard.setPadding(dp(10),dp(7),dp(10),dp(7));
         root.addView(orderCard, marginParams(0,4));
 
         LinearLayout orderHead = new LinearLayout(this);
@@ -447,6 +447,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         LinearLayout modeBar = new LinearLayout(this);
         modeBar.setOrientation(LinearLayout.HORIZONTAL);
         modeBar.setGravity(Gravity.CENTER);
+        modeBar.setPadding(dp(3),dp(3),dp(3),dp(3));
+        modeBar.setBackground(rounded(NativeVisualTokens.APP_SOFT,
+                Color.TRANSPARENT,14,0));
         LinearLayout.LayoutParams mbp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -497,7 +500,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         LinearLayout zoom = new LinearLayout(this);
         zoom.setOrientation(LinearLayout.VERTICAL);
-        zoom.setBackground(rounded(Color.argb(242,255,255,255),LINE,12,1));
+        zoom.setBackground(rounded(NativeVisualTokens.SURFACE,LINE,14,1));
+        zoom.setElevation(dp(2));
         String[] zoomLabels={"+","−","⊙"};
         for(String z:zoomLabels){
             Button zb=button(z,false);
@@ -505,10 +509,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             if("+".equals(z))zb.setOnClickListener(v->{drawingView.zoomBy(1.16f);updateDrawingChrome();});
             else if("−".equals(z))zb.setOnClickListener(v->{drawingView.zoomBy(1f/1.16f);updateDrawingChrome();});
             else zb.setOnClickListener(v->{drawingView.fitView();updateDrawingChrome();});
-            zoom.addView(zb,new LinearLayout.LayoutParams(dp(44),dp(44)));
+            zb.setContentDescription("⊙".equals(z) ? "Вместить чертёж"
+                    : ("+".equals(z) ? "Увеличить" : "Уменьшить"));
+            zoom.addView(zb,new LinearLayout.LayoutParams(dp(48),dp(48)));
         }
         FrameLayout.LayoutParams zoomParams = new FrameLayout.LayoutParams(
-                dp(44),
+                dp(48),
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.END|Gravity.BOTTOM);
         zoomParams.rightMargin=dp(8);
@@ -657,7 +663,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         notesInput.setGravity(Gravity.TOP|Gravity.START);
         notesInput.setMinHeight(dp(64));
         notesInput.setPadding(dp(10),dp(8),dp(10),dp(8));
-        notesInput.setBackground(rounded(Color.WHITE,LINE,10,1));
+        notesInput.setBackground(rounded(NativeVisualTokens.SURFACE_SOFT,LINE,12,1));
         notesInput.setOnFocusChangeListener((v,has)->{
             if(!has){
                 activeRoom().notes=notesInput.getText().toString();
@@ -696,17 +702,17 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         bar.setTag("native_workspace_topbar");
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(dp(8),dp(7),dp(8),dp(7));
-        bar.setMinimumHeight(dp(58));
+        bar.setPadding(dp(10),dp(5),dp(10),dp(5));
+        bar.setMinimumHeight(dp(50));
         bar.setBackgroundColor(NativeVisualTokens.SURFACE);
-        bar.setElevation(dp(1));
+        bar.setElevation(0f);
 
         LinearLayout brand=new LinearLayout(this);
         brand.setOrientation(LinearLayout.VERTICAL);
         brand.setGravity(Gravity.CENTER_VERTICAL);
         // Keep header compact, but let NativeTypography own text scaling.
         // Android auto-size here would override the user's live 85–130% setting.
-        TextView main=text("Натяжные потолки",15.5f,TEXT,Typeface.BOLD);
+        TextView main=text("Натяжные потолки",16f,TEXT,Typeface.BOLD);
         main.setTag("native_workspace_brand_title");
         main.setSingleLine(true);
         main.setMinWidth(0);
@@ -722,6 +728,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         subLp.topMargin=dp(2);
         brand.addView(sub,subLp);
+        sub.setVisibility(View.GONE);
         bar.addView(brand,new LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -739,6 +746,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         ImageView home=topIconButton(R.drawable.ic_shell_home,"native_top_home","Главная");
         home.setOnClickListener(v->goHome());
+        home.setVisibility(View.GONE);
         actions.addView(home,new LinearLayout.LayoutParams(dp(30),dp(30)));
 
         View saved=topActionButton(
@@ -1108,9 +1116,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private LinearLayout.LayoutParams compactModeParams(){
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(42),1f);
-        p.leftMargin=dp(2);
-        p.rightMargin=dp(2);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(45),1f);
+        p.leftMargin=dp(1);
+        p.rightMargin=dp(1);
         return p;
     }
 
@@ -1425,14 +1433,14 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void styleMode(Button b,boolean active){
         GradientDrawable content = active
-                ?NativeVisualTokens.primaryButton(dp(10),dp(1))
-                :rounded(Color.rgb(248,250,251),LINE,10,1);
+                ?NativeVisualTokens.primaryButton(dp(11),0)
+                :rounded(NativeVisualTokens.APP_SOFT,Color.TRANSPARENT,11,0);
         b.setBackground(new RippleDrawable(
                 ColorStateList.valueOf(active
                         ?Color.argb(45,255,255,255)
                         :Color.argb(26,30,49,68)),
                 content,
-                NativeVisualTokens.solid(Color.WHITE,dp(10))));
+                NativeVisualTokens.solid(Color.WHITE,dp(11))));
         b.setTextColor(active?Color.WHITE:TEXT);
     }
 
@@ -1461,7 +1469,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         e.setPadding(dp(9),0,dp(9),0);
         e.setMinHeight(0);
         e.setMinimumHeight(0);
-        e.setBackground(rounded(Color.rgb(249,251,252),LINE,10,1));
+        e.setBackground(rounded(NativeVisualTokens.SURFACE_SOFT,LINE,11,1));
         parent.addView(e,new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,dp(40)));
         return e;
@@ -1478,9 +1486,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         box.setPadding(dp(6),dp(4),dp(6),dp(4));
         box.setBackground(rounded(
                 NativeVisualTokens.SURFACE_SOFT,
-                NativeVisualTokens.DIVIDER,
-                9,
-                1));
+                Color.TRANSPARENT,
+                10,
+                0));
 
         TextView labelView = text(label,9.5f,MUTED,Typeface.NORMAL);
         labelView.setSingleLine(true);
@@ -2705,7 +2713,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private LinearLayout card(){
         LinearLayout l=new LinearLayout(this);
         l.setOrientation(LinearLayout.VERTICAL);
-        l.setPadding(dp(7),dp(7),dp(7),dp(7));
+        l.setPadding(dp(10),dp(10),dp(10),dp(10));
         l.setBackground(rounded(
                 NativeVisualTokens.SURFACE,
                 NativeVisualTokens.LINE,

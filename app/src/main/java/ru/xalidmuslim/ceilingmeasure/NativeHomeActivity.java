@@ -82,7 +82,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         content.setTag("native_home_content");
         content.setOrientation(LinearLayout.VERTICAL);
         content.setGravity(Gravity.CENTER_HORIZONTAL);
-        content.setPadding(dp(10), dp(32), dp(10), dp(18));
+        content.setPadding(dp(12), dp(14), dp(12), dp(20));
         scroll.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -99,7 +99,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         hero.setTag("native_home_hero");
         hero.setOrientation(LinearLayout.HORIZONTAL);
         hero.setGravity(Gravity.TOP);
-        hero.setPadding(dp(2), dp(6), dp(2), dp(14));
+        hero.setPadding(dp(2), dp(6), dp(2), dp(10));
         shell.addView(hero, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -108,14 +108,6 @@ public final class NativeHomeActivity extends ComponentActivity {
         copy.setOrientation(LinearLayout.VERTICAL);
         hero.addView(copy, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-        TextView kicker = text(
-                "РАБОЧЕЕ ПРИЛОЖЕНИЕ",
-                11,
-                NativeVisualTokens.HOME_KICKER,
-                true);
-        kicker.setLetterSpacing(.04f);
-        copy.addView(kicker);
 
         int screenWidthDp = Math.round(
                 getResources().getDisplayMetrics().widthPixels
@@ -127,7 +119,7 @@ public final class NativeHomeActivity extends ComponentActivity {
                 true);
         title.setTag("native_home_title");
         LinearLayout.LayoutParams titleParams = wrap();
-        titleParams.topMargin = dp(4);
+        titleParams.topMargin = dp(0);
         copy.addView(title, titleParams);
 
         TextView subtitle = text(
@@ -136,7 +128,7 @@ public final class NativeHomeActivity extends ComponentActivity {
                 NativeVisualTokens.HOME_MUTED,
                 false);
         LinearLayout.LayoutParams subtitleParams = wrap();
-        subtitleParams.topMargin = dp(7);
+        subtitleParams.topMargin = dp(3);
         copy.addView(subtitle, subtitleParams);
 
         ImageView settings = iconButton(R.drawable.ic_shell_sliders, 42, 42, 14);
@@ -187,11 +179,11 @@ public final class NativeHomeActivity extends ComponentActivity {
         View license = actionCard(
                 R.drawable.ic_shell_sliders,
                 "Лицензия",
-                "7 дней бесплатно · оплата по договорённости",
+                "Управление доступом",
                 false,
                 "native_home_license",
                 v -> showLicense());
-        actions.addView(license, cardParams(7));
+        actions.addView(license, cardParams(12));
         licenseMeta = license.findViewWithTag("native_home_license_meta");
 
         shellRoot = screen;
@@ -220,17 +212,18 @@ public final class NativeHomeActivity extends ComponentActivity {
         card.setPadding(dp(widthDp <= 430 ? 12 : 14), dp(widthDp <= 430 ? 11 : 13),
                 dp(widthDp <= 430 ? 12 : 14), dp(widthDp <= 430 ? 11 : 13));
         card.setMinimumHeight(dp(primary
-                ? (widthDp <= 430 ? 92 : 104)
-                : (widthDp <= 430 ? 80 : 94)));
+                ? (widthDp <= 430 ? 78 : 88)
+                : ("native_home_license".equals(tag) ? 60
+                    : (widthDp <= 430 ? 70 : 78))));
         card.setTag(tag);
         card.setContentDescription(title);
         card.setClickable(true);
         card.setFocusable(true);
         card.setClipToOutline(false);
-        card.setElevation(dp(primary ? 2 : 0));
+        card.setElevation(0f);
 
         Drawable content = primary
-                ? NativeVisualTokens.homePrimary(dp(radius), dp(1))
+                ? NativeVisualTokens.homePrimary(dp(radius), 0)
                 : NativeVisualTokens.outlined(
                         NativeVisualTokens.SURFACE,
                         NativeVisualTokens.HOME_CARD_LINE,
@@ -279,7 +272,7 @@ public final class NativeHomeActivity extends ComponentActivity {
 
         TextView titleView = text(
                 title,
-                16,
+                primary ? 17 : 15,
                 primary ? Color.WHITE : NativeVisualTokens.HOME_CARD_TEXT,
                 true);
         copy.addView(titleView);

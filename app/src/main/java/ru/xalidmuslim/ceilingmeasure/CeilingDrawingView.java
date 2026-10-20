@@ -41,9 +41,9 @@ final class CeilingDrawingView extends View {
         void onContourClosed();
     }
 
-    private static final int BLUE = Color.rgb(43, 136, 191);
-    private static final int TEXT = Color.rgb(32, 48, 60);
-    private static final int GRID = Color.rgb(232, 238, 243);
+    private static final int BLUE = NativeVisualTokens.ACCENT;
+    private static final int TEXT = NativeVisualTokens.TEXT;
+    private static final int GRID = Color.rgb(237, 242, 246);
     private static final int RED = Color.rgb(217, 74, 74);
     private static final int GREEN = Color.rgb(47, 154, 105);
     private static final long LONG_PRESS_MS = NativeTouchTargetPolicy.EDIT_HOLD_MS;
@@ -67,6 +67,9 @@ final class CeilingDrawingView extends View {
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint previewPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint guidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint wallDraftPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint diagonalDraftPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint activeGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint diagonalRenderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint labelFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint labelHaloPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -161,8 +164,11 @@ final class CeilingDrawingView extends View {
         guidePaint.setStrokeWidth(dp(.95f));
         guidePaint.setStyle(Paint.Style.STROKE);
         guidePaint.setPathEffect(new DashPathEffect(new float[]{dp(6), dp(5)}, 0));
+        wallDraftPaint.set(previewPaint);
+        diagonalDraftPaint.set(previewPaint);
+        activeGuidePaint.set(guidePaint);
         diagonalRenderPaint.set(linePaint);
-        diagonalRenderPaint.setColor(Color.rgb(112, 130, 144));
+        diagonalRenderPaint.setColor(NativeVisualTokens.MUTED);
         labelFillPaint.set(textPaint);
         labelHaloPaint.set(textPaint);
         labelHaloPaint.setColor(Color.WHITE);
@@ -466,8 +472,8 @@ final class CeilingDrawingView extends View {
         // times thicker than at 100%.
         if(Float.compare(edgePaintScale,scale)!=0){
             float factor=Math.max(MIN_VIEW_SCALE,scale);
-            edgeNormalPaint.setStrokeWidth(dp(1.35f)/factor);
-            edgeSelectedPaint.setStrokeWidth(dp(2.05f)/factor);
+            edgeNormalPaint.setStrokeWidth(dp(1.8f)/factor);
+            edgeSelectedPaint.setStrokeWidth(dp(2.5f)/factor);
             edgePaintScale=scale;
         }
 
@@ -485,7 +491,7 @@ final class CeilingDrawingView extends View {
 
     private void drawDiagonals(Canvas canvas) {
         if (Float.compare(diagonalPaintScale, scale) != 0) {
-            diagonalRenderPaint.setStrokeWidth(dp(.95f) / Math.max(MIN_VIEW_SCALE, scale));
+            diagonalRenderPaint.setStrokeWidth(dp(1.0f) / Math.max(MIN_VIEW_SCALE, scale));
             diagonalRenderPaint.setPathEffect(new DashPathEffect(
                     new float[]{dp(7) / scale, dp(5) / scale}, 0));
             diagonalPaintScale = scale;
@@ -499,34 +505,31 @@ final class CeilingDrawingView extends View {
         }
 
         if (diagDraft != null) {
-            Paint preview = new Paint(paint);
-            preview.setColor(BLUE);
-            preview.setPathEffect(null);
+            diagonalDraftPaint.setStrokeWidth(dp(1.7f) / Math.max(MIN_VIEW_SCALE,scale));
             canvas.drawLine(
                     diagDraft.start.x,
                     diagDraft.start.y,
                     diagDraft.preview.x,
                     diagDraft.preview.y,
-                    preview);
+                    diagonalDraftPaint);
         }
     }
 
     private void drawWallDraft(Canvas canvas) {
         if (wallDraft == null) return;
-        Paint wallPreview = new Paint(previewPaint);
-        wallPreview.setStrokeWidth(dp(1.6f) / Math.max(MIN_VIEW_SCALE, scale));
+        wallDraftPaint.setStrokeWidth(dp(1.6f) / Math.max(MIN_VIEW_SCALE, scale));
         canvas.drawLine(
                 wallDraft.start.x,
                 wallDraft.start.y,
                 wallDraft.preview.x,
                 wallDraft.preview.y,
-                wallPreview);
+                wallDraftPaint);
 
         if (activeGuide != null) {
             float half = 1000f / Math.max(MIN_VIEW_SCALE, scale);
             float nx = -activeGuide.uy;
             float ny = activeGuide.ux;
-            Paint guide = new Paint(guidePaint);
+            Paint guide = activeGuidePaint;
             guide.setStrokeWidth(dp(.95f) / Math.max(MIN_VIEW_SCALE, scale));
             guide.setPathEffect(new DashPathEffect(
                     new float[]{
