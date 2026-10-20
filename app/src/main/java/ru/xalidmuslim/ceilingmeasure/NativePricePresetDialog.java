@@ -46,6 +46,7 @@ final class NativePricePresetDialog extends Dialog {
     private final Listener listener;
     private final NativeUiPrefs uiPrefs;
     private boolean manage;
+    private boolean reorderMode;
     private LinearLayout content;
     private LinearLayout priceRows;
     private ScrollView priceScroll;
@@ -147,9 +148,29 @@ final class NativePricePresetDialog extends Dialog {
         }
         priceOrder=NativePriceOrder.normalized(catalog.order,available);
 
-        TextView reorderHint=text(
-                "≡ Удерживай позицию и перемещай вверх или вниз",10.5f,MUTED,false);
-        content.addView(reorderHint,top(8));
+        LinearLayout toolbar=new LinearLayout(getContext());
+        toolbar.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams toolbarParams=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48));
+        toolbarParams.topMargin=dp(8);
+        content.addView(toolbar,toolbarParams);
+        Button reorder=button(reorderMode?"✓ Готово":"↕ Изменить порядок",false);
+        reorder.setTag("native_price_toggle_reorder");
+        reorder.setOnClickListener(v->{reorderMode=!reorderMode;render();});
+        toolbar.addView(reorder,new LinearLayout.LayoutParams(0,dp(46),1f));
+
+        Button manageButton=button(manage?"✓ Готово":"Редактировать",false);
+        manageButton.setTag(client?"native_client_price_manage":"native_purchase_price_manage");
+        manageButton.setOnClickListener(v->{manage=!manage;render();});
+        LinearLayout.LayoutParams manageParams=new LinearLayout.LayoutParams(0,dp(46),1f);
+        manageParams.leftMargin=dp(6);
+        toolbar.addView(manageButton,manageParams);
+
+        TextView reorderHint=text(reorderMode
+                ?"Зажми маркер ≡ и перетащи позицию"
+                :"Можно также зажать строку, чтобы поменять порядок",
+                10.5f,MUTED,false);
+        content.addView(reorderHint,top(6));
 
         priceRows=new LinearLayout(getContext());
         priceRows.setTag(client?"native_client_price_drag_list":"native_purchase_price_drag_list");
@@ -167,12 +188,6 @@ final class NativePricePresetDialog extends Dialog {
             NativeProjectStore.MaterialData material=materials.get(key);
             if(material!=null)addCustomRow(material);
         }
-
-        Button manageButton=button(manage?"Готово":"Редактировать материалы",false);
-        manageButton.setTag(client?"native_client_price_manage":"native_purchase_price_manage");
-        manageButton.setOnClickListener(v->{manage=!manage;render();});
-        content.addView(manageButton,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(38)));
 
         Button add=button("+ Другой материал",false);
         add.setTag(client?"native_client_price_add":"native_purchase_price_add");
@@ -231,14 +246,14 @@ final class NativePricePresetDialog extends Dialog {
         LinearLayout row=card();
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setMinimumHeight(dp(51));
+        row.setMinimumHeight(dp(56));
         attachReorderHandle(row,NativePriceOrder.standard(meta.key));
 
         LinearLayout label=new LinearLayout(getContext());
         label.setOrientation(LinearLayout.VERTICAL);
         label.setGravity(Gravity.CENTER_VERTICAL);
-        label.addView(text(meta.name,11.5f,TEXT,true));
-        label.addView(text(meta.unit,9.5f,MUTED,false));
+        label.addView(text(meta.name,12.5f,TEXT,true));
+        label.addView(text(meta.unit,10.5f,MUTED,false));
         row.addView(label,new LinearLayout.LayoutParams(
                 0,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
 
@@ -248,7 +263,7 @@ final class NativePricePresetDialog extends Dialog {
                 store.setDefaultKeyHidden(client,meta.key,false);
                 render();
             });
-            row.addView(restore,new LinearLayout.LayoutParams(dp(76),dp(34)));
+            row.addView(restore,new LinearLayout.LayoutParams(dp(86),dp(44)));
         }else{
             Runnable editPrice=()->new NativeNumberPadDialog(
                     getContext(),
@@ -262,14 +277,7 @@ final class NativePricePresetDialog extends Dialog {
             Button price=button(format(NativeEstimateEngine.value(prices,meta.key)),false);
             price.setTag("native_default_price_"+(client?"client_":"purchase_")+meta.key);
             price.setOnClickListener(v->editPrice.run());
-            row.addView(price,new LinearLayout.LayoutParams(dp(72),dp(34)));
-
-            Button edit=button("✎",false);
-            edit.setContentDescription("Изменить цену "+meta.name);
-            edit.setOnClickListener(v->editPrice.run());
-            LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(dp(34),dp(34));
-            ep.leftMargin=dp(3);
-            row.addView(edit,ep);
+            row.addView(price,new LinearLayout.LayoutParams(dp(88),dp(44)));
 
             boolean removable=client
                     ?!"canvas".equals(meta.key)
@@ -282,8 +290,8 @@ final class NativePricePresetDialog extends Dialog {
                     store.setDefaultKeyHidden(client,meta.key,true);
                     render();
                 });
-                LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(34),dp(34));
-                rp.leftMargin=dp(3);
+                LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(44),dp(44));
+                rp.leftMargin=dp(4);
                 row.addView(remove,rp);
             }
         }
@@ -294,14 +302,14 @@ final class NativePricePresetDialog extends Dialog {
         LinearLayout row=card();
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setMinimumHeight(dp(51));
+        row.setMinimumHeight(dp(56));
         attachReorderHandle(row,NativePriceOrder.custom(item.id));
 
         LinearLayout label=new LinearLayout(getContext());
         label.setOrientation(LinearLayout.VERTICAL);
         label.setGravity(Gravity.CENTER_VERTICAL);
-        label.addView(text(item.name,11.5f,TEXT,true));
-        label.addView(text(item.unit,9.5f,MUTED,false));
+        label.addView(text(item.name,12.5f,TEXT,true));
+        label.addView(text(item.unit,10.5f,MUTED,false));
         row.addView(label,new LinearLayout.LayoutParams(
                 0,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
 
@@ -315,59 +323,59 @@ final class NativePricePresetDialog extends Dialog {
                     store.upsertDefaultCustom(client,item);
                     render();
                 }).show());
-        row.addView(price,new LinearLayout.LayoutParams(dp(72),dp(34)));
+        row.addView(price,new LinearLayout.LayoutParams(dp(88),dp(44)));
 
-        Button edit=button("✎",false);
-        edit.setContentDescription("Редактировать "+item.name);
-        edit.setOnClickListener(v->new NativeMaterialEditorDialog(
-                getContext(),
-                "Редактировать материал",
-                item,
-                false,
-                material->{
-                    store.upsertDefaultCustom(client,material);
-                    render();
-                }).show());
-        LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(dp(34),dp(34));
-        ep.leftMargin=dp(3);
-        row.addView(edit,ep);
-
-        if(manage){
-            Button remove=button("×",false);
-            remove.setTextColor(DANGER);
-            remove.setOnClickListener(v->{
-                store.deleteDefaultCustom(client,item.id);
-                render();
-            });
-            LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(34),dp(34));
-            rp.leftMargin=dp(3);
-            row.addView(remove,rp);
-        }
+        Button menu=button("⋯",false);
+        menu.setContentDescription("Действия с материалом "+item.name);
+        menu.setTag("native_price_custom_menu_"+item.id);
+        menu.setTextSize(18);
+        menu.setOnClickListener(v->new NativeStyledAlertDialog.Builder(getContext())
+                .setTitle(item.name)
+                .setItems(new String[]{"Редактировать материал","Удалить материал"},
+                        (dialog,which)->{
+                            if(which==0){
+                                new NativeMaterialEditorDialog(
+                                        getContext(),"Редактировать материал",item,false,
+                                        material->{store.upsertDefaultCustom(client,material);render();})
+                                        .show();
+                            }else{
+                                new NativeStyledAlertDialog.Builder(getContext())
+                                        .setTitle("Удалить материал?")
+                                        .setMessage(item.name+" будет удалён из прайса.")
+                                        .setNegativeButton("Отмена",null)
+                                        .setPositiveButton("Удалить",(d,w)->{
+                                            store.deleteDefaultCustom(client,item.id);
+                                            render();
+                                        }).show();
+                            }
+                        }).show());
+        LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(dp(44),dp(44));
+        mp.leftMargin=dp(4);
+        row.addView(menu,mp);
 
         priceRows.addView(row,top(3));
     }
 
     private void attachReorderHandle(LinearLayout row,String key){
         row.setTag("native_price_row_"+key);
-        Button grip=button("≡",false);
-        grip.setTextSize(22);
-        grip.setTag("native_price_grip_"+key);
-        grip.setContentDescription("Зажать и переместить "+key);
-        grip.setPadding(0,0,0,0);
-        grip.setBackground(NativeVisualTokens.rippleOutlined(
-                NativeVisualTokens.ACCENT_SOFT,NativeVisualTokens.DIVIDER,
-                dp(9),dp(1),Color.argb(32,47,143,190)));
-        LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(dp(30),dp(36));
-        gp.rightMargin=dp(6);
-        row.addView(grip,gp);
         Runnable startDrag=()->{
             if(!row.isAttachedToWindow())return;
             ClipData clip=ClipData.newPlainText("priceRow",key);
             row.startDragAndDrop(clip,new View.DragShadowBuilder(row),key,0);
         };
-        NativeFastLongPress.attach(grip,startDrag);
-        // The label/background can also initiate the drag. Individual price
-        // and edit buttons keep their regular tap actions.
+        if(reorderMode){
+            Button grip=button("≡",false);
+            grip.setTextSize(22);
+            grip.setTag("native_price_grip_"+key);
+            grip.setContentDescription("Перетащить позицию "+key);
+            grip.setPadding(0,0,0,0);
+            grip.setBackground(NativeVisualTokens.solid(
+                    NativeVisualTokens.ACCENT_SOFT,dp(10)));
+            LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(dp(48),dp(48));
+            gp.rightMargin=dp(6);
+            row.addView(grip,gp);
+            NativeFastLongPress.attach(grip,startDrag);
+        }
         NativeFastLongPress.attach(row,startDrag);
         row.setOnDragListener((view,event)->{
             switch(event.getAction()){

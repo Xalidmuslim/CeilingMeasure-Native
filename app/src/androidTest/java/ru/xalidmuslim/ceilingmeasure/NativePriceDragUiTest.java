@@ -38,6 +38,10 @@ public final class NativePriceDragUiTest {
                         true,()->{});
                 client.show();
                 try{
+                    View reorderToggle=client.findViewById(android.R.id.content)
+                            .getRootView().findViewWithTag("native_price_toggle_reorder");
+                    assertNotNull(reorderToggle);
+                    reorderToggle.performClick();
                     ViewGroup rows=(ViewGroup)client.findViewById(android.R.id.content)
                             .getRootView().findViewWithTag("native_client_price_drag_list");
                     assertNotNull(rows);
@@ -54,6 +58,10 @@ public final class NativePriceDragUiTest {
                         false,()->{});
                 purchase.show();
                 try{
+                    View reorderToggle=purchase.findViewById(android.R.id.content)
+                            .getRootView().findViewWithTag("native_price_toggle_reorder");
+                    assertNotNull(reorderToggle);
+                    reorderToggle.performClick();
                     View list=purchase.findViewById(android.R.id.content).getRootView()
                             .findViewWithTag("native_purchase_price_drag_list");
                     assertNotNull(list);
