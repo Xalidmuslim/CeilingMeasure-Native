@@ -1288,7 +1288,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 return;
         }
         scheduleSaveCurrent();
-        drawingView.invalidate();
+        drawingView.invalidateLabels();
         updateDrawingChrome();
     }
 
@@ -1573,7 +1573,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                         for(NativeProjectStore.PointData p:r.points)p.customLabel="";
                         point.customLabel="A";
                         scheduleSaveCurrent();
-                        drawingView.invalidate();
+                        drawingView.invalidateLabels();
                         Toast.makeText(this,"Угол A добавлен",Toast.LENGTH_SHORT).show();
                     }else{
                         deleteVertex(pointId);
@@ -1599,7 +1599,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     NativeGeometry.sanitize(r);
                     NativeGeometry.discardFactualGeometrySession(r);
                     scheduleSaveCurrent();
-                    drawingView.invalidate();
+                    drawingView.invalidateLabels();
                     updateStats();
                 })
                 .show();
@@ -1630,7 +1630,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                             pushHistory();
                             r.diagonals.remove(current);
                             scheduleSaveCurrent();
-                            drawingView.invalidate();
+                            drawingView.invalidateLabels();
                             Toast.makeText(this,"Диагональ удалена",Toast.LENGTH_SHORT).show();
                         }
                     }
@@ -1675,7 +1675,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                         current.value=value;
                         NativeGeometry.markFactualGeometryDirty(activeRoom());
                         scheduleSaveCurrent();
-                        drawingView.invalidate();
+                        drawingView.invalidateLabels();
                         updateStats();
                         if(wallSequenceMode&&value>0f){
                             NativeProjectStore.EdgeData next=firstUnmeasuredWallAfter(activeRoom(),edgeId);
@@ -1782,7 +1782,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             edge.value=value;
             NativeGeometry.markFactualGeometryDirty(activeRoom());
             scheduleSaveCurrent();
-            drawingView.invalidate();
+            drawingView.invalidateLabels();
             updateStats();
         }
     }
@@ -1821,7 +1821,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                             NativeGeometry.markDiagonalMeasured(current);
                             NativeGeometry.markFactualGeometryDirty(activeRoom());
                             scheduleSaveCurrent();
-                            drawingView.invalidate();
+                            drawingView.invalidateLabels();
                         }
                         holder[0].dismiss();
                     }
@@ -1833,7 +1833,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                             current.value=Math.round(value);
                             NativeGeometry.markDiagonalAuto(current);
                             scheduleSaveCurrent();
-                            drawingView.invalidate();
+                            drawingView.invalidateLabels();
                         }
                         holder[0].dismiss();
                     }
@@ -1852,7 +1852,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                                         activeRoom().diagonals.remove(current);
                                         NativeGeometry.markFactualGeometryDirty(activeRoom());
                                         scheduleSaveCurrent();
-                                        drawingView.invalidate();
+                                        drawingView.invalidateLabels();
                                     }
                                 }).show();
                     }
@@ -1922,7 +1922,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         NativeGeometry.sanitize(room);
         NativeGeometry.discardFactualGeometrySession(room);
         scheduleSaveCurrent();
-        drawingView.invalidate();
+        drawingView.invalidateLabels();
         updateStats();
         updateDrawingChrome();
     }
@@ -2110,7 +2110,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             return;
         }
         scheduleSaveCurrent();
-        drawingView.invalidate();
+        drawingView.invalidateLabels();
         Toast.makeText(this,"Добавлено диагоналей: "+added,Toast.LENGTH_SHORT).show();
     }
 

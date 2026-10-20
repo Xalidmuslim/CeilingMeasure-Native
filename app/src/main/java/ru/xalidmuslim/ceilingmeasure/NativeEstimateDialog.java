@@ -47,6 +47,7 @@ final class NativeEstimateDialog extends Dialog {
     private final Listener listener;
     private final NativeUiPrefs uiPrefs;
     private LinearLayout content;
+    private ScrollView estimateScroll;
 
     NativeEstimateDialog(
             @NonNull Context context,
@@ -81,7 +82,9 @@ final class NativeEstimateDialog extends Dialog {
     }
 
     private void render(){
+        int previousScrollY=estimateScroll==null?0:estimateScroll.getScrollY();
         ScrollView scroll=new ScrollView(getContext());
+        estimateScroll=scroll;
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(BG);
 
@@ -230,6 +233,7 @@ final class NativeEstimateDialog extends Dialog {
         }
 
         setContentView(scroll);
+        if(previousScrollY>0)scroll.post(()->scroll.scrollTo(0,previousScrollY));
     }
 
     private void addRoom(
@@ -273,7 +277,15 @@ final class NativeEstimateDialog extends Dialog {
 
         for(NativeEstimateEngine.Line line:cost.lines)addLine(card,owner,room,line);
 
-        if(mode==Mode.INTERNAL){
+        if(mode==Mode.CLIENT){
+            Button add=button("+ Добавить материал",false);
+            add.setTag("native_client_add_material_"+room.id);
+            add.setOnClickListener(v->openMaterialPicker(owner,room));
+            LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,adaptiveActionHeight(34,false));
+            addParams.topMargin=dp(4);
+            card.addView(add,addParams);
+        }else{
             Button add=button("+ Другой материал",false);
             add.setTag("native_internal_add_material_"+room.id);
             add.setOnClickListener(v->openAdhocMaterial(owner,room,false));

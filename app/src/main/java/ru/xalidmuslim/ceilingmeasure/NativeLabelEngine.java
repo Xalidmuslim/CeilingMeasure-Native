@@ -365,65 +365,73 @@ final class NativeLabelEngine {
         float dy = b.y - a.y;
         float length = (float) Math.hypot(dx, dy);
         if (length < 1f) return null;
-        float nx = -dy / length;
-        float ny = dx / length;
+        float tx = dx / length;
+        float ty = dy / length;
 
         float width = Math.max(70f * worldPerDp, text.length() * 11.4f * worldPerDp);
         float height = 30f * worldPerDp;
         Float fan = fanPreferredT(room, diagonal);
-        float preferred = fan != null
-                ? fan
-                : room.diagonals.size() <= 1
-                ? .5f
-                : .28f + .46f * (index / (float) Math.max(1, room.diagonals.size() - 1));
-
-        float[] rawT = new float[]{
-                preferred,
-                preferred - .12f,
-                preferred + .12f,
-                .22f, .36f, .5f, .64f, .78f, .86f
+        float preferred = fan == null ? .5f : fan;
+        // Dimension labels belong on the segment. Only move ALONG the line.
+        float[] candidates = new float[]{
+                preferred, .5f, preferred - .10f, preferred + .10f,
+                .42f, .35f, .28f, .22f, .58f, .65f, .72f, .78f, .18f, .82f
         };
-        float[] sides = new float[]{1f, -1f, 1.6f, -1.6f, 2.25f, -2.25f, 3f, -3f};
+        List<String> contour = NativeGeometry.cycleOrder(room);
+        float halfLabelLength = Math.min(width * .45f, length * .23f);
+        float safeFromWalls = 35f * worldPerDp;
+        float safeFromCrossings = 25f * worldPerDp;
 
         WallCandidate best = null;
-        for (float raw : rawT) {
-            float t = Math.max(.16f, Math.min(.86f, raw));
-            float bx = a.x + dx * t;
-            float by = a.y + dy * t;
-            for (float side : sides) {
-                float offset = 29f * worldPerDp
-                        + (Math.abs(side) - 1f) * 18f * worldPerDp;
-                float x = bx + nx * offset * Math.signum(side);
-                float y = by + ny * offset * Math.signum(side);
-                Box box = centeredBox(x, y, width, height);
-                float penalty = 0f;
+        for (float candidate : candidates) {
+            float t = Math.max(.16f, Math.min(.84f, candidate));
+            float x = a.x + dx * t;
+            float y = a.y + dy * t;
+            Box box = centeredBox(x, y, width, height);
+            float penalty = Math.abs(t - preferred) * 24f;
+            // When similar space is available, favour the earlier section.
+            if (t > .5f) penalty += (t - .5f) * 5f;
 
-                for (Box previous : occupied) {
-                    if (overlaps(box, previous, 14f * worldPerDp)) penalty += 1_000_000f;
-                    float distance = (float) Math.hypot(
-                            x - previous.centerX(),
-                            y - previous.centerY());
-                    float safe = 72f * worldPerDp;
-                    if (distance < safe) penalty += (safe - distance) * 220f;
+            for (Box previous : occupied) {
+                if (overlaps(box, previous, 8f * worldPerDp)) penalty += 1_000_000f;
+                float distance = (float) Math.hypot(
+                        x - previous.centerX(), y - previous.centerY());
+                float safe = 48f * worldPerDp;
+                if (distance < safe) penalty += (safe - distance) * 140f;
+            }
+
+            // Score three samples over the text footprint so the number
+            // cannot sit in a narrow bottleneck while its centre looks clear.
+            for (int sample = -1; sample <= 1; sample++) {
+                float sx = x + tx * halfLabelLength * sample;
+                float sy = y + ty * halfLabelLength * sample;
+                if (contour != null && !pointInPolygon(room, sx, sy, contour)) {
+                    penalty += 100_000f;
                 }
-
-                for (DiagSegment segment : segments) {
-                    if (segment.id.equals(diagonal.id)) continue;
-                    float distance = distancePointToSegment(
-                            x, y,
-                            segment.a.x, segment.a.y,
-                            segment.b.x, segment.b.y);
-                    float safe = 42f * worldPerDp;
-                    if (distance < safe) penalty += (safe - distance) * 480f;
+                float wallClearance = Float.POSITIVE_INFINITY;
+                for (NativeProjectStore.EdgeData edge : room.edges) {
+                    NativeProjectStore.PointData pa = NativeGeometry.pointById(room, edge.a);
+                    NativeProjectStore.PointData pb = NativeGeometry.pointById(room, edge.b);
+                    if (pa == null || pb == null) continue;
+                    wallClearance = Math.min(wallClearance,
+                            distancePointToSegment(sx, sy, pa.x, pa.y, pb.x, pb.y));
                 }
-
-                penalty += Math.abs(t - preferred) * 30f;
-                penalty += (Math.abs(side) - 1f) * 4f;
-
-                if (best == null || penalty < best.penalty) {
-                    best = new WallCandidate(x, y, box, 15.5f, penalty);
+                if (wallClearance < safeFromWalls) {
+                    penalty += (safeFromWalls - wallClearance) * 65f;
                 }
-                if (penalty < .01f) return best;
+            }
+
+            for (DiagSegment segment : segments) {
+                if (segment.id.equals(diagonal.id)) continue;
+                float distance = distancePointToSegment(x, y,
+                        segment.a.x, segment.a.y, segment.b.x, segment.b.y);
+                if (distance < safeFromCrossings) {
+                    penalty += (safeFromCrossings - distance) * 210f;
+                }
+            }
+
+            if (best == null || penalty < best.penalty) {
+                best = new WallCandidate(x, y, box, 15.5f, penalty);
             }
         }
         return best;

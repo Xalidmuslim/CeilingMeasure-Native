@@ -62,6 +62,14 @@ final class CeilingDrawingView extends View {
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint previewPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint guidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint diagonalRenderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint labelFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint labelHaloPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint.FontMetrics labelFontMetrics = new Paint.FontMetrics();
+    private List<NativeLabelEngine.Placement> labelPlacementCache;
+    private NativeProjectStore.RoomData labelPlacementRoom;
+    private float labelPlacementScale = Float.NaN;
+    private float diagonalPaintScale = Float.NaN;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private NativeProjectStore.RoomData room;
@@ -142,8 +150,13 @@ final class CeilingDrawingView extends View {
         guidePaint.setStrokeWidth(dp(.95f));
         guidePaint.setStyle(Paint.Style.STROKE);
         guidePaint.setPathEffect(new DashPathEffect(new float[]{dp(6), dp(5)}, 0));
-
-
+        diagonalRenderPaint.set(linePaint);
+        diagonalRenderPaint.setColor(Color.rgb(112, 130, 144));
+        labelFillPaint.set(textPaint);
+        labelHaloPaint.set(textPaint);
+        labelHaloPaint.setColor(Color.WHITE);
+        labelHaloPaint.setStyle(Paint.Style.STROKE);
+        labelHaloPaint.setStrokeJoin(Paint.Join.ROUND);
     }
 
     void setRoom(@NonNull NativeProjectStore.RoomData room) {
@@ -153,6 +166,7 @@ final class CeilingDrawingView extends View {
         boolean changedRoom = displayedRoomId == null
                 || !displayedRoomId.equals(room.id);
         this.room = room;
+        labelPlacementCache = null;
         displayedRoomId = room.id;
         NativeGeometry.sanitize(room);
 
@@ -459,12 +473,13 @@ final class CeilingDrawingView extends View {
     }
 
     private void drawDiagonals(Canvas canvas) {
-        Paint paint = new Paint(linePaint);
-        paint.setColor(Color.rgb(112, 130, 144));
-        paint.setStrokeWidth(dp(.95f) / Math.max(MIN_VIEW_SCALE, scale));
-        paint.setPathEffect(new DashPathEffect(
-                new float[]{dp(7) / scale, dp(5) / scale},
-                0));
+        if (Float.compare(diagonalPaintScale, scale) != 0) {
+            diagonalRenderPaint.setStrokeWidth(dp(.95f) / Math.max(MIN_VIEW_SCALE, scale));
+            diagonalRenderPaint.setPathEffect(new DashPathEffect(
+                    new float[]{dp(7) / scale, dp(5) / scale}, 0));
+            diagonalPaintScale = scale;
+        }
+        Paint paint = diagonalRenderPaint;
         for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
             NativeProjectStore.PointData a = NativeGeometry.pointById(room, diagonal.a);
             NativeProjectStore.PointData b = NativeGeometry.pointById(room, diagonal.b);
@@ -571,27 +586,34 @@ final class CeilingDrawingView extends View {
     }
 
     private List<NativeLabelEngine.Placement> labelPlacements() {
-        float density = getResources().getDisplayMetrics().density;
-        return NativeLabelEngine.layout(room, scale, density);
+        if (room == null) return java.util.Collections.emptyList();
+        if (labelPlacementCache == null || labelPlacementRoom != room
+                || Float.compare(labelPlacementScale, scale) != 0) {
+            float density = getResources().getDisplayMetrics().density;
+            labelPlacementCache = NativeLabelEngine.layout(room, scale, density);
+            labelPlacementRoom = room;
+            labelPlacementScale = scale;
+        }
+        return labelPlacementCache;
+    }
+
+    void invalidateLabels() {
+        labelPlacementCache = null;
+        postInvalidateOnAnimation();
     }
 
     private void drawStyledLabel(
             Canvas canvas,
             NativeLabelEngine.Placement placement) {
-        Paint fill = new Paint(textPaint);
-        fill.setColor(TEXT);
+        Paint fill = labelFillPaint;
         fill.setTextSize(dp(placement.fontDp) * placement.size / scale);
-        fill.setStyle(Paint.Style.FILL);
-        fill.setStrokeWidth(0f);
 
-        Paint outline = new Paint(fill);
-        outline.setColor(Color.WHITE);
-        outline.setStyle(Paint.Style.STROKE);
+        Paint outline = labelHaloPaint;
+        outline.setTextSize(fill.getTextSize());
         outline.setStrokeWidth(dp(3.2f) / scale);
-        outline.setStrokeJoin(Paint.Join.ROUND);
 
-        Paint.FontMetrics fm = fill.getFontMetrics();
-        float baseline = -(fm.ascent + fm.descent) / 2f;
+        fill.getFontMetrics(labelFontMetrics);
+        float baseline = -(labelFontMetrics.ascent + labelFontMetrics.descent) / 2f;
 
         canvas.save();
         canvas.translate(placement.x, placement.y);
@@ -1341,7 +1363,7 @@ final class CeilingDrawingView extends View {
         // the magnifier a literal view of where the number will be saved.
         magnifierFocus = new PointF(actualX, actualY);
         magnifierKind = MagnifierKind.LABEL;
-        postInvalidateOnAnimation();
+        invalidateLabels();
     }
 
     private void updateLabelRotate(float x, float y) {
@@ -1383,7 +1405,7 @@ final class CeilingDrawingView extends View {
         // fixed, so keep the lens centered on that real saved position.
         magnifierFocus = new PointF(labelRotateCenterX, labelRotateCenterY);
         magnifierKind = MagnifierKind.LABEL;
-        postInvalidateOnAnimation();
+        invalidateLabels();
     }
 
     private void changeSelectedLabelSize(float delta) {
@@ -2127,6 +2149,7 @@ final class CeilingDrawingView extends View {
     }
 
     private void changed() {
+        labelPlacementCache = null;
         syncViewToRoom();
         postInvalidateOnAnimation();
         if (listener != null) listener.onChanged();
