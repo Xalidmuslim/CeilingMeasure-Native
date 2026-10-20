@@ -3,39 +3,33 @@ package ru.xalidmuslim.ceilingmeasure;
 import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Color;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.InputFilter;
+import android.text.InputType;
 import android.view.Gravity;
-import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-
 import java.util.Locale;
 
+/** Amount/quantity editor delegates key arrangement and language to the user's Android IME. */
 final class NativeNumberPadDialog extends Dialog {
-    interface Listener {
-        void onValue(float value);
-    }
-
-    private static final int TEXT=NativeVisualTokens.TEXT;
-    private static final int MUTED=NativeVisualTokens.MUTED;
-    private static final int BLUE=NativeVisualTokens.ACCENT;
-    private static final int LINE=NativeVisualTokens.LINE;
-    private static final int PANEL=NativeVisualTokens.SURFACE;
-    private static final int BG=NativeVisualTokens.APP_SOFT;
+    interface Listener { void onValue(float value); }
 
     private final String titleText;
-    private final float initialValue;
+    private final float initial;
     private final Listener listener;
-    private final NativeUiPrefs uiPrefs;
-    private TextView display;
-    private String buffer;
+    private final NativeUiPrefs prefs;
+    private EditText input;
 
     NativeNumberPadDialog(
             @NonNull Context context,
@@ -44,205 +38,135 @@ final class NativeNumberPadDialog extends Dialog {
             @NonNull Listener listener) {
         super(context);
         this.titleText = title;
-        this.initialValue = initialValue;
+        this.initial = initialValue;
         this.listener = listener;
-        this.uiPrefs = NativeUiPrefs.load(context);
-        this.buffer = initialValue > 0 ? format(initialValue) : "0";
+        this.prefs = NativeUiPrefs.load(context);
     }
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    @Override protected void onCreate(Bundle state) {
+        super.onCreate(state);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
 
         LinearLayout shell = new LinearLayout(getContext());
         shell.setOrientation(LinearLayout.VERTICAL);
-        shell.setPadding(dp(16), dp(14), dp(16), dp(16));
-        shell.setBackground(rounded(PANEL, LINE, 20, 1));
+        shell.setPadding(dp(15),dp(14),dp(15),dp(15));
+        shell.setBackground(NativeVisualTokens.outlined(
+                NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,dp(19),dp(1)));
+        shell.addView(text(titleText,17,true,NativeVisualTokens.TEXT));
+        TextView hint=text("Введите значение с клавиатуры телефона",11.5f,false,
+                NativeVisualTokens.MUTED);
+        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
+        hp.topMargin=dp(4);
+        shell.addView(hint,hp);
 
-        TextView title = text(titleText, 17, TEXT, Typeface.BOLD);
-        shell.addView(title);
-
-        TextView hint = text("Введите размер", 12, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        hintParams.topMargin = dp(3);
-        shell.addView(hint, hintParams);
-
-        display = text(buffer, 30, TEXT, Typeface.BOLD);
-        display.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-        display.setPadding(dp(12), 0, dp(12), 0);
-        display.setTag("native_number_pad_display");
-        display.setBackground(rounded(BG, LINE, 12, 1));
-        LinearLayout.LayoutParams displayParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(56));
-        displayParams.topMargin = dp(12);
-        shell.addView(display, displayParams);
-
-        LinearLayout keypad = new LinearLayout(getContext());
-        keypad.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams keypadParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        keypadParams.topMargin = dp(10);
-        shell.addView(keypad, keypadParams);
-
-        addRow(keypad, "1", "2", "3");
-        addRow(keypad, "4", "5", "6");
-        addRow(keypad, "7", "8", "9");
-        // Phone layout: utility / 0 / backspace on the last row.
-        addRow(keypad, ",", "0", "⌫");
-
-        LinearLayout actions = new LinearLayout(getContext());
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(48));
-        actionsParams.topMargin = dp(10);
-        shell.addView(actions, actionsParams);
-
-        Button cancel = actionButton("Отмена", false);
-        cancel.setTag("native_number_pad_cancel");
-        cancel.setOnClickListener(v -> dismiss());
-
-        Button done = actionButton("Готово", true);
-        done.setTag("native_number_pad_done");
-        done.setOnClickListener(v -> {
-            try {
-                float value = Float.parseFloat(buffer.replace(',', '.'));
-                listener.onValue(value);
-                dismiss();
-            } catch (Exception ignored) {
-                buffer = "0";
-                updateDisplay();
-            }
+        input=new EditText(getContext());
+        input.setTag("native_number_pad_display");
+        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        input.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        input.setSingleLine(true);
+        input.setSelectAllOnFocus(true);
+        input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(12)});
+        NativeTypography.register(input,22,true,prefs);
+        input.setTextColor(NativeVisualTokens.TEXT);
+        input.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        input.setPadding(dp(12),0,dp(12),0);
+        input.setBackground(NativeVisualTokens.outlined(
+                NativeVisualTokens.APP_SOFT,NativeVisualTokens.LINE,dp(11),dp(1)));
+        input.setText(Math.abs(initial - Math.round(initial)) < .01f
+                ? String.valueOf(Math.round(initial))
+                : String.format(Locale.US,"%.2f",initial).replaceAll("0+$","").replaceAll("\\.$",""));
+        input.setOnEditorActionListener((v,actionId,event)->{
+            if(actionId==EditorInfo.IME_ACTION_DONE){ submit(); return true; }
+            return false;
         });
+        LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(54));
+        ip.topMargin=dp(11);
+        shell.addView(input,ip);
 
-        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, dp(48), 1f);
-        left.rightMargin = dp(4);
-        LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(0, dp(48), 1f);
-        right.leftMargin = dp(4);
-        actions.addView(cancel, left);
-        actions.addView(done, right);
+        LinearLayout actions=new LinearLayout(getContext());
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(44));
+        ap.topMargin=dp(10);
+        shell.addView(actions,ap);
+
+        Button cancel=button("Отмена",false);
+        cancel.setTag("native_number_pad_cancel");
+        cancel.setOnClickListener(v->dismiss());
+        Button save=button("Готово",true);
+        save.setTag("native_number_pad_done");
+        save.setOnClickListener(v->submit());
+        LinearLayout.LayoutParams l=new LinearLayout.LayoutParams(0,dp(44),1f);
+        l.rightMargin=dp(4);
+        actions.addView(cancel,l);
+        LinearLayout.LayoutParams r=new LinearLayout.LayoutParams(0,dp(44),1f);
+        r.leftMargin=dp(4);
+        actions.addView(save,r);
 
         setContentView(shell);
         NativeMotion.enterCompact(shell);
-
-        Window window = getWindow();
-        if (window != null) {
+        Window window=getWindow();
+        if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
-            WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
+            WindowManager.LayoutParams lp=new WindowManager.LayoutParams();
             lp.copyFrom(window.getAttributes());
-            lp.width = Math.min(
-                    getContext().getResources().getDisplayMetrics().widthPixels - dp(24),
-                    dp(360));
-            lp.height = WindowManager.LayoutParams.WRAP_CONTENT;
-            lp.gravity = Gravity.CENTER;
+            lp.width=Math.min(getContext().getResources().getDisplayMetrics().widthPixels-dp(24),dp(430));
+            lp.height=WindowManager.LayoutParams.WRAP_CONTENT;
+            lp.gravity=Gravity.CENTER;
             window.setAttributes(lp);
-            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                    |WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
         }
     }
 
-    private void addRow(LinearLayout parent, String a, String b, String c) {
-        LinearLayout row = new LinearLayout(getContext());
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(60));
-        rowParams.topMargin = dp(5);
-        parent.addView(row, rowParams);
-
-        addKey(row, a);
-        addKey(row, b);
-        addKey(row, c);
-    }
-
-    private void addKey(LinearLayout row, String value) {
-        Button key = new Button(getContext());
-        key.setAllCaps(false);
-        key.setText(value);
-        NativeTypography.register(key,value.equals("⌫")?22:24,true,uiPrefs);
-        key.setTextColor(TEXT);
-        key.setGravity(Gravity.CENTER);
-        key.setPadding(0, 0, 0, 0);
-        key.setBackground(NativeVisualTokens.rippleOutlined(
-                BG,LINE,dp(18),dp(1),Color.argb(24,30,49,68)));
-        key.setTag("native_number_pad_" + keyTag(value));
-        key.setOnClickListener(v -> press(value));
-
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(60), 1f);
-        params.leftMargin = dp(4);
-        params.rightMargin = dp(4);
-        row.addView(key, params);
-    }
-
-    private void press(String value) {
-        if ("⌫".equals(value)) {
-            if (buffer.length() <= 1) buffer = "0";
-            else buffer = buffer.substring(0, buffer.length() - 1);
-            updateDisplay();
-            return;
+    @Override protected void onStart(){
+        super.onStart();
+        if(input!=null){
+            input.requestFocus();
+            input.post(()->{
+                InputMethodManager keyboard=(InputMethodManager)getContext().getSystemService(
+                        Context.INPUT_METHOD_SERVICE);
+                if(keyboard!=null)keyboard.showSoftInput(input,InputMethodManager.SHOW_IMPLICIT);
+            });
         }
+    }
 
-        if (",".equals(value)) {
-            if (!buffer.contains(",") && !buffer.contains(".")) buffer += ",";
-            updateDisplay();
-            return;
+    private void submit(){
+        if(input==null)return;
+        String raw=input.getText().toString().trim().replace(',','.');
+        try{
+            float value=Float.parseFloat(raw);
+            if(!Float.isFinite(value)||value<0f)throw new NumberFormatException();
+            listener.onValue(value);
+            dismiss();
+        }catch(NumberFormatException ignored){
+            Toast.makeText(getContext(),"Введите корректное число",Toast.LENGTH_SHORT).show();
         }
-
-        if ("0".equals(buffer)) buffer = value;
-        else if (buffer.length() < 9) buffer += value;
-        updateDisplay();
     }
 
-    private void updateDisplay() {
-        if (display != null) display.setText(buffer);
+    private TextView text(String value,float sp,boolean bold,int color){
+        TextView t=new TextView(getContext());
+        t.setText(value);
+        t.setTextColor(color);
+        t.setIncludeFontPadding(false);
+        return NativeTypography.register(t,sp,bold,prefs);
     }
 
-    private Button actionButton(String value, boolean primary) {
-        Button button = new Button(getContext());
-        button.setAllCaps(false);
-        button.setText(value);
-        NativeTypography.register(button,14,true,uiPrefs);
-        button.setTextColor(primary ? Color.WHITE : TEXT);
-        button.setBackground(primary
-                ?NativeVisualTokens.controlButton(true,dp(11))
-                :NativeVisualTokens.rippleOutlined(
-                        BG,LINE,dp(11),dp(1),Color.argb(24,30,49,68)));
-        return button;
+    private Button button(String value,boolean primary){
+        Button b=new Button(getContext());
+        b.setText(value);
+        b.setAllCaps(false);
+        b.setTextColor(primary?Color.WHITE:NativeVisualTokens.TEXT);
+        NativeTypography.register(b,13,true,prefs);
+        b.setMinWidth(0);
+        b.setMinimumWidth(0);
+        b.setBackground(NativeVisualTokens.controlButton(primary,dp(11)));
+        return b;
     }
 
-    private TextView text(String value, int sp, int color, int style) {
-        TextView view = new TextView(getContext());
-        view.setText(value);
-        view.setTextColor(color);
-        view.setIncludeFontPadding(false);
-        return NativeTypography.register(view,sp,style==Typeface.BOLD,uiPrefs);
-    }
-
-    private GradientDrawable rounded(int fill, int stroke, int radius, int strokeWidth) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(fill);
-        drawable.setCornerRadius(dp(radius));
-        if (strokeWidth > 0) drawable.setStroke(dp(strokeWidth), stroke);
-        return drawable;
-    }
-
-    private String keyTag(String value) {
-        if (",".equals(value)) return "decimal";
-        if ("⌫".equals(value)) return "backspace";
-        return value;
-    }
-
-    private String format(float value) {
-        return Math.abs(value - Math.round(value)) < .01f
-                ? String.valueOf(Math.round(value))
-                : String.format(Locale.US, "%.1f", value);
-    }
-
-    private int dp(int value) {
-        return Math.round(value * getContext().getResources().getDisplayMetrics().density);
+    private int dp(int value){
+        return Math.round(value*getContext().getResources().getDisplayMetrics().density);
     }
 }
