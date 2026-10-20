@@ -68,10 +68,10 @@ final class NativeMaterialEditorDialog extends Dialog {
         LinearLayout head=new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        head.addView(text(titleText,15.5f,TEXT,true),new LinearLayout.LayoutParams(0,dp(34),1f));
+        head.addView(text(titleText,15.5f,TEXT,true),new LinearLayout.LayoutParams(0,dp(48),1f));
         Button close=button("×",false);
         close.setOnClickListener(v->dismiss());
-        head.addView(close,new LinearLayout.LayoutParams(dp(36),dp(34)));
+        head.addView(close,new LinearLayout.LayoutParams(dp(48),dp(48)));
         shell.addView(head);
 
         shell.addView(text("Название",10,MUTED,false),top(4));
@@ -88,7 +88,7 @@ final class NativeMaterialEditorDialog extends Dialog {
                     nameButton.setText(draft.name);
                 }).show());
         shell.addView(nameButton,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(40)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48)));
 
         shell.addView(text("Единица",10,MUTED,false),top(5));
         LinearLayout units=new LinearLayout(getContext());
@@ -101,11 +101,11 @@ final class NativeMaterialEditorDialog extends Dialog {
                 draft.unit=unit;
                 refreshUnits();
             });
-            units.addView(b,new LinearLayout.LayoutParams(0,dp(36),1f));
+            units.addView(b,new LinearLayout.LayoutParams(0,dp(48),1f));
             unitButtons.add(b);
         }
         shell.addView(units,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(36)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48)));
         refreshUnits();
 
         if(qtyEditable){
@@ -121,7 +121,7 @@ final class NativeMaterialEditorDialog extends Dialog {
                         qtyButton.setText(format(draft.qty));
                     }).show());
             shell.addView(qtyButton,new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,dp(38)));
+                    ViewGroup.LayoutParams.MATCH_PARENT,dp(48)));
         }
 
         shell.addView(text("Цена",10,MUTED,false),top(5));
@@ -136,13 +136,13 @@ final class NativeMaterialEditorDialog extends Dialog {
                     priceButton.setText(format(draft.price));
                 }).show());
         shell.addView(priceButton,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(38)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48)));
 
         LinearLayout actions=new LinearLayout(getContext());
         actions.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(40));
-        ap.topMargin=dp(6);
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48));
+        ap.topMargin=dp(8);
         shell.addView(actions,ap);
         Button cancel=button("Отмена",false);
         cancel.setOnClickListener(v->dismiss());
@@ -156,8 +156,8 @@ final class NativeMaterialEditorDialog extends Dialog {
             listener.onSave(draft.copy());
             dismiss();
         });
-        actions.addView(cancel,new LinearLayout.LayoutParams(0,dp(40),1f));
-        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(40),1f);
+        actions.addView(cancel,new LinearLayout.LayoutParams(0,dp(48),1f));
+        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(48),1f);
         sp.leftMargin=dp(6);
         actions.addView(save,sp);
 
@@ -182,9 +182,9 @@ final class NativeMaterialEditorDialog extends Dialog {
             boolean active=String.valueOf(b.getText()).equals(draft.unit);
             b.setTextColor(active?BLUE:TEXT);
             b.setBackground(rounded(
-                    active?Color.rgb(239,248,252):BG,
-                    active?Color.rgb(101,172,208):LINE,
-                    10,1));
+                    active?NativeVisualTokens.ACCENT_SOFT:NativeVisualTokens.APP_SOFT,
+                    active?NativeVisualTokens.ACCENT:Color.TRANSPARENT,
+                    11,active?1:0));
         }
     }
 

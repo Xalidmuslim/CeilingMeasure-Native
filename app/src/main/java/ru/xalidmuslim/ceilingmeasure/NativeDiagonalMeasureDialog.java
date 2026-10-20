@@ -73,10 +73,10 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         LinearLayout head=new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        head.addView(text(titleText,17,TEXT,true),new LinearLayout.LayoutParams(0,dp(40),1f));
+        head.addView(text(titleText,17,TEXT,true),new LinearLayout.LayoutParams(0,dp(48),1f));
         Button x=button("×",false);
         x.setOnClickListener(v->listener.onClose());
-        head.addView(x,new LinearLayout.LayoutParams(dp(42),dp(40)));
+        head.addView(x,new LinearLayout.LayoutParams(dp(48),dp(48)));
         shell.addView(head);
 
         shell.addView(text(
@@ -86,7 +86,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         LinearLayout calc=new LinearLayout(getContext());
         calc.setOrientation(LinearLayout.VERTICAL);
         calc.setPadding(dp(10),dp(8),dp(10),dp(8));
-        calc.setBackground(rounded(Color.rgb(247,250,252),LINE,13,1));
+        calc.setBackground(rounded(NativeVisualTokens.APP_SOFT,Color.TRANSPARENT,12,0));
         LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -110,7 +110,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         display.setTextColor(TEXT);
         display.setGravity(Gravity.CENTER);
         display.setPadding(dp(12),0,dp(12),0);
-        display.setBackground(rounded(Color.rgb(250,252,253),LINE,13,1));
+        display.setBackground(rounded(NativeVisualTokens.SURFACE_SOFT,LINE,12,1));
         display.setText(buffer);
         display.setOnEditorActionListener((v,actionId,event)->{
             if(actionId==EditorInfo.IME_ACTION_DONE){submit();return true;}
@@ -122,7 +122,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
             @Override public void afterTextChanged(Editable s){buffer=s.toString();}
         });
         LinearLayout.LayoutParams dpv=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(46));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(54));
         dpv.topMargin=dp(9);
         shell.addView(display,dpv);
 
@@ -131,14 +131,14 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         delete.setTag("native_diag_delete");
         delete.setOnClickListener(v->listener.onDelete());
         LinearLayout.LayoutParams delp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(34));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48));
         delp.topMargin=dp(7);
         shell.addView(delete,delp);
 
         LinearLayout actions=new LinearLayout(getContext());
         actions.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(42));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48));
         ap.topMargin=dp(7);
         shell.addView(actions,ap);
         Button cancel=button("Отмена",false);
@@ -146,8 +146,8 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         Button save=button("Сохранить замер",true);
         save.setTag("native_diag_save");
         save.setOnClickListener(v->submit());
-        actions.addView(cancel,new LinearLayout.LayoutParams(0,dp(42),1f));
-        actions.addView(save,new LinearLayout.LayoutParams(0,dp(42),1f));
+        actions.addView(cancel,new LinearLayout.LayoutParams(0,dp(48),1f));
+        actions.addView(save,new LinearLayout.LayoutParams(0,dp(48),1f));
 
         Button useAuto=button("Подставить расчётное (не замер)",false);
         useAuto.setTag("native_diag_use_auto");
@@ -157,7 +157,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
             if(autoValue!=null)listener.onUseAuto(Math.round(autoValue));
         });
         LinearLayout.LayoutParams uap=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(42));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48));
         uap.topMargin=dp(8);
         shell.addView(useAuto,uap);
 

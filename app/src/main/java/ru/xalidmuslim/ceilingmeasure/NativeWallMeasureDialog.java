@@ -83,11 +83,11 @@ final class NativeWallMeasureDialog extends Dialog {
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
         TextView title=text(titleText,15,TEXT,true);
-        head.addView(title,new LinearLayout.LayoutParams(0,dp(34),1f));
+        head.addView(title,new LinearLayout.LayoutParams(0,dp(48),1f));
         Button x=button("×",false);
         x.setTag("native_wall_dismiss");
         x.setOnClickListener(v->listener.onClose());
-        head.addView(x,new LinearLayout.LayoutParams(dp(40),dp(34)));
+        head.addView(x,new LinearLayout.LayoutParams(dp(48),dp(48)));
         shell.addView(head);
 
         TextView sub=text(
@@ -110,7 +110,7 @@ final class NativeWallMeasureDialog extends Dialog {
         display.setTextColor(TEXT);
         display.setGravity(Gravity.CENTER);
         display.setPadding(dp(12),0,dp(12),0);
-        display.setBackground(rounded(Color.rgb(250,252,253),LINE,14,1));
+        display.setBackground(rounded(NativeVisualTokens.SURFACE_SOFT,LINE,13,1));
         display.setText(buffer);
         display.setOnEditorActionListener((v,actionId,event)->{
             if(actionId==EditorInfo.IME_ACTION_DONE){submit();return true;}
@@ -143,14 +143,14 @@ final class NativeWallMeasureDialog extends Dialog {
         delete.setVisibility(sequence?View.GONE:View.VISIBLE);
         delete.setOnClickListener(v->listener.onDelete());
         LinearLayout.LayoutParams delp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(32));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48));
         delp.topMargin=dp(5);
         shell.addView(delete,delp);
 
         LinearLayout actions=new LinearLayout(getContext());
         actions.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(39));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48));
         ap.topMargin=dp(6);
         shell.addView(actions,ap);
 
@@ -164,10 +164,10 @@ final class NativeWallMeasureDialog extends Dialog {
         done.setTag("native_wall_done");
         done.setOnClickListener(v->submit());
 
-        LinearLayout.LayoutParams half=new LinearLayout.LayoutParams(0,dp(39),1f);
+        LinearLayout.LayoutParams half=new LinearLayout.LayoutParams(0,dp(48),1f);
         half.rightMargin=dp(3);
         actions.addView(back,new LinearLayout.LayoutParams(half));
-        LinearLayout.LayoutParams half2=new LinearLayout.LayoutParams(0,dp(39),1f);
+        LinearLayout.LayoutParams half2=new LinearLayout.LayoutParams(0,dp(48),1f);
         half2.leftMargin=dp(3);
         actions.addView(done,half2);
 

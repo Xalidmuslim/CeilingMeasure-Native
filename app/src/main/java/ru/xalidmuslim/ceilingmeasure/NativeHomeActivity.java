@@ -131,12 +131,12 @@ public final class NativeHomeActivity extends ComponentActivity {
         subtitleParams.topMargin = dp(3);
         copy.addView(subtitle, subtitleParams);
 
-        ImageView settings = iconButton(R.drawable.ic_shell_sliders, 42, 42, 14);
+        ImageView settings = iconButton(R.drawable.ic_shell_sliders, 48, 48, 14);
         settings.setTag("native_home_settings");
         settings.setContentDescription("Настройки");
         settings.setOnClickListener(v -> openSettings());
         LinearLayout.LayoutParams settingsParams =
-                new LinearLayout.LayoutParams(dp(42), dp(42));
+                new LinearLayout.LayoutParams(dp(48), dp(48));
         settingsParams.topMargin = dp(2);
         hero.addView(settings, settingsParams);
 
