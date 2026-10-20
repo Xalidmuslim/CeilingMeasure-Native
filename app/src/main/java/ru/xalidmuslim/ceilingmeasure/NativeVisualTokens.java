@@ -18,52 +18,52 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 /**
- * Audited effective shell tokens from web v184.
+ * Professional engineering-minimalism palette (v231).
  *
  * Drawing/gesture-specific colors and dimensions intentionally do not live here.
  */
 final class NativeVisualTokens {
-    static final int APP_BG = Color.rgb(242, 245, 248);          // #f2f5f8
-    static final int APP_BG_TOP = Color.rgb(248, 250, 252);      // #f8fafc
+    static final int APP_BG = Color.rgb(246, 248, 250);          // #f2f5f8
+    static final int APP_BG_TOP = Color.rgb(246, 248, 250);      // #f8fafc
     static final int SURFACE = Color.WHITE;                      // #ffffff
-    static final int SURFACE_SOFT = Color.rgb(251, 252, 254);    // #fbfcfe
-    static final int APP_SOFT = Color.rgb(245, 248, 250);        // #f5f8fa
-    static final int DIVIDER = Color.rgb(229, 235, 239);         // #e5ebef
-    static final int LINE = Color.rgb(224, 232, 239);            // #d8e2ea
-    static final int LINE_STRONG = Color.rgb(203, 215, 224);     // #cbd7e0
-    static final int TEXT = Color.rgb(30, 49, 68);               // #1e3144
-    static final int TEXT_STRONG = Color.rgb(31, 52, 72);        // #1f3448
-    static final int MUTED = Color.rgb(112, 130, 148);           // #708294
-    static final int HOME_MUTED = Color.rgb(115, 134, 149);      // #738695
-    static final int HOME_KICKER = Color.rgb(120, 144, 161);     // #7890a1
-    static final int ACCENT = Color.rgb(47, 143, 190);           // #2f8fbe
-    static final int APP_ACCENT = Color.rgb(47, 149, 194);       // #2f95c2
-    static final int ACCENT_STRONG = Color.rgb(39, 125, 167);    // #277da7
-    static final int ACCENT_SOFT = Color.rgb(237, 246, 251);     // #edf6fb
+    static final int SURFACE_SOFT = Color.rgb(250, 251, 252);    // #fbfcfe
+    static final int APP_SOFT = Color.rgb(241, 245, 247);        // #f5f8fa
+    static final int DIVIDER = Color.rgb(230, 237, 242);         // #e5ebef
+    static final int LINE = Color.rgb(223, 230, 236);            // #d8e2ea
+    static final int LINE_STRONG = Color.rgb(199, 211, 219);     // #cbd7e0
+    static final int TEXT = Color.rgb(32, 52, 69);               // #1e3144
+    static final int TEXT_STRONG = Color.rgb(32, 52, 69);        // #1f3448
+    static final int MUTED = Color.rgb(88, 108, 125);           // #708294
+    static final int HOME_MUTED = Color.rgb(88, 108, 125);      // #738695
+    static final int HOME_KICKER = Color.rgb(88, 108, 125);     // #7890a1
+    static final int ACCENT = Color.rgb(33, 110, 147);           // #2f8fbe
+    static final int APP_ACCENT = Color.rgb(33, 110, 147);       // #2f95c2
+    static final int ACCENT_STRONG = Color.rgb(28, 92, 122);    // #277da7
+    static final int ACCENT_SOFT = Color.rgb(233, 243, 248);     // #edf6fb
     static final int DANGER = Color.rgb(207, 71, 71);            // #cf4747
     static final int OK = Color.rgb(47, 154, 104);               // #2f9a68
     static final int WARN = Color.rgb(213, 138, 36);             // #d58a24
     static final int ERROR = Color.rgb(200, 76, 84);             // #c84c54
 
-    static final int HOME_CARD_TEXT = Color.rgb(36, 59, 77);     // #243b4d
-    static final int HOME_CARD_MUTED = Color.rgb(122, 141, 156); // #7a8d9c
-    static final int HOME_CHEVRON = Color.rgb(154, 171, 183);    // #9aabb7
-    static final int HOME_CARD_LINE = Color.rgb(219, 228, 235);  // #dbe4eb
-    static final int HOME_SETTINGS_LINE = Color.rgb(220, 229, 235); // #dce5eb
-    static final int HOME_ICON_BG = Color.rgb(237, 245, 249);    // #edf5f9
-    static final int HOME_ICON = Color.rgb(45, 127, 169);        // #2d7fa9
-    static final int HOME_PRIMARY_LINE = Color.rgb(45, 143, 190);// #2d8fbe
-    static final int HOME_PRIMARY_TOP = Color.rgb(53, 153, 199); // #3599c7
-    static final int HOME_PRIMARY_BOTTOM = Color.rgb(43, 131, 176);// #2b83b0
+    static final int HOME_CARD_TEXT = Color.rgb(32, 52, 69);     // #243b4d
+    static final int HOME_CARD_MUTED = Color.rgb(88, 108, 125); // #7a8d9c
+    static final int HOME_CHEVRON = Color.rgb(88, 108, 125);    // #9aabb7
+    static final int HOME_CARD_LINE = Color.rgb(223, 230, 236);  // #dbe4eb
+    static final int HOME_SETTINGS_LINE = Color.rgb(223, 230, 236); // #dce5eb
+    static final int HOME_ICON_BG = Color.rgb(233, 243, 248);    // #edf5f9
+    static final int HOME_ICON = Color.rgb(33, 110, 147);        // #2d7fa9
+    static final int HOME_PRIMARY_LINE = Color.rgb(33, 110, 147);// #2d8fbe
+    static final int HOME_PRIMARY_TOP = Color.rgb(33, 110, 147); // #3599c7
+    static final int HOME_PRIMARY_BOTTOM = Color.rgb(33, 110, 147);// #2b83b0
 
     static final int CARD_RADIUS_DP = 16;      // effective dense app-card radius
-    static final int COMPACT_RADIUS_DP = 16;
-    static final int PREMIUM_RADIUS_DP = 22;
+    static final int COMPACT_RADIUS_DP = 12;
+    static final int PREMIUM_RADIUS_DP = 18;
     static final int CONTROL_RADIUS_DP = 11;
     static final int HISTORY_RADIUS_DP = 20;
     static final int HISTORY_BUTTON_RADIUS_DP = 14;
-    static final int HOME_RADIUS_MOBILE_DP = 19;
-    static final int HOME_RADIUS_WIDE_DP = 22;
+    static final int HOME_RADIUS_MOBILE_DP = 16;
+    static final int HOME_RADIUS_WIDE_DP = 18;
 
     static final int APP_COMPACT_GAP_DP = 7;
     static final int HISTORY_BOTTOM_DP = 10;
@@ -123,117 +123,20 @@ final class NativeVisualTokens {
     }
 
     static GradientDrawable primaryButton(float radiusPx, int strokePx) {
-        GradientDrawable d = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.rgb(55, 153, 200), Color.rgb(44, 137, 183)});
-        d.setCornerRadius(radiusPx);
-        d.setStroke(strokePx, ACCENT);
+        GradientDrawable d = solid(ACCENT, radiusPx);
+        if (strokePx > 0) d.setStroke(strokePx, ACCENT);
         return d;
     }
 
     static GradientDrawable homePrimary(float radiusPx, int strokePx) {
-        GradientDrawable d = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{HOME_PRIMARY_TOP, HOME_PRIMARY_BOTTOM});
-        d.setCornerRadius(radiusPx);
-        d.setStroke(strokePx, HOME_PRIMARY_LINE);
-        return d;
+        return primaryButton(radiusPx, strokePx);
     }
 
     static Drawable homeBackground() {
-        return new ShellGradientDrawable(true);
+        return solid(APP_BG, 0f);
     }
 
     static Drawable workspaceBackground() {
-        return new ShellGradientDrawable(false);
-    }
-
-    private static final class ShellGradientDrawable extends Drawable {
-        private final boolean home;
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private int alpha = 255;
-        // Shader allocations are O(1) per resize, not per scrolling/repaint frame.
-        private int cachedWidth = -1;
-        private int cachedHeight = -1;
-        private int cachedLeft = Integer.MIN_VALUE;
-        private int cachedTop = Integer.MIN_VALUE;
-        private Shader baseShader;
-        private Shader leftShader;
-        private Shader rightShader;
-
-        ShellGradientDrawable(boolean home) {
-            this.home = home;
-        }
-
-        private void ensureShaders(Rect b) {
-            if (cachedWidth == b.width() && cachedHeight == b.height()
-                    && cachedLeft == b.left && cachedTop == b.top) return;
-            cachedWidth = b.width();
-            cachedHeight = b.height();
-            cachedLeft = b.left;
-            cachedTop = b.top;
-            int top = home ? Color.rgb(247, 249, 251) : APP_BG_TOP;
-            int bottom = home ? Color.rgb(238, 243, 247) : APP_BG;
-            baseShader = new LinearGradient(
-                    b.left, b.top, b.left, b.bottom,
-                    top, bottom, Shader.TileMode.CLAMP);
-            float width = b.width();
-            float height = b.height();
-            if (home) {
-                leftShader = new RadialGradient(
-                        b.left + width * .85f,
-                        b.top + height * .04f,
-                        Math.max(1f, Math.max(width, height) * .42f),
-                        new int[]{Color.argb(26, 62, 151, 193), Color.TRANSPARENT},
-                        null, Shader.TileMode.CLAMP);
-                rightShader = null;
-            } else {
-                leftShader = new RadialGradient(
-                        b.left, b.top,
-                        Math.max(1f, Math.max(width, height) * .42f),
-                        new int[]{Color.argb(20, 47, 143, 190), Color.TRANSPARENT},
-                        null, Shader.TileMode.CLAMP);
-                rightShader = new RadialGradient(
-                        b.right, b.top,
-                        Math.max(1f, Math.max(width, height) * .34f),
-                        new int[]{Color.argb(13, 29, 70, 102), Color.TRANSPARENT},
-                        null, Shader.TileMode.CLAMP);
-            }
-        }
-
-        @Override
-        public void draw(@NonNull Canvas canvas) {
-            Rect b = getBounds();
-            if (b.isEmpty()) return;
-            ensureShaders(b);
-            paint.setShader(baseShader);
-            paint.setAlpha(alpha);
-            canvas.drawRect(b, paint);
-            paint.setShader(leftShader);
-            canvas.drawRect(b, paint);
-            if (rightShader != null) {
-                paint.setShader(rightShader);
-                canvas.drawRect(b, paint);
-            }
-            paint.setShader(null);
-        }
-
-        @Override
-        public void setAlpha(int alpha) {
-            this.alpha = Math.max(0, Math.min(255, alpha));
-            invalidateSelf();
-        }
-
-        @Override
-        public void setColorFilter(@Nullable ColorFilter colorFilter) {
-            paint.setColorFilter(colorFilter);
-            invalidateSelf();
-        }
-
-        @Override
-        @SuppressWarnings("deprecation")
-        public int getOpacity() {
-            return PixelFormat.OPAQUE;
-        }
+        return solid(APP_BG, 0f);
     }
 }

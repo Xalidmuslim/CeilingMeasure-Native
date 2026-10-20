@@ -144,8 +144,8 @@ public final class NativePhase2ShellTest {
             ViewGroup navGroup = (ViewGroup) nav;
             assertEquals(4, navGroup.getChildCount());
             assertEquals("native_nav_home", navGroup.getChildAt(0).getTag());
-            assertEquals("native_nav_redo", navGroup.getChildAt(1).getTag());
-            assertEquals("native_nav_undo", navGroup.getChildAt(2).getTag());
+            assertEquals("native_nav_undo", navGroup.getChildAt(1).getTag());
+            assertEquals("native_nav_redo", navGroup.getChildAt(2).getTag());
             assertEquals("native_nav_more", navGroup.getChildAt(3).getTag());
             for (int i = 0; i < 4; i++) {
                 View child = navGroup.getChildAt(i);
@@ -162,7 +162,7 @@ public final class NativePhase2ShellTest {
             writeMetric(activity, "workspace_top",
                     "safeTop=" + safe.top
                             + ",topbarTop=" + topbarLoc[1]
-                            + ",navOrder=home-redo-undo-more"
+                            + ",navOrder=home-undo-redo-more"
                             + ",brandPx=" + brand.getTextSize());
             assertLightSystemBars(activity);
             capture("workspace_top");
@@ -381,19 +381,18 @@ public final class NativePhase2ShellTest {
 
     @Test
     public void shellTokenConstantsMatchAuditedV184Values() {
-        assertEquals(0xFFF2F5F8, NativeVisualTokens.APP_BG);
+        // The v231 palette supersedes the legacy v184 screenshot palette.
+        assertEquals(0xFFF6F8FA, NativeVisualTokens.APP_BG);
         assertEquals(0xFFFFFFFF, NativeVisualTokens.SURFACE);
-        assertEquals(0xFFD8E2EA, NativeVisualTokens.LINE);
-        assertEquals(0xFF1E3144, NativeVisualTokens.TEXT);
-        assertEquals(0xFF708294, NativeVisualTokens.MUTED);
-        assertEquals(0xFF2F8FBE, NativeVisualTokens.ACCENT);
-        assertEquals(13, NativeVisualTokens.CARD_RADIUS_DP);
+        assertEquals(0xFFDFE6EC, NativeVisualTokens.LINE);
+        assertEquals(0xFF203445, NativeVisualTokens.TEXT);
+        assertEquals(0xFF586C7D, NativeVisualTokens.MUTED);
+        assertEquals(0xFF216E93, NativeVisualTokens.ACCENT);
+        assertEquals(16, NativeVisualTokens.CARD_RADIUS_DP);
         assertEquals(7, NativeVisualTokens.APP_COMPACT_GAP_DP);
-        // Four actions (Домой / Вперёд / Назад / Ещё) must fit phone widths
-        // without squeezing labels or overflowing the 303dp floating bar.
-        assertEquals(68, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP);
-        assertEquals(44, NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP);
-        assertEquals(7, NativeVisualTokens.HISTORY_BOTTOM_DP);
+        assertEquals(78, NativeVisualTokens.HISTORY_BUTTON_WIDTH_DP);
+        assertEquals(53, NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP);
+        assertEquals(10, NativeVisualTokens.HISTORY_BOTTOM_DP);
         assertEquals(115L, NativeVisualTokens.OVERLAY_MOTION_MS);
         assertEquals(145L, NativeVisualTokens.COLLAPSE_MOTION_MS);
     }

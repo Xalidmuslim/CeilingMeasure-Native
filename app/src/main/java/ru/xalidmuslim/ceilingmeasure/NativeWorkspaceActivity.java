@@ -1142,7 +1142,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_PADDING_DP),
                 dp(NativeVisualTokens.HISTORY_PADDING_DP),
                 dp(NativeVisualTokens.HISTORY_PADDING_DP));
-        nav.setElevation(dp(8));
+        nav.setElevation(dp(3));
         nav.setClipChildren(false);
         nav.setClipToPadding(false);
         nav.setBackground(NativeVisualTokens.outlined(
@@ -1151,20 +1151,20 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_RADIUS_DP),
                 dp(1)));
 
-        View home=historyButton("⌂","Домой","native_nav_home",v->goHome());
-        View redo=historyButton("↷","Вперёд","native_nav_redo",v->redoRoom());
-        View undo=historyButton("↶","Назад","native_nav_undo",v->undoRoom());
-        View more=historyButton("⋯","Еще","native_nav_more",v->openDrawTools());
+        View home=historyButton(R.drawable.ic_shell_home,"Домой","native_nav_home",v->goHome());
+        View undo=historyButton(R.drawable.ic_shell_undo,"Отменить","native_nav_undo",v->undoRoom());
+        View redo=historyButton(R.drawable.ic_shell_redo,"Повторить","native_nav_redo",v->redoRoom());
+        View more=historyButton(R.drawable.ic_shell_more,"Ещё","native_nav_more",v->openDrawTools());
 
         nav.addView(home,historyButtonParams(0));
-        nav.addView(redo,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
         nav.addView(undo,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+        nav.addView(redo,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
         nav.addView(more,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
         return nav;
     }
 
     private View historyButton(
-            String icon,
+            @DrawableRes int icon,
             String label,
             String tag,
             View.OnClickListener listener){
@@ -1182,16 +1182,20 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_BUTTON_RADIUS_DP),
                 0));
         button.setOnClickListener(listener);
-        TextView arrow=text(icon,14,TEXT,Typeface.BOLD);
-        arrow.setGravity(Gravity.CENTER);
-        arrow.setIncludeFontPadding(false);
+        ImageView arrow=new ImageView(this);
+        arrow.setImageResource(icon);
+        arrow.setImageTintList(ColorStateList.valueOf(TEXT));
+        arrow.setContentDescription(null);
         TextView small=text(label,10.5f,TEXT,Typeface.BOLD);
         small.setGravity(Gravity.CENTER);
         small.setSingleLine(true);
         small.setMinWidth(0);
         small.setAutoSizeTextTypeUniformWithConfiguration(
                 9,10,1,TypedValue.COMPLEX_UNIT_SP);
-        button.addView(arrow);
+        LinearLayout.LayoutParams iconParams=new LinearLayout.LayoutParams(
+                dp(22),dp(22));
+        iconParams.bottomMargin=dp(2);
+        button.addView(arrow,iconParams);
         button.addView(small);
         return button;
     }
