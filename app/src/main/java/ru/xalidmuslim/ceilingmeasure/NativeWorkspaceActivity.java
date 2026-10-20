@@ -203,6 +203,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     @Override
     protected void onResume() {
         super.onResume();
+        if(!showingSavedMeasurements && workspacePage!=null){
+            workspacePage.post(this::ensureHistoryNavigationVisible);
+        }
         // Prevent expired licenses from bypassing the home screen via Android Recents.
         if (licenseClient != null && !licenseClient.canEdit() && !isFinishing()) {
             returnToLicenseScreen();
@@ -401,8 +404,14 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         HorizontalScrollView roomsScroll = new HorizontalScrollView(this);
         roomsScroll.setHorizontalScrollBarEnabled(false);
+        roomsScroll.setClipChildren(false);
+        roomsScroll.setClipToPadding(false);
         roomRow = new LinearLayout(this);
         roomRow.setOrientation(LinearLayout.HORIZONTAL);
+        roomRow.setClipChildren(false);
+        roomRow.setClipToPadding(false);
+        // Give the full 1dp stroke and touch ripple room on every side.
+        roomRow.setPadding(dp(3),dp(5),dp(5),dp(5));
         roomsScroll.addView(roomRow, new HorizontalScrollView.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -675,6 +684,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         historyNavView=createHistoryNav();
+        page.setClipChildren(false);
+        page.setClipToPadding(false);
         page.addView(historyNavView, historyNavParams());
         NativeShellInsets.bindWorkspace(
                 page,
@@ -684,6 +695,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         setContentView(page);
         NativeMotion.enter(page);
+        ensureHistoryNavigationVisible();
         page.requestApplyInsets();
         setMode(CeilingDrawingView.Mode.WALL);
         updateStats();
@@ -923,10 +935,18 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             TextView chevron,
             boolean collapsed) {
         if(card==null||body==null)return;
-        AutoTransition transition=new AutoTransition();
-        transition.setDuration(NativeVisualTokens.COLLAPSE_MOTION_MS);
-        TransitionManager.beginDelayedTransition(card,transition);
-        body.setVisibility(collapsed?View.GONE:View.VISIBLE);
+        body.animate().cancel();
+        // Geometry/height transitions used to jump and briefly clip room borders.
+        // Change height immediately, then softly reveal the expanded content.
+        if(collapsed){
+            body.setAlpha(1f);
+            body.setVisibility(View.GONE);
+        }else{
+            body.setVisibility(View.VISIBLE);
+            body.setAlpha(.9f);
+            body.animate().alpha(1f)
+                    .setDuration(NativeVisualTokens.COLLAPSE_MOTION_MS).start();
+        }
         if(chevron!=null)chevron.setText(collapsed?"⌄":"⌃");
     }
 
@@ -968,10 +988,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             b.setPadding(dp(13),0,dp(13),0);
             b.setAutoSizeTextTypeUniformWithConfiguration(
                     9,11,1,TypedValue.COMPLEX_UNIT_SP);
-            if(i==project.activeRoom) styleSelected(b);
+            if(i==project.activeRoom)styleSelected(b);
+            else styleRoomInactive(b);
             b.setOnClickListener(v->{
                 project.activeRoom=index;
-                renderRooms();
+                updateRoomSelectionStyles();
                 undoRooms.clear();
                 redoRooms.clear();
                 if(drawingView!=null)drawingView.setRoom(activeRoom());
@@ -981,7 +1002,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             });
             NativeFastLongPress.attach(b,()->showRoomActions(index));
             LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(44));
+                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(48));
             p.rightMargin=dp(5);
             roomRow.addView(b,p);
         }
@@ -990,8 +1011,26 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         NativeTypography.register(add,20,true,uiPrefs);
         add.setContentDescription("Добавить комнату");
         add.setOnClickListener(v->showRoomPicker());
-        LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(dp(44),dp(44));
+        LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(dp(48),dp(48));
         roomRow.addView(add,addParams);
+    }
+
+    private void updateRoomSelectionStyles(){
+        if(roomRow==null || project==null)return;
+        for(int i=0;i<project.rooms.size() && i<roomRow.getChildCount();i++){
+            View child=roomRow.getChildAt(i);
+            if(child instanceof Button){
+                if(i==project.activeRoom)styleSelected((Button)child);
+                else styleRoomInactive((Button)child);
+            }
+        }
+    }
+
+    private void styleRoomInactive(Button b){
+        b.setBackground(NativeVisualTokens.rippleOutlined(
+                NativeVisualTokens.SURFACE_SOFT,NativeVisualTokens.LINE,
+                dp(11),dp(1),Color.argb(18,33,110,147)));
+        b.setTextColor(NativeVisualTokens.TEXT);
     }
 
     private String roomButtonLabel(String name,int index){
@@ -1138,6 +1177,17 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         styleMode(labelMode,mode==CeilingDrawingView.Mode.LABEL);
         scheduleSaveCurrent();
         updateDrawingChrome();
+    }
+
+    private void ensureHistoryNavigationVisible(){
+        if(historyNavView==null || workspacePage==null
+                || !workspacePage.isAttachedToWindow())return;
+        historyNavView.animate().cancel();
+        historyNavView.setAlpha(1f);
+        historyNavView.setVisibility(View.VISIBLE);
+        historyNavView.setTranslationY(0f);
+        historyNavView.bringToFront();
+        ViewCompat.requestApplyInsets(workspacePage);
     }
 
     private View createHistoryNav(){
@@ -2326,6 +2376,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         finish();
     }
 
+    @Override public void onWindowFocusChanged(boolean hasFocus){
+        super.onWindowFocusChanged(hasFocus);
+        if(hasFocus && !showingSavedMeasurements && workspacePage!=null){
+            workspacePage.post(this::ensureHistoryNavigationVisible);
+        }
+    }
+
     private void returnToEditorFromSaved() {
         if (workspacePage == null) {
             goHome();
@@ -2334,8 +2391,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         showingSavedMeasurements = false;
         savedOpenedFromEditor = false;
         setContentView(workspacePage);
-        workspacePage.requestApplyInsets();
         NativeMotion.enterCompact(workspacePage);
+        ensureHistoryNavigationVisible();
+        workspacePage.requestApplyInsets();
     }
 
     private void showSavedMeasurements(){
