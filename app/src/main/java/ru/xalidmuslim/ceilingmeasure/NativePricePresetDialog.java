@@ -93,8 +93,9 @@ final class NativePricePresetDialog extends Dialog {
             if(event.getAction()==DragEvent.ACTION_DRAG_STARTED)
                 return event.getLocalState() instanceof String;
             if(event.getAction()==DragEvent.ACTION_DRAG_LOCATION){
-                if(event.getEventTime()-lastScrollTime[0]>=16L){
-                    lastScrollTime[0]=event.getEventTime();
+                long now=android.os.SystemClock.uptimeMillis();
+                if(now-lastScrollTime[0]>=16L){
+                    lastScrollTime[0]=now;
                     float edge=dp(64);
                     if(event.getY()<edge)scroll.scrollBy(0,-dp(20));
                     else if(event.getY()>scroll.getHeight()-edge)
