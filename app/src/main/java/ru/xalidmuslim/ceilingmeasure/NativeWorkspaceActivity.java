@@ -1189,6 +1189,30 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         historyNavView.bringToFront();
     }
 
+    private View createSavedHistoryNav(View.OnClickListener allClick){
+        LinearLayout nav=(LinearLayout)createHistoryNav();
+        nav.removeAllViews();
+        View home=historyButton(R.drawable.ic_shell_home,
+                "Домой","native_nav_saved_home",v->goHome());
+        View editor=historyButton(R.drawable.ic_shell_undo,
+                "Чертёж","native_nav_saved_editor",v->{
+                    if(savedOpenedFromEditor && workspacePage!=null){
+                        returnToEditorFromSaved();
+                    }else{
+                        showEditor(false);
+                    }
+                });
+        View all=historyButton(R.drawable.ic_shell_list,
+                "Все","native_nav_saved_all",allClick);
+        View settings=historyButton(R.drawable.ic_shell_settings,
+                "Настройки","native_nav_saved_settings",v->showNativeSettings());
+        nav.addView(home,historyButtonParams(0));
+        nav.addView(editor,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+        nav.addView(all,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+        nav.addView(settings,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+        return nav;
+    }
+
     private View createHistoryNav(){
         LinearLayout nav=new LinearLayout(this);
         nav.setTag("native_history_nav");
@@ -2556,21 +2580,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
-        View savedNav=createHistoryNav();
-        View savedUndo=savedNav.findViewWithTag("native_nav_undo");
-        View savedRedo=savedNav.findViewWithTag("native_nav_redo");
-        if(savedUndo!=null){
-            savedUndo.setEnabled(false);
-            savedUndo.setAlpha(.38f);
-        }
-        if(savedRedo!=null){
-            savedRedo.setEnabled(false);
-            savedRedo.setAlpha(.38f);
-        }
-        View savedMore=savedNav.findViewWithTag("native_nav_more");
-        if(savedMore!=null){
-            savedMore.setOnClickListener(v->showNativeSettings());
-        }
+        View savedNav=createSavedHistoryNav(v->all.performClick());
 
         content.setPadding(dp(8),dp(7),dp(8),
                 dp(NativeVisualTokens.SCROLL_NAV_RESERVE_DP));

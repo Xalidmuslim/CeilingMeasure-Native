@@ -29,10 +29,18 @@ final class NativeMotion {
         // The root (including navigation) is always visible on the first frame.
         // Fading from 0f on a detached/reused view caused apparent missing UI.
         view.setAlpha(.94f);
-        view.animate()
-                .alpha(1f)
-                .setDuration(duration)
-                .setInterpolator(EASE)
-                .start();
+        // Window/shell drawing must run on the UI looper. Detached preview
+        // views may be instantiated by Android tests on a worker thread.
+        view.post(()->{
+            if(!view.isAttachedToWindow()){
+                view.setAlpha(1f);
+                return;
+            }
+            view.animate()
+                    .alpha(1f)
+                    .setDuration(duration)
+                    .setInterpolator(EASE)
+                    .start();
+        });
     }
 }
