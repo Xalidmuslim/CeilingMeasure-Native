@@ -88,9 +88,19 @@ public final class NativeProfessionalEstimateTableUiTest {
                     assertEquals("right-hand action cell is never mixed into formula",
                             "native_estimate_actions_"+firstKey,
                             formulaA.getChildAt(5).getTag());
-                    assertEquals("right action stays at same width for all rows",
-                            formulaA.getChildAt(5).getLayoutParams().width,
+                    // Dense one-row and long two-tier layouts deliberately
+                    // use different action widths (44dp and 48dp). Test the
+                    // geometry of each variant instead of treating this
+                    // intentional responsive difference as a regression.
+                    assertEquals("two-tier action width",
+                            dp(activity,widths.actionsDp),
+                            formulaA.getChildAt(5).getLayoutParams().width);
+                    assertEquals("dense one-row action width",
+                            dp(activity,44),
                             formulaB.getChildAt(5).getLayoutParams().width);
+                    assertEquals("short entry should use one row",
+                            LinearLayout.HORIZONTAL,
+                            ((LinearLayout)formulaB.getParent()).getOrientation());
 
                     TextView title=root.findViewWithTag("native_estimate_title_"+firstKey);
                     assertNotNull(title);
