@@ -567,7 +567,7 @@ final class NativeEstimateDialog extends Dialog {
                     }else{
                         room.pricing.put(line.key,Math.max(0f,value));
                     }
-                    changed(owner);
+                    changedValue(owner,room);
                 }).show();
     }
 
@@ -589,7 +589,7 @@ final class NativeEstimateDialog extends Dialog {
                     }else{
                         room.extraQty.put(line.key,Math.max(0f,value));
                     }
-                    changed(owner);
+                    changedValue(owner,room);
                 }).show();
     }
 
@@ -745,7 +745,7 @@ final class NativeEstimateDialog extends Dialog {
                 item.qty,
                 value->{
                     item.qty=Math.max(0f,value);
-                    changed(owner);
+                    changedValue(owner,room);
                 }).show();
     }
 
@@ -855,12 +855,71 @@ final class NativeEstimateDialog extends Dialog {
     }
 
     private void changed(NativeProjectStore.ProjectData owner){
-        // Current project is already mutated in memory; the activity persists
-        // it on its background save executor. Only an external combined order
-        // needs its own store update here.
+        // Row insertion/removal or price-list changes alter table structure.
         if(!owner.id.equals(project.id))store.updateSavedProject(owner);
         listener.onChanged();
         render();
+    }
+
+    private void changedValue(NativeProjectStore.ProjectData owner,
+            NativeProjectStore.RoomData room){
+        // A price/quantity edit normally only changes numeric cells.
+        // Keep the existing shell, navigation, scroll and Material buttons.
+        if(!owner.id.equals(project.id))store.updateSavedProject(owner);
+        listener.onChanged();
+        if(!refreshVisibleValues(owner,room))render();
+    }
+
+    /**
+     * Updates the affected room and the grand total in place. A line may
+     * disappear when its quantity reaches zero: in that case the caller
+     * rebuilds the table once to keep the line ordering and actions correct.
+     */
+    boolean refreshVisibleValues(NativeProjectStore.ProjectData owner,
+            NativeProjectStore.RoomData room){
+        if(content==null)return false;
+        LinearLayout card=content.findViewWithTag(
+                (mode==Mode.CLIENT?"native_client_room_":"native_internal_room_")
+                        +room.id);
+        TextView roomTotal=content.findViewWithTag(
+                "native_estimate_room_total_"+room.id);
+        TextView total=content.findViewWithTag("native_estimate_grand_total");
+        if(card==null||roomTotal==null||total==null)return false;
+
+        NativeEstimateEngine.RoomCost roomCost=mode==Mode.CLIENT
+                ?NativeEstimateEngine.clientCost(room)
+                :NativeEstimateEngine.internalCost(room);
+
+        int existingRows=0;
+        for(int i=0;i<card.getChildCount();i++){
+            Object tag=card.getChildAt(i).getTag();
+            if(tag instanceof String&&((String)tag).startsWith("native_estimate_line_"))
+                existingRows++;
+        }
+        if(existingRows!=roomCost.lines.size())return false;
+
+        // First ensure all view cells still exist; never partially update
+        // before deciding that a structural rebuild is required.
+        for(NativeEstimateEngine.Line line:roomCost.lines){
+            String key=line.key+"_"+room.id;
+            if(content.findViewWithTag("native_estimate_qty_"+key)==null
+                    ||content.findViewWithTag("native_estimate_price_"+key)==null
+                    ||content.findViewWithTag("native_estimate_total_"+key)==null)
+                return false;
+        }
+
+        for(NativeEstimateEngine.Line line:roomCost.lines){
+            String key=line.key+"_"+room.id;
+            TextView qtyValue=content.findViewWithTag("native_estimate_qty_"+key);
+            TextView priceValue=content.findViewWithTag("native_estimate_price_"+key);
+            TextView sumValue=content.findViewWithTag("native_estimate_total_"+key);
+            qtyValue.setText(qty(line.qty));
+            priceValue.setText(NativeMoney.format(line.price)+" ₽");
+            sumValue.setText(NativeMoney.format(line.total)+" ₽");
+        }
+        roomTotal.setText(NativeMoney.format(roomCost.total)+" ₽");
+        total.setText(NativeMoney.format(combinedCost(estimateProjects()).total)+" ₽");
+        return true;
     }
 
     private String projectLabel(NativeProjectStore.ProjectData p){
