@@ -408,6 +408,10 @@ final class NativeEstimateDialog extends Dialog {
             NativeProjectStore.ProjectData owner,
             NativeProjectStore.RoomData room,
             NativeEstimateEngine.Line line){
+        if(estimateFitsSingleRow(line)){
+            addSingleRowLine(parent,owner,room,line);
+            return;
+        }
         String key=line.key+"_"+room.id;
         NativeEstimateTableColumns columns=estimateColumns();
 
@@ -545,6 +549,156 @@ final class NativeEstimateDialog extends Dialog {
         divider.setBackgroundColor(NativeVisualTokens.DIVIDER);
         parent.addView(divider,new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,dp(1)));
+    }
+
+    /**
+     * A true one-row material entry on regular-width phones. Its 42dp visual
+     * height replaces the former 17dp heading + 42dp formula + padding;
+     * long descriptions and accessibility text safely use the two-tier row.
+     *
+     * The same tags and edit callbacks are used in both representations.
+     */
+    private void addSingleRowLine(
+            LinearLayout parent,
+            NativeProjectStore.ProjectData owner,
+            NativeProjectStore.RoomData room,
+            NativeEstimateEngine.Line line){
+        String key=line.key+"_"+room.id;
+
+        LinearLayout item=new LinearLayout(getContext());
+        item.setTag("native_estimate_line_"+key);
+        item.setOrientation(LinearLayout.HORIZONTAL);
+        item.setGravity(Gravity.CENTER_VERTICAL);
+        item.setPadding(0,0,0,0);
+
+        TextView title=text(line.name,12,TEXT,true);
+        title.setTag("native_estimate_title_"+key);
+        title.setMaxLines(2);
+        title.setSingleLine(true);
+        title.setAutoSizeTextTypeUniformWithConfiguration(10,12,1,
+                TypedValue.COMPLEX_UNIT_SP);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams titleParams=new LinearLayout.LayoutParams(
+                dp(82),dp(42));
+        titleParams.rightMargin=dp(3);
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        item.addView(title,titleParams);
+
+        LinearLayout formula=new LinearLayout(getContext());
+        formula.setTag("native_estimate_formula_"+key);
+        formula.setOrientation(LinearLayout.HORIZONTAL);
+        formula.setGravity(Gravity.CENTER_VERTICAL);
+        item.addView(formula,new LinearLayout.LayoutParams(
+                0,dp(42),1f));
+
+        boolean canEditQty=line.custom||line.qtyEditable
+                ||(mode==Mode.INTERNAL&&isInternalExtra(line.key));
+        TextView quantity;
+        if(canEditQty){
+            Button edit=button(qty(line.qty),false);
+            edit.setTextSize(11.5f);
+            edit.setSingleLine(true);
+            edit.setAutoSizeTextTypeUniformWithConfiguration(9,11,1,
+                    TypedValue.COMPLEX_UNIT_SP);
+            edit.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+            edit.setPadding(dp(2),0,dp(4),0);
+            edit.setBackground(estimateFieldBackground(
+                    NativeVisualTokens.SURFACE,LINE));
+            edit.setContentDescription("Изменить количество: "+line.name);
+            edit.setOnClickListener(v->editQty(owner,room,line));
+            NativeFastLongPress.attach(edit,()->editQty(owner,room,line));
+            quantity=edit;
+        }else{
+            quantity=text(qty(line.qty),11,MUTED,true);
+            quantity.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+            quantity.setSingleLine(true);
+            quantity.setAutoSizeTextTypeUniformWithConfiguration(9,11,1,
+                    TypedValue.COMPLEX_UNIT_SP);
+            quantity.setPadding(0,0,dp(3),0);
+        }
+        quantity.setTag("native_estimate_qty_"+key);
+        formula.addView(quantity,new LinearLayout.LayoutParams(dp(46),dp(42)));
+
+        TextView unit=text(line.unit,10.5f,MUTED,false);
+        unit.setGravity(Gravity.CENTER);
+        unit.setSingleLine(true);
+        unit.setAutoSizeTextTypeUniformWithConfiguration(9,11,1,
+                TypedValue.COMPLEX_UNIT_SP);
+        formula.addView(unit,new LinearLayout.LayoutParams(dp(20),dp(42)));
+
+        TextView times=text("×",11,MUTED,false);
+        times.setGravity(Gravity.CENTER);
+        formula.addView(times,new LinearLayout.LayoutParams(dp(10),dp(42)));
+
+        Button price=button(NativeMoney.format(line.price)+" ₽",false);
+        price.setTag("native_estimate_price_"+key);
+        price.setSingleLine(true);
+        price.setTextSize(11);
+        price.setAutoSizeTextTypeUniformWithConfiguration(9,11,1,
+                TypedValue.COMPLEX_UNIT_SP);
+        price.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+        price.setPadding(dp(2),0,dp(4),0);
+        price.setBackground(estimateFieldBackground(
+                NativeVisualTokens.SURFACE_SOFT,LINE));
+        price.setContentDescription("Изменить цену: "+line.name);
+        price.setOnClickListener(v->editPrice(owner,room,line));
+        LinearLayout.LayoutParams priceParams=new LinearLayout.LayoutParams(
+                dp(76),dp(42));
+        priceParams.leftMargin=dp(3);
+        formula.addView(price,priceParams);
+
+        TextView total=text(NativeMoney.format(line.total)+" ₽",11.5f,TEXT,true);
+        total.setTag("native_estimate_total_"+key);
+        total.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+        total.setSingleLine(true);
+        total.setPadding(dp(2),0,dp(3),0);
+        total.setAutoSizeTextTypeUniformWithConfiguration(9,12,1,
+                TypedValue.COMPLEX_UNIT_SP);
+        formula.addView(total,new LinearLayout.LayoutParams(
+                0,dp(42),1f));
+
+        if(line.removable){
+            Button more=button("⋯",false);
+            more.setTag("native_estimate_actions_"+key);
+            more.setTextSize(16);
+            more.setContentDescription("Действия с позицией "+line.name);
+            more.setBackground(estimateFieldBackground(
+                    NativeVisualTokens.SURFACE_SOFT,Color.TRANSPARENT));
+            more.setOnClickListener(v->
+                    new NativeStyledAlertDialog.Builder(getContext())
+                            .setTitle(line.name)
+                            .setItems(new String[]{"Удалить позицию"},
+                                    (dialog,which)->removeLine(owner,room,line))
+                            .show());
+            formula.addView(more,new LinearLayout.LayoutParams(
+                    dp(44),dp(42)));
+        }else{
+            View empty=new View(getContext());
+            empty.setTag("native_estimate_actions_placeholder_"+key);
+            formula.addView(empty,new LinearLayout.LayoutParams(
+                    dp(44),dp(42)));
+        }
+
+        parent.addView(item);
+        View divider=new View(getContext());
+        divider.setBackgroundColor(NativeVisualTokens.DIVIDER);
+        parent.addView(divider,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(1)));
+    }
+
+    private boolean estimateFitsSingleRow(NativeEstimateEngine.Line line){
+        int width=getContext().getResources().getConfiguration().screenWidthDp;
+        float system=getContext().getResources().getConfiguration().fontScale;
+        float custom=uiPrefs.scale/NativeUiPrefs.defaults().scale;
+        if(width<390 || system>1.06f || custom>1.06f)return false;
+        if(line.name==null || line.name.length()>12)return false;
+        if(line.unit==null || line.unit.length()>3)return false;
+        if(NativeMoney.format(line.price).length()>7
+                ||NativeMoney.format(line.total).length()>10
+                ||qty(line.qty).length()>6)return false;
+        // Keep regular-sized rows consistently aligned. Explicitly large
+        // prices or unusually long material names get the accessible layout.
+        return true;
     }
 
     private int estimateControlHeight(){
