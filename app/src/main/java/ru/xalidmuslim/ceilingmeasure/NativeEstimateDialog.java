@@ -30,6 +30,7 @@ final class NativeEstimateDialog extends Dialog {
 
     interface Listener {
         void onChanged();
+        default void onHomeRequested() {}
         default void onClientPdfRequested(@NonNull List<NativeProjectStore.ProjectData> projects) {}
         default void onClientPdfShareRequested(@NonNull List<NativeProjectStore.ProjectData> projects) {}
     }
@@ -66,6 +67,7 @@ final class NativeEstimateDialog extends Dialog {
     @Override protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
+        NativeFullScreenDialogShell.configure(this);
         render();
         if(content!=null)NativeMotion.enter(content);
 
@@ -74,6 +76,7 @@ final class NativeEstimateDialog extends Dialog {
             window.setBackgroundDrawableResource(android.R.color.transparent);
             // Fade-only dialog transition. Never slide or scale the window.
             window.setWindowAnimations(R.style.CeilingFadeWindowAnimation);
+            NativeFullScreenDialogShell.configure(this);
             WindowManager.LayoutParams lp=new WindowManager.LayoutParams();
             lp.copyFrom(window.getAttributes());
             lp.width=WindowManager.LayoutParams.MATCH_PARENT;
@@ -92,7 +95,7 @@ final class NativeEstimateDialog extends Dialog {
 
         content=new LinearLayout(getContext());
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(8),dp(6),dp(8),dp(12));
+        content.setPadding(dp(7),dp(4),dp(7),dp(8));
         scroll.addView(content,new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -102,7 +105,7 @@ final class NativeEstimateDialog extends Dialog {
         head.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout titleBox=new LinearLayout(getContext());
         titleBox.setOrientation(LinearLayout.VERTICAL);
-        titleBox.setPadding(0,0,0,dp(2));
+        titleBox.setPadding(0,0,0,0);
         titleBox.addView(text(mode==Mode.CLIENT?"Смета для клиента":"Расчёт по всем комнатам",18,TEXT,true));
         titleBox.addView(text(
                 mode==Mode.CLIENT
@@ -151,7 +154,7 @@ final class NativeEstimateDialog extends Dialog {
             toolbar.addView(prices,new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,adaptiveActionHeight(40,true)));
         }
-        content.addView(toolbar,top(4));
+        content.addView(toolbar,top(3));
 
         NativeEstimateEngine.ProjectCost total=combinedCost(projects);
         int rooms=0;
@@ -167,12 +170,12 @@ final class NativeEstimateDialog extends Dialog {
         grandTotal.setAutoSizeTextTypeUniformWithConfiguration(
                 18,Math.max(24,Math.round(24f*uiPrefs.scale)),1,
                 TypedValue.COMPLEX_UNIT_SP);
-        summary.addView(grandTotal,top(3));
+        summary.addView(grandTotal,top(1));
         summary.addView(text(
                 rooms+" помещ. · "+qty(total.areaM2)+" м² · "+qty(total.perimeterM)+" м",
                 11,MUTED,false),
-                top(3));
-        content.addView(summary,top(5));
+                top(1));
+        content.addView(summary,top(4));
 
         boolean multi=mode==Mode.CLIENT&&projects.size()>1;
         for(NativeProjectStore.ProjectData owner:projects){
@@ -234,8 +237,45 @@ final class NativeEstimateDialog extends Dialog {
                     9.5f,MUTED,false),top(5));
         }
 
-        setContentView(scroll);
+        setContentView(NativeFullScreenDialogShell.create(this,scroll,
+                new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_home,
+                        "Домой","native_estimate_nav_home",()->{
+                    dismiss();
+                    listener.onHomeRequested();
+                }),
+                new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_undo,
+                        "Чертёж","native_estimate_nav_drawing",this::dismiss),
+                new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_list,
+                        "Прайс","native_estimate_nav_price",
+                        ()->openPricePreset(mode==Mode.CLIENT,estimateProjects())),
+                new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_more,
+                        "Ещё","native_estimate_nav_more",this::showNavigationActions)));
         if(previousScrollY>0)scroll.post(()->scroll.scrollTo(0,previousScrollY));
+    }
+
+    private void showNavigationActions(){
+        if(mode==Mode.CLIENT){
+            new NativeStyledAlertDialog.Builder(getContext())
+                    .setTitle("Действия со сметой")
+                    .setItems(new String[]{"Скачать PDF","Отправить PDF",
+                                    "Добавить материал","Закрыть смету"},
+                            (d,which)->{
+                                if(which==0)listener.onClientPdfRequested(
+                                        new ArrayList<>(estimateProjects()));
+                                else if(which==1)listener.onClientPdfShareRequested(
+                                        new ArrayList<>(estimateProjects()));
+                                else if(which==2)openGlobalMaterialPicker(estimateProjects());
+                                else dismiss();
+                            }).show();
+        }else{
+            new NativeStyledAlertDialog.Builder(getContext())
+                    .setTitle("Закупочный расчёт")
+                    .setItems(new String[]{"Закупочный прайс","Закрыть расчёт"},
+                            (d,which)->{
+                                if(which==0)openPricePreset(false,estimateProjects());
+                                else dismiss();
+                            }).show();
+        }
     }
 
     private void addRoom(
@@ -248,14 +288,14 @@ final class NativeEstimateDialog extends Dialog {
 
         LinearLayout card=card();
         card.setTag((mode==Mode.CLIENT?"native_client_room_":"native_internal_room_")+room.id);
-        content.addView(card,top(4));
+        content.addView(card,top(3));
 
         LinearLayout head=new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout left=new LinearLayout(getContext());
         left.setOrientation(LinearLayout.VERTICAL);
-        left.setPadding(0,0,dp(6),0);
+        left.setPadding(0,0,dp(5),0);
         String roomName=multi
                 ?projectLabel(owner)+" · "+room.name
                 :room.name;
@@ -316,7 +356,7 @@ final class NativeEstimateDialog extends Dialog {
         LinearLayout item=new LinearLayout(getContext());
         item.setTag("native_estimate_line_"+line.key+"_"+room.id);
         item.setOrientation(LinearLayout.VERTICAL);
-        item.setPadding(dp(1),dp(4),dp(1),dp(4));
+        item.setPadding(0,dp(2),0,dp(2));
 
         LinearLayout heading=new LinearLayout(getContext());
         heading.setOrientation(LinearLayout.HORIZONTAL);
@@ -339,8 +379,8 @@ final class NativeEstimateDialog extends Dialog {
         controls.setOrientation(LinearLayout.HORIZONTAL);
         controls.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(44));
-        cp.topMargin=dp(1);
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(42));
+        cp.topMargin=0;
         item.addView(controls,cp);
 
         boolean canEditQty=line.custom||line.qtyEditable
@@ -358,7 +398,7 @@ final class NativeEstimateDialog extends Dialog {
             quantity.setOnClickListener(v->editQty(owner,room,line));
             NativeFastLongPress.attach(quantity,()->editQty(owner,room,line));
         }
-        controls.addView(quantity,new LinearLayout.LayoutParams(dp(64),dp(44)));
+        controls.addView(quantity,new LinearLayout.LayoutParams(dp(62),dp(42)));
 
         TextView unit=text(line.unit,10.5f,MUTED,false);
         unit.setMaxLines(1);
@@ -370,7 +410,7 @@ final class NativeEstimateDialog extends Dialog {
 
         TextView times=text("×",14,MUTED,false);
         times.setGravity(Gravity.CENTER);
-        controls.addView(times,new LinearLayout.LayoutParams(dp(18),dp(44)));
+        controls.addView(times,new LinearLayout.LayoutParams(dp(17),dp(42)));
 
         Button value=button(NativeMoney.format(line.price),false);
         value.setTextSize(12);
@@ -378,7 +418,7 @@ final class NativeEstimateDialog extends Dialog {
         value.setTag("native_estimate_price_"+line.key+"_"+room.id);
         value.setContentDescription("Цена за "+line.unit+": "+line.name);
         value.setOnClickListener(v->editPrice(owner,room,line));
-        LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(dp(90),dp(44));
+        LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(dp(88),dp(42));
         vp.leftMargin=dp(5);
         controls.addView(value,vp);
 
@@ -395,7 +435,7 @@ final class NativeEstimateDialog extends Dialog {
                         .setItems(new String[]{"Удалить позицию"},
                                 (dialog,which)->removeLine(owner,room,line))
                         .show());
-            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(dp(44),dp(44));
+            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(dp(42),dp(42));
             mp.leftMargin=dp(4);
             controls.addView(more,mp);
         }
@@ -621,7 +661,7 @@ final class NativeEstimateDialog extends Dialog {
     private void openPricePreset(
             boolean client,
             List<NativeProjectStore.ProjectData> projects){
-        new NativePricePresetDialog(
+        NativePricePresetDialog prices=new NativePricePresetDialog(
                 getContext(),
                 store,
                 project,
@@ -630,7 +670,12 @@ final class NativeEstimateDialog extends Dialog {
                 ()->{
                     listener.onChanged();
                     render();
-                }).show();
+                });
+        prices.setOnHomeRequested(()->{
+            dismiss();
+            listener.onHomeRequested();
+        });
+        prices.show();
     }
 
     private void openMergeOrders(){
@@ -733,7 +778,7 @@ final class NativeEstimateDialog extends Dialog {
     private LinearLayout card(){
         LinearLayout c=new LinearLayout(getContext());
         c.setOrientation(LinearLayout.VERTICAL);
-        c.setPadding(dp(9),dp(5),dp(9),dp(5));
+        c.setPadding(dp(8),dp(4),dp(8),dp(4));
         c.setBackground(NativeVisualTokens.outlined(
                 NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,
                 dp(NativeVisualTokens.CARD_RADIUS_DP),dp(1)));
