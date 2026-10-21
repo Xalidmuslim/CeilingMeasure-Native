@@ -47,8 +47,8 @@ public final class NativeProfessionalEstimateTableUiTest {
                     NativeEstimateTableColumns widths=NativeEstimateTableColumns
                             .forScreenWidthDp(activity.getResources()
                                     .getConfiguration().screenWidthDp);
-                    assertNotNull(root.findViewWithTag(
-                            "native_estimate_table_header_"+room.id));
+                    assertNull("repeated per-room header wastes a line",
+                            root.findViewWithTag("native_estimate_table_header_"+room.id));
                     String firstKey="custom:"+first.id+"_"+room.id;
                     String secondKey="custom:"+second.id+"_"+room.id;
                     LinearLayout formulaA=root.findViewWithTag(
@@ -89,8 +89,13 @@ public final class NativeProfessionalEstimateTableUiTest {
                     Button price=root.findViewWithTag("native_estimate_price_"+firstKey);
                     assertNotNull(qty);
                     assertNotNull(price);
-                    assertEquals(dp(activity,48),qty.getLayoutParams().height);
-                    assertEquals(dp(activity,48),price.getLayoutParams().height);
+                    assertEquals(dp(activity,42),qty.getLayoutParams().height);
+                    assertEquals(dp(activity,42),price.getLayoutParams().height);
+                    assertTrue("material row should not keep old blank vertical gutters",
+                            formulaA.getParent() instanceof LinearLayout);
+                    LinearLayout item=(LinearLayout)formulaA.getParent();
+                    assertTrue(item.getPaddingTop()<=dp(activity,1));
+                    assertEquals(0,item.getPaddingBottom());
                     assertEquals("1 250 000 ₽",price.getText().toString());
                     TextView subtotal=root.findViewWithTag(
                             "native_estimate_total_"+firstKey);
@@ -191,10 +196,16 @@ public final class NativeProfessionalEstimateTableUiTest {
                         for(NativeProjectStore.RoomData room:projectRef.get().rooms){
                             assertNotNull(root.findViewWithTag(
                                     "native_client_room_"+room.id));
-                            assertNotNull(root.findViewWithTag(
-                                    "native_estimate_table_header_"+room.id));
-                            assertNotNull(root.findViewWithTag(
-                                    "native_client_add_material_"+room.id));
+                            assertNull("room captions must not repeat",
+                                    root.findViewWithTag(
+                                            "native_estimate_table_header_"+room.id));
+                            View add=root.findViewWithTag(
+                                    "native_client_add_material_"+room.id);
+                            assertNotNull(add);
+                            assertTrue("compact add button must not be a full-width panel",
+                                    add.getLayoutParams().width==ViewGroup.LayoutParams.WRAP_CONTENT);
+                            assertTrue("compact add control height",
+                                    add.getLayoutParams().height<=dp(activity,36));
                         }
                         FrameLayout.LayoutParams body=
                                 (FrameLayout.LayoutParams)scroll.getLayoutParams();
