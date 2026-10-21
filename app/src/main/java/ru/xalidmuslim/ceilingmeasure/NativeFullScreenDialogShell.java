@@ -54,6 +54,9 @@ final class NativeFullScreenDialogShell {
         window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS
                 |WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
         WindowCompat.setDecorFitsSystemWindows(window,false);
+        // Opaque, app-colored decor behind cutouts/transparent bars: this is
+        // the exact area that looked like gray "caps" in full-screen Dialogs.
+        window.getDecorView().setBackgroundColor(NativeVisualTokens.APP_BG);
         window.setStatusBarColor(Color.TRANSPARENT);
         window.setNavigationBarColor(Color.TRANSPARENT);
         if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q){
