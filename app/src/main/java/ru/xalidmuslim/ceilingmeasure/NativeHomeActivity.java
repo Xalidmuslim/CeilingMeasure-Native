@@ -27,6 +27,7 @@ public final class NativeHomeActivity extends ComponentActivity {
     private NativeProjectStore store;
     private View shellRoot;
     private NativePremiumHomeUi premiumUi;
+    private int pendingHomeLoad;
     private TextView savedMeta;
     private TextView drawingMeta;
     private NativeUiSettingsDialog settingsDialog;
@@ -58,7 +59,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         // If offline, the existing License dialog offers a manual retry.
         if (NativeLicenseClient.enabled() && licenseClient.recoveryCode().isEmpty()) {
             licenseClient.startTrial((ok, message) -> {
-                if (!isFinishing()) refreshHomeMeta();
+                if (!isFinishing()) refreshLicenseOnly();
             });
         }
     }
@@ -70,7 +71,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         if (shellRoot != null) NativeTypography.applyTree(shellRoot, uiPrefs);
         refreshHomeMeta();
         if (NativeLicenseClient.enabled() && !licenseClient.recoveryCode().isEmpty()) {
-            licenseClient.refresh((success, message) -> refreshHomeMeta());
+            licenseClient.refresh((success, message) -> refreshLicenseOnly());
         }
     }
 
@@ -87,7 +88,6 @@ public final class NativeHomeActivity extends ComponentActivity {
         shellRoot = screen;
         NativeShellInsets.bindWorkspace(
                 screen, premiumUi.scroll(), premiumUi.dock(), dp(8));
-        refreshHomeMeta();
         return screen;
     }
 
@@ -226,24 +226,29 @@ public final class NativeHomeActivity extends ComponentActivity {
         settingsDialog.show();
     }
 
+    private void refreshLicenseOnly() {
+        if (premiumUi != null) premiumUi.refreshLicense(licenseClient);
+    }
+
     private void refreshHomeMeta() {
-        if (store == null) return;
-        if (premiumUi != null) premiumUi.refresh(store, licenseClient);
-        if (licenseMeta != null && licenseClient != null) {
-            licenseMeta.setText(licenseClient.status());
-        }
-        if (savedMeta != null) {
-            int count = store.loadSaved().size();
-            savedMeta.setText(count > 0 ? count + " сохранённых" : "Сохранённых пока нет");
-        }
-        if (drawingMeta != null) {
-            NativeProjectStore.ProjectData project = store.loadCurrent();
-            String orderName = project.name == null || project.name.trim().isEmpty()
-                    ? "Текущий заказ" : project.name.trim();
-            String roomName = project.rooms.isEmpty()
-                    ? "Комната 1" : project.rooms.get(0).name;
-            drawingMeta.setText(orderName + " · " + roomName);
-        }
+        refreshLicenseOnly();
+        if (premiumUi == null) return;
+        final int generation = ++pendingHomeLoad;
+        final NativePremiumHomeUi page = premiumUi;
+        NativeHomePreloader.load(this, (saved, icon) -> {
+            if (isFinishing() || isDestroyed() || generation != pendingHomeLoad
+                    || page != premiumUi) return;
+            page.applyPreloadedIcon(icon);
+            page.renderSaved(saved);
+        });
+    }
+
+    @Override
+    protected void onStop() {
+        // A stale queued decode must not redraw the launcher while another
+        // screen owns the window. onResume requests the latest saved snapshot.
+        pendingHomeLoad++;
+        super.onStop();
     }
 
     private TextView text(
