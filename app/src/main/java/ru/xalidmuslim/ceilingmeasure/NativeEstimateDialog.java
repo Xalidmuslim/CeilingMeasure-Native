@@ -296,17 +296,43 @@ final class NativeEstimateDialog extends Dialog {
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout left=new LinearLayout(getContext());
-        left.setOrientation(LinearLayout.VERTICAL);
         left.setPadding(0,0,dp(4),0);
         String roomName=multi
                 ?projectLabel(owner)+" · "+room.name
                 :room.name;
-        left.addView(text(roomName,15,TEXT,true));
-        left.addView(text(
+        String measurements=
                 (cost.metrics.areaM2>0?qty(cost.metrics.areaM2)+" м²":"Площадь —")
                         +" · "
-                        +(cost.metrics.perimeterM>0?qty(cost.metrics.perimeterM)+" м":"Периметр —"),
-                10,MUTED,false));
+                        +(cost.metrics.perimeterM>0?qty(cost.metrics.perimeterM)+" м":"Периметр —");
+        // Small and medium room names fit on a single compact header line.
+        // Long names, combined orders and large accessibility text retain
+        // two lines instead of risking a cropped total.
+        boolean inlineRoomMetrics=!multi && roomName.length()<=13
+                && getContext().getResources().getConfiguration().screenWidthDp>=360
+                && getContext().getResources().getConfiguration().fontScale<=1.10f
+                && uiPrefs.scale<=1.10f*NativeUiPrefs.defaults().scale;
+        if(inlineRoomMetrics){
+            left.setOrientation(LinearLayout.HORIZONTAL);
+            left.setGravity(Gravity.CENTER_VERTICAL);
+            TextView titleView=text(roomName,14.5f,TEXT,true);
+            titleView.setSingleLine(true);
+            titleView.setMaxWidth(dp(145));
+            left.addView(titleView,new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+            TextView inlineMetrics=text("  ·  "+measurements,10,MUTED,false);
+            inlineMetrics.setTag("native_estimate_room_metrics_"+room.id);
+            inlineMetrics.setSingleLine(true);
+            inlineMetrics.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            left.addView(inlineMetrics,new LinearLayout.LayoutParams(
+                    0,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
+        }else{
+            left.setOrientation(LinearLayout.VERTICAL);
+            left.addView(text(roomName,15,TEXT,true));
+            TextView wrappedMetrics=text(measurements,10,MUTED,false);
+            wrappedMetrics.setTag("native_estimate_room_metrics_"+room.id);
+            left.addView(wrappedMetrics);
+        }
         head.addView(left,new LinearLayout.LayoutParams(
                 0,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
         TextView roomTotal=text(money(cost.total)+" ₽",14,TEXT,true);
