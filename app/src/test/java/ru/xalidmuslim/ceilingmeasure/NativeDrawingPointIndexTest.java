@@ -53,6 +53,23 @@ public final class NativeDrawingPointIndexTest {
         assertNotNull(index.get(room,"b"));
     }
 
+    @Test public void repeatedFrameLookupsDoNotReindexUnchangedRoom() {
+        NativeDrawingPointIndex index=new NativeDrawingPointIndex();
+        NativeProjectStore.RoomData room=new NativeProjectStore.RoomData();
+        for(int i=0;i<120;i++)
+            room.points.add(new NativeProjectStore.PointData("vertex_"+i,i,i+5));
+        for(int frame=0;frame<100;frame++){
+            for(int i=0;i<120;i++)
+                assertEquals(i,index.get(room,"vertex_"+i).x,0.001f);
+        }
+        assertEquals("rendering 100 frames rebuilds vertex IDs only once",
+                1,index.rebuildCountForTest());
+
+        index.invalidate();
+        assertNotNull(index.get(room,"vertex_8"));
+        assertEquals(2,index.rebuildCountForTest());
+    }
+
     @Test public void duplicatesRetainFirstMatchSemantics() {
         NativeDrawingPointIndex index=new NativeDrawingPointIndex();
         NativeProjectStore.RoomData room=new NativeProjectStore.RoomData();
