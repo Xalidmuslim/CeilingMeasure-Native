@@ -41,6 +41,7 @@ final class NativePremiumHomeUi {
     private final NativeUiPrefs prefs;
     private final Runnable openNew;
     private final Runnable openSaved;
+    private final java.util.function.Consumer<String> openRecent;
     private final Runnable openDrawing;
     private final Runnable openMaterials;
     private final Runnable openLicense;
@@ -57,6 +58,7 @@ final class NativePremiumHomeUi {
             NativeUiPrefs prefs,
             Runnable openNew,
             Runnable openSaved,
+            java.util.function.Consumer<String> openRecent,
             Runnable openDrawing,
             Runnable openMaterials,
             Runnable openLicense,
@@ -65,6 +67,7 @@ final class NativePremiumHomeUi {
         this.prefs = prefs;
         this.openNew = openNew;
         this.openSaved = openSaved;
+        this.openRecent = openRecent;
         this.openDrawing = openDrawing;
         this.openMaterials = openMaterials;
         this.openLicense = openLicense;
@@ -226,7 +229,7 @@ final class NativePremiumHomeUi {
             // Saved order selection is handled by the existing native list.
             row.setClickable(true);
             row.setFocusable(true);
-            row.setOnClickListener(v -> openSaved.run());
+            row.setOnClickListener(v -> openRecent.accept(project.id));
             recentRows.addView(row);
         }
     }
