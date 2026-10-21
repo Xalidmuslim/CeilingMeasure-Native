@@ -6,6 +6,7 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -170,6 +171,7 @@ final class NativeEstimateDialog extends Dialog {
         grandTotal.setAutoSizeTextTypeUniformWithConfiguration(
                 18,Math.max(24,Math.round(24f*uiPrefs.scale)),1,
                 TypedValue.COMPLEX_UNIT_SP);
+        grandTotal.setTag("native_estimate_grand_total");
         summary.addView(grandTotal,top(1));
         summary.addView(text(
                 rooms+" помещ. · "+qty(total.areaM2)+" м² · "+qty(total.perimeterM)+" м",
@@ -312,10 +314,32 @@ final class NativeEstimateDialog extends Dialog {
         roomTotal.setAutoSizeTextTypeUniformWithConfiguration(
                 10,Math.max(14,Math.round(14f*uiPrefs.scale)),1,
                 TypedValue.COMPLEX_UNIT_SP);
+        roomTotal.setTag("native_estimate_room_total_"+room.id);
         head.addView(roomTotal,new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         card.addView(head);
+
+        // Single compact table heading per room; financial columns stay
+        // aligned rather than floating across unrelated nested cards.
+        LinearLayout tableHeading=new LinearLayout(getContext());
+        tableHeading.setOrientation(LinearLayout.HORIZONTAL);
+        tableHeading.setGravity(Gravity.CENTER_VERTICAL);
+        tableHeading.setTag("native_estimate_table_header_"+room.id);
+        TextView materialLabel=text("МАТЕРИАЛ / РАСЧЁТ",9,MUTED,true);
+        tableHeading.addView(materialLabel,new LinearLayout.LayoutParams(
+                0,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
+        TextView sumLabel=text("СУММА",9,MUTED,true);
+        sumLabel.setGravity(Gravity.END);
+        tableHeading.addView(sumLabel,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams th=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        th.topMargin=dp(5);
+        th.bottomMargin=dp(2);
+        card.addView(tableHeading,th);
 
         for(NativeEstimateEngine.Line line:cost.lines)addLine(card,owner,room,line);
 
@@ -360,10 +384,10 @@ final class NativeEstimateDialog extends Dialog {
     }
 
     /**
-     * A compact two-line line item: description and subtotal on the first
-     * line; editable quantity × unit price in one left-aligned formula below.
-     * No weighted spacing BETWEEN operands and no dead, outlined quantity
-     * button for automatically calculated measurements.
+     * Professional two-tier estimate row. Every formula uses the same columns
+     * and a dedicated trailing action column; no visual padding between
+     * quantity and price. Inset control backgrounds keep a 40dp visible input
+     * inside a full 48dp touch target.
      */
     private void addLine(
             LinearLayout parent,
@@ -371,21 +395,25 @@ final class NativeEstimateDialog extends Dialog {
             NativeProjectStore.RoomData room,
             NativeEstimateEngine.Line line){
         String key=line.key+"_"+room.id;
+        NativeEstimateTableColumns columns=estimateColumns();
+
         LinearLayout item=new LinearLayout(getContext());
         item.setTag("native_estimate_line_"+key);
         item.setOrientation(LinearLayout.VERTICAL);
-        item.setPadding(0,dp(1),0,dp(1));
+        item.setPadding(0,dp(3),0,dp(3));
 
         LinearLayout heading=new LinearLayout(getContext());
         heading.setGravity(Gravity.CENTER_VERTICAL);
         heading.setOrientation(LinearLayout.HORIZONTAL);
+        heading.setMinimumHeight(dp(22));
+
         TextView title=text(line.name,12.5f,TEXT,true);
         title.setTag("native_estimate_title_"+key);
         title.setMaxLines(2);
         title.setEllipsize(android.text.TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams titleParams=new LinearLayout.LayoutParams(
                 0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
-        titleParams.rightMargin=dp(7);
+        titleParams.rightMargin=dp(6);
         heading.addView(title,titleParams);
 
         TextView total=text(NativeMoney.format(line.total)+" ₽",13,TEXT,true);
@@ -404,10 +432,8 @@ final class NativeEstimateDialog extends Dialog {
         formula.setTag("native_estimate_formula_"+key);
         formula.setOrientation(LinearLayout.HORIZONTAL);
         formula.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(42));
-        fp.topMargin=0;
-        item.addView(formula,fp);
+        item.addView(formula,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(48)));
 
         boolean canEditQty=line.custom||line.qtyEditable
                 ||(mode==Mode.INTERNAL&&isInternalExtra(line.key));
@@ -416,80 +442,87 @@ final class NativeEstimateDialog extends Dialog {
             Button edit=button(qty(line.qty),false);
             edit.setTextSize(12);
             edit.setSingleLine(true);
-            edit.setMinWidth(dp(56));
-            edit.setMaxWidth(dp(88));
+            edit.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+            edit.setAutoSizeTextTypeUniformWithConfiguration(9,12,1,
+                    TypedValue.COMPLEX_UNIT_SP);
+            edit.setPadding(dp(3),0,dp(8),0);
             edit.setContentDescription("Изменить количество: "+line.name);
-            edit.setBackground(NativeVisualTokens.rippleOutlined(
-                    NativeVisualTokens.SURFACE,LINE,dp(9),dp(1),
-                    Color.argb(24,33,110,147)));
+            edit.setBackground(estimateFieldBackground(
+                    NativeVisualTokens.SURFACE,LINE));
             edit.setOnClickListener(v->editQty(owner,room,line));
             NativeFastLongPress.attach(edit,()->editQty(owner,room,line));
             quantity=edit;
-            formula.addView(edit,new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(42)));
         }else{
-            // A calculated value is not interactive; represent it as plain
-            // text instead of a large grey disabled control.
             quantity=text(qty(line.qty),12,MUTED,true);
-            quantity.setGravity(Gravity.CENTER_VERTICAL);
+            quantity.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+            quantity.setAutoSizeTextTypeUniformWithConfiguration(9,12,1,
+                    TypedValue.COMPLEX_UNIT_SP);
+            quantity.setPadding(0,0,dp(8),0);
             quantity.setSingleLine(true);
-            formula.addView(quantity,new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(42)));
         }
         quantity.setTag("native_estimate_qty_"+key);
+        formula.addView(quantity,new LinearLayout.LayoutParams(
+                dp(columns.quantityDp),dp(48)));
 
         TextView unit=text(line.unit,11,MUTED,false);
-        unit.setSingleLine(true);
-        unit.setGravity(Gravity.CENTER_VERTICAL);
+        unit.setGravity(Gravity.CENTER);
+        unit.setMaxLines(2);
+        unit.setAutoSizeTextTypeUniformWithConfiguration(8,11,1,
+                TypedValue.COMPLEX_UNIT_SP);
         LinearLayout.LayoutParams unitParams=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,dp(42));
-        unitParams.leftMargin=dp(canEditQty?5:4);
+                dp(columns.unitDp),dp(48));
+        unitParams.leftMargin=dp(columns.operandGapDp);
         formula.addView(unit,unitParams);
 
-        TextView multiply=text("×",13,MUTED,false);
-        multiply.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams xParams=new LinearLayout.LayoutParams(
-                dp(14),dp(42));
-        xParams.leftMargin=dp(9);
-        xParams.rightMargin=dp(5);
-        formula.addView(multiply,xParams);
+        TextView times=text("×",13,MUTED,false);
+        times.setGravity(Gravity.CENTER);
+        formula.addView(times,new LinearLayout.LayoutParams(
+                dp(columns.multiplyDp),dp(48)));
 
         Button price=button(NativeMoney.format(line.price)+" ₽",false);
         price.setTag("native_estimate_price_"+key);
         price.setSingleLine(true);
         price.setTextSize(12);
-        price.setMinWidth(dp(65));
-        price.setMaxWidth(dp(112));
-        price.setAutoSizeTextTypeUniformWithConfiguration(10,12,1,
+        price.setAutoSizeTextTypeUniformWithConfiguration(9,12,1,
                 TypedValue.COMPLEX_UNIT_SP);
+        price.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+        price.setPadding(dp(3),0,dp(8),0);
         price.setContentDescription("Изменить цену: "+line.name);
-        price.setBackground(NativeVisualTokens.rippleOutlined(
-                NativeVisualTokens.SURFACE_SOFT,LINE,dp(9),dp(1),
-                Color.argb(24,33,110,147)));
+        price.setBackground(estimateFieldBackground(
+                NativeVisualTokens.SURFACE_SOFT,LINE));
         price.setOnClickListener(v->editPrice(owner,room,line));
-        formula.addView(price,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,dp(42)));
+        LinearLayout.LayoutParams priceParams=new LinearLayout.LayoutParams(
+                dp(columns.priceDp),dp(48));
+        priceParams.leftMargin=dp(columns.operandGapDp);
+        formula.addView(price,priceParams);
+
+        // The flexible space starts AFTER the price, not inside the formula:
+        // the menu stays at the far right edge for every material.
+        formula.addView(new View(getContext()),new LinearLayout.LayoutParams(
+                0,dp(1),1f));
 
         if(line.removable){
-            // Keep the actions adjacent to the price. Large empty weighted
-            // spacers previously made each estimate row look oversized.
             Button more=button("⋯",false);
             more.setTag("native_estimate_actions_"+key);
             more.setTextSize(18);
             more.setContentDescription("Действия с позицией "+line.name);
-            more.setBackground(NativeVisualTokens.rippleOutlined(
-                    NativeVisualTokens.SURFACE_SOFT,Color.TRANSPARENT,
-                    dp(9),0,Color.argb(24,33,110,147)));
+            more.setBackground(estimateFieldBackground(
+                    NativeVisualTokens.SURFACE_SOFT,Color.TRANSPARENT));
             more.setOnClickListener(v->
                     new NativeStyledAlertDialog.Builder(getContext())
                             .setTitle(line.name)
                             .setItems(new String[]{"Удалить позицию"},
                                     (dialog,which)->removeLine(owner,room,line))
                             .show());
-            LinearLayout.LayoutParams moreParams=new LinearLayout.LayoutParams(
-                    dp(42),dp(42));
-            moreParams.leftMargin=dp(4);
-            formula.addView(more,moreParams);
+            formula.addView(more,new LinearLayout.LayoutParams(
+                    dp(columns.actionsDp),dp(48)));
+        }else{
+            // Blank but fixed-width cell: prices and columns do not shift
+            // between removable and automatically calculated positions.
+            View placeholder=new View(getContext());
+            placeholder.setTag("native_estimate_actions_placeholder_"+key);
+            formula.addView(placeholder,new LinearLayout.LayoutParams(
+                    dp(columns.actionsDp),dp(48)));
         }
 
         parent.addView(item);
@@ -497,6 +530,23 @@ final class NativeEstimateDialog extends Dialog {
         divider.setBackgroundColor(NativeVisualTokens.DIVIDER);
         parent.addView(divider,new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,dp(1)));
+    }
+
+    private NativeEstimateTableColumns estimateColumns(){
+        int width=getContext().getResources().getConfiguration().screenWidthDp;
+        if(width<=0){
+            float density=getContext().getResources().getDisplayMetrics().density;
+            width=Math.round(getContext().getResources().getDisplayMetrics().widthPixels
+                    /Math.max(1f,density));
+        }
+        return NativeEstimateTableColumns.forScreenWidthDp(width);
+    }
+
+    private InsetDrawable estimateFieldBackground(int fill,int stroke){
+        return new InsetDrawable(NativeVisualTokens.rippleOutlined(
+                fill,stroke,dp(9),stroke==Color.TRANSPARENT?0:dp(1),
+                Color.argb(24,33,110,147)),
+                0,dp(4),0,dp(4));
     }
 
     private void editPrice(
