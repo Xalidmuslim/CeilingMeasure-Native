@@ -28,6 +28,6 @@ public final class NativeEstimateDensePolicyTest {
         assertFalse(NativeEstimateDensePolicy.oneRow(
                 393,1f,1f,"Карниз","м","1 250 000","3 750 000","3"));
         assertFalse(NativeEstimateDensePolicy.oneRow(
-                393,1f,1f,"Углы","шт","300","150 062,62","500"));
+                393,1f,1f,"Углы","шт","300","15 000 062,62","500"));
     }
 }
