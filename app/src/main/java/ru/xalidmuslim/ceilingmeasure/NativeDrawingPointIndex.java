@@ -12,6 +12,7 @@ final class NativeDrawingPointIndex {
     private final HashMap<String,NativeProjectStore.PointData> points=new HashMap<>();
     private NativeProjectStore.RoomData cachedRoom;
     private int cachedCount=-1;
+    private int rebuildCount;
     private NativeProjectStore.PointData cachedFirst;
     private NativeProjectStore.PointData cachedLast;
 
@@ -35,11 +36,16 @@ final class NativeDrawingPointIndex {
         points.clear();
     }
 
+    int rebuildCountForTest(){
+        return rebuildCount;
+    }
+
     int sizeForTest(){
         return points.size();
     }
 
     private void rebuild(@NonNull NativeProjectStore.RoomData room){
+        rebuildCount++;
         points.clear();
         for(NativeProjectStore.PointData point:room.points){
             // Match the first-match behavior of NativeProjectStore.pointById.
