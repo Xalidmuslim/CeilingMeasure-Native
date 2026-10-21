@@ -52,8 +52,14 @@ public final class NativeProfessionalEstimateTableUiTest {
                     TextView roomMetrics=root.findViewWithTag(
                             "native_estimate_room_metrics_"+room.id);
                     assertNotNull(roomMetrics);
-                    assertEquals("short room heading and metrics use one compact line",
-                            LinearLayout.HORIZONTAL,
+                    int expectedOrientation=
+                            activity.getResources().getConfiguration().screenWidthDp>=360
+                            && activity.getResources().getConfiguration().fontScale<=1.10f
+                            && NativeUiPrefs.load(activity).scale
+                                   <=1.10f*NativeUiPrefs.defaults().scale
+                            ?LinearLayout.HORIZONTAL:LinearLayout.VERTICAL;
+                    assertEquals("room headings adapt to text size without clipping",
+                            expectedOrientation,
                             ((LinearLayout)roomMetrics.getParent()).getOrientation());
                     String firstKey="custom:"+first.id+"_"+room.id;
                     String secondKey="custom:"+second.id+"_"+room.id;
