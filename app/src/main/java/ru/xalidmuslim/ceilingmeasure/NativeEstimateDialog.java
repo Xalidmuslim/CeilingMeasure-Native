@@ -382,6 +382,7 @@ final class NativeEstimateDialog extends Dialog {
         TextView title=text(line.name,12.5f,TEXT,true);
         title.setTag("native_estimate_title_"+key);
         title.setMaxLines(2);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams titleParams=new LinearLayout.LayoutParams(
                 0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
         titleParams.rightMargin=dp(7);
@@ -470,10 +471,8 @@ final class NativeEstimateDialog extends Dialog {
                 ViewGroup.LayoutParams.WRAP_CONTENT,dp(42)));
 
         if(line.removable){
-            // Position management is separated from the calculation, without
-            // stretching the distance between quantity and unit price.
-            formula.addView(new View(getContext()),new LinearLayout.LayoutParams(
-                    0,dp(1),1f));
+            // Keep the actions adjacent to the price. Large empty weighted
+            // spacers previously made each estimate row look oversized.
             Button more=button("⋯",false);
             more.setTag("native_estimate_actions_"+key);
             more.setTextSize(18);
