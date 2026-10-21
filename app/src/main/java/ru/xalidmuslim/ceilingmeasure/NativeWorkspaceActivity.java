@@ -224,14 +224,6 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     @Override
-    protected void onDestroy() {
-        if (homeMaterialsDialog != null && homeMaterialsDialog.isShowing()) {
-            homeMaterialsDialog.dismiss();
-        }
-        super.onDestroy();
-    }
-
-    @Override
     protected void onResume() {
         super.onResume();
         if(!showingSavedMeasurements && workspacePage!=null){
@@ -259,6 +251,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     @Override
     protected void onDestroy() {
         uiHandler.removeCallbacks(deferredSave);
+        if (homeMaterialsDialog != null && homeMaterialsDialog.isShowing()) {
+            homeMaterialsDialog.dismiss();
+        }
         saveExecutor.shutdown();
         super.onDestroy();
     }
