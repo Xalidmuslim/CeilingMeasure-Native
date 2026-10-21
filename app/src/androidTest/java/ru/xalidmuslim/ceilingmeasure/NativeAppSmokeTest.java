@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertSame;
 
 import android.content.Context;
 import android.content.Intent;
@@ -675,7 +676,13 @@ public class NativeAppSmokeTest {
                 long now = downRef.get();
                 dispatch(view, now + 420, MotionEvent.ACTION_MOVE, 270, 120);
                 assertTrue(view.isMagnifierVisibleForTest());
-                dispatch(view, now + 460, MotionEvent.ACTION_UP, 270, 120);
+                android.graphics.PointF initialFocus=view.magnifierFocusForTest();
+                assertNotNull(initialFocus);
+                dispatch(view, now + 436, MotionEvent.ACTION_MOVE, 288, 136);
+                assertSame("magnifier focus must not allocate on every drag frame",
+                        initialFocus,view.magnifierFocusForTest());
+                assertTrue("magnifier follows the finger",initialFocus.x>0f);
+                dispatch(view, now + 460, MotionEvent.ACTION_UP, 288, 136);
                 assertFalse(view.isMagnifierVisibleForTest());
             });
         }
