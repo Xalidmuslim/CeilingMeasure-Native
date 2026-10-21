@@ -44,22 +44,13 @@ print("Native home titles and single Materials dock entry: OK")
 PY
 
 adb exec-out screencap -p > "$OUT/home.png"
-# Capture frames during vertical gestures, without forcing GPU layers.
-adb shell dumpsys gfxinfo "$PKG" reset > "$OUT/gfx-reset.txt"
-for n in 1 2 3; do
-  adb shell input swipe 550 1750 550 470 350
-  adb shell input swipe 550 500 550 1750 360
-done
-adb shell dumpsys gfxinfo "$PKG" framestats > "$OUT/gfx-home-framestats.txt"
-adb exec-out screencap -p > "$OUT/home-after-scroll.png"
-
-# Open native Settings (not license gated), then return and check launcher again.
+# Verify settings transition and return before entering the editor.
 python3 - "$OUT/home.xml" > "$OUT/settings-tap.txt" <<'PY'
 import re,sys,xml.etree.ElementTree as ET
 nodes=list(ET.parse(sys.argv[1]).getroot().iter("node"))
 target=next((n for n in nodes if n.get("content-desc")=="Настройки"),None)
 assert target is not None,"Settings navigation not found"
-nums=list(map(int,re.findall(r"\d+",target.get("bounds",""))))
+nums=list(map(int,re.findall(r"\\d+",target.get("bounds",""))))
 assert len(nums)==4
 print((nums[0]+nums[2])//2,(nums[1]+nums[3])//2)
 PY
@@ -69,6 +60,44 @@ sleep 1
 adb exec-out screencap -p > "$OUT/settings-open.png"
 adb shell input keyevent KEYCODE_BACK
 sleep 1
+
+# The first-launch home is deliberately short. Measure real scrolling inside
+# the long native editor instead of reporting zero frames as smoothness.
+adb shell uiautomator dump /sdcard/v243_after_settings.xml > "$OUT/uiautomator.txt" 2>&1
+adb exec-out cat /sdcard/v243_after_settings.xml > "$OUT/home-after-settings.xml"
+python3 - "$OUT/home-after-settings.xml" > "$OUT/new-tap.txt" <<'PY'
+import re,sys,xml.etree.ElementTree as ET
+nodes=list(ET.parse(sys.argv[1]).getroot().iter("node"))
+choices=[n for n in nodes if n.get("content-desc")=="Новый замер"]
+assert choices,"New measurement action not accessible"
+# Large blue CTA, not the smaller dock shortcut.
+def area(n):
+  x1,y1,x2,y2=map(int,re.findall(r"\\d+",n.get("bounds","")))
+  return (x2-x1)*(y2-y1)
+target=max(choices,key=area)
+nums=list(map(int,re.findall(r"\\d+",target.get("bounds",""))))
+print((nums[0]+nums[2])//2,(nums[1]+nums[3])//2)
+PY
+read -r x y < "$OUT/new-tap.txt"
+adb shell input tap "$x" "$y"
+sleep 2
+adb shell uiautomator dump /sdcard/v243_editor.xml > "$OUT/uiautomator-editor.txt" 2>&1
+adb exec-out cat /sdcard/v243_editor.xml > "$OUT/editor.xml"
+python3 - "$OUT/editor.xml" <<'PY'
+import sys,xml.etree.ElementTree as ET
+texts=[n.get("text","") for n in ET.parse(sys.argv[1]).getroot().iter("node")]
+assert any("Комнаты" in x or "Чертёж" in x for x in texts), "Editor did not open"
+print("Editor navigation: OK")
+PY
+adb exec-out screencap -p > "$OUT/editor-before-scroll.png"
+adb shell dumpsys gfxinfo "$PKG" reset > "$OUT/gfx-reset.txt"
+for n in 1 2 3 4; do
+  adb shell input swipe 60 1660 60 420 460
+  adb shell input swipe 60 470 60 1660 460
+done
+sleep 1
+adb shell dumpsys gfxinfo "$PKG" framestats > "$OUT/gfx-editor-framestats.txt"
+adb exec-out screencap -p > "$OUT/editor-after-scroll.png"
 
 adb shell dumpsys activity activities > "$OUT/activities.txt"
 adb shell dumpsys meminfo "$PKG" > "$OUT/meminfo.txt"
@@ -93,7 +122,7 @@ report={
     "start_total_time_ms":times,
     "median_start_total_time_ms":statistics.median(times),
     "mean_start_total_time_ms":round(statistics.mean(times),1),
-    "scroll":"6 touch swipes; raw gfxinfo framestats attached",
+    "scroll":"8 vertical touch swipes on long native editor; raw gfxinfo framestats attached",
     "settings":"native settings opened and returned; screenshot attached",
     "runtime_fatal_errors":False,
 }
