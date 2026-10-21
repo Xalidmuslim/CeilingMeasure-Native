@@ -95,7 +95,7 @@ final class NativeEstimateDialog extends Dialog {
 
         content=new LinearLayout(getContext());
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(7),dp(4),dp(7),dp(8));
+        content.setPadding(dp(7),dp(4),dp(7),dp(6));
         scroll.addView(content,new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -322,123 +322,177 @@ final class NativeEstimateDialog extends Dialog {
         if(mode==Mode.CLIENT){
             Button add=button("+ Добавить материал",false);
             add.setTag("native_client_add_material_"+room.id);
+            add.setTextColor(BLUE);
+            add.setBackground(NativeVisualTokens.rippleOutlined(
+                    NativeVisualTokens.SURFACE_SOFT,Color.TRANSPARENT,
+                    dp(9),0,Color.argb(25,33,110,147)));
+            add.setPadding(dp(12),0,dp(12),0);
             add.setOnClickListener(v->openMaterialPicker(owner,room));
             LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,adaptiveActionHeight(34,false));
+                    ViewGroup.LayoutParams.WRAP_CONTENT,adaptiveActionHeight(36,false));
             addParams.topMargin=dp(2);
             card.addView(add,addParams);
         }else{
             Button add=button("+ Другой материал",false);
             add.setTag("native_internal_add_material_"+room.id);
+            add.setTextColor(BLUE);
+            add.setBackground(NativeVisualTokens.rippleOutlined(
+                    NativeVisualTokens.SURFACE_SOFT,Color.TRANSPARENT,
+                    dp(9),0,Color.argb(25,33,110,147)));
+            add.setPadding(dp(12),0,dp(12),0);
             add.setOnClickListener(v->openAdhocMaterial(owner,room,false));
-            add.setMaxLines(2);
             card.addView(add,new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,adaptiveActionHeight(38,true)));
+                    ViewGroup.LayoutParams.WRAP_CONTENT,adaptiveActionHeight(36,false)));
         }
 
-        TextView state=text(
-                cost.complete?"✓ Расчёт готов":"Не хватает обязательных размеров",
-                10.5f,
-                cost.complete?NativeVisualTokens.OK:MUTED,
-                false);
-        card.addView(state,top(2));
+        // Repeating "Расчёт готов" in every completed room consumed valuable
+        // vertical space without adding information. Keep incomplete warnings.
+        if(!cost.complete){
+            TextView incomplete=text("Не хватает обязательных размеров",10.5f,
+                    NativeVisualTokens.DANGER,false);
+            incomplete.setTag("native_estimate_incomplete_"+room.id);
+            card.addView(incomplete,top(3));
+        }
 
         if(room.notes!=null&&!room.notes.trim().isEmpty()){
             card.addView(text("Примечание: "+room.notes.trim(),10,MUTED,false),top(2));
         }
     }
 
+    /**
+     * A compact two-line line item: description and subtotal on the first
+     * line; editable quantity × unit price in one left-aligned formula below.
+     * No weighted spacing BETWEEN operands and no dead, outlined quantity
+     * button for automatically calculated measurements.
+     */
     private void addLine(
             LinearLayout parent,
             NativeProjectStore.ProjectData owner,
             NativeProjectStore.RoomData room,
             NativeEstimateEngine.Line line){
+        String key=line.key+"_"+room.id;
         LinearLayout item=new LinearLayout(getContext());
-        item.setTag("native_estimate_line_"+line.key+"_"+room.id);
+        item.setTag("native_estimate_line_"+key);
         item.setOrientation(LinearLayout.VERTICAL);
-        item.setPadding(0,dp(2),0,dp(2));
+        item.setPadding(0,dp(1),0,dp(1));
 
         LinearLayout heading=new LinearLayout(getContext());
-        heading.setOrientation(LinearLayout.HORIZONTAL);
         heading.setGravity(Gravity.CENTER_VERTICAL);
+        heading.setOrientation(LinearLayout.HORIZONTAL);
         TextView title=text(line.name,12.5f,TEXT,true);
+        title.setTag("native_estimate_title_"+key);
         title.setMaxLines(2);
         LinearLayout.LayoutParams titleParams=new LinearLayout.LayoutParams(
                 0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
-        titleParams.rightMargin=dp(8);
+        titleParams.rightMargin=dp(7);
         heading.addView(title,titleParams);
+
         TextView total=text(NativeMoney.format(line.total)+" ₽",13,TEXT,true);
+        total.setTag("native_estimate_total_"+key);
         total.setSingleLine(true);
-        total.setGravity(Gravity.END);
+        total.setMaxWidth(dp(145));
+        total.setAutoSizeTextTypeUniformWithConfiguration(10,13,1,
+                TypedValue.COMPLEX_UNIT_SP);
+        total.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
         heading.addView(total,new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         item.addView(heading);
 
-        LinearLayout controls=new LinearLayout(getContext());
-        controls.setOrientation(LinearLayout.HORIZONTAL);
-        controls.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(
+        LinearLayout formula=new LinearLayout(getContext());
+        formula.setTag("native_estimate_formula_"+key);
+        formula.setOrientation(LinearLayout.HORIZONTAL);
+        formula.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,dp(42));
-        cp.topMargin=0;
-        item.addView(controls,cp);
+        fp.topMargin=0;
+        item.addView(formula,fp);
 
         boolean canEditQty=line.custom||line.qtyEditable
                 ||(mode==Mode.INTERNAL&&isInternalExtra(line.key));
-        Button quantity=button(qty(line.qty),false);
-        quantity.setTag("native_estimate_qty_"+line.key+"_"+room.id);
-        quantity.setSingleLine(true);
-        quantity.setTextSize(12);
-        quantity.setEnabled(canEditQty);
-        quantity.setAlpha(canEditQty?1f:.76f);
-        quantity.setBackground(NativeVisualTokens.outlined(
-                canEditQty?NativeVisualTokens.SURFACE:NativeVisualTokens.APP_SOFT,
-                canEditQty?LINE:NativeVisualTokens.APP_SOFT,dp(10),canEditQty?dp(1):0));
+        TextView quantity;
         if(canEditQty){
-            quantity.setOnClickListener(v->editQty(owner,room,line));
-            NativeFastLongPress.attach(quantity,()->editQty(owner,room,line));
+            Button edit=button(qty(line.qty),false);
+            edit.setTextSize(12);
+            edit.setSingleLine(true);
+            edit.setMinWidth(dp(56));
+            edit.setMaxWidth(dp(88));
+            edit.setContentDescription("Изменить количество: "+line.name);
+            edit.setBackground(NativeVisualTokens.rippleOutlined(
+                    NativeVisualTokens.SURFACE,LINE,dp(9),dp(1),
+                    Color.argb(24,33,110,147)));
+            edit.setOnClickListener(v->editQty(owner,room,line));
+            NativeFastLongPress.attach(edit,()->editQty(owner,room,line));
+            quantity=edit;
+            formula.addView(edit,new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(42)));
+        }else{
+            // A calculated value is not interactive; represent it as plain
+            // text instead of a large grey disabled control.
+            quantity=text(qty(line.qty),12,MUTED,true);
+            quantity.setGravity(Gravity.CENTER_VERTICAL);
+            quantity.setSingleLine(true);
+            formula.addView(quantity,new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,dp(42)));
         }
-        controls.addView(quantity,new LinearLayout.LayoutParams(dp(62),dp(42)));
+        quantity.setTag("native_estimate_qty_"+key);
 
-        TextView unit=text(line.unit,10.5f,MUTED,false);
-        unit.setMaxLines(1);
+        TextView unit=text(line.unit,11,MUTED,false);
+        unit.setSingleLine(true);
         unit.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(
-                0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
-        up.leftMargin=dp(6);
-        controls.addView(unit,up);
+        LinearLayout.LayoutParams unitParams=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,dp(42));
+        unitParams.leftMargin=dp(canEditQty?5:4);
+        formula.addView(unit,unitParams);
 
-        TextView times=text("×",14,MUTED,false);
-        times.setGravity(Gravity.CENTER);
-        controls.addView(times,new LinearLayout.LayoutParams(dp(17),dp(42)));
+        TextView multiply=text("×",13,MUTED,false);
+        multiply.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams xParams=new LinearLayout.LayoutParams(
+                dp(14),dp(42));
+        xParams.leftMargin=dp(9);
+        xParams.rightMargin=dp(5);
+        formula.addView(multiply,xParams);
 
-        Button value=button(NativeMoney.format(line.price),false);
-        value.setTextSize(12);
-        value.setSingleLine(true);
-        value.setTag("native_estimate_price_"+line.key+"_"+room.id);
-        value.setContentDescription("Цена за "+line.unit+": "+line.name);
-        value.setOnClickListener(v->editPrice(owner,room,line));
-        LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(dp(88),dp(42));
-        vp.leftMargin=dp(5);
-        controls.addView(value,vp);
+        Button price=button(NativeMoney.format(line.price)+" ₽",false);
+        price.setTag("native_estimate_price_"+key);
+        price.setSingleLine(true);
+        price.setTextSize(12);
+        price.setMinWidth(dp(65));
+        price.setMaxWidth(dp(112));
+        price.setAutoSizeTextTypeUniformWithConfiguration(10,12,1,
+                TypedValue.COMPLEX_UNIT_SP);
+        price.setContentDescription("Изменить цену: "+line.name);
+        price.setBackground(NativeVisualTokens.rippleOutlined(
+                NativeVisualTokens.SURFACE_SOFT,LINE,dp(9),dp(1),
+                Color.argb(24,33,110,147)));
+        price.setOnClickListener(v->editPrice(owner,room,line));
+        formula.addView(price,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,dp(42)));
 
         if(line.removable){
+            // Position management is separated from the calculation, without
+            // stretching the distance between quantity and unit price.
+            formula.addView(new View(getContext()),new LinearLayout.LayoutParams(
+                    0,dp(1),1f));
             Button more=button("⋯",false);
-            more.setTag("native_estimate_actions_"+line.key+"_"+room.id);
+            more.setTag("native_estimate_actions_"+key);
             more.setTextSize(18);
             more.setContentDescription("Действия с позицией "+line.name);
-            more.setBackground(NativeVisualTokens.solid(
-                    NativeVisualTokens.SURFACE_SOFT,dp(10)));
+            more.setBackground(NativeVisualTokens.rippleOutlined(
+                    NativeVisualTokens.SURFACE_SOFT,Color.TRANSPARENT,
+                    dp(9),0,Color.argb(24,33,110,147)));
             more.setOnClickListener(v->
                     new NativeStyledAlertDialog.Builder(getContext())
-                        .setTitle(line.name)
-                        .setItems(new String[]{"Удалить позицию"},
-                                (dialog,which)->removeLine(owner,room,line))
-                        .show());
-            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(dp(42),dp(42));
-            mp.leftMargin=dp(4);
-            controls.addView(more,mp);
+                            .setTitle(line.name)
+                            .setItems(new String[]{"Удалить позицию"},
+                                    (dialog,which)->removeLine(owner,room,line))
+                            .show());
+            LinearLayout.LayoutParams moreParams=new LinearLayout.LayoutParams(
+                    dp(42),dp(42));
+            moreParams.leftMargin=dp(4);
+            formula.addView(more,moreParams);
         }
+
         parent.addView(item);
         View divider=new View(getContext());
         divider.setBackgroundColor(NativeVisualTokens.DIVIDER);
