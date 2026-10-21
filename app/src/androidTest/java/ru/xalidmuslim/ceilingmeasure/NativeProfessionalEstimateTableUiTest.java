@@ -49,6 +49,12 @@ public final class NativeProfessionalEstimateTableUiTest {
                                     .getConfiguration().screenWidthDp);
                     assertNull("repeated per-room header wastes a line",
                             root.findViewWithTag("native_estimate_table_header_"+room.id));
+                    TextView roomMetrics=root.findViewWithTag(
+                            "native_estimate_room_metrics_"+room.id);
+                    assertNotNull(roomMetrics);
+                    assertEquals("short room heading and metrics use one compact line",
+                            LinearLayout.HORIZONTAL,
+                            ((LinearLayout)roomMetrics.getParent()).getOrientation());
                     String firstKey="custom:"+first.id+"_"+room.id;
                     String secondKey="custom:"+second.id+"_"+room.id;
                     LinearLayout formulaA=root.findViewWithTag(
