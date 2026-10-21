@@ -162,8 +162,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             }
             if (project == null) {
                 // Deleted project: fall back to the saved list, never open a different order.
-                showSavedMeasurements();
-                return;
+                project = store.loadCurrent();
+                action = ACTION_SAVED_MEASUREMENTS;
             }
         } else project = store.loadCurrent();
 
