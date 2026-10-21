@@ -109,6 +109,9 @@ public final class NativeProfessionalEstimateTableUiTest {
                     assertTrue(item.getPaddingTop()<=dp(activity,1));
                     assertEquals(0,item.getPaddingBottom());
                     assertEquals("1 250 000 ₽",price.getText().toString());
+                    assertEquals("large prices preserve the readable two-tier row",
+                            LinearLayout.VERTICAL,
+                            ((LinearLayout)formulaA.getParent()).getOrientation());
                     TextView subtotal=root.findViewWithTag(
                             "native_estimate_total_"+firstKey);
                     assertEquals("3 750 000 ₽",subtotal.getText().toString());
@@ -151,6 +154,15 @@ public final class NativeProfessionalEstimateTableUiTest {
                     assertSame(scroll,((FrameLayout)shell).getChildAt(0));
                     assertSame(row,root.findViewWithTag(
                             "native_estimate_line_light_"+room.id));
+                    boolean compact=NativeEstimateDensePolicy.oneRow(
+                            activity.getResources().getConfiguration().screenWidthDp,
+                            activity.getResources().getConfiguration().fontScale,
+                            NativeUiPrefs.load(activity).scale/
+                                    NativeUiPrefs.defaults().scale,
+                            "Светильники","шт","1 000","2 000","2");
+                    assertEquals("short estimate items collapse to a single row",
+                            compact?LinearLayout.HORIZONTAL:LinearLayout.VERTICAL,
+                            ((LinearLayout)row).getOrientation());
                     TextView price=root.findViewWithTag(
                             "native_estimate_price_light_"+room.id);
                     TextView rowTotal=root.findViewWithTag(
