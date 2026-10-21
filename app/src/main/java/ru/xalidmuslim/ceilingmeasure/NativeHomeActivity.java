@@ -26,6 +26,7 @@ public final class NativeHomeActivity extends ComponentActivity {
     private NativeUiPrefs uiPrefs;
     private NativeProjectStore store;
     private View shellRoot;
+    private NativePremiumHomeUi premiumUi;
     private TextView savedMeta;
     private TextView drawingMeta;
     private NativeUiSettingsDialog settingsDialog;
@@ -74,130 +75,18 @@ public final class NativeHomeActivity extends ComponentActivity {
     }
 
     private View createContent() {
-        LinearLayout screen = new LinearLayout(this);
-        screen.setTag("native_home_root");
-        screen.setOrientation(LinearLayout.VERTICAL);
-        screen.setBackground(NativeVisualTokens.homeBackground());
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.setTag("native_home_scroll");
-        scroll.setFillViewport(true);
-        scroll.setClipToPadding(false);
-        scroll.setVerticalScrollBarEnabled(false);
-        screen.addView(scroll, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
-
-        LinearLayout content = new LinearLayout(this);
-        content.setTag("native_home_content");
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setGravity(Gravity.CENTER_HORIZONTAL);
-        content.setPadding(dp(12), dp(14), dp(12), dp(20));
-        scroll.addView(content, new ScrollView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        LinearLayout shell = new LinearLayout(this);
-        shell.setTag("native_home_shell");
-        shell.setOrientation(LinearLayout.VERTICAL);
-        shell.setGravity(Gravity.CENTER_HORIZONTAL);
-        content.addView(shell, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        LinearLayout hero = new LinearLayout(this);
-        hero.setTag("native_home_hero");
-        hero.setOrientation(LinearLayout.HORIZONTAL);
-        hero.setGravity(Gravity.TOP);
-        hero.setPadding(dp(2), dp(6), dp(2), dp(10));
-        shell.addView(hero, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        LinearLayout copy = new LinearLayout(this);
-        copy.setOrientation(LinearLayout.VERTICAL);
-        hero.addView(copy, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-        int screenWidthDp = Math.round(
-                getResources().getDisplayMetrics().widthPixels
-                        / getResources().getDisplayMetrics().density);
-        TextView title = text(
-                "Замер потолков",
-                screenWidthDp <= 430 ? 24 : 27,
-                Color.rgb(32, 56, 74),
-                true);
-        title.setTag("native_home_title");
-        LinearLayout.LayoutParams titleParams = wrap();
-        titleParams.topMargin = dp(0);
-        copy.addView(title, titleParams);
-
-        TextView subtitle = text(
-                "Замер · чертёж · смета",
-                12.5f,
-                NativeVisualTokens.HOME_MUTED,
-                false);
-        LinearLayout.LayoutParams subtitleParams = wrap();
-        subtitleParams.topMargin = dp(3);
-        copy.addView(subtitle, subtitleParams);
-
-        ImageView settings = iconButton(R.drawable.ic_shell_sliders, 48, 48, 14);
-        settings.setTag("native_home_settings");
-        settings.setContentDescription("Настройки");
-        settings.setOnClickListener(v -> openSettings());
-        LinearLayout.LayoutParams settingsParams =
-                new LinearLayout.LayoutParams(dp(48), dp(48));
-        settingsParams.topMargin = dp(2);
-        hero.addView(settings, settingsParams);
-
-        LinearLayout actions = new LinearLayout(this);
-        actions.setTag("native_home_actions");
-        actions.setOrientation(LinearLayout.VERTICAL);
-        shell.addView(actions, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        View newOrder = actionCard(
-                R.drawable.ic_shell_add,
-                "Новый заказ",
-                "Создать новый замер",
-                true,
-                "native_home_new",
-                v -> openWorkspace(NativeWorkspaceActivity.ACTION_NEW_ORDER));
-        actions.addView(newOrder, cardParams(0));
-
-        View saved = actionCard(
-                R.drawable.ic_shell_saved,
-                "Замеры",
-                "",
-                false,
-                "native_home_saved",
-                v -> openWorkspace(NativeWorkspaceActivity.ACTION_SAVED_MEASUREMENTS));
-        actions.addView(saved, cardParams(7));
-        savedMeta = saved.findViewWithTag("native_home_saved_meta");
-
-        View drawing = actionCard(
-                R.drawable.ic_shell_drawing,
-                "Чертёж",
-                "",
-                false,
-                "native_home_drawing",
-                v -> openWorkspace(NativeWorkspaceActivity.ACTION_DRAWING));
-        actions.addView(drawing, cardParams(7));
-        drawingMeta = drawing.findViewWithTag("native_home_drawing_meta");
-
-        View license = actionCard(
-                R.drawable.ic_shell_sliders,
-                "Лицензия",
-                "Управление доступом",
-                false,
-                "native_home_license",
-                v -> showLicense());
-        actions.addView(license, cardParams(12));
-        licenseMeta = license.findViewWithTag("native_home_license_meta");
-
+        premiumUi = new NativePremiumHomeUi(
+                this, uiPrefs,
+                () -> openWorkspace(NativeWorkspaceActivity.ACTION_NEW_ORDER),
+                () -> openWorkspace(NativeWorkspaceActivity.ACTION_SAVED_MEASUREMENTS),
+                () -> openWorkspace(NativeWorkspaceActivity.ACTION_DRAWING),
+                () -> openWorkspace(NativeWorkspaceActivity.ACTION_MATERIALS),
+                this::showLicense,
+                this::openSettings);
+        View screen = premiumUi.build();
         shellRoot = screen;
-        NativeShellInsets.bindHome(screen, scroll);
+        NativeShellInsets.bindWorkspace(
+                screen, premiumUi.scroll(), premiumUi.dock(), dp(8));
         refreshHomeMeta();
         return screen;
     }
@@ -339,6 +228,7 @@ public final class NativeHomeActivity extends ComponentActivity {
 
     private void refreshHomeMeta() {
         if (store == null) return;
+        if (premiumUi != null) premiumUi.refresh(store, licenseClient);
         if (licenseMeta != null && licenseClient != null) {
             licenseMeta.setText(licenseClient.status());
         }
