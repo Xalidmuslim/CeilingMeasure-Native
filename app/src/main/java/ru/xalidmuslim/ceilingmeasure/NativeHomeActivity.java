@@ -80,6 +80,7 @@ public final class NativeHomeActivity extends ComponentActivity {
                 this, uiPrefs,
                 () -> openWorkspace(NativeWorkspaceActivity.ACTION_NEW_ORDER),
                 () -> openWorkspace(NativeWorkspaceActivity.ACTION_SAVED_MEASUREMENTS),
+                this::openRecentProject,
                 () -> openWorkspace(NativeWorkspaceActivity.ACTION_DRAWING),
                 () -> openWorkspace(NativeWorkspaceActivity.ACTION_MATERIALS),
                 this::showLicense,
@@ -281,6 +282,15 @@ public final class NativeHomeActivity extends ComponentActivity {
         NativeLicenseDialog.show(this, licenseClient, this::refreshHomeMeta);
     }
 
+    private void openRecentProject(String projectId) {
+        if (licenseClient != null && !licenseClient.canEdit()) { showLicense(); return; }
+        Intent intent = new Intent(this, NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, NativeWorkspaceActivity.ACTION_RECENT_PROJECT);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_PROJECT_ID, projectId);
+        startActivity(intent);
+        overridePendingTransition(0, 0);
+    }
+
     private void openWorkspace(String action) {
         // Gate entry in one place. Existing projects are never erased or migrated.
         if (licenseClient != null && !licenseClient.canEdit()) {
@@ -290,6 +300,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         Intent intent = new Intent(this, NativeWorkspaceActivity.class);
         intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, action);
         startActivity(intent);
+        if (NativeWorkspaceActivity.ACTION_MATERIALS.equals(action)) overridePendingTransition(0, 0);
     }
 
     NativeUiPrefs getUiPrefsForTest() {
