@@ -63,6 +63,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     public static final String ACTION_SAVED_MEASUREMENTS = "saved_measurements";
     public static final String ACTION_DRAWING = "drawing";
     public static final String ACTION_SETTINGS = "settings";
+    public static final String ACTION_MATERIALS = "materials";
     private static final int REQUEST_EXPORT_BACKUP = 7201;
     private static final int REQUEST_IMPORT_BACKUP = 7202;
     private static final int REQUEST_EXPORT_CLIENT_PDF = 7203;
@@ -161,6 +162,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             showEditor(ACTION_DRAWING.equals(action));
             if (ACTION_SETTINGS.equals(action)) {
                 getWindow().getDecorView().post(this::showNativeSettings);
+            } else if (ACTION_MATERIALS.equals(action)) {
+                getWindow().getDecorView().post(this::openMaterialsCatalog);
             }
         }
 
@@ -2244,6 +2247,22 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 .setMessage(result.message())
                 .setPositiveButton("Готово", null)
                 .show();
+    }
+
+    /** Opens the existing materials/price editor without creating or changing an order. */
+    private void openMaterialsCatalog() {
+        if (isFinishing() || store == null || project == null || licenseClient == null
+                || !licenseClient.canEdit()) return;
+        NativePricePresetDialog dialog = new NativePricePresetDialog(
+                this, store, project,
+                java.util.Collections.singletonList(project),
+                false,
+                () -> {
+                    scheduleSaveCurrent();
+                    updateStats();
+                });
+        dialog.setOnHomeRequested(this::goHome);
+        dialog.show();
     }
 
     private void openEstimate(NativeEstimateDialog.Mode mode){
