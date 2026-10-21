@@ -2,6 +2,7 @@ package ru.xalidmuslim.ceilingmeasure;
 
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -24,6 +25,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 /** The launcher presentation only. No geometry, estimate or persistence mutations. */
 final class NativePremiumHomeUi {
     private static final int BG = Color.rgb(245, 246, 248);
@@ -44,6 +48,7 @@ final class NativePremiumHomeUi {
     private ScrollView scroll;
     private FrameLayout dock;
     private LinearLayout recentRows;
+    private ImageView appIcon;
     private TextView savedCount;
     private TextView licenseState;
 
@@ -101,8 +106,6 @@ final class NativePremiumHomeUi {
                 "native_home_saved", openSaved, true, 0);
         addRow(actions, R.drawable.ic_shell_drawing, "Чертёж", "Построение по размерам",
                 "native_home_drawing", openDrawing, false, 6);
-        addRow(actions, R.drawable.ic_shell_layers, "Материалы", "Каталог и цены",
-                "native_home_materials", openMaterials, false, 6);
         addRow(actions, R.drawable.ic_shell_sliders, "Лицензия", "Статус и управление",
                 "native_home_license", openLicense, false, 6);
 
@@ -129,6 +132,10 @@ final class NativePremiumHomeUi {
         recentRows.setBackground(panel(16));
         content.addView(recentRows, matchTop(0));
 
+        // Avoid a misleading empty list while saved projects are being read asynchronously.
+        recentRows.addView(text("Загрузка замеров…", 11.5f, MUTED, false),
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, dp(46)));
         addDock(screen);
         return screen;
     }
@@ -136,17 +143,12 @@ final class NativePremiumHomeUi {
     ScrollView scroll() { return scroll; }
     FrameLayout dock() { return dock; }
 
-    void refresh(NativeProjectStore store, NativeLicenseClient license) {
-        if (store == null || recentRows == null) return;
-        List<NativeProjectStore.ProjectData> records = new ArrayList<>(store.loadSaved());
+    void renderSaved(@NonNull List<NativeProjectStore.ProjectData> saved) {
+        if (recentRows == null) return;
+        List<NativeProjectStore.ProjectData> records = new ArrayList<>(saved);
         if (savedCount != null) {
             savedCount.setText(Integer.toString(records.size()));
             savedCount.setVisibility(records.isEmpty() ? View.GONE : View.VISIBLE);
-        }
-        if (licenseState != null && license != null) {
-            String status = license.status();
-            licenseState.setText(status == null || status.trim().isEmpty()
-                    ? "Статус и управление" : status);
         }
         // Display saved data only; never alter the order stored on disk.
         records.sort((a, b) -> Long.compare(b.savedAt, a.savedAt));
@@ -229,6 +231,19 @@ final class NativePremiumHomeUi {
         }
     }
 
+    void refreshLicense(NativeLicenseClient license) {
+        if (licenseState == null || license == null) return;
+        String status = license.status();
+        licenseState.setText(status == null || status.trim().isEmpty()
+                ? "Статус и управление" : status);
+    }
+
+    void applyPreloadedIcon(@Nullable Bitmap bitmap) {
+        if (appIcon != null && bitmap != null && !bitmap.isRecycled()) {
+            appIcon.setImageBitmap(bitmap);
+        }
+    }
+
     private void addHeader(LinearLayout content) {
         LinearLayout header = new LinearLayout(activity);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -236,7 +251,10 @@ final class NativePremiumHomeUi {
 
         ImageView logo = new ImageView(activity);
         logo.setTag("native_home_app_icon");
-        logo.setImageDrawable(activity.getApplicationInfo().loadIcon(activity.getPackageManager()));
+        // Avoid decoding the 1024px app artwork on the first UI frame.
+        // The icon resource is decoded at screen-appropriate resolution on background IO.
+        logo.setImageResource(R.drawable.ic_shell_drawing);
+        appIcon = logo;
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
         logo.setContentDescription("Иконка приложения");
         LinearLayout.LayoutParams logoLp = new LinearLayout.LayoutParams(dp(40), dp(40));

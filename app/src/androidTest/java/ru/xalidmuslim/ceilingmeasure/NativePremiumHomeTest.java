@@ -26,7 +26,8 @@ public final class NativePremiumHomeTest {
                 assertNotNull(root.findViewWithTag("native_home_new"));
                 assertNotNull(root.findViewWithTag("native_home_saved"));
                 assertNotNull(root.findViewWithTag("native_home_drawing"));
-                assertNotNull(root.findViewWithTag("native_home_materials"));
+                assertNull("Materials shortcut was removed from home cards",
+                        root.findViewWithTag("native_home_materials"));
                 assertNotNull(root.findViewWithTag("native_home_license"));
                 assertNotNull(root.findViewWithTag("native_home_settings"));
                 assertNotNull(root.findViewWithTag("native_home_recent"));
@@ -36,11 +37,25 @@ public final class NativePremiumHomeTest {
                 assertEquals("One compact home dock with five destinations", 5,
                         slots.getChildCount());
                 assertNotNull(root.findViewWithTag("native_home_nav_new"));
+                assertEquals("Materials remains accessible in the bottom navigation",
+                        "Материалы", String.valueOf(slots.getChildAt(3).getContentDescription()));
+                assertNoExplicitHardwareLayers(root.findViewWithTag("native_home_root"));
                 assertNull("No top-level export shortcut", root.findViewWithTag("native_home_export"));
                 assertNull("No top-level estimate shortcut", root.findViewWithTag("native_home_estimate"));
                 assertEquals("Замер потолков",
                         ((TextView) root.findViewWithTag("native_home_title")).getText().toString());
             });
+        }
+    }
+
+    private static void assertNoExplicitHardwareLayers(View view) {
+        assertNotEquals("Unnecessary forced GPU layer: " + view.getTag(),
+                View.LAYER_TYPE_HARDWARE, view.getLayerType());
+        if (view instanceof ViewGroup) {
+            ViewGroup children = (ViewGroup) view;
+            for (int n = 0; n < children.getChildCount(); n++) {
+                assertNoExplicitHardwareLayers(children.getChildAt(n));
+            }
         }
     }
 }
