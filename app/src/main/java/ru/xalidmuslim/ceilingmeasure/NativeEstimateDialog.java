@@ -461,10 +461,10 @@ final class NativeEstimateDialog extends Dialog {
             Button edit=button(qty(line.qty),false);
             edit.setTextSize(12);
             edit.setSingleLine(true);
-            edit.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+            edit.setGravity(Gravity.CENTER);
             edit.setAutoSizeTextTypeUniformWithConfiguration(9,12,1,
                     TypedValue.COMPLEX_UNIT_SP);
-            edit.setPadding(dp(3),0,dp(8),0);
+            edit.setPadding(dp(2),0,dp(2),0);
             edit.setContentDescription("Изменить количество: "+line.name);
             edit.setBackground(estimateFieldBackground(
                     NativeVisualTokens.SURFACE,LINE));
@@ -504,8 +504,8 @@ final class NativeEstimateDialog extends Dialog {
         price.setTextSize(12);
         price.setAutoSizeTextTypeUniformWithConfiguration(9,12,1,
                 TypedValue.COMPLEX_UNIT_SP);
-        price.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
-        price.setPadding(dp(3),0,dp(8),0);
+        price.setGravity(Gravity.CENTER);
+        price.setPadding(dp(2),0,dp(2),0);
         price.setContentDescription("Изменить цену: "+line.name);
         price.setBackground(estimateFieldBackground(
                 NativeVisualTokens.SURFACE_SOFT,LINE));
@@ -600,8 +600,8 @@ final class NativeEstimateDialog extends Dialog {
             edit.setSingleLine(true);
             edit.setAutoSizeTextTypeUniformWithConfiguration(9,11,1,
                     TypedValue.COMPLEX_UNIT_SP);
-            edit.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
-            edit.setPadding(dp(2),0,dp(4),0);
+            edit.setGravity(Gravity.CENTER);
+            edit.setPadding(dp(2),0,dp(2),0);
             edit.setBackground(estimateFieldBackground(
                     NativeVisualTokens.SURFACE,LINE));
             edit.setContentDescription("Изменить количество: "+line.name);
@@ -636,8 +636,8 @@ final class NativeEstimateDialog extends Dialog {
         price.setTextSize(11);
         price.setAutoSizeTextTypeUniformWithConfiguration(9,11,1,
                 TypedValue.COMPLEX_UNIT_SP);
-        price.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
-        price.setPadding(dp(2),0,dp(4),0);
+        price.setGravity(Gravity.CENTER);
+        price.setPadding(dp(2),0,dp(2),0);
         price.setBackground(estimateFieldBackground(
                 NativeVisualTokens.SURFACE_SOFT,LINE));
         price.setContentDescription("Изменить цену: "+line.name);
