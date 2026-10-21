@@ -186,6 +186,8 @@ final class NativeWallMeasureDialog extends Dialog {
         Window window=getWindow();
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
+            // Fade-only dialog transition. Never slide or scale the window.
+            window.setWindowAnimations(R.style.Animation_CeilingFade);
             window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             if(sequence)window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
             WindowManager.LayoutParams lp=new WindowManager.LayoutParams();

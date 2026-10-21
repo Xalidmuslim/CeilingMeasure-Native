@@ -199,6 +199,8 @@ final class NativeStyledAlertDialog extends Dialog {
         Window window = getWindow();
         if (window != null) {
             window.setBackgroundDrawableResource(android.R.color.transparent);
+            // Fade-only dialog transition. Never slide or scale the window.
+            window.setWindowAnimations(R.style.Animation_CeilingFade);
             WindowManager.LayoutParams attrs = new WindowManager.LayoutParams();
             attrs.copyFrom(window.getAttributes());
             attrs.width = Math.min(context.getResources().getDisplayMetrics().widthPixels - dp(28),

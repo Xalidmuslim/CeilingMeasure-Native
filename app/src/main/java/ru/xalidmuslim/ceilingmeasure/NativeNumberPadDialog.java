@@ -110,6 +110,8 @@ final class NativeNumberPadDialog extends Dialog {
         Window window=getWindow();
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
+            // Fade-only dialog transition. Never slide or scale the window.
+            window.setWindowAnimations(R.style.Animation_CeilingFade);
             WindowManager.LayoutParams lp=new WindowManager.LayoutParams();
             lp.copyFrom(window.getAttributes());
             lp.width=Math.min(getContext().getResources().getDisplayMetrics().widthPixels-dp(24),dp(430));
