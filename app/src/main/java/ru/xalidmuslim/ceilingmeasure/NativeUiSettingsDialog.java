@@ -58,7 +58,7 @@ final class NativeUiSettingsDialog extends Dialog {
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             // Fade-only dialog transition. Never slide or scale the window.
-            window.setWindowAnimations(R.style.Animation_CeilingFade);
+            window.setWindowAnimations(R.style.CeilingFadeWindowAnimation);
             window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             WindowCompat.setDecorFitsSystemWindows(window, false);
         }

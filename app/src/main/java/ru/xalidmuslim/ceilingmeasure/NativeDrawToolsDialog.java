@@ -100,7 +100,7 @@ final class NativeDrawToolsDialog extends Dialog {
         if (window != null) {
             window.setBackgroundDrawableResource(android.R.color.transparent);
             // Fade-only dialog transition. Never slide or scale the window.
-            window.setWindowAnimations(R.style.Animation_CeilingFade);
+            window.setWindowAnimations(R.style.CeilingFadeWindowAnimation);
             window.setDimAmount(.18f);
             window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             WindowManager.LayoutParams lp = new WindowManager.LayoutParams();

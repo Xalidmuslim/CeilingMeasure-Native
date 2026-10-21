@@ -78,7 +78,7 @@ final class NativeRoomPickerDialog extends Dialog {
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
             // Fade-only dialog transition. Never slide or scale the window.
-            window.setWindowAnimations(R.style.Animation_CeilingFade);
+            window.setWindowAnimations(R.style.CeilingFadeWindowAnimation);
             WindowManager.LayoutParams lp=new WindowManager.LayoutParams();
             lp.copyFrom(window.getAttributes());
             lp.width=Math.min(

@@ -5,7 +5,7 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowBackground">#F2F5F8</item>
         <item name="android:colorAccent">#216E93</item>
-        <item name="android:windowAnimationStyle">@style/Animation.CeilingFade</item>
+        <item name="android:windowAnimationStyle">@style/CeilingFadeWindowAnimation</item>
         <item name="android:statusBarColor">#F8FAFC</item>
         <item name="android:navigationBarColor">#FFFFFF</item>
         <item name="android:navigationBarDividerColor">#D8E2EA</item>
@@ -14,7 +14,7 @@
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
-    <style name="Animation.CeilingFade">
+    <style name="CeilingFadeWindowAnimation">
         <item name="android:windowEnterAnimation">@anim/native_fade_in</item>
         <item name="android:windowExitAnimation">@anim/native_fade_out</item>
     </style>
