@@ -89,8 +89,8 @@ jobs:
           script: >
             bash scripts/test_v244_navigation.sh
             build/release/app-releasePreview.apk
-            build/tests/app-debug.apk
-            build/tests/app-debug-androidTest.apk
+            build/tests/debug/app-debug.apk
+            build/tests/androidTest/debug/app-debug-androidTest.apk
       - name: Save emulator navigation evidence
         if: always()
         uses: actions/upload-artifact@v4
