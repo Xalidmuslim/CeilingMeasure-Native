@@ -48,6 +48,14 @@ public final class NativePremiumHomeTest {
         }
     }
 
+    @Test
+    public void recentProjectIntentUsesStableIdAndNotSavedListAction() {
+        assertNotEquals(NativeWorkspaceActivity.ACTION_SAVED_MEASUREMENTS,
+                NativeWorkspaceActivity.ACTION_RECENT_PROJECT);
+        assertNotEquals(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.EXTRA_PROJECT_ID);
+    }
+
     private static void assertNoExplicitHardwareLayers(View view) {
         assertNotEquals("Unnecessary forced GPU layer: " + view.getTag(),
                 View.LAYER_TYPE_HARDWARE, view.getLayerType());
