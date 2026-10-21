@@ -690,15 +690,9 @@ final class NativeEstimateDialog extends Dialog {
         int width=getContext().getResources().getConfiguration().screenWidthDp;
         float system=getContext().getResources().getConfiguration().fontScale;
         float custom=uiPrefs.scale/NativeUiPrefs.defaults().scale;
-        if(width<390 || system>1.06f || custom>1.06f)return false;
-        if(line.name==null || line.name.length()>12)return false;
-        if(line.unit==null || line.unit.length()>3)return false;
-        if(NativeMoney.format(line.price).length()>7
-                ||NativeMoney.format(line.total).length()>10
-                ||qty(line.qty).length()>6)return false;
-        // Keep regular-sized rows consistently aligned. Explicitly large
-        // prices or unusually long material names get the accessible layout.
-        return true;
+        return NativeEstimateDensePolicy.oneRow(width,system,custom,
+                line.name,line.unit,NativeMoney.format(line.price),
+                NativeMoney.format(line.total),qty(line.qty));
     }
 
     private int estimateControlHeight(){
