@@ -64,6 +64,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     public static final String ACTION_DRAWING = "drawing";
     public static final String ACTION_SETTINGS = "settings";
     public static final String ACTION_MATERIALS = "materials";
+    public static final String ACTION_RECENT_PROJECT = "recent_project";
+    public static final String EXTRA_PROJECT_ID = "native_project_id";
     private static final int REQUEST_EXPORT_BACKUP = 7201;
     private static final int REQUEST_IMPORT_BACKUP = 7202;
     private static final int REQUEST_EXPORT_CLIENT_PDF = 7203;
@@ -152,9 +154,24 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         String action = getIntent().getStringExtra(EXTRA_LAUNCH_ACTION);
         if (ACTION_NEW_ORDER.equals(action)) project = store.newProject();
-        else project = store.loadCurrent();
+        else if (ACTION_RECENT_PROJECT.equals(action)) {
+            String requestedId = getIntent().getStringExtra(EXTRA_PROJECT_ID);
+            project = null;
+            if (requestedId != null) for (NativeProjectStore.ProjectData saved : store.loadSaved()) {
+                if (requestedId.equals(saved.id)) { project = saved; break; }
+            }
+            if (project == null) {
+                // Deleted project: fall back to the saved list, never open a different order.
+                showSavedMeasurements();
+                return;
+            }
+        } else project = store.loadCurrent();
 
-        if (ACTION_SAVED_MEASUREMENTS.equals(action)) {
+        if (ACTION_RECENT_PROJECT.equals(action) && project != null) {
+            editorOpenedFromSavedMeasurements = false;
+            showEditor(true);
+            saveProjectAsync(project);
+        } else if (ACTION_SAVED_MEASUREMENTS.equals(action)) {
             savedOpenedFromEditor = false;
             showSavedMeasurements();
         } else {
@@ -167,6 +184,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             }
         }
 
+        if (ACTION_MATERIALS.equals(action) || ACTION_RECENT_PROJECT.equals(action)) overridePendingTransition(0, 0);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
