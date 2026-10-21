@@ -224,6 +224,14 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     @Override
+    protected void onDestroy() {
+        if (homeMaterialsDialog != null && homeMaterialsDialog.isShowing()) {
+            homeMaterialsDialog.dismiss();
+        }
+        super.onDestroy();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         if(!showingSavedMeasurements && workspacePage!=null){
@@ -2298,6 +2306,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     boolean isHomeMaterialsVisibleForTest() {
         return homeMaterialsDialog != null && homeMaterialsDialog.isShowing();
+    }
+
+    int homeMaterialsWindowAnimationForTest() {
+        if (homeMaterialsDialog == null || homeMaterialsDialog.getWindow() == null) return -1;
+        return homeMaterialsDialog.getWindow().getAttributes().windowAnimations;
     }
 
     private void openEstimate(NativeEstimateDialog.Mode mode){
