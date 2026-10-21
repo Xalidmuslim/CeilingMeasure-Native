@@ -457,13 +457,17 @@ final class NativeEstimateDialog extends Dialog {
             Button edit=button(qty(line.qty),false);
             edit.setTextSize(12);
             edit.setSingleLine(true);
-            edit.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
             edit.setAutoSizeTextTypeUniformWithConfiguration(9,12,1,
                     TypedValue.COMPLEX_UNIT_SP);
-            edit.setPadding(dp(3),0,dp(8),0);
             edit.setContentDescription("Изменить количество: "+line.name);
             edit.setBackground(estimateFieldBackground(
                     NativeVisualTokens.SURFACE,LINE));
+            // The text is centered within the outlined visible field, not
+            // aligned to the right edge of its fixed-width table column.
+            // Apply symmetrical padding AFTER the background: Android may
+            // replace view padding when a drawable is assigned.
+            edit.setGravity(Gravity.CENTER);
+            edit.setPadding(dp(2),0,dp(2),0);
             edit.setOnClickListener(v->editQty(owner,room,line));
             NativeFastLongPress.attach(edit,()->editQty(owner,room,line));
             quantity=edit;
@@ -500,11 +504,11 @@ final class NativeEstimateDialog extends Dialog {
         price.setTextSize(12);
         price.setAutoSizeTextTypeUniformWithConfiguration(9,12,1,
                 TypedValue.COMPLEX_UNIT_SP);
-        price.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
-        price.setPadding(dp(3),0,dp(8),0);
         price.setContentDescription("Изменить цену: "+line.name);
         price.setBackground(estimateFieldBackground(
                 NativeVisualTokens.SURFACE_SOFT,LINE));
+        price.setGravity(Gravity.CENTER);
+        price.setPadding(dp(2),0,dp(2),0);
         price.setOnClickListener(v->editPrice(owner,room,line));
         LinearLayout.LayoutParams priceParams=new LinearLayout.LayoutParams(
                 dp(columns.priceDp),dp(controlHeight));
