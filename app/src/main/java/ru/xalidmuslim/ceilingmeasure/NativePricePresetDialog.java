@@ -52,6 +52,7 @@ final class NativePricePresetDialog extends Dialog {
     private ScrollView priceScroll;
     private ArrayList<String> priceOrder=new ArrayList<>();
     private Runnable onHomeRequested;
+    private boolean immediateOpen;
 
     NativePricePresetDialog(
             @NonNull Context context,
@@ -69,6 +70,11 @@ final class NativePricePresetDialog extends Dialog {
         this.uiPrefs=NativeUiPrefs.load(context);
     }
 
+    /** Used only for navigation from Home: prevent an editor frame showing through the dialog fade. */
+    void setImmediateOpen(boolean immediateOpen) {
+        this.immediateOpen = immediateOpen;
+    }
+
     void setOnHomeRequested(@NonNull Runnable callback){
         this.onHomeRequested=callback;
     }
@@ -82,7 +88,7 @@ final class NativePricePresetDialog extends Dialog {
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
             // Fade-only dialog transition. Never slide or scale the window.
-            window.setWindowAnimations(R.style.CeilingFadeWindowAnimation);
+            window.setWindowAnimations(immediateOpen ? 0 : R.style.CeilingFadeWindowAnimation);
             NativeFullScreenDialogShell.configure(this);
             WindowManager.LayoutParams lp=new WindowManager.LayoutParams();
             lp.copyFrom(window.getAttributes());
