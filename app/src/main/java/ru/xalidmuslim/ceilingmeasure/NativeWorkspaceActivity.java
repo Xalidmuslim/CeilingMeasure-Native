@@ -2266,6 +2266,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                         updateStats();
                     }
 
+                    @Override public void onHomeRequested(){
+                        goHome();
+                    }
+
                     @Override public void onClientPdfRequested(
                             List<NativeProjectStore.ProjectData> projects){
                         beginClientPdfExport(projects);
