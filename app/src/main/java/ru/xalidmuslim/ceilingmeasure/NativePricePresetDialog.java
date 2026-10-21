@@ -484,6 +484,9 @@ final class NativePricePresetDialog extends Dialog {
         b.setMinimumHeight(0);
         b.setPadding(dp(4),0,dp(4),0);
         b.setBackground(NativeVisualTokens.controlButton(primary,dp(10)));
+        // Remove framework Button elevation/shadow: flat small controls.
+        b.setStateListAnimator(null);
+        b.setElevation(0f);
         return b;
     }
 
