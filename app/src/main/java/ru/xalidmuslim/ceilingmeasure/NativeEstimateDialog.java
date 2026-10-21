@@ -96,7 +96,7 @@ final class NativeEstimateDialog extends Dialog {
 
         content=new LinearLayout(getContext());
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(7),dp(4),dp(7),dp(6));
+        content.setPadding(dp(6),dp(3),dp(6),dp(5));
         scroll.addView(content,new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -290,14 +290,14 @@ final class NativeEstimateDialog extends Dialog {
 
         LinearLayout card=card();
         card.setTag((mode==Mode.CLIENT?"native_client_room_":"native_internal_room_")+room.id);
-        content.addView(card,top(3));
+        content.addView(card,top(2));
 
         LinearLayout head=new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout left=new LinearLayout(getContext());
         left.setOrientation(LinearLayout.VERTICAL);
-        left.setPadding(0,0,dp(5),0);
+        left.setPadding(0,0,dp(4),0);
         String roomName=multi
                 ?projectLabel(owner)+" · "+room.name
                 :room.name;
@@ -320,26 +320,14 @@ final class NativeEstimateDialog extends Dialog {
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         card.addView(head);
 
-        // Single compact table heading per room; financial columns stay
-        // aligned rather than floating across unrelated nested cards.
-        LinearLayout tableHeading=new LinearLayout(getContext());
-        tableHeading.setOrientation(LinearLayout.HORIZONTAL);
-        tableHeading.setGravity(Gravity.CENTER_VERTICAL);
-        tableHeading.setTag("native_estimate_table_header_"+room.id);
-        TextView materialLabel=text("МАТЕРИАЛ / РАСЧЁТ",9,MUTED,true);
-        tableHeading.addView(materialLabel,new LinearLayout.LayoutParams(
-                0,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
-        TextView sumLabel=text("СУММА",9,MUTED,true);
-        sumLabel.setGravity(Gravity.END);
-        tableHeading.addView(sumLabel,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-        LinearLayout.LayoutParams th=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        th.topMargin=dp(5);
-        th.bottomMargin=dp(2);
-        card.addView(tableHeading,th);
+        // Repeated column captions consumed a full extra row in every room.
+        // The estimates are self-explanatory: labels and totals identify each column.
+        View roomDivider=new View(getContext());
+        roomDivider.setBackgroundColor(NativeVisualTokens.DIVIDER);
+        LinearLayout.LayoutParams headingDivider=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(1));
+        headingDivider.topMargin=dp(2);
+        card.addView(roomDivider,headingDivider);
 
         for(NativeEstimateEngine.Line line:cost.lines)addLine(card,owner,room,line);
 
@@ -350,11 +338,11 @@ final class NativeEstimateDialog extends Dialog {
             add.setBackground(NativeVisualTokens.rippleOutlined(
                     NativeVisualTokens.SURFACE_SOFT,Color.TRANSPARENT,
                     dp(9),0,Color.argb(25,33,110,147)));
-            add.setPadding(dp(12),0,dp(12),0);
+            add.setPadding(dp(7),0,dp(7),0);
             add.setOnClickListener(v->openMaterialPicker(owner,room));
             LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,adaptiveActionHeight(36,false));
-            addParams.topMargin=dp(2);
+                    ViewGroup.LayoutParams.WRAP_CONTENT,adaptiveActionHeight(32,false));
+            addParams.topMargin=dp(1);
             card.addView(add,addParams);
         }else{
             Button add=button("+ Другой материал",false);
@@ -363,10 +351,10 @@ final class NativeEstimateDialog extends Dialog {
             add.setBackground(NativeVisualTokens.rippleOutlined(
                     NativeVisualTokens.SURFACE_SOFT,Color.TRANSPARENT,
                     dp(9),0,Color.argb(25,33,110,147)));
-            add.setPadding(dp(12),0,dp(12),0);
+            add.setPadding(dp(7),0,dp(7),0);
             add.setOnClickListener(v->openAdhocMaterial(owner,room,false));
             card.addView(add,new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,adaptiveActionHeight(36,false)));
+                    ViewGroup.LayoutParams.WRAP_CONTENT,adaptiveActionHeight(32,false)));
         }
 
         // Repeating "Расчёт готов" in every completed room consumed valuable
@@ -400,12 +388,12 @@ final class NativeEstimateDialog extends Dialog {
         LinearLayout item=new LinearLayout(getContext());
         item.setTag("native_estimate_line_"+key);
         item.setOrientation(LinearLayout.VERTICAL);
-        item.setPadding(0,dp(3),0,dp(3));
+        item.setPadding(0,dp(1),0,0);
 
         LinearLayout heading=new LinearLayout(getContext());
         heading.setGravity(Gravity.CENTER_VERTICAL);
         heading.setOrientation(LinearLayout.HORIZONTAL);
-        heading.setMinimumHeight(dp(22));
+        heading.setMinimumHeight(dp(17));
 
         TextView title=text(line.name,12.5f,TEXT,true);
         title.setTag("native_estimate_title_"+key);
@@ -432,8 +420,9 @@ final class NativeEstimateDialog extends Dialog {
         formula.setTag("native_estimate_formula_"+key);
         formula.setOrientation(LinearLayout.HORIZONTAL);
         formula.setGravity(Gravity.CENTER_VERTICAL);
+        int controlHeight=estimateControlHeight();
         item.addView(formula,new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(48)));
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(controlHeight)));
 
         boolean canEditQty=line.custom||line.qtyEditable
                 ||(mode==Mode.INTERNAL&&isInternalExtra(line.key));
@@ -462,7 +451,7 @@ final class NativeEstimateDialog extends Dialog {
         }
         quantity.setTag("native_estimate_qty_"+key);
         formula.addView(quantity,new LinearLayout.LayoutParams(
-                dp(columns.quantityDp),dp(48)));
+                dp(columns.quantityDp),dp(controlHeight)));
 
         TextView unit=text(line.unit,11,MUTED,false);
         unit.setGravity(Gravity.CENTER);
@@ -470,14 +459,14 @@ final class NativeEstimateDialog extends Dialog {
         unit.setAutoSizeTextTypeUniformWithConfiguration(8,11,1,
                 TypedValue.COMPLEX_UNIT_SP);
         LinearLayout.LayoutParams unitParams=new LinearLayout.LayoutParams(
-                dp(columns.unitDp),dp(48));
+                dp(columns.unitDp),dp(controlHeight));
         unitParams.leftMargin=dp(columns.operandGapDp);
         formula.addView(unit,unitParams);
 
         TextView times=text("×",13,MUTED,false);
         times.setGravity(Gravity.CENTER);
         formula.addView(times,new LinearLayout.LayoutParams(
-                dp(columns.multiplyDp),dp(48)));
+                dp(columns.multiplyDp),dp(controlHeight)));
 
         Button price=button(NativeMoney.format(line.price)+" ₽",false);
         price.setTag("native_estimate_price_"+key);
@@ -492,7 +481,7 @@ final class NativeEstimateDialog extends Dialog {
                 NativeVisualTokens.SURFACE_SOFT,LINE));
         price.setOnClickListener(v->editPrice(owner,room,line));
         LinearLayout.LayoutParams priceParams=new LinearLayout.LayoutParams(
-                dp(columns.priceDp),dp(48));
+                dp(columns.priceDp),dp(controlHeight));
         priceParams.leftMargin=dp(columns.operandGapDp);
         formula.addView(price,priceParams);
 
@@ -515,14 +504,14 @@ final class NativeEstimateDialog extends Dialog {
                                     (dialog,which)->removeLine(owner,room,line))
                             .show());
             formula.addView(more,new LinearLayout.LayoutParams(
-                    dp(columns.actionsDp),dp(48)));
+                    dp(columns.actionsDp),dp(controlHeight)));
         }else{
             // Blank but fixed-width cell: prices and columns do not shift
             // between removable and automatically calculated positions.
             View placeholder=new View(getContext());
             placeholder.setTag("native_estimate_actions_placeholder_"+key);
             formula.addView(placeholder,new LinearLayout.LayoutParams(
-                    dp(columns.actionsDp),dp(48)));
+                    dp(columns.actionsDp),dp(controlHeight)));
         }
 
         parent.addView(item);
@@ -530,6 +519,16 @@ final class NativeEstimateDialog extends Dialog {
         divider.setBackgroundColor(NativeVisualTokens.DIVIDER);
         parent.addView(divider,new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,dp(1)));
+    }
+
+    private int estimateControlHeight(){
+        // Default 42dp instead of 48dp. Larger system/app font scales retain
+        // more room automatically, without returning to oversized normal rows.
+        float system=getContext().getResources().getConfiguration().fontScale;
+        float custom=uiPrefs.scale/NativeUiPrefs.defaults().scale;
+        if(Math.max(system,custom)>=1.25f)return 48;
+        if(Math.max(system,custom)>=1.10f)return 44;
+        return 42;
     }
 
     private NativeEstimateTableColumns estimateColumns(){
@@ -544,9 +543,9 @@ final class NativeEstimateDialog extends Dialog {
 
     private InsetDrawable estimateFieldBackground(int fill,int stroke){
         return new InsetDrawable(NativeVisualTokens.rippleOutlined(
-                fill,stroke,dp(9),stroke==Color.TRANSPARENT?0:dp(1),
+                fill,stroke,dp(7),stroke==Color.TRANSPARENT?0:dp(1),
                 Color.argb(24,33,110,147)),
-                0,dp(4),0,dp(4));
+                0,dp(5),0,dp(5));
     }
 
     private void editPrice(
@@ -940,7 +939,7 @@ final class NativeEstimateDialog extends Dialog {
     private LinearLayout card(){
         LinearLayout c=new LinearLayout(getContext());
         c.setOrientation(LinearLayout.VERTICAL);
-        c.setPadding(dp(8),dp(4),dp(8),dp(4));
+        c.setPadding(dp(7),dp(3),dp(7),dp(3));
         c.setBackground(NativeVisualTokens.outlined(
                 NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,
                 dp(NativeVisualTokens.CARD_RADIUS_DP),dp(1)));
