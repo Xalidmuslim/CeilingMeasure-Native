@@ -57,68 +57,44 @@ final class NativeShellInsets {
         ViewCompat.requestApplyInsets(owner);
     }
 
+    /**
+     * Keep floating navigation physically docked above the system navigation
+     * bar. Never apply the IME height to the dock: on Android 15/16 devices
+     * adjustResize may already shrink the window, and offsetting again pushes
+     * the bar outside the visible Activity. Dialog IMEs own their own window.
+     */
     static void bindWorkspace(
             @NonNull View owner,
             @NonNull ScrollView scroll,
             @NonNull View historyNav,
             int navBaseBottomPx) {
-        final int[] safe={0,0,0,0};
-        final int[] requestedBottom={navBaseBottomPx};
-        final Runnable placeNavigation=()->{
-            FrameLayout.LayoutParams navParams=
-                    (FrameLayout.LayoutParams)historyNav.getLayoutParams();
-            int dp=Math.round(12f*owner.getResources().getDisplayMetrics().density);
-            int left=dp+safe[0];
-            int right=dp+safe[2];
-            int baseHeight=historyNav.getHeight()>0
-                    ?historyNav.getHeight()
-                    :Math.round(NativeVisualTokens.HISTORY_HEIGHT_DP
-                        *owner.getResources().getDisplayMetrics().density);
-            int availableBottom=requestedBottom[0];
-            if(owner.getHeight()>0) {
-                // With edge-to-edge + ADJUST_RESIZE some manufacturers shrink
-                // the page AND deliver the full IME inset. Counting it twice
-                // places the navigation above the viewport (it "disappears").
-                int room=owner.getHeight()-safe[1]-baseHeight-dp;
-                availableBottom=Math.min(requestedBottom[0],
-                        Math.max(navBaseBottomPx,room));
-            }
-            if(navParams.bottomMargin!=availableBottom
-                    || navParams.leftMargin!=left
-                    || navParams.rightMargin!=right){
-                navParams.bottomMargin=availableBottom;
-                navParams.leftMargin=left;
-                navParams.rightMargin=right;
-                historyNav.setLayoutParams(navParams);
-            }
-            if(historyNav.getVisibility()!=View.VISIBLE)historyNav.setVisibility(View.VISIBLE);
-        };
-        owner.addOnLayoutChangeListener((v,l,t,r,b,oldL,oldT,oldR,oldB)->{
-            if((b-t)!=(oldB-oldT))placeNavigation.run();
-        });
-
         ViewCompat.setOnApplyWindowInsetsListener(owner,(view,windowInsets)->{
             Insets system=safeInsets(windowInsets);
-            Insets keyboard=windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-            int bottom=Math.max(system.bottom,keyboard.bottom);
-            safe[0]=system.left;
-            safe[1]=system.top;
-            safe[2]=system.right;
-            safe[3]=system.bottom;
-            requestedBottom[0]=bottom+navBaseBottomPx;
-
-            if(scroll.getPaddingLeft()!=system.left || scroll.getPaddingTop()!=system.top
+            if(scroll.getPaddingLeft()!=system.left
+                    || scroll.getPaddingTop()!=system.top
                     || scroll.getPaddingRight()!=system.right
-                    || scroll.getPaddingBottom()!=bottom){
-                scroll.setPadding(system.left,system.top,system.right,bottom);
+                    || scroll.getPaddingBottom()!=system.bottom){
+                scroll.setPadding(system.left,system.top,system.right,system.bottom);
             }
 
-            placeNavigation.run();
-
-            owner.setTag(R.id.native_safe_top, system.top);
-            owner.setTag(R.id.native_safe_bottom, system.bottom);
-            owner.setTag(R.id.native_safe_left, system.left);
-            owner.setTag(R.id.native_safe_right, system.right);
+            FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)historyNav.getLayoutParams();
+            int side=Math.round(12f*owner.getResources().getDisplayMetrics().density);
+            int bottom=system.bottom+navBaseBottomPx;
+            int left=side+system.left;
+            int right=side+system.right;
+            if(p.bottomMargin!=bottom||p.leftMargin!=left||p.rightMargin!=right){
+                p.bottomMargin=bottom;
+                p.leftMargin=left;
+                p.rightMargin=right;
+                historyNav.setLayoutParams(p);
+            }
+            if(historyNav.getVisibility()!=View.VISIBLE){
+                historyNav.setVisibility(View.VISIBLE);
+            }
+            owner.setTag(R.id.native_safe_top,system.top);
+            owner.setTag(R.id.native_safe_bottom,system.bottom);
+            owner.setTag(R.id.native_safe_left,system.left);
+            owner.setTag(R.id.native_safe_right,system.right);
             return windowInsets;
         });
         ViewCompat.requestApplyInsets(owner);

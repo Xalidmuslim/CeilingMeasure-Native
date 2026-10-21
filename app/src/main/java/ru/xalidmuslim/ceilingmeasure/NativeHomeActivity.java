@@ -17,6 +17,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 
@@ -42,6 +43,16 @@ public final class NativeHomeActivity extends ComponentActivity {
         setContentView(content);
         NativeMotion.enter(content);
         content.requestApplyInsets();
+        // The launcher is the terminal in-app destination. Android Back,
+        // including gesture navigation, never exits or backgrounds the app.
+        getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true){
+            @Override public void handleOnBackPressed(){
+                if(settingsDialog!=null && settingsDialog.isShowing()){
+                    settingsDialog.dismiss();
+                }
+                // Already on Home: intentionally remain here.
+            }
+        });
         // First launch automatically starts the server-anchored 7-day trial.
         // If offline, the existing License dialog offers a manual retry.
         if (NativeLicenseClient.enabled() && licenseClient.recoveryCode().isEmpty()) {

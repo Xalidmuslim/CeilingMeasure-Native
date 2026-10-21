@@ -1187,7 +1187,6 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         historyNavView.setVisibility(View.VISIBLE);
         historyNavView.setTranslationY(0f);
         historyNavView.bringToFront();
-        ViewCompat.requestApplyInsets(workspacePage);
     }
 
     private View createHistoryNav(){
@@ -2545,9 +2544,41 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         });
 
         render.run();
-        setContentView(scroll);
-        NativeMotion.enterCompact(scroll);
-        NativeShellInsets.bindHome(scroll,scroll);
+        // Saved measurements are a separate screen but still belong to the
+        // same app shell. Preserve a fixed bottom navigation instead of
+        // replacing the editor with an un-navigable ScrollView.
+        FrameLayout savedPage=new FrameLayout(this);
+        savedPage.setTag("native_saved_page");
+        savedPage.setBackground(NativeVisualTokens.workspaceBackground());
+        savedPage.setClipChildren(false);
+        savedPage.setClipToPadding(false);
+        savedPage.addView(scroll,new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+
+        View savedNav=createHistoryNav();
+        View savedUndo=savedNav.findViewWithTag("native_nav_undo");
+        View savedRedo=savedNav.findViewWithTag("native_nav_redo");
+        if(savedUndo!=null){
+            savedUndo.setEnabled(false);
+            savedUndo.setAlpha(.38f);
+        }
+        if(savedRedo!=null){
+            savedRedo.setEnabled(false);
+            savedRedo.setAlpha(.38f);
+        }
+        View savedMore=savedNav.findViewWithTag("native_nav_more");
+        if(savedMore!=null){
+            savedMore.setOnClickListener(v->showNativeSettings());
+        }
+
+        content.setPadding(dp(8),dp(7),dp(8),
+                dp(NativeVisualTokens.SCROLL_NAV_RESERVE_DP));
+        savedPage.addView(savedNav,historyNavParams());
+        setContentView(savedPage);
+        NativeMotion.enterCompact(savedPage);
+        NativeShellInsets.bindWorkspace(
+                savedPage,scroll,savedNav,dp(NativeVisualTokens.HISTORY_BOTTOM_DP));
     }
 
     private void renderSavedList(

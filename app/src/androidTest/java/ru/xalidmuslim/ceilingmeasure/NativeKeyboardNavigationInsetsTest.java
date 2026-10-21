@@ -45,11 +45,12 @@ public final class NativeKeyboardNavigationInsetsTest {
                         .build();
                 ViewCompat.dispatchApplyWindowInsets(page,keyboard);
                 assertEquals(View.VISIBLE,navigation.getVisibility());
-                assertEquals(460,scroll.getPaddingBottom());
+                assertEquals(34,scroll.getPaddingBottom());
                 FrameLayout.LayoutParams layout=
                         (FrameLayout.LayoutParams)navigation.getLayoutParams();
-                assertTrue("navigation must be above the system keyboard",
-                        layout.bottomMargin>=460);
+                assertTrue("navigation remains docked to system navigation bar",
+                        layout.bottomMargin>=34 && layout.bottomMargin<100
+                                *activity.getResources().getDisplayMetrics().density);
                 assertTrue("navigation must use full safe width",
                         layout.width==FrameLayout.LayoutParams.MATCH_PARENT);
 
