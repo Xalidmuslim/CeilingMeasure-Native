@@ -15,8 +15,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
-import android.transition.AutoTransition;
-import android.transition.TransitionManager;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -703,9 +701,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         if (jumpToDrawing) {
             editorScroll.post(() -> drawingCard.requestFocus());
-            editorScroll.postDelayed(
-                    () -> editorScroll.smoothScrollTo(0, drawingCard.getTop()),
-                    120);
+            // No animated page slide when opening the drawing.
+            editorScroll.post(() -> editorScroll.scrollTo(0,drawingCard.getTop()));
         }
     }
 
@@ -1867,7 +1864,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 drawingCanvasWrap.setLayoutParams(lp);
             }
             if(editorScroll!=null&&drawingCard!=null){
-                editorScroll.post(()->editorScroll.smoothScrollTo(0,drawingCard.getTop()));
+                editorScroll.post(()->editorScroll.scrollTo(0,drawingCard.getTop()));
             }
         });
     }
