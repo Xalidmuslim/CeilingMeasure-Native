@@ -180,7 +180,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             if (ACTION_SETTINGS.equals(action)) {
                 getWindow().getDecorView().post(this::showNativeSettings);
             } else if (ACTION_MATERIALS.equals(action)) {
-                getWindow().getDecorView().post(this::openMaterialsCatalog);
+                // Present the full-screen catalog before the first Activity frame.
+                // Posting it to the next UI loop exposed the drawing editor for one
+                // frame and caused the visible flash reported on Android devices.
+                openMaterialsCatalog();
             }
         }
 
