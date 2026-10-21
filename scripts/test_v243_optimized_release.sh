@@ -50,7 +50,7 @@ import re,sys,xml.etree.ElementTree as ET
 nodes=list(ET.parse(sys.argv[1]).getroot().iter("node"))
 target=next((n for n in nodes if n.get("content-desc")=="Настройки"),None)
 assert target is not None,"Settings navigation not found"
-nums=list(map(int,re.findall(r"\\d+",target.get("bounds",""))))
+nums=list(map(int,re.findall(r"\d+",target.get("bounds",""))))
 assert len(nums)==4
 print((nums[0]+nums[2])//2,(nums[1]+nums[3])//2)
 PY
@@ -72,10 +72,10 @@ choices=[n for n in nodes if n.get("content-desc")=="Новый замер"]
 assert choices,"New measurement action not accessible"
 # Large blue CTA, not the smaller dock shortcut.
 def area(n):
-  x1,y1,x2,y2=map(int,re.findall(r"\\d+",n.get("bounds","")))
+  x1,y1,x2,y2=map(int,re.findall(r"\d+",n.get("bounds","")))
   return (x2-x1)*(y2-y1)
 target=max(choices,key=area)
-nums=list(map(int,re.findall(r"\\d+",target.get("bounds",""))))
+nums=list(map(int,re.findall(r"\d+",target.get("bounds",""))))
 print((nums[0]+nums[2])//2,(nums[1]+nums[3])//2)
 PY
 read -r x y < "$OUT/new-tap.txt"
