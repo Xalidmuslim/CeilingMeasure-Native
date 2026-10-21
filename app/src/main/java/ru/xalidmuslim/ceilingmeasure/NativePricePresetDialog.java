@@ -51,6 +51,7 @@ final class NativePricePresetDialog extends Dialog {
     private LinearLayout priceRows;
     private ScrollView priceScroll;
     private ArrayList<String> priceOrder=new ArrayList<>();
+    private Runnable onHomeRequested;
 
     NativePricePresetDialog(
             @NonNull Context context,
@@ -68,15 +69,21 @@ final class NativePricePresetDialog extends Dialog {
         this.uiPrefs=NativeUiPrefs.load(context);
     }
 
+    void setOnHomeRequested(@NonNull Runnable callback){
+        this.onHomeRequested=callback;
+    }
+
     @Override protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
+        NativeFullScreenDialogShell.configure(this);
         render();
         Window window=getWindow();
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
             // Fade-only dialog transition. Never slide or scale the window.
             window.setWindowAnimations(R.style.CeilingFadeWindowAnimation);
+            NativeFullScreenDialogShell.configure(this);
             WindowManager.LayoutParams lp=new WindowManager.LayoutParams();
             lp.copyFrom(window.getAttributes());
             lp.width=WindowManager.LayoutParams.MATCH_PARENT;
@@ -111,7 +118,7 @@ final class NativePricePresetDialog extends Dialog {
         scroll.setVerticalScrollBarEnabled(false);
         content=new LinearLayout(getContext());
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(8),dp(10),dp(8),dp(16));
+        content.setPadding(dp(8),dp(5),dp(8),dp(10));
         scroll.addView(content,new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -243,7 +250,21 @@ final class NativePricePresetDialog extends Dialog {
         actions.addView(all,ap);
         content.addView(actions,top(6));
 
-        setContentView(scroll);
+        setContentView(NativeFullScreenDialogShell.create(this,scroll,
+                new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_home,
+                        "Домой","native_price_nav_home",()->{
+                    dismiss();
+                    if(onHomeRequested!=null)onHomeRequested.run();
+                }),
+                new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_undo,
+                        "Смета","native_price_nav_estimate",this::dismiss),
+                new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_list,
+                        "Порядок","native_price_nav_reorder",()->{
+                    reorderMode=!reorderMode;
+                    render();
+                }),
+                new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_more,
+                        "Готово","native_price_nav_done",this::dismiss)));
         if(previousY>0)scroll.post(()->scroll.scrollTo(0,previousY));
     }
 
