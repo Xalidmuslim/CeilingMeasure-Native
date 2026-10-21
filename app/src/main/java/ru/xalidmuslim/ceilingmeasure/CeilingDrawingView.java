@@ -108,6 +108,8 @@ final class CeilingDrawingView extends View {
     private NativeProjectStore.RoomData labelPlacementRoom;
     private float labelPlacementScale = Float.NaN;
     private float diagonalPaintScale = Float.NaN;
+    private float guideDashedScale = Float.NaN;
+    private final NativeDrawingPointIndex renderPointIndex=new NativeDrawingPointIndex();
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private NativeProjectStore.RoomData room;
@@ -250,6 +252,7 @@ final class CeilingDrawingView extends View {
         boolean changedRoom = displayedRoomId == null
                 || !displayedRoomId.equals(room.id);
         this.room = room;
+        renderPointIndex.invalidate();
         labelPlacementCache = null;
         displayedRoomId = room.id;
         NativeGeometry.sanitize(room);
@@ -568,8 +571,8 @@ final class CeilingDrawingView extends View {
         }
 
         for (NativeProjectStore.EdgeData edge : room.edges) {
-            NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
-            NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
+            NativeProjectStore.PointData a = renderPointIndex.get(room, edge.a);
+            NativeProjectStore.PointData b = renderPointIndex.get(room, edge.b);
             if (a == null || b == null) continue;
 
             Paint paint = edge.id.equals(editingEdgeId)
@@ -588,8 +591,8 @@ final class CeilingDrawingView extends View {
         }
         Paint paint = diagonalRenderPaint;
         for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
-            NativeProjectStore.PointData a = NativeGeometry.pointById(room, diagonal.a);
-            NativeProjectStore.PointData b = NativeGeometry.pointById(room, diagonal.b);
+            NativeProjectStore.PointData a = renderPointIndex.get(room, diagonal.a);
+            NativeProjectStore.PointData b = renderPointIndex.get(room, diagonal.b);
             if (a == null || b == null) continue;
             canvas.drawLine(a.x, a.y, b.x, b.y, paint);
         }
@@ -621,11 +624,13 @@ final class CeilingDrawingView extends View {
             float ny = activeGuide.ux;
             Paint guide = activeGuidePaint;
             guide.setStrokeWidth(dp(.95f) / Math.max(MIN_VIEW_SCALE, scale));
-            guide.setPathEffect(new DashPathEffect(
-                    new float[]{
-                            dp(6) / Math.max(MIN_VIEW_SCALE, scale),
-                            dp(5) / Math.max(MIN_VIEW_SCALE, scale)},
-                    0));
+            if(Float.compare(guideDashedScale,scale)!=0){
+                guide.setPathEffect(new DashPathEffect(
+                        new float[]{
+                                dp(6) / Math.max(MIN_VIEW_SCALE, scale),
+                                dp(5) / Math.max(MIN_VIEW_SCALE, scale)},0));
+                guideDashedScale=scale;
+            }
             canvas.drawLine(
                     activeGuide.projected.x - nx * half,
                     activeGuide.projected.y - ny * half,
@@ -710,6 +715,7 @@ final class CeilingDrawingView extends View {
 
     void invalidateLabels() {
         labelPlacementCache = null;
+        renderPointIndex.invalidate();
         postInvalidateOnAnimation();
     }
 
@@ -1296,8 +1302,7 @@ final class CeilingDrawingView extends View {
             }
             wallDraft.preview.set(finish.x, finish.y);
         }
-        magnifierFocus = new PointF(wallDraft.preview.x, wallDraft.preview.y);
-        magnifierKind = MagnifierKind.WALL;
+        setMagnifierFocus(wallDraft.preview.x, wallDraft.preview.y,MagnifierKind.WALL);
         postInvalidateOnAnimation();
     }
 
@@ -1396,8 +1401,7 @@ final class CeilingDrawingView extends View {
         }
 
         boolean right = isRightAngle(point);
-        magnifierFocus = new PointF(point.x, point.y);
-        magnifierKind = MagnifierKind.POINT;
+        setMagnifierFocus(point.x, point.y,MagnifierKind.POINT);
         if (right && !point90SnapActive) {
             point90SnapActive = true;
             vibrateSnap();
@@ -1431,8 +1435,7 @@ final class CeilingDrawingView extends View {
             diagDraft.preview.set(x, y);
             lastDiagonalSnapId = null;
         }
-        magnifierFocus = new PointF(diagDraft.preview.x, diagDraft.preview.y);
-        magnifierKind = MagnifierKind.DIAGONAL;
+        setMagnifierFocus(diagDraft.preview.x, diagDraft.preview.y,MagnifierKind.DIAGONAL);
         postInvalidateOnAnimation();
     }
 
@@ -1497,8 +1500,7 @@ final class CeilingDrawingView extends View {
 
         // The lens follows the real label center, not the finger. This makes
         // the magnifier a literal view of where the number will be saved.
-        magnifierFocus = new PointF(actualX, actualY);
-        magnifierKind = MagnifierKind.LABEL;
+        setMagnifierFocus(actualX, actualY,MagnifierKind.LABEL);
         invalidateLabels();
     }
 
@@ -1539,8 +1541,7 @@ final class CeilingDrawingView extends View {
         }
         // Rotation changes only the angle; the label position itself stays
         // fixed, so keep the lens centered on that real saved position.
-        magnifierFocus = new PointF(labelRotateCenterX, labelRotateCenterY);
-        magnifierKind = MagnifierKind.LABEL;
+        setMagnifierFocus(labelRotateCenterX, labelRotateCenterY,MagnifierKind.LABEL);
         invalidateLabels();
     }
 
@@ -1682,8 +1683,7 @@ final class CeilingDrawingView extends View {
                     new PointF(start.x, start.y),
                     new PointF(downScreenX, downScreenY),
                     true);
-            magnifierFocus = new PointF(start.x, start.y);
-            magnifierKind = MagnifierKind.WALL;
+            setMagnifierFocus(start.x, start.y,MagnifierKind.WALL);
             postInvalidateOnAnimation();
         };
         handler.postDelayed(longPressRunnable, FIRST_WALL_START_PRESS_MS);
@@ -2103,8 +2103,8 @@ final class CeilingDrawingView extends View {
 
         lensEdgePaint.setStrokeWidth(dp(2.8f) / lensScale);
         for (NativeProjectStore.EdgeData edge : room.edges) {
-            NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
-            NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
+            NativeProjectStore.PointData a = renderPointIndex.get(room, edge.a);
+            NativeProjectStore.PointData b = renderPointIndex.get(room, edge.b);
             if (a != null && b != null) canvas.drawLine(a.x, a.y, b.x, b.y, lensEdgePaint);
         }
 
@@ -2117,8 +2117,8 @@ final class CeilingDrawingView extends View {
             lensLastScale = lensScale;
         }
         for (NativeProjectStore.DiagonalData diagonal : room.diagonals) {
-            NativeProjectStore.PointData a = NativeGeometry.pointById(room, diagonal.a);
-            NativeProjectStore.PointData b = NativeGeometry.pointById(room, diagonal.b);
+            NativeProjectStore.PointData a = renderPointIndex.get(room, diagonal.a);
+            NativeProjectStore.PointData b = renderPointIndex.get(room, diagonal.b);
             if (a != null && b != null) {
                 canvas.drawLine(a.x, a.y, b.x, b.y, lensDiagonalPaint);
             }
@@ -2199,8 +2199,22 @@ final class CeilingDrawingView extends View {
         canvas.restore();
     }
 
+    private void setMagnifierFocus(float x,float y,MagnifierKind kind){
+        if(magnifierFocus==null)magnifierFocus=new PointF();
+        magnifierFocus.set(x,y);
+        magnifierKind=kind;
+    }
+
     boolean isMagnifierVisibleForTest() {
         return magnifierFocus != null && magnifierKind != null;
+    }
+
+    @Nullable PointF magnifierFocusForTest(){
+        return magnifierFocus;
+    }
+
+    int indexedRenderPointsForTest(){
+        return renderPointIndex.sizeForTest();
     }
 
     List<NativeLabelEngine.Placement> labelPlacementsForTest() {
@@ -2293,6 +2307,7 @@ final class CeilingDrawingView extends View {
 
     private void changed() {
         labelPlacementCache = null;
+        renderPointIndex.invalidate();
         syncViewToRoom();
         postInvalidateOnAnimation();
         if (listener != null) listener.onChanged();
