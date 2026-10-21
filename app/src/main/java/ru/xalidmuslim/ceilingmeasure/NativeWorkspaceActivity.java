@@ -81,6 +81,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private NativeProjectStore store;
     private NativeLicenseClient licenseClient;
     private NativeProjectStore.ProjectData project;
+    private NativePricePresetDialog homeMaterialsDialog;
     private LinearLayout root;
     private LinearLayout roomRow;
     private CeilingDrawingView drawingView;
@@ -2282,8 +2283,21 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     scheduleSaveCurrent();
                     updateStats();
                 });
+        // Home->Materials is an immediate full-screen destination. Keep the
+        // regular fade for every other price dialog opened inside estimates.
+        dialog.setImmediateOpen(true);
+        homeMaterialsDialog = dialog;
+        dialog.setOnDismissListener(d -> homeMaterialsDialog = null);
         dialog.setOnHomeRequested(this::goHome);
         dialog.show();
+    }
+
+    String currentProjectIdForTest() {
+        return project == null ? null : project.id;
+    }
+
+    boolean isHomeMaterialsVisibleForTest() {
+        return homeMaterialsDialog != null && homeMaterialsDialog.isShowing();
     }
 
     private void openEstimate(NativeEstimateDialog.Mode mode){
