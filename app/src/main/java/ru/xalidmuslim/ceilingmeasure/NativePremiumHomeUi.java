@@ -3,8 +3,6 @@ package ru.xalidmuslim.ceilingmeasure;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Bitmap;
-import android.animation.ValueAnimator;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -53,6 +51,7 @@ final class NativePremiumHomeUi {
     private LinearLayout recentRows;
     private ImageView appIcon;
     private Bitmap displayedIcon;
+    private String recentSnapshotKey;
     private TextView savedCount;
     private TextView licenseState;
 
@@ -151,13 +150,29 @@ final class NativePremiumHomeUi {
 
     void renderSaved(@NonNull List<NativeProjectStore.ProjectData> saved) {
         if (recentRows == null) return;
+        // Saved projects arrive sorted from Dispatchers.IO-equivalent preload.
+        // Avoid re-inflating three cards when returning from a dialog or
+        // drawing without any relevant changes, preserving scroll and frames.
         List<NativeProjectStore.ProjectData> records = new ArrayList<>(saved);
+        StringBuilder snapshot = new StringBuilder().append(records.size());
+        for (int i = 0; i < Math.min(3, records.size()); i++) {
+            NativeProjectStore.ProjectData record = records.get(i);
+            snapshot.append('|').append(record.id)
+                    .append('|').append(record.savedAt)
+                    .append('|').append(record.updatedAt)
+                    .append('|').append(record.name)
+                    .append('|').append(record.rooms.size());
+            if (record.rooms.size() == 1) {
+                snapshot.append('|').append(record.rooms.get(0).name);
+            }
+        }
+        String key = snapshot.toString();
+        if (key.equals(recentSnapshotKey)) return;
+        recentSnapshotKey = key;
         if (savedCount != null) {
             savedCount.setText(Integer.toString(records.size()));
             savedCount.setVisibility(records.isEmpty() ? View.GONE : View.VISIBLE);
         }
-        // Display saved data only; never alter the order stored on disk.
-        records.sort((a, b) -> Long.compare(b.savedAt, a.savedAt));
         recentRows.removeAllViews();
         if (records.isEmpty()) {
             LinearLayout row = new LinearLayout(activity);
