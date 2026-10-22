@@ -1,0 +1,74 @@
+name: CeilingMeasure v248 Header Logo Alpha Only
+
+on:
+  push:
+    branches: [fix/v248-header-logo-transparent-only]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ceiling-v248-alpha-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Preserve R8 and run Android tests
+        run: gradle --no-daemon clean lintDebug testDebugUnitTest assembleDebug assembleDebugAndroidTest assembleReleasePreview
+      - name: Assert R8 and preview APK are present
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/mapping/releasePreview/mapping.txt
+          test -s app/build/outputs/apk/releasePreview/app-releasePreview.apk
+          sha256sum app/build/outputs/apk/releasePreview/app-releasePreview.apk
+      - name: Upload optimized installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-v248-Logo-Fix-R8
+          path: app/build/outputs/apk/releasePreview/app-releasePreview.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Android emulator: verify real icon pixels and Home
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: false
+          emulator-boot-timeout: 600
+          script: |
+            mkdir -p build/v248-logo-evidence
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeHomeIconTransparencyTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee build/v248-logo-evidence/icon-instrumentation.txt
+            grep -q 'OK (4 tests)' build/v248-logo-evidence/icon-instrumentation.txt
+            adb install -r app/build/outputs/apk/releasePreview/app-releasePreview.apk
+            adb shell am force-stop ru.xalidmuslim.ceilingmeasure.medicine247
+            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.medicine247/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity | tee build/v248-logo-evidence/home-launch.txt
+            sleep 1
+            adb exec-out screencap -p > build/v248-logo-evidence/home.png
+            adb logcat -d -s AndroidRuntime:E > build/v248-logo-evidence/crashes.txt
+            if grep -q 'FATAL EXCEPTION' build/v248-logo-evidence/crashes.txt; then exit 1; fi
+      - name: Upload icon test proof and screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-v248-Logo-Verification
+          path: build/v248-logo-evidence/
+          if-no-files-found: warn
+          retention-days: 30
