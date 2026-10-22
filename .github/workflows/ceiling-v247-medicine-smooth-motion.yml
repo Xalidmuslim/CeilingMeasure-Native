@@ -86,11 +86,12 @@ jobs:
           profile: pixel_6
           disable-animations: false
           emulator-boot-timeout: 600
-          script: |
-            bash scripts/test_v244_navigation.sh \
-              build/release/app-releasePreview.apk \
-              build/tests/debug/app-debug.apk \
-              build/tests/androidTest/debug/app-debug-androidTest.apk
+          script: >-
+            bash scripts/test_v244_navigation.sh
+            build/release/app-releasePreview.apk
+            build/tests/debug/app-debug.apk
+            build/tests/androidTest/debug/app-debug-androidTest.apk
+            &&
             bash scripts/test_v247_medicine_motion.sh
       - name: Save emulator navigation evidence
         if: always()
