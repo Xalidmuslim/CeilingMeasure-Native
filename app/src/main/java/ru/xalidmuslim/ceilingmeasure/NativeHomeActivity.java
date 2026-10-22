@@ -269,6 +269,8 @@ public final class NativeHomeActivity extends ComponentActivity {
             uiPrefs = next;
             if (shellRoot != null) NativeTypography.applyTree(shellRoot, uiPrefs);
         });
+        // Home owns this dialog; no Activity/window transition is needed.
+        settingsDialog.setStableHomeTransition(true);
         settingsDialog.setOnDismissListener(dialog -> settingsDialog = null);
         settingsDialog.show();
     }
