@@ -64,6 +64,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     public static final String ACTION_DRAWING = "drawing";
     public static final String ACTION_SETTINGS = "settings";
     public static final String ACTION_MATERIALS = "materials";
+    public static final String ACTION_RECENT_PROJECT = "recent_project";
+    public static final String EXTRA_PROJECT_ID = "native_project_id";
     private static final int REQUEST_EXPORT_BACKUP = 7201;
     private static final int REQUEST_IMPORT_BACKUP = 7202;
     private static final int REQUEST_EXPORT_CLIENT_PDF = 7203;
@@ -79,6 +81,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private NativeProjectStore store;
     private NativeLicenseClient licenseClient;
     private NativeProjectStore.ProjectData project;
+    private NativePricePresetDialog homeMaterialsDialog;
     private LinearLayout root;
     private LinearLayout roomRow;
     private CeilingDrawingView drawingView;
@@ -152,9 +155,24 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         String action = getIntent().getStringExtra(EXTRA_LAUNCH_ACTION);
         if (ACTION_NEW_ORDER.equals(action)) project = store.newProject();
-        else project = store.loadCurrent();
+        else if (ACTION_RECENT_PROJECT.equals(action)) {
+            String requestedId = getIntent().getStringExtra(EXTRA_PROJECT_ID);
+            project = null;
+            if (requestedId != null) for (NativeProjectStore.ProjectData saved : store.loadSaved()) {
+                if (requestedId.equals(saved.id)) { project = saved; break; }
+            }
+            if (project == null) {
+                // Deleted project: fall back to the saved list, never open a different order.
+                project = store.loadCurrent();
+                action = ACTION_SAVED_MEASUREMENTS;
+            }
+        } else project = store.loadCurrent();
 
-        if (ACTION_SAVED_MEASUREMENTS.equals(action)) {
+        if (ACTION_RECENT_PROJECT.equals(action) && project != null) {
+            editorOpenedFromSavedMeasurements = false;
+            showEditor(true);
+            saveProjectAsync(project);
+        } else if (ACTION_SAVED_MEASUREMENTS.equals(action)) {
             savedOpenedFromEditor = false;
             showSavedMeasurements();
         } else {
@@ -163,10 +181,14 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             if (ACTION_SETTINGS.equals(action)) {
                 getWindow().getDecorView().post(this::showNativeSettings);
             } else if (ACTION_MATERIALS.equals(action)) {
-                getWindow().getDecorView().post(this::openMaterialsCatalog);
+                // Present the full-screen catalog before the first Activity frame.
+                // Posting it to the next UI loop exposed the drawing editor for one
+                // frame and caused the visible flash reported on Android devices.
+                openMaterialsCatalog();
             }
         }
 
+        if (ACTION_MATERIALS.equals(action) || ACTION_RECENT_PROJECT.equals(action)) overridePendingTransition(0, 0);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -229,6 +251,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     @Override
     protected void onDestroy() {
         uiHandler.removeCallbacks(deferredSave);
+        if (homeMaterialsDialog != null && homeMaterialsDialog.isShowing()) {
+            homeMaterialsDialog.dismiss();
+        }
         saveExecutor.shutdown();
         super.onDestroy();
     }
@@ -2261,8 +2286,40 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     scheduleSaveCurrent();
                     updateStats();
                 });
+        // Home->Materials is an immediate full-screen destination. Keep the
+        // regular fade for every other price dialog opened inside estimates.
+        dialog.setImmediateOpen(true);
+        homeMaterialsDialog = dialog;
+        dialog.setOnDismissListener(d -> {
+            homeMaterialsDialog = null;
+            // This Activity is only a host for the Home materials catalog.
+            // Closing the dialog must reveal the existing Home Activity, not
+            // the drawing editor hidden underneath the full-screen dialog.
+            if (ACTION_MATERIALS.equals(getIntent().getStringExtra(EXTRA_LAUNCH_ACTION))
+                    && !isFinishing() && !isDestroyed()) {
+                finish();
+                overridePendingTransition(0, 0);
+            }
+        });
         dialog.setOnHomeRequested(this::goHome);
         dialog.show();
+    }
+
+    String currentProjectIdForTest() {
+        return project == null ? null : project.id;
+    }
+
+    boolean isHomeMaterialsVisibleForTest() {
+        return homeMaterialsDialog != null && homeMaterialsDialog.isShowing();
+    }
+
+    void dismissHomeMaterialsForTest() {
+        if (homeMaterialsDialog != null) homeMaterialsDialog.dismiss();
+    }
+
+    int homeMaterialsWindowAnimationForTest() {
+        if (homeMaterialsDialog == null || homeMaterialsDialog.getWindow() == null) return -1;
+        return homeMaterialsDialog.getWindow().getAttributes().windowAnimations;
     }
 
     private void openEstimate(NativeEstimateDialog.Mode mode){
