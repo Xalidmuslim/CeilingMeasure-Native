@@ -3,6 +3,8 @@ package ru.xalidmuslim.ceilingmeasure;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Bitmap;
+import android.animation.ValueAnimator;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -50,6 +52,7 @@ final class NativePremiumHomeUi {
     private FrameLayout dock;
     private LinearLayout recentRows;
     private ImageView appIcon;
+    private Bitmap displayedIcon;
     private TextView savedCount;
     private TextView licenseState;
 
@@ -242,8 +245,21 @@ final class NativePremiumHomeUi {
     }
 
     void applyPreloadedIcon(@Nullable Bitmap bitmap) {
-        if (appIcon != null && bitmap != null && !bitmap.isRecycled()) {
-            appIcon.setImageBitmap(bitmap);
+        if (appIcon == null || bitmap == null || bitmap.isRecycled()) return;
+        // Reopening the Home or closing Settings must not rebind an identical
+        // Drawable, replay the icon animation, or invalidate the toolbar.
+        if (displayedIcon == bitmap) return;
+        displayedIcon = bitmap;
+        appIcon.animate().cancel();
+        appIcon.setImageBitmap(bitmap);
+        if (NativeMotion.animationsEnabled()) {
+            appIcon.setAlpha(.90f);
+            appIcon.animate().alpha(1f)
+                    .setDuration(NativeMotion.MICRO_ENTER_MS)
+                    .setInterpolator(NativeMotion.easing())
+                    .start();
+        } else {
+            appIcon.setAlpha(1f);
         }
     }
 
@@ -254,6 +270,12 @@ final class NativePremiumHomeUi {
 
         ImageView logo = new ImageView(activity);
         logo.setTag("native_home_app_icon");
+        // The original master has a baked-in white background. Only the
+        // edge-connected white pixels are cleared by background preloading.
+        // The view itself never adds a white tile, stroke or extra GPU layer.
+        logo.setBackground(null);
+        logo.setPadding(0, 0, 0, 0);
+        logo.setLayerType(View.LAYER_TYPE_NONE, null);
         // Avoid decoding the 1024px app artwork on the first UI frame.
         // The icon resource is decoded at screen-appropriate resolution on background IO.
         logo.setImageResource(R.drawable.ic_shell_drawing);
