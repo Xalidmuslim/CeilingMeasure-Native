@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -59,7 +60,10 @@ final class NativeHomePreloader {
             }
             final Bitmap ready = icon;
             final List<NativeProjectStore.ProjectData> saved =
-                    new NativeProjectStore(application).loadSaved();
+                    new ArrayList<>(new NativeProjectStore(application).loadSaved());
+            // Medicine's LazyColumn sorts/prepares data outside composition.
+            // The Home renders at most 3 cards, so no UI-thread sort is needed.
+            saved.sort((a, b) -> Long.compare(b.savedAt, a.savedAt));
             MAIN.post(() -> listener.onLoaded(saved, ready));
         });
     }
