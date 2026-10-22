@@ -4,7 +4,7 @@
 # optimized APK, debug APK, and instrumentation APK.
 set -euo pipefail
 OUT="build/v247-performance"
-PKG="ru.xalidmuslim.ceilingmeasure.optimized"
+PKG="ru.xalidmuslim.ceilingmeasure.medicine247"
 HOME_COMPONENT="$PKG/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity"
 WORKSPACE="$PKG/ru.xalidmuslim.ceilingmeasure.NativeWorkspaceActivity"
 RUNNER="ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner"
@@ -68,7 +68,7 @@ sleep .3
 adb shell dumpsys activity activities > "$OUT/activity-stacks.txt"
 adb shell dumpsys meminfo "$PKG" > "$OUT/memory.txt"
 adb logcat -d -s AndroidRuntime:E > "$OUT/runtime-errors.txt"
-if grep -E 'FATAL EXCEPTION|Process: ru.xalidmuslim.ceilingmeasure.optimized' "$OUT/runtime-errors.txt"; then
+if grep -E 'FATAL EXCEPTION|Process: ru.xalidmuslim.ceilingmeasure.medicine247' "$OUT/runtime-errors.txt"; then
   echo "Runtime crash detected" >&2
   exit 1
 fi
