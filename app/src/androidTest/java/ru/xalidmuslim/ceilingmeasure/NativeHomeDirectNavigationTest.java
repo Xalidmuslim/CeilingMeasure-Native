@@ -66,6 +66,22 @@ public final class NativeHomeDirectNavigationTest {
     }
 
     @Test
+    public void closingMaterialsReturnsToExistingHomeRatherThanRevealingDrawing() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent launch = new Intent(context, NativeWorkspaceActivity.class);
+        launch.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.ACTION_MATERIALS);
+        try (ActivityScenario<NativeWorkspaceActivity> scene = ActivityScenario.launch(launch)) {
+            scene.onActivity(activity -> {
+                assertTrue(activity.isHomeMaterialsVisibleForTest());
+                activity.dismissHomeMaterialsForTest();
+                assertTrue("Closing Materials must finish its workspace host, never show drawing",
+                        activity.isFinishing());
+            });
+        }
+    }
+
+    @Test
     public void materialsDialogOpensImmediatelyWithoutEditorFadeFlash() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Intent launch = new Intent(context, NativeWorkspaceActivity.class);
