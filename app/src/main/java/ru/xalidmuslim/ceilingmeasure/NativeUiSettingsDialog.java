@@ -36,6 +36,10 @@ final class NativeUiSettingsDialog extends Dialog {
     private final Listener listener;
     private NativeUiPrefs prefs;
     private LinearLayout sheet;
+    // Home uses one alpha transition for the entire content+scrim instead of
+    // a window fade followed by another sheet fade.
+    private FrameLayout backdrop;
+    private boolean stableHomeTransition;
     private TextView sizeValue;
     private boolean closing;
     private final Handler scaleHandler=new Handler(Looper.getMainLooper());
@@ -51,14 +55,25 @@ final class NativeUiSettingsDialog extends Dialog {
         this.listener = listener;
     }
 
+    void setStableHomeTransition(boolean enabled) {
+        stableHomeTransition = enabled;
+    }
+
+    boolean isStableHomeTransitionForTest() {
+        return stableHomeTransition;
+    }
+
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         Window window = getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            // Fade-only dialog transition. Never slide or scale the window.
-            window.setWindowAnimations(R.style.CeilingFadeWindowAnimation);
+            // The Home dialog fades as one complete surface, so the Android
+            // window must not apply a second alpha transition on top of it.
+            window.setWindowAnimations(stableHomeTransition
+                    ? R.style.CeilingNoWindowAnimation
+                    : R.style.CeilingFadeWindowAnimation);
             window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             WindowCompat.setDecorFitsSystemWindows(window, false);
         }
@@ -76,7 +91,17 @@ final class NativeUiSettingsDialog extends Dialog {
         }
         View decor = window == null ? null : window.getDecorView();
         if (decor != null) decor.requestApplyInsets();
-        if (sheet != null) {
+        if (stableHomeTransition && backdrop != null) {
+            // One frame-stable fade of the scrim and panel together.
+            // The Home behind the dialog stays at alpha=1 and never moves.
+            backdrop.animate().cancel();
+            backdrop.setAlpha(0f);
+            backdrop.animate()
+                    .alpha(1f)
+                    .setDuration(NativeVisualTokens.OVERLAY_MOTION_MS)
+                    .start();
+        } else if (sheet != null) {
+            // Preserve the established Workspace settings transition.
             sheet.animate().cancel();
             sheet.setScaleX(1f);
             sheet.setScaleY(1f);
@@ -104,19 +129,39 @@ final class NativeUiSettingsDialog extends Dialog {
         if (sizeValue != null) sizeValue.setText(Math.round(prefs.scale * 100f) + "%");
     }
 
+    private void cancelPendingScaleApply() {
+        if (pendingScaleApply != null) {
+            scaleHandler.removeCallbacks(pendingScaleApply);
+            pendingScaleApply = null;
+        }
+    }
+
     @Override
     public void dismiss() {
-        if(pendingScaleApply!=null){
-            scaleHandler.removeCallbacks(pendingScaleApply);
-            pendingScaleApply=null;
-        }
+        cancelPendingScaleApply();
         if (closing) return;
-        super.dismiss();
+        if (stableHomeTransition && isShowing()) {
+            dismissAnimated();
+        } else {
+            super.dismiss();
+        }
     }
 
     private void dismissAnimated() {
         if (closing) return;
+        cancelPendingScaleApply();
         closing = true;
+        if (stableHomeTransition && backdrop != null) {
+            // The backdrop, typography, and panel fade as ONE surface.
+            // Do not leave a separate dim scrim after the sheet disappears.
+            backdrop.animate().cancel();
+            backdrop.animate()
+                    .alpha(0f)
+                    .setDuration(NativeVisualTokens.OVERLAY_MOTION_MS)
+                    .withEndAction(() -> NativeUiSettingsDialog.super.dismiss())
+                    .start();
+            return;
+        }
         if (sheet == null) {
             super.dismiss();
             return;
@@ -129,7 +174,7 @@ final class NativeUiSettingsDialog extends Dialog {
     }
 
     private void rebuild() {
-        FrameLayout backdrop = new FrameLayout(activity);
+        backdrop = new FrameLayout(activity);
         backdrop.setTag("native_ui_settings_backdrop");
         backdrop.setBackgroundColor(Color.argb(31, 17, 29, 42));
         backdrop.setClickable(true);

@@ -24,6 +24,10 @@ public final class NativePremiumHomeTest {
                 assertNotNull(root.findViewWithTag("native_home_root"));
                 assertNotNull(root.findViewWithTag("native_home_app_icon"));
                 assertNotNull(root.findViewWithTag("native_home_new"));
+                View ceilingArt = root.findViewWithTag("native_home_ceiling_art");
+                assertNotNull("Native architectural ceiling illustration is present", ceilingArt);
+                assertEquals("Ceiling illustration must not force an extra GPU layer",
+                        View.LAYER_TYPE_NONE, ceilingArt.getLayerType());
                 assertNotNull(root.findViewWithTag("native_home_saved"));
                 assertNotNull(root.findViewWithTag("native_home_drawing"));
                 assertNull("Materials shortcut was removed from home cards",
