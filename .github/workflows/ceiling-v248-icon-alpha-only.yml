@@ -42,7 +42,7 @@ jobs:
           path: app/build/outputs/apk/releasePreview/app-releasePreview.apk
           if-no-files-found: error
           retention-days: 30
-      - name: Android emulator: verify real icon pixels and Home
+      - name: 'Android emulator: verify real icon pixels and Home'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
