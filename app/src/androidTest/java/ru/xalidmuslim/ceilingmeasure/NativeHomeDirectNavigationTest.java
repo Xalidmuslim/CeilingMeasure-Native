@@ -8,7 +8,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.KeyEvent;
 import android.widget.ScrollView;
-import androidx.lifecycle.Lifecycle;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -76,16 +75,19 @@ public final class NativeHomeDirectNavigationTest {
         launch.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
                 NativeWorkspaceActivity.ACTION_MATERIALS);
         try (ActivityScenario<NativeWorkspaceActivity> scene = ActivityScenario.launch(launch)) {
+            final NativeWorkspaceActivity[] host = {null};
             scene.onActivity(activity -> {
+                host[0] = activity;
                 assertTrue(activity.isHomeMaterialsVisibleForTest());
                 activity.dismissHomeMaterialsForTest();
             });
-            // Dialog.setOnDismissListener is dispatched asynchronously by Android.
-            // Drain the main queue before checking Activity.finish(), rather than
-            // asserting inside the same UI callback that requested dismiss().
+            // Dialog dismissal is asynchronous. The correct condition is
+            // finish() requested; Android can leave the Activity in STARTED
+            // until its next lifecycle dispatch.
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-            assertEquals("Closing Materials must finish its hidden editor host",
-                    Lifecycle.State.DESTROYED, scene.getState());
+            assertNotNull(host[0]);
+            assertTrue("Closing Materials must finish its hidden editor host",
+                    host[0].isFinishing());
         }
     }
 
