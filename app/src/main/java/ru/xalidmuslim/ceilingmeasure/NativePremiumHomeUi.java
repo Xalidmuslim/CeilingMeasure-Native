@@ -293,7 +293,10 @@ final class NativePremiumHomeUi {
         logo.setLayerType(View.LAYER_TYPE_NONE, null);
         // Avoid decoding the 1024px app artwork on the first UI frame.
         // The icon resource is decoded at screen-appropriate resolution on background IO.
-        logo.setImageResource(R.drawable.ic_shell_drawing);
+        // Reserve the icon's exact dimensions from the first frame, but
+        // never flash a different placeholder icon behind the genuine artwork.
+        // Background preload supplies the original logo once, then 110ms alpha.
+        logo.setImageDrawable(null);
         appIcon = logo;
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
         logo.setContentDescription("Иконка приложения");
