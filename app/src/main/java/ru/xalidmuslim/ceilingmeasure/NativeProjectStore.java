@@ -274,6 +274,22 @@ final class NativeProjectStore {
         return createRoomFromDb(name, loadDb());
     }
 
+    /**
+     * Read the current working order without creating one.
+     * Opening the Materials catalog from Home must not silently save a blank
+     * drawing when the user has not started any projects yet.
+     */
+    @Nullable
+    ProjectData peekCurrent() {
+        JSONArray orders = loadDb().optJSONArray("orders");
+        if (orders == null || orders.length() == 0) return null;
+        JSONObject first = orders.optJSONObject(0);
+        if (first == null) return null;
+        ProjectData result = projectFromWebOrder(first);
+        result.activeRoom = 0;
+        return result;
+    }
+
     ProjectData loadCurrent() {
         JSONObject db = loadDb();
         JSONArray orders = db.optJSONArray("orders");
