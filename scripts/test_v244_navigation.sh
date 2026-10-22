@@ -14,11 +14,6 @@ adb install -r "$TEST_APK"
 # and Materials dialog is attached immediately with no home-only fade.
 TEST_RUNNER="ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner"
 adb shell pm list instrumentation | tee "$OUT/instrumentation.txt"
-adb shell am instrument -w -r \
-  -e class ru.xalidmuslim.ceilingmeasure.NativeHomeDirectNavigationTest \
-  "$TEST_RUNNER" | tee "$OUT/focused-tests.txt"
-grep -Eq 'OK \([3-9] tests\)' "$OUT/focused-tests.txt"
-
 # Settings from both Home entries: one fade layer, no translation, and
 # Android Back must return to the exact same Home + scroll offset.
 adb shell am instrument -w -r \
@@ -26,6 +21,12 @@ adb shell am instrument -w -r \
   "$TEST_RUNNER" | tee "$OUT/home-settings-tests.txt"
 grep -Eq 'OK \(2 tests\)' "$OUT/home-settings-tests.txt"
 
+
+
+adb shell am instrument -w -r \
+  -e class ru.xalidmuslim.ceilingmeasure.NativeHomeDirectNavigationTest \
+  "$TEST_RUNNER" | tee "$OUT/focused-tests.txt"
+grep -Eq 'OK \([3-9] tests\)' "$OUT/focused-tests.txt"
 
 # R8-optimized release-preview: verify home->Materials actual UI route on Android.
 adb install -r "$PREVIEW_APK"
