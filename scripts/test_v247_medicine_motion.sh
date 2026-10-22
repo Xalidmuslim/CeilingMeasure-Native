@@ -43,8 +43,24 @@ adb shell uiautomator dump /sdcard/v247-home.xml >/dev/null 2>&1
 adb exec-out cat /sdcard/v247-home.xml > "$OUT/home.xml"
 
 # 5. Scroll the long real native editor; the Home only displays 3 recent rows.
-adb shell am start -W -n "$WORKSPACE" --es native_launch_action drawing \
-    | tee "$OUT/open-editor.txt"
+# WorkspaceActivity is intentionally non-exported. Open the real app row
+# by touch exactly as a user would, never via an unauthorized adb Intent.
+python3 - "$OUT/home.xml" > "$OUT/drawing-row-tap.txt" <<'PY'
+import re,sys,xml.etree.ElementTree as ET
+nodes=list(ET.parse(sys.argv[1]).getroot().iter("node"))
+rows=[n for n in nodes if n.get("text")=="Чертёж"
+      and n.get("bounds") and n.get("visible-to-user","true")=="true"]
+assert rows, "Home drawing row not found"
+# Text "Чертёж" is on the main action row, not an inaccessible Activity.
+b=list(map(int,re.findall(r"\d+",rows[0].get("bounds",""))))
+assert len(b)==4, b
+print((b[0]+b[2])//2,(b[1]+b[3])//2)
+PY
+read -r editor_x editor_y < "$OUT/drawing-row-tap.txt"
+adb shell input tap "$editor_x" "$editor_y"
+sleep .6
+adb shell dumpsys activity activities > "$OUT/open-editor.txt"
+grep -q 'NativeWorkspaceActivity' "$OUT/open-editor.txt"
 adb shell uiautomator dump /sdcard/v247-editor.xml >/dev/null 2>&1
 adb exec-out cat /sdcard/v247-editor.xml > "$OUT/editor.xml"
 python3 - "$OUT/editor.xml" <<'PY'
