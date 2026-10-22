@@ -5,6 +5,10 @@ import static org.junit.Assert.*;
 import android.content.Context;
 import android.content.Intent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.KeyEvent;
+import android.widget.ScrollView;
+import androidx.lifecycle.Lifecycle;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -75,8 +79,52 @@ public final class NativeHomeDirectNavigationTest {
             scene.onActivity(activity -> {
                 assertTrue(activity.isHomeMaterialsVisibleForTest());
                 activity.dismissHomeMaterialsForTest();
-                assertTrue("Closing Materials must finish its workspace host, never show drawing",
-                        activity.isFinishing());
+            });
+            // Dialog.setOnDismissListener is dispatched asynchronously by Android.
+            // Drain the main queue before checking Activity.finish(), rather than
+            // asserting inside the same UI callback that requested dismiss().
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertEquals("Closing Materials must finish its hidden editor host",
+                    Lifecycle.State.DESTROYED, scene.getState());
+        }
+    }
+
+    @Test
+    public void androidBackFromHomeMaterialsRestoresOriginalHomeInstanceAndScrollPosition() {
+        try (ActivityScenario<NativeHomeActivity> homeScenario =
+                     ActivityScenario.launch(NativeHomeActivity.class)) {
+            final NativeHomeActivity[] original = {null};
+            final int[] originalScroll = {0};
+            homeScenario.onActivity(home -> {
+                original[0] = home;
+                ScrollView scroll = home.getWindow().getDecorView()
+                        .findViewWithTag("native_home_scroll");
+                assertNotNull(scroll);
+                originalScroll[0] = scroll.getScrollY();
+                ViewGroup dock = home.getWindow().getDecorView()
+                        .findViewWithTag("native_home_bottom_nav");
+                assertNotNull(dock);
+                ViewGroup actions = (ViewGroup) dock.getChildAt(0);
+                assertEquals("Материалы",
+                        String.valueOf(actions.getChildAt(3).getContentDescription()));
+                actions.getChildAt(3).performClick();
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            InstrumentationRegistry.getInstrumentation()
+                    .sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            homeScenario.onActivity(home -> {
+                assertSame("Back must reveal the original Home Activity", original[0], home);
+                ScrollView scroll = home.getWindow().getDecorView()
+                        .findViewWithTag("native_home_scroll");
+                assertNotNull(scroll);
+                assertEquals("Home scroll position must be preserved",
+                        originalScroll[0], scroll.getScrollY());
+                assertNotNull(home.getWindow().getDecorView()
+                        .findViewWithTag("native_home_recent"));
+                assertNull("Drawing must not replace the Home screen",
+                        home.getWindow().getDecorView()
+                                .findViewWithTag("native_drawing_view"));
             });
         }
     }
