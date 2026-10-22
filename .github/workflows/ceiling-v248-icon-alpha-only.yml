@@ -58,8 +58,8 @@ jobs:
             adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeHomeIconTransparencyTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee build/v248-logo-evidence/icon-instrumentation.txt
             grep -q 'OK (4 tests)' build/v248-logo-evidence/icon-instrumentation.txt
             adb install -r app/build/outputs/apk/releasePreview/app-releasePreview.apk
-            adb shell am force-stop ru.xalidmuslim.ceilingmeasure.medicine247
-            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.medicine247/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity | tee build/v248-logo-evidence/home-launch.txt
+            adb shell am force-stop ru.xalidmuslim.ceilingmeasure.icon248
+            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.icon248/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity | tee build/v248-logo-evidence/home-launch.txt
             sleep 1
             adb exec-out screencap -p > build/v248-logo-evidence/home.png
             adb logcat -d -s AndroidRuntime:E > build/v248-logo-evidence/crashes.txt
