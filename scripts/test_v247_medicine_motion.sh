@@ -5,7 +5,7 @@
 set -euo pipefail
 OUT="build/v247-performance"
 PKG="ru.xalidmuslim.ceilingmeasure.optimized"
-HOME="$PKG/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity"
+HOME_COMPONENT="$PKG/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity"
 WORKSPACE="$PKG/ru.xalidmuslim.ceilingmeasure.NativeWorkspaceActivity"
 RUNNER="ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner"
 mkdir -p "$OUT"
@@ -34,7 +34,7 @@ grep -Eq 'OK \(1 test\)' "$OUT/reduced-motion.txt"
 adb shell input keyevent KEYCODE_HOME
 for n in 1 2 3 4 5; do
     adb shell am force-stop "$PKG"
-    adb shell am start -W -n "$HOME" | tee "$OUT/cold-start-${n}.txt"
+    adb shell am start -W -n "$HOME_COMPONENT" | tee "$OUT/cold-start-${n}.txt"
     grep -q '^Status: ok' "$OUT/cold-start-${n}.txt"
     sleep .4
 done
