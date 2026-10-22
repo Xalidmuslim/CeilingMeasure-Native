@@ -100,18 +100,29 @@ for f in sorted(p.glob("cold-start-*.txt")):
 raw=(p/"gfx-editor-framestats.txt").read_text()
 rows=[]
 in_profile=False
+columns={}
 for line in raw.splitlines():
-    if line.startswith("---PROFILEDATA---"):
+    if line.strip()=="---PROFILEDATA---":
         in_profile=not in_profile
         continue
-    if not in_profile or not line.startswith("0,"): continue
+    if not in_profile: continue
+    if line.startswith("Flags,"):
+        columns={key:index for index,key in enumerate(line.split(","))}
+        continue
+    if not line.startswith("0,") or not columns: continue
     fields=line.split(",")
-    if len(fields)<14: continue
     try:
-        intended=int(fields[1]); completed=int(fields[13])
-        if completed>=intended and intended>0:
+        intended=int(fields[columns["IntendedVsync"]])
+        completed=int(fields[columns["FrameCompleted"]])
+        if 0 < intended <= completed:
             rows.append(round((completed-intended)/1e6,3))
-    except (ValueError,IndexError): continue
+    except (ValueError,IndexError,KeyError): continue
+
+gfx_median=re.search(r"^50th percentile:\\s*(\\d+)ms",raw,re.M)
+gfx_p90=re.search(r"^90th percentile:\\s*(\\d+)ms",raw,re.M)
+gfx_p95=re.search(r"^95th percentile:\\s*(\\d+)ms",raw,re.M)
+jank=re.search(r"^Janky frames:\\s*(\\d+)\\s*\\(([^)]+)\\)",raw,re.M)
+total=re.search(r"^Total frames rendered:\\s*(\\d+)",raw,re.M)
 report={
     "device":"Android API 35 emulator (not Xiaomi 13 Ultra)",
     "cold_start":"force-stop + am start -W; device boot excluded",
@@ -120,8 +131,14 @@ report={
     "cold_start_mean_ms":round(statistics.mean(start),1),
     "editor_vertical_swipes":8,
     "editor_frame_samples":len(rows),
-    "editor_frame_median_ms":statistics.median(rows) if rows else None,
-    "editor_frames_above_16_67ms":sum(x>16.67 for x in rows),
+    "editor_gfxinfo_frame_p50_ms":int(gfx_median.group(1)) if gfx_median else None,
+    "editor_gfxinfo_frame_p90_ms":int(gfx_p90.group(1)) if gfx_p90 else None,
+    "editor_gfxinfo_frame_p95_ms":int(gfx_p95.group(1)) if gfx_p95 else None,
+    "editor_total_frames_rendered":int(total.group(1)) if total else None,
+    "editor_janky_frames":int(jank.group(1)) if jank else None,
+    "editor_janky_percent":jank.group(2) if jank else None,
+    "editor_completion_latency_median_ms":round(statistics.median(rows),2) if rows else None,
+    "editor_frames_completion_latency_above_16_67ms":sum(x>16.67 for x in rows),
     "runtime_crashes":0,
     "notes":"Profiling an emulator is not physical-phone smoothness proof. Original functionality remains covered by existing tests."
 }
