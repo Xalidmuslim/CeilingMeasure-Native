@@ -511,45 +511,95 @@ final class NativePremiumHomeUi {
         return Math.round(value * activity.getResources().getDisplayMetrics().density);
     }
 
-    /** Restrained ceiling perimeter and recessed lights, drawn with thin vector lines. */
+    /**
+     * A flat recessed stretch-ceiling panel in perspective, not a 3D cube.
+     * Two nested profile outlines communicate the stretched membrane/cove;
+     * small elliptical downlights make the subject recognizable at 100dp.
+     * Everything is drawn as lightweight native Canvas strokes without
+     * bitmaps or extra hardware layers.
+     */
     private static final class CeilingContour extends View {
         private final Paint ink = new Paint(Paint.ANTI_ALIAS_FLAG);
         CeilingContour(NativeHomeActivity activity) { super(activity); }
+
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             canvas.save();
             canvas.scale(getWidth() / 146f, getHeight() / 100f);
-            ink.setStyle(Paint.Style.STROKE);
-            ink.setStrokeWidth(0.9f);
-            ink.setColor(Color.argb(158, 230, 245, 255));
-            Path upper = new Path();
-            upper.moveTo(5f, 46f);
-            upper.lineTo(83f, 13f);
-            upper.lineTo(142f, 34f);
-            upper.lineTo(63f, 69f);
-            upper.close();
-            canvas.drawPath(upper, ink);
 
-            ink.setColor(Color.argb(100, 230, 245, 255));
+            ink.setStyle(Paint.Style.FILL);
+            ink.setColor(Color.argb(15, 239, 250, 255));
+            Path membrane = new Path();
+            membrane.moveTo(18f, 42f);
+            membrane.lineTo(91f, 14f);
+            membrane.lineTo(137f, 34f);
+            membrane.lineTo(64f, 76f);
+            membrane.close();
+            canvas.drawPath(membrane, ink);
+
+            ink.setStyle(Paint.Style.STROKE);
+            ink.setStrokeWidth(1f);
+            ink.setStrokeJoin(Paint.Join.ROUND);
+            ink.setStrokeCap(Paint.Cap.ROUND);
+
+            // Thin aluminum perimeter of the ceiling, viewed from below.
+            ink.setColor(Color.argb(194, 236, 249, 255));
+            Path perimeter = new Path();
+            perimeter.moveTo(6f, 41f);
+            perimeter.lineTo(90f, 9f);
+            perimeter.lineTo(143f, 33f);
+            perimeter.lineTo(62f, 82f);
+            perimeter.close();
+            canvas.drawPath(perimeter, ink);
+
+            // Cove profile / second level; no vertical cube walls.
+            ink.setColor(Color.argb(135, 225, 246, 255));
+            Path profile = new Path();
+            profile.moveTo(17f, 42f);
+            profile.lineTo(90f, 17f);
+            profile.lineTo(132f, 34f);
+            profile.lineTo(62f, 71f);
+            profile.close();
+            canvas.drawPath(profile, ink);
+
+            // Recessed light strip following the ceiling membrane.
+            ink.setColor(Color.argb(93, 228, 249, 255));
             Path inner = new Path();
-            inner.moveTo(17f, 45f);
-            inner.lineTo(84f, 20f);
-            inner.lineTo(131f, 35f);
-            inner.lineTo(63f, 62f);
+            inner.moveTo(26f, 43f);
+            inner.lineTo(91f, 23f);
+            inner.lineTo(123f, 35f);
+            inner.lineTo(62f, 63f);
             inner.close();
             canvas.drawPath(inner, ink);
-            canvas.drawLine(5f, 46f, 5f, 72f, ink);
-            canvas.drawLine(5f, 72f, 63f, 94f, ink);
-            canvas.drawLine(63f, 69f, 63f, 94f, ink);
-            canvas.drawLine(142f, 34f, 142f, 60f, ink);
-            canvas.drawLine(63f, 94f, 142f, 60f, ink);
-            ink.setColor(Color.argb(178, 255, 255, 255));
-            canvas.drawOval(80f, 31f, 91f, 35f, ink);
-            canvas.drawOval(48f, 47f, 59f, 51f, ink);
-            ink.setColor(Color.argb(90, 230, 245, 255));
-            canvas.drawLine(10f, 22f, 105f, 1f, ink);
-            canvas.drawLine(18f, 15f, 14f, 29f, ink);
+
+            // Four flush recessed downlights in the membrane (not cube corners).
+            drawDownlight(canvas, 42f, 44f, 4.5f, 2.2f);
+            drawDownlight(canvas, 88f, 27f, 3.7f, 1.9f);
+            drawDownlight(canvas, 111f, 36f, 3.8f, 1.9f);
+            drawDownlight(canvas, 63f, 58f, 4.7f, 2.4f);
+
+            // Technical guide and profile ticks, kept faint behind the subject.
+            ink.setStyle(Paint.Style.STROKE);
+            ink.setStrokeWidth(.7f);
+            ink.setColor(Color.argb(70, 233, 249, 255));
+            canvas.drawLine(20f, 30f, 83f, 6f, ink);
+            canvas.drawLine(21f, 25f, 18f, 34f, ink);
+            canvas.drawLine(87f, 2f, 83f, 12f, ink);
             canvas.restore();
+        }
+
+        private void drawDownlight(Canvas canvas, float x, float y, float w, float h) {
+            ink.setStyle(Paint.Style.FILL);
+            ink.setColor(Color.argb(46, 245, 253, 255));
+            canvas.drawOval(x - w, y - h, x + w, y + h, ink);
+            ink.setStyle(Paint.Style.STROKE);
+            ink.setStrokeWidth(.85f);
+            ink.setColor(Color.argb(205, 250, 254, 255));
+            canvas.drawOval(x - w, y - h, x + w, y + h, ink);
+            ink.setStyle(Paint.Style.FILL);
+            ink.setColor(Color.argb(115, 241, 251, 255));
+            canvas.drawOval(x - 1.2f, y - .5f, x + 1.2f, y + .5f, ink);
+            ink.setStyle(Paint.Style.STROKE);
         }
     }
 }
