@@ -31,6 +31,7 @@ public final class NativeHomeActivity extends ComponentActivity {
     private TextView savedMeta;
     private TextView drawingMeta;
     private NativeUiSettingsDialog settingsDialog;
+    private NativePricePresetDialog homeMaterialsDialog;
     private NativeLicenseClient licenseClient;
     private TextView licenseMeta;
 
@@ -49,6 +50,10 @@ public final class NativeHomeActivity extends ComponentActivity {
         // including gesture navigation, never exits or backgrounds the app.
         getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true){
             @Override public void handleOnBackPressed(){
+                if (homeMaterialsDialog != null && homeMaterialsDialog.isShowing()) {
+                    homeMaterialsDialog.dismiss();
+                    return;
+                }
                 if(settingsDialog!=null && settingsDialog.isShowing()){
                     settingsDialog.dismiss();
                 }
@@ -82,7 +87,7 @@ public final class NativeHomeActivity extends ComponentActivity {
                 () -> openWorkspace(NativeWorkspaceActivity.ACTION_SAVED_MEASUREMENTS),
                 this::openRecentProject,
                 () -> openWorkspace(NativeWorkspaceActivity.ACTION_DRAWING),
-                () -> openWorkspace(NativeWorkspaceActivity.ACTION_MATERIALS),
+                this::openMaterialsDirectly,
                 this::showLicense,
                 this::openSettings);
         View screen = premiumUi.build();
@@ -215,6 +220,47 @@ public final class NativeHomeActivity extends ComponentActivity {
                 content,
                 mask));
         return view;
+    }
+
+    /**
+     * The price catalog is a fullscreen native Dialog owned by Home itself.
+     * No WorkspaceActivity or drawing view is created during navigation.
+     * Android Back merely dismisses the dialog and exposes this exact Home
+     * instance, preserving scroll offset, in-flight drawings and UI state.
+     */
+    private void openMaterialsDirectly() {
+        if (homeMaterialsDialog != null && homeMaterialsDialog.isShowing()) return;
+        if (licenseClient != null && !licenseClient.canEdit()) {
+            showLicense();
+            return;
+        }
+        NativeProjectStore.ProjectData active = store.peekCurrent();
+        if (active == null) active = new NativeProjectStore.ProjectData();
+
+        NativePricePresetDialog dialog = new NativePricePresetDialog(
+                this, store, active, java.util.Collections.singletonList(active),
+                false, () -> {
+                    // The catalog saves default prices and real orders itself.
+                    // Home owns no editor fields and must not schedule a save.
+                });
+        dialog.setImmediateOpen(true);
+        homeMaterialsDialog = dialog;
+        dialog.setOnDismissListener(window -> {
+            if (homeMaterialsDialog == dialog) homeMaterialsDialog = null;
+        });
+        dialog.show();
+    }
+
+    boolean isHomeMaterialsVisibleForTest() {
+        return homeMaterialsDialog != null && homeMaterialsDialog.isShowing();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (homeMaterialsDialog != null && homeMaterialsDialog.isShowing()) {
+            homeMaterialsDialog.dismiss();
+        }
+        super.onDestroy();
     }
 
     private void openSettings() {

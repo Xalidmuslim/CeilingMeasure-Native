@@ -16,6 +16,22 @@ public final class NativeProjectStoreTest {
     private static final String FIX = "fixtures/";
 
     @Test
+    public void peekCurrentForHomeMaterialsDoesNotCreateAnyEmptyProject() throws Exception {
+        NativeProjectStore store = new NativeProjectStore(new MemorySharedPreferences());
+        String before = store.rawDatabaseForTest();
+        assertNull("Home catalog must not create a phantom project on first launch",
+                store.peekCurrent());
+        assertJsonSemanticEquals(new JSONObject(before),
+                new JSONObject(store.rawDatabaseForTest()));
+
+        NativeProjectStore.ProjectData real = store.newProject();
+        real.name = "Настоящий объект";
+        store.saveCurrent(real);
+        assertEquals(real.id, store.peekCurrent().id);
+        assertEquals("Настоящий объект", store.peekCurrent().name);
+    }
+
+    @Test
     public void createOrderAndRoomPersistAcrossFullStoreReload() {
         MemorySharedPreferences prefs = new MemorySharedPreferences();
         NativeProjectStore first = new NativeProjectStore(prefs);

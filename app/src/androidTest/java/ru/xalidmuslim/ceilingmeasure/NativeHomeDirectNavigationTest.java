@@ -132,6 +132,46 @@ public final class NativeHomeDirectNavigationTest {
     }
 
     @Test
+    public void homeMaterialsOpenDirectlyWithoutStartingDrawingAndBackPreservesHome() {
+        try (ActivityScenario<NativeHomeActivity> scene =
+                     ActivityScenario.launch(NativeHomeActivity.class)) {
+            final NativeHomeActivity[] initial = new NativeHomeActivity[1];
+            final int[] scrollBefore = new int[1];
+            scene.onActivity(home -> {
+                initial[0] = home;
+                ScrollView scroll = home.getWindow().getDecorView()
+                        .findViewWithTag("native_home_scroll");
+                assertNotNull(scroll);
+                scrollBefore[0] = scroll.getScrollY();
+                ViewGroup dock = home.getWindow().getDecorView()
+                        .findViewWithTag("native_home_bottom_nav");
+                ViewGroup options = (ViewGroup) dock.getChildAt(0);
+                options.getChildAt(3).performClick();
+                assertTrue("Catalog must be hosted by Home itself, not hidden editor",
+                        home.isHomeMaterialsVisibleForTest());
+                assertNull("Never construct a drawing editor behind the catalog",
+                        home.getWindow().getDecorView()
+                                .findViewWithTag("native_drawing_view"));
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            InstrumentationRegistry.getInstrumentation()
+                    .sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scene.onActivity(home -> {
+                assertSame("Return must preserve the existing Home Activity", initial[0], home);
+                assertFalse("Catalog must close after system Back",
+                        home.isHomeMaterialsVisibleForTest());
+                ScrollView scroll = home.getWindow().getDecorView()
+                        .findViewWithTag("native_home_scroll");
+                assertEquals("Return must preserve Home scroll position",
+                        scrollBefore[0], scroll.getScrollY());
+                assertNotNull(home.getWindow().getDecorView()
+                        .findViewWithTag("native_home_recent"));
+            });
+        }
+    }
+
+    @Test
     public void materialsDialogOpensImmediatelyWithoutEditorFadeFlash() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Intent launch = new Intent(context, NativeWorkspaceActivity.class);
