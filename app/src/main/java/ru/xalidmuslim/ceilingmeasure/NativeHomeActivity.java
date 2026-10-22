@@ -39,7 +39,16 @@ public final class NativeHomeActivity extends ComponentActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         NativeShellInsets.configureWindow(this);
+        // Match the opaque Home surface behind every dialog and during cold
+        // launch. The theme's generic workspace window is a different gray,
+        // which flashed for one frame as a second background.
+        getWindow().setBackgroundDrawable(
+                new android.graphics.drawable.ColorDrawable(
+                        android.graphics.Color.rgb(245, 246, 248)));
         store = new NativeProjectStore(this);
+        // Mirror MedicineRuntimeWarmup: begin decoding the exact artwork on
+        // background IO before View hierarchy construction and the first frame.
+        NativeHomePreloader.prefetchIcon(getApplicationContext());
         uiPrefs = NativeUiPrefs.load(this);
         licenseClient = new NativeLicenseClient(this);
         View content = createContent();

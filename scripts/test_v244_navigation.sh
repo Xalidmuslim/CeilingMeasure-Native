@@ -30,7 +30,7 @@ grep -Eq 'OK \([3-9] tests\)' "$OUT/focused-tests.txt"
 
 # R8-optimized release-preview: verify home->Materials actual UI route on Android.
 adb install -r "$PREVIEW_APK"
-PKG="ru.xalidmuslim.ceilingmeasure.optimized"
+PKG="ru.xalidmuslim.ceilingmeasure.medicine247"
 ACT="$PKG/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity"
 adb shell am force-stop "$PKG"
 adb shell am start -W -n "$ACT" | tee "$OUT/optimized-home-start.txt"

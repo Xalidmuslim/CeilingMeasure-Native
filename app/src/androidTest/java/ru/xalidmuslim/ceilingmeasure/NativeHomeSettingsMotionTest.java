@@ -75,13 +75,37 @@ public final class NativeHomeSettingsMotionTest {
                 assertTrue(home.getSettingsDialogForTest().isShowing());
             });
 
+            // Wait for the Settings Dialog window (not the Activity) to own
+            // input focus; API35 emulators can dispatch Back to Home if sent
+            // during the initial window attachment.
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            final boolean[] focused = {false};
+            for (int attempt = 0; attempt < 22; attempt++) {
+                scene.onActivity(home -> {
+                    NativeUiSettingsDialog dialog = home.getSettingsDialogForTest();
+                    focused[0] = dialog != null && dialog.isShowing()
+                            && dialog.getWindow() != null
+                            && dialog.getWindow().getDecorView().hasWindowFocus();
+                });
+                if (focused[0]) break;
+                Thread.sleep(65L);
+            }
+            assertTrue("Settings dialog must receive Back focus", focused[0]);
             InstrumentationRegistry.getInstrumentation()
                     .sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
-            // Explicitly cover the animated close and the asynchronous
-            // Dialog.OnDismiss callback on Android 15.
-            Thread.sleep(NativeVisualTokens.OVERLAY_MOTION_MS + 210L);
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+            // Observe the final async dismiss state, not an intermediate frame.
+            final boolean[] closed = {false};
+            for (int attempt = 0; attempt < 25; attempt++) {
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+                scene.onActivity(home -> {
+                    NativeUiSettingsDialog dialog = home.getSettingsDialogForTest();
+                    closed[0] = dialog == null || !dialog.isShowing();
+                });
+                if (closed[0]) break;
+                Thread.sleep(55L);
+            }
+            assertTrue("Settings must be dismissed after system Back", closed[0]);
 
             scene.onActivity(home -> {
                 assertSame("No second Home Activity must be created", original[0], home);

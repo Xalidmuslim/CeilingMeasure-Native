@@ -50,6 +50,8 @@ final class NativePremiumHomeUi {
     private FrameLayout dock;
     private LinearLayout recentRows;
     private ImageView appIcon;
+    private Bitmap displayedIcon;
+    private String recentSnapshotKey;
     private TextView savedCount;
     private TextView licenseState;
 
@@ -148,13 +150,29 @@ final class NativePremiumHomeUi {
 
     void renderSaved(@NonNull List<NativeProjectStore.ProjectData> saved) {
         if (recentRows == null) return;
+        // Saved projects arrive sorted from Dispatchers.IO-equivalent preload.
+        // Avoid re-inflating three cards when returning from a dialog or
+        // drawing without any relevant changes, preserving scroll and frames.
         List<NativeProjectStore.ProjectData> records = new ArrayList<>(saved);
+        StringBuilder snapshot = new StringBuilder().append(records.size());
+        for (int i = 0; i < Math.min(3, records.size()); i++) {
+            NativeProjectStore.ProjectData record = records.get(i);
+            snapshot.append('|').append(record.id)
+                    .append('|').append(record.savedAt)
+                    .append('|').append(record.updatedAt)
+                    .append('|').append(record.name)
+                    .append('|').append(record.rooms.size());
+            if (record.rooms.size() == 1) {
+                snapshot.append('|').append(record.rooms.get(0).name);
+            }
+        }
+        String key = snapshot.toString();
+        if (key.equals(recentSnapshotKey)) return;
+        recentSnapshotKey = key;
         if (savedCount != null) {
             savedCount.setText(Integer.toString(records.size()));
             savedCount.setVisibility(records.isEmpty() ? View.GONE : View.VISIBLE);
         }
-        // Display saved data only; never alter the order stored on disk.
-        records.sort((a, b) -> Long.compare(b.savedAt, a.savedAt));
         recentRows.removeAllViews();
         if (records.isEmpty()) {
             LinearLayout row = new LinearLayout(activity);
@@ -242,8 +260,21 @@ final class NativePremiumHomeUi {
     }
 
     void applyPreloadedIcon(@Nullable Bitmap bitmap) {
-        if (appIcon != null && bitmap != null && !bitmap.isRecycled()) {
-            appIcon.setImageBitmap(bitmap);
+        if (appIcon == null || bitmap == null || bitmap.isRecycled()) return;
+        // Reopening the Home or closing Settings must not rebind an identical
+        // Drawable, replay the icon animation, or invalidate the toolbar.
+        if (displayedIcon == bitmap) return;
+        displayedIcon = bitmap;
+        appIcon.animate().cancel();
+        appIcon.setImageBitmap(bitmap);
+        if (NativeMotion.animationsEnabled()) {
+            appIcon.setAlpha(.90f);
+            appIcon.animate().alpha(1f)
+                    .setDuration(NativeMotion.MICRO_ENTER_MS)
+                    .setInterpolator(NativeMotion.easing())
+                    .start();
+        } else {
+            appIcon.setAlpha(1f);
         }
     }
 
@@ -254,9 +285,18 @@ final class NativePremiumHomeUi {
 
         ImageView logo = new ImageView(activity);
         logo.setTag("native_home_app_icon");
+        // The original master has a baked-in white background. Only the
+        // edge-connected white pixels are cleared by background preloading.
+        // The view itself never adds a white tile, stroke or extra GPU layer.
+        logo.setBackground(null);
+        logo.setPadding(0, 0, 0, 0);
+        logo.setLayerType(View.LAYER_TYPE_NONE, null);
         // Avoid decoding the 1024px app artwork on the first UI frame.
         // The icon resource is decoded at screen-appropriate resolution on background IO.
-        logo.setImageResource(R.drawable.ic_shell_drawing);
+        // Reserve the icon's exact dimensions from the first frame, but
+        // never flash a different placeholder icon behind the genuine artwork.
+        // Background preload supplies the original logo once, then 110ms alpha.
+        logo.setImageDrawable(null);
         appIcon = logo;
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
         logo.setContentDescription("Иконка приложения");

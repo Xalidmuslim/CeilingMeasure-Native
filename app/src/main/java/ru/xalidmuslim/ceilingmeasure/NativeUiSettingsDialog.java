@@ -95,11 +95,16 @@ final class NativeUiSettingsDialog extends Dialog {
             // One frame-stable fade of the scrim and panel together.
             // The Home behind the dialog stays at alpha=1 and never moves.
             backdrop.animate().cancel();
-            backdrop.setAlpha(0f);
-            backdrop.animate()
-                    .alpha(1f)
-                    .setDuration(NativeVisualTokens.OVERLAY_MOTION_MS)
-                    .start();
+            if (!NativeMotion.animationsEnabled()) {
+                backdrop.setAlpha(1f);
+            } else {
+                backdrop.setAlpha(0f);
+                backdrop.animate()
+                        .alpha(1f)
+                        .setDuration(NativeMotion.DIALOG_ENTER_MS)
+                        .setInterpolator(NativeMotion.easing())
+                        .start();
+            }
         } else if (sheet != null) {
             // Preserve the established Workspace settings transition.
             sheet.animate().cancel();
@@ -107,10 +112,15 @@ final class NativeUiSettingsDialog extends Dialog {
             sheet.setScaleY(1f);
             sheet.setTranslationY(0f);
             sheet.setAlpha(.94f);
-            sheet.animate()
-                    .alpha(1f)
-                    .setDuration(NativeVisualTokens.OVERLAY_MOTION_MS)
-                    .start();
+            if (!NativeMotion.animationsEnabled()) {
+                sheet.setAlpha(1f);
+            } else {
+                sheet.animate()
+                        .alpha(1f)
+                        .setDuration(NativeVisualTokens.OVERLAY_MOTION_MS)
+                        .setInterpolator(NativeMotion.easing())
+                        .start();
+            }
         }
     }
 
@@ -155,9 +165,14 @@ final class NativeUiSettingsDialog extends Dialog {
             // The backdrop, typography, and panel fade as ONE surface.
             // Do not leave a separate dim scrim after the sheet disappears.
             backdrop.animate().cancel();
+            if (!NativeMotion.animationsEnabled()) {
+                NativeUiSettingsDialog.super.dismiss();
+                return;
+            }
             backdrop.animate()
                     .alpha(0f)
-                    .setDuration(NativeVisualTokens.OVERLAY_MOTION_MS)
+                    .setDuration(NativeMotion.DIALOG_EXIT_MS)
+                    .setInterpolator(NativeMotion.easing())
                     .withEndAction(() -> NativeUiSettingsDialog.super.dismiss())
                     .start();
             return;
@@ -166,9 +181,14 @@ final class NativeUiSettingsDialog extends Dialog {
             super.dismiss();
             return;
         }
+        if (!NativeMotion.animationsEnabled()) {
+            NativeUiSettingsDialog.super.dismiss();
+            return;
+        }
         sheet.animate()
                 .alpha(0f)
                 .setDuration(NativeVisualTokens.OVERLAY_MOTION_MS)
+                .setInterpolator(NativeMotion.easing())
                 .withEndAction(() -> NativeUiSettingsDialog.super.dismiss())
                 .start();
     }
