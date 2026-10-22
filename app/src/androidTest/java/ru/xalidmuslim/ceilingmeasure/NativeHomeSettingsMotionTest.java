@@ -36,8 +36,9 @@ public final class NativeHomeSettingsMotionTest {
                 assertTrue(dialog.isShowing());
                 assertTrue("Home Settings must be a single alpha transition",
                         dialog.isStableHomeTransitionForTest());
-                assertEquals("No second window-level fade over the backdrop",
-                        0, dialog.getWindow().getAttributes().windowAnimations);
+                assertEquals("Use explicit no-op window style; 0 allows Android's fallback",
+                        R.style.CeilingNoWindowAnimation,
+                        dialog.getWindow().getAttributes().windowAnimations);
                 assertEquals(0, dialog.getWindow().getAttributes().flags
                         & WindowManager.LayoutParams.FLAG_DIM_BEHIND);
                 View sheet = dialog.getWindow().getDecorView()
