@@ -132,7 +132,8 @@ public final class NativeHomeDirectNavigationTest {
     }
 
     @Test
-    public void homeMaterialsOpenDirectlyWithoutStartingDrawingAndBackPreservesHome() {
+    public void homeMaterialsOpenDirectlyWithoutStartingDrawingAndBackPreservesHome()
+            throws Exception {
         try (ActivityScenario<NativeHomeActivity> scene =
                      ActivityScenario.launch(NativeHomeActivity.class)) {
             final NativeHomeActivity[] initial = new NativeHomeActivity[1];
@@ -153,9 +154,15 @@ public final class NativeHomeDirectNavigationTest {
                         home.getWindow().getDecorView()
                                 .findViewWithTag("native_drawing_view"));
             });
+            // Allow the actual Dialog window to receive input focus.
+            // Sending Back immediately after performClick can target the
+            // underlying Activity on slower API35 emulators.
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            Thread.sleep(300L);
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
             InstrumentationRegistry.getInstrumentation()
                     .sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
+            Thread.sleep(200L);
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
             scene.onActivity(home -> {
                 assertSame("Return must preserve the existing Home Activity", initial[0], home);
