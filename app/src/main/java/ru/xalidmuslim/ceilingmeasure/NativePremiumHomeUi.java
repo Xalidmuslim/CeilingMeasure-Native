@@ -315,6 +315,7 @@ final class NativePremiumHomeUi {
         content.addView(primary, p);
 
         View art = new CeilingContour(activity);
+        art.setTag("native_home_ceiling_art");
         FrameLayout.LayoutParams artLp = new FrameLayout.LayoutParams(
                 dp(146), ViewGroup.LayoutParams.MATCH_PARENT,
                 Gravity.END | Gravity.CENTER_VERTICAL);
@@ -512,94 +513,111 @@ final class NativePremiumHomeUi {
     }
 
     /**
-     * A flat recessed stretch-ceiling panel in perspective, not a 3D cube.
-     * Two nested profile outlines communicate the stretched membrane/cove;
-     * small elliptical downlights make the subject recognizable at 100dp.
-     * Everything is drawn as lightweight native Canvas strokes without
-     * bitmaps or extra hardware layers.
+     * An architectural reflected-ceiling drawing: a stretch membrane held in a
+     * flush shadow-gap profile with perimeter LED and four recessed downlights.
+     * The illustration is a wide, shallow ceiling plane, not a 3D box.
+     * Native vector Paths are cached, so no bitmap loading or transient
+     * allocations are introduced during View drawing or Home transitions.
      */
     private static final class CeilingContour extends View {
         private final Paint ink = new Paint(Paint.ANTI_ALIAS_FLAG);
-        CeilingContour(NativeHomeActivity activity) { super(activity); }
+        private final Path membrane = polygon(
+                21f, 39f, 76f, 25f, 105f, 36f, 50f, 66f);
+        private final Path perimeter = polygon(
+                8f, 39f, 77f, 13f, 119f, 34f, 50f, 82f);
+        private final Path shadowGap = polygon(
+                15f, 39f, 77f, 20f, 111f, 35f, 50f, 73f);
+        private final Path ledChannel = new Path();
+        private final Path magneticTrack = new Path();
 
-        @Override protected void onDraw(Canvas canvas) {
+        CeilingContour(NativeHomeActivity activity) {
+            super(activity);
+            // Draw only within the left part of the illustration; leave the
+            // primary-card chevron unobstructed to the right.
+            ledChannel.moveTo(18f, 43f);
+            ledChannel.lineTo(50f, 74f);
+            ledChannel.lineTo(110f, 38f);
+
+            magneticTrack.moveTo(42f, 43f);
+            magneticTrack.lineTo(83f, 29f);
+        }
+
+        private static Path polygon(
+                float x0, float y0, float x1, float y1,
+                float x2, float y2, float x3, float y3) {
+            Path shape = new Path();
+            shape.moveTo(x0, y0);
+            shape.lineTo(x1, y1);
+            shape.lineTo(x2, y2);
+            shape.lineTo(x3, y3);
+            shape.close();
+            return shape;
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
+            if (getWidth() <= 0 || getHeight() <= 0) return;
             canvas.save();
             canvas.scale(getWidth() / 146f, getHeight() / 100f);
 
+            // The membrane is a continuous, nearly matte plane.
             ink.setStyle(Paint.Style.FILL);
-            ink.setColor(Color.argb(15, 239, 250, 255));
-            Path membrane = new Path();
-            membrane.moveTo(18f, 42f);
-            membrane.lineTo(91f, 14f);
-            membrane.lineTo(137f, 34f);
-            membrane.lineTo(64f, 76f);
-            membrane.close();
+            ink.setColor(Color.argb(24, 238, 250, 255));
             canvas.drawPath(membrane, ink);
 
-            ink.setStyle(Paint.Style.STROKE);
-            ink.setStrokeWidth(1f);
             ink.setStrokeJoin(Paint.Join.ROUND);
             ink.setStrokeCap(Paint.Cap.ROUND);
-
-            // Thin aluminum perimeter of the ceiling, viewed from below.
-            ink.setColor(Color.argb(194, 236, 249, 255));
-            Path perimeter = new Path();
-            perimeter.moveTo(6f, 41f);
-            perimeter.lineTo(90f, 9f);
-            perimeter.lineTo(143f, 33f);
-            perimeter.lineTo(62f, 82f);
-            perimeter.close();
-            canvas.drawPath(perimeter, ink);
-
-            // Cove profile / second level; no vertical cube walls.
-            ink.setColor(Color.argb(135, 225, 246, 255));
-            Path profile = new Path();
-            profile.moveTo(17f, 42f);
-            profile.lineTo(90f, 17f);
-            profile.lineTo(132f, 34f);
-            profile.lineTo(62f, 71f);
-            profile.close();
-            canvas.drawPath(profile, ink);
-
-            // Recessed light strip following the ceiling membrane.
-            ink.setColor(Color.argb(93, 228, 249, 255));
-            Path inner = new Path();
-            inner.moveTo(26f, 43f);
-            inner.lineTo(91f, 23f);
-            inner.lineTo(123f, 35f);
-            inner.lineTo(62f, 63f);
-            inner.close();
-            canvas.drawPath(inner, ink);
-
-            // Four flush recessed downlights in the membrane (not cube corners).
-            drawDownlight(canvas, 42f, 44f, 4.5f, 2.2f);
-            drawDownlight(canvas, 88f, 27f, 3.7f, 1.9f);
-            drawDownlight(canvas, 111f, 36f, 3.8f, 1.9f);
-            drawDownlight(canvas, 63f, 58f, 4.7f, 2.4f);
-
-            // Technical guide and profile ticks, kept faint behind the subject.
             ink.setStyle(Paint.Style.STROKE);
-            ink.setStrokeWidth(.7f);
-            ink.setColor(Color.argb(70, 233, 249, 255));
-            canvas.drawLine(20f, 30f, 83f, 6f, ink);
-            canvas.drawLine(21f, 25f, 18f, 34f, ink);
-            canvas.drawLine(87f, 2f, 83f, 12f, ink);
+
+            // First broad diffused glow, then the precise slim LED strip.
+            stroke(3.2f, Color.argb(39, 241, 252, 255));
+            canvas.drawPath(ledChannel, ink);
+            stroke(.95f, Color.argb(175, 237, 249, 255));
+            canvas.drawPath(ledChannel, ink);
+
+            // Flush perimeter and the baguette shadow-gap profile.
+            stroke(1.12f, Color.argb(211, 241, 251, 255));
+            canvas.drawPath(perimeter, ink);
+            stroke(.72f, Color.argb(136, 237, 249, 255));
+            canvas.drawPath(shadowGap, ink);
+
+            // A narrow recessed magnetic track, flush with the membrane;
+            // unlike a hanging fixture it has no vertical supports.
+            stroke(1.28f, Color.argb(170, 246, 253, 255));
+            canvas.drawPath(magneticTrack, ink);
+            stroke(.5f, Color.argb(105, 240, 251, 255));
+            canvas.drawLine(44f, 46f, 85f, 32f, ink);
+
+            // Four compact downlight rims, foreshortened by the perspective.
+            downlight(canvas, 37f, 52f, 3.8f, 2.1f);
+            downlight(canvas, 65f, 57f, 4.0f, 2.25f);
+            downlight(canvas, 91f, 43f, 3.8f, 1.9f);
+            downlight(canvas, 97f, 37f, 2.8f, 1.4f);
+
+            // Dimension ticks identify this as a measured ceiling plan.
+            stroke(.65f, Color.argb(74, 230, 246, 255));
+            canvas.drawLine(13f, 26f, 71f, 5f, ink);
+            canvas.drawLine(12f, 22f, 15f, 30f, ink);
+            canvas.drawLine(70f, 2f, 73f, 10f, ink);
+
             canvas.restore();
         }
 
-        private void drawDownlight(Canvas canvas, float x, float y, float w, float h) {
-            ink.setStyle(Paint.Style.FILL);
-            ink.setColor(Color.argb(46, 245, 253, 255));
-            canvas.drawOval(x - w, y - h, x + w, y + h, ink);
+        private void stroke(float width, int color) {
             ink.setStyle(Paint.Style.STROKE);
-            ink.setStrokeWidth(.85f);
-            ink.setColor(Color.argb(205, 250, 254, 255));
-            canvas.drawOval(x - w, y - h, x + w, y + h, ink);
+            ink.setStrokeWidth(width);
+            ink.setColor(color);
+        }
+
+        private void downlight(Canvas canvas, float cx, float cy, float rx, float ry) {
             ink.setStyle(Paint.Style.FILL);
-            ink.setColor(Color.argb(115, 241, 251, 255));
-            canvas.drawOval(x - 1.2f, y - .5f, x + 1.2f, y + .5f, ink);
-            ink.setStyle(Paint.Style.STROKE);
+            ink.setColor(Color.argb(64, 238, 252, 255));
+            canvas.drawOval(cx-rx, cy-ry, cx+rx, cy+ry, ink);
+            stroke(.8f, Color.argb(212, 251, 255, 255));
+            canvas.drawOval(cx-rx, cy-ry, cx+rx, cy+ry, ink);
+            stroke(.45f, Color.argb(117, 250, 254, 255));
+            canvas.drawOval(cx-rx*.6f, cy-ry*.6f, cx+rx*.6f, cy+ry*.6f, ink);
         }
     }
 }
