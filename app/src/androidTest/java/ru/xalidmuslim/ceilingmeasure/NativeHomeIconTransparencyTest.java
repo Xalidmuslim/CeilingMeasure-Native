@@ -38,6 +38,39 @@ public final class NativeHomeIconTransparencyTest {
     }
 
     @Test
+    public void actualHeaderArtworkHasNoOffWhiteMatteOrGraySquareHalo() {
+        // Pixel coordinates are from the exact packaged 256px WebP artwork;
+        // these are background shadow/matte pixels, not ceiling/calculator.
+        Bitmap original = BitmapFactory.decodeResource(
+                InstrumentationRegistry.getInstrumentation().getTargetContext()
+                        .getResources(), R.drawable.app_icon_master);
+        assertNotNull(original);
+        Bitmap cleaned = NativeHomePreloader.removeWhiteBackdrop(original);
+
+        int[][] matte = {{170,21},{20,104},{230,137},{218,228}};
+        for (int[] point : matte) {
+            int x = point[0] * (cleaned.getWidth()-1) / 255;
+            int y = point[1] * (cleaned.getHeight()-1) / 255;
+            assertEquals("Remaining matte at (" + point[0] + "," + point[1] + ")",
+                    0, Color.alpha(cleaned.getPixel(x,y)));
+        }
+
+        // Important: the white INSIDE the perimeter is the ceiling itself,
+        // not backdrop. Preserve it and blue measurement/calculator details.
+        int ceilingX = 140 * (cleaned.getWidth()-1) / 255;
+        int ceilingY = 90 * (cleaned.getHeight()-1) / 255;
+        int blueX = 210 * (cleaned.getWidth()-1) / 255;
+        int blueY = 180 * (cleaned.getHeight()-1) / 255;
+        assertTrue("Ceiling surface must remain", Color.alpha(
+                cleaned.getPixel(ceilingX,ceilingY)) >= 220);
+        assertTrue("Calculator and blue measurement details must remain",
+                Color.alpha(cleaned.getPixel(blueX,blueY)) >= 220);
+
+        if (cleaned != original) cleaned.recycle();
+        original.recycle();
+    }
+
+    @Test
     public void actualPackagedIconLosesWhiteSquareButRetainsArtwork() {
         Bitmap original = BitmapFactory.decodeResource(
                 InstrumentationRegistry.getInstrumentation().getTargetContext()
