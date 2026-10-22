@@ -188,6 +188,12 @@ final class NativeHomePreloader {
         int blue = Color.blue(color);
         int max = Math.max(red, Math.max(green, blue));
         int min = Math.min(red, Math.min(green, blue));
-        return min >= 227 && max - min <= 22;
+        // The source WebP has a soft off-white/gray *rectangular* matte,
+        // not only pure-white pixels. At 227 its gray edge still appears as
+        // a white frame on the Home's cool-gray background. Restrict the
+        // lower cutoff to pixels connected to the bitmap OUTER boundary:
+        // enclosed ceiling whites, blue lines and calculator are preserved.
+        // Still runs only in the existing preloader background thread.
+        return min >= 205 && max - min <= 28;
     }
 }
