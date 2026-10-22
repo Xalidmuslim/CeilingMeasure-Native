@@ -50,6 +50,26 @@ assert any("Закупочный прайс" in x for x in strings), "Materials 
 assert not any(x=="Комнаты" for x in strings), "Underlying editor shown instead of Materials"
 print("Optimized home->Materials route: PASS")
 PY
+# End-to-end Android Back: actual foreground window must be the original Home,
+# not the intermediate drawing editor hidden under the full-screen price dialog.
+adb shell input keyevent KEYCODE_BACK
+sleep 1
+adb shell uiautomator dump /sdcard/v244-return-home.xml >/dev/null 2>&1
+adb exec-out cat /sdcard/v244-return-home.xml > "$OUT/after-back.xml"
+adb exec-out screencap -p > "$OUT/after-back.png"
+python3 - "$OUT/after-back.xml" <<'PY'
+import sys, xml.etree.ElementTree as ET
+nodes = list(ET.parse(sys.argv[1]).getroot().iter("node"))
+texts = [node.get("text", "") for node in nodes]
+assert any("Новый замер" in text for text in texts), (
+    "After Back expected Home primary action, not the hidden drawing editor")
+assert any("Последние замеры" in text for text in texts), (
+    "After Back expected Home project list")
+assert not any("Закупочный прайс" in text for text in texts), (
+    "Materials dialog still visible after Android Back")
+print("Optimized Materials->Android Back->Home: PASS")
+PY
+adb shell dumpsys activity activities > "$OUT/after-back-activities.txt"
 adb logcat -d -s AndroidRuntime:E > "$OUT/crashes.txt"
 if grep -E "FATAL EXCEPTION|Process: $PKG" "$OUT/crashes.txt"; then
   echo "App crashed" >&2; exit 1
