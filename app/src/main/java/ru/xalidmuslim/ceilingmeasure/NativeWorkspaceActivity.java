@@ -2290,7 +2290,17 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         // regular fade for every other price dialog opened inside estimates.
         dialog.setImmediateOpen(true);
         homeMaterialsDialog = dialog;
-        dialog.setOnDismissListener(d -> homeMaterialsDialog = null);
+        dialog.setOnDismissListener(d -> {
+            homeMaterialsDialog = null;
+            // This Activity is only a host for the Home materials catalog.
+            // Closing the dialog must reveal the existing Home Activity, not
+            // the drawing editor hidden underneath the full-screen dialog.
+            if (ACTION_MATERIALS.equals(getIntent().getStringExtra(EXTRA_LAUNCH_ACTION))
+                    && !isFinishing() && !isDestroyed()) {
+                finish();
+                overridePendingTransition(0, 0);
+            }
+        });
         dialog.setOnHomeRequested(this::goHome);
         dialog.show();
     }
@@ -2301,6 +2311,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     boolean isHomeMaterialsVisibleForTest() {
         return homeMaterialsDialog != null && homeMaterialsDialog.isShowing();
+    }
+
+    void dismissHomeMaterialsForTest() {
+        if (homeMaterialsDialog != null) homeMaterialsDialog.dismiss();
     }
 
     int homeMaterialsWindowAnimationForTest() {
