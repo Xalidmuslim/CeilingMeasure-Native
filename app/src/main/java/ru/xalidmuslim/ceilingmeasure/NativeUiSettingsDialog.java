@@ -72,7 +72,8 @@ final class NativeUiSettingsDialog extends Dialog {
             // The Home dialog fades as one complete surface, so the Android
             // window must not apply a second alpha transition on top of it.
             window.setWindowAnimations(stableHomeTransition
-                    ? 0 : R.style.CeilingFadeWindowAnimation);
+                    ? R.style.CeilingNoWindowAnimation
+                    : R.style.CeilingFadeWindowAnimation);
             window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             WindowCompat.setDecorFitsSystemWindows(window, false);
         }
