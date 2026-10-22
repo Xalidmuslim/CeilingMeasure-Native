@@ -14,6 +14,15 @@
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
+    <!-- An explicit empty animation style avoids Android falling back to its
+         built-in dialog animation when windowAnimations=0. The Home
+         settings backdrop itself owns the single opacity transition. -->
+    <style name="CeilingNoWindowAnimation">
+        <item name="android:windowEnterAnimation">@null</item>
+        <item name="android:windowExitAnimation">@null</item>
+        <item name="android:windowShowAnimation">@null</item>
+        <item name="android:windowHideAnimation">@null</item>
+    </style>
     <style name="CeilingFadeWindowAnimation">
         <item name="android:windowEnterAnimation">@anim/native_fade_in</item>
         <item name="android:windowExitAnimation">@anim/native_fade_out</item>
