@@ -40,6 +40,9 @@ public final class NativeHomeActivity extends ComponentActivity {
         super.onCreate(savedInstanceState);
         NativeShellInsets.configureWindow(this);
         store = new NativeProjectStore(this);
+        // Mirror MedicineRuntimeWarmup: begin decoding the exact artwork on
+        // background IO before View hierarchy construction and the first frame.
+        NativeHomePreloader.prefetchIcon(getApplicationContext());
         uiPrefs = NativeUiPrefs.load(this);
         licenseClient = new NativeLicenseClient(this);
         View content = createContent();
