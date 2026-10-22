@@ -452,7 +452,9 @@ final class NativePricePresetDialog extends Dialog {
                 for(NativeProjectStore.RoomData room:project.rooms){
                     store.applyDefaultsToRoom(room,client);
                 }
-                persist(project);
+                // A catalog-only Home visit has no order to update.
+                // Never create an empty project solely from an Apply action.
+                if(!project.rooms.isEmpty()) persist(project);
             }
         }else{
             int index=Math.max(0,Math.min(current.activeRoom,current.rooms.size()-1));
