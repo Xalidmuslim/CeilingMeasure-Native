@@ -118,11 +118,11 @@ for line in raw.splitlines():
             rows.append(round((completed-intended)/1e6,3))
     except (ValueError,IndexError,KeyError): continue
 
-gfx_median=re.search(r"^50th percentile:\\s*(\\d+)ms",raw,re.M)
-gfx_p90=re.search(r"^90th percentile:\\s*(\\d+)ms",raw,re.M)
-gfx_p95=re.search(r"^95th percentile:\\s*(\\d+)ms",raw,re.M)
-jank=re.search(r"^Janky frames:\\s*(\\d+)\\s*\\(([^)]+)\\)",raw,re.M)
-total=re.search(r"^Total frames rendered:\\s*(\\d+)",raw,re.M)
+gfx_median=re.search(r"^50th percentile:\s*(\d+)ms",raw,re.M)
+gfx_p90=re.search(r"^90th percentile:\s*(\d+)ms",raw,re.M)
+gfx_p95=re.search(r"^95th percentile:\s*(\d+)ms",raw,re.M)
+jank=re.search(r"^Janky frames:\s*(\d+)\s*\(([^)]+)\)",raw,re.M)
+total=re.search(r"^Total frames rendered:\s*(\d+)",raw,re.M)
 report={
     "device":"Android API 35 emulator (not Xiaomi 13 Ultra)",
     "cold_start":"force-stop + am start -W; device boot excluded",
