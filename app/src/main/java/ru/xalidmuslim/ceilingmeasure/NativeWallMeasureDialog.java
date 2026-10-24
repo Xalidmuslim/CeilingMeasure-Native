@@ -13,6 +13,8 @@ import android.text.TextWatcher;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.view.Gravity;
+import android.view.ViewTreeObserver;
+import android.graphics.Rect;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,6 +32,11 @@ import androidx.annotation.NonNull;
 import java.util.Locale;
 
 final class NativeWallMeasureDialog extends Dialog {
+    interface EditorViewportListener {
+        /** Top edge of this dialog in screen coordinates, already above the IME. */
+        void onDialogTopChanged(int screenTop);
+    }
+
     interface Listener {
         void onSave(float value);
         void onDelete();
@@ -50,6 +57,28 @@ final class NativeWallMeasureDialog extends Dialog {
     private String buffer;
     private EditText display;
     private TextView meterHint;
+    private EditorViewportListener editorViewportListener;
+    private View dialogDecor;
+    private int lastReportedTop = Integer.MIN_VALUE;
+    private final ViewTreeObserver.OnGlobalLayoutListener viewportLayoutListener =
+            this::reportDialogPosition;
+    private final Runnable positionAfterLayout = this::reportDialogPosition;
+
+    void setEditorViewportListener(@NonNull EditorViewportListener listener) {
+        editorViewportListener = listener;
+    }
+
+    private void reportDialogPosition() {
+        if (dialogDecor == null || editorViewportListener == null
+                || !dialogDecor.isAttachedToWindow()
+                || dialogDecor.getHeight() <= 0) return;
+        int[] location = new int[2];
+        dialogDecor.getLocationOnScreen(location);
+        int top = location[1];
+        if (top <= 0 || top == lastReportedTop) return;
+        lastReportedTop = top;
+        editorViewportListener.onDialogTopChanged(top);
+    }
 
     NativeWallMeasureDialog(
             @NonNull Context context,
@@ -205,6 +234,12 @@ final class NativeWallMeasureDialog extends Dialog {
 
     @Override protected void onStart(){
         super.onStart();
+        if (getWindow() != null) {
+            dialogDecor = getWindow().getDecorView();
+            dialogDecor.getViewTreeObserver()
+                    .addOnGlobalLayoutListener(viewportLayoutListener);
+            dialogDecor.post(positionAfterLayout);
+        }
         if(display!=null){
             display.requestFocus();
             display.post(()->{
@@ -214,6 +249,17 @@ final class NativeWallMeasureDialog extends Dialog {
                         display,InputMethodManager.SHOW_IMPLICIT);
             });
         }
+    }
+
+    @Override protected void onStop() {
+        if (dialogDecor != null) {
+            dialogDecor.removeCallbacks(positionAfterLayout);
+            dialogDecor.getViewTreeObserver()
+                    .removeOnGlobalLayoutListener(viewportLayoutListener);
+            dialogDecor = null;
+        }
+        lastReportedTop = Integer.MIN_VALUE;
+        super.onStop();
     }
 
     Float currentUnitsOrNull(){
