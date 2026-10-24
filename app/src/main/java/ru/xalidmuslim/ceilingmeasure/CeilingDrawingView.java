@@ -165,6 +165,7 @@ final class CeilingDrawingView extends View {
     // pan, room coordinates or geometric measurements.
     private boolean wallInputViewportActive;
     private boolean wallInputViewportRestorePending;
+    @Nullable private ValueAnimator wallFocusAnimator;
     private float wallInputSavedScale;
     private float wallInputSavedPanX;
     private float wallInputSavedPanY;
@@ -383,6 +384,10 @@ final class CeilingDrawingView extends View {
 
     @Override protected void onDetachedFromWindow() {
         handler.removeCallbacks(wallPulseTick);
+        if (wallFocusAnimator != null) {
+            wallFocusAnimator.cancel();
+            wallFocusAnimator = null;
+        }
         removeCallbacks(clearWallViewportRestoreFlag);
         super.onDetachedFromWindow();
     }
@@ -425,6 +430,10 @@ final class CeilingDrawingView extends View {
     }
 
     private void fitWallInputViewport() {
+        if (wallFocusAnimator != null) {
+            wallFocusAnimator.cancel();
+            wallFocusAnimator = null;
+        }
         if (!wallInputViewportActive || room == null
                 || room.points.isEmpty() || getWidth() <= 0 || getHeight() <= 0) {
             return;
@@ -464,6 +473,10 @@ final class CeilingDrawingView extends View {
 
     void endWallInputViewport() {
         if (!wallInputViewportActive) return;
+        if (wallFocusAnimator != null) {
+            wallFocusAnimator.cancel();
+            wallFocusAnimator = null;
+        }
         wallInputViewportActive = false;
         restoreWallViewportSnapshot();
         // The original canvas height is restored by the parent immediately
@@ -484,6 +497,119 @@ final class CeilingDrawingView extends View {
     boolean isWallInputViewportActiveForTest() {
         return wallInputViewportActive;
     }
+
+    /**
+     * Follow the wall being measured inside the actually visible slice of the
+     * drawing View. ScrollView may be clamped by its content range, and an IME
+     * can obscure most of this View. Panning the temporary camera, instead of
+     * relying on page scroll, keeps both wall endpoints visible in that slice.
+     *
+     * Bounds are in this View's LOCAL pixel coordinates. No changes to room
+     * geometry or its persisted viewScale/panX/panY are made.
+     */
+    boolean focusEditingWallInVisibleBand(float visibleTop, float visibleBottom,
+            boolean animated) {
+        if (!wallInputViewportActive || room == null || editingEdgeId == null
+                || getWidth() <= 0 || getHeight() <= 0) return false;
+        NativeProjectStore.EdgeData edge = edgeById(editingEdgeId);
+        if (edge == null) return false;
+        NativeProjectStore.PointData a = renderPointIndex.get(room, edge.a);
+        NativeProjectStore.PointData b = renderPointIndex.get(room, edge.b);
+        if (a == null || b == null) return false;
+
+        float top = Math.max(0f, visibleTop);
+        float bottom = Math.min((float)getHeight(), visibleBottom);
+        if (bottom - top < dp(42)) return false;
+
+        // Keep a little margin for the bright pulsating selection halo.
+        float pad = Math.min(dp(14), (bottom - top) * .10f);
+        float left = dp(18);
+        float right = getWidth() - Math.min(dp(74), getWidth() * .21f);
+        float availableWidth = Math.max(dp(28), right - left - 2f * pad);
+        float availableHeight = bottom - top - 2f * pad;
+
+        float targetScale = scale;
+        float wallWidth = Math.abs(b.x - a.x);
+        float wallHeight = Math.abs(b.y - a.y);
+        if (wallWidth > 0.001f) {
+            targetScale = Math.min(targetScale, availableWidth / wallWidth);
+        }
+        if (wallHeight > 0.001f) {
+            targetScale = Math.min(targetScale, availableHeight / wallHeight);
+        }
+        targetScale = Math.max(0.001f, targetScale);
+
+        float centerX = (a.x + b.x) * .5f;
+        float centerY = (a.y + b.y) * .5f;
+        float targetX = (left + right) * .5f - centerX * targetScale;
+        float targetY = (top + bottom) * .5f - centerY * targetScale;
+        if (wallFocusAnimator != null) {
+            wallFocusAnimator.cancel();
+            wallFocusAnimator = null;
+        }
+
+        if (!animated || !NativeMotion.animationsEnabled()) {
+            scale = targetScale;
+            offsetX = targetX;
+            offsetY = targetY;
+            postInvalidateOnAnimation();
+            return true;
+        }
+        float startingScale = scale;
+        float startingX = offsetX;
+        float startingY = offsetY;
+        if (Math.abs(startingX - targetX) < 1.5f
+                && Math.abs(startingY - targetY) < 1.5f
+                && Math.abs(startingScale - targetScale) < .0005f) {
+            return true;
+        }
+        // Short, native FastOutSlowIn camera glide only when the edited wall
+        // changes. No extra hardware layer, no animation on every digit input.
+        ValueAnimator camera = ValueAnimator.ofFloat(0f, 1f);
+        wallFocusAnimator = camera;
+        camera.setDuration(NativeMotion.ENTER_MS);
+        camera.setInterpolator(NativeMotion.easing());
+        camera.addUpdateListener(value -> {
+            if (!wallInputViewportActive || wallFocusAnimator != camera) return;
+            float fraction = (float)value.getAnimatedValue();
+            scale = startingScale + (targetScale - startingScale) * fraction;
+            offsetX = startingX + (targetX - startingX) * fraction;
+            offsetY = startingY + (targetY - startingY) * fraction;
+            postInvalidateOnAnimation();
+        });
+        camera.start();
+        return true;
+    }
+
+    boolean isEditingWallVisibleInBandForTest(float top, float bottom) {
+        if (room == null || editingEdgeId == null) return false;
+        NativeProjectStore.EdgeData edge = edgeById(editingEdgeId);
+        if (edge == null) return false;
+        NativeProjectStore.PointData a = renderPointIndex.get(room, edge.a);
+        NativeProjectStore.PointData b = renderPointIndex.get(room, edge.b);
+        if (a == null || b == null) return false;
+        float tolerance = dp(1.5f);
+        float ya = a.y * scale + offsetY;
+        float yb = b.y * scale + offsetY;
+        float xa = a.x * scale + offsetX;
+        float xb = b.x * scale + offsetX;
+        return Math.min(ya, yb) >= top - tolerance
+                && Math.max(ya, yb) <= bottom + tolerance
+                && Math.min(xa, xb) >= -tolerance
+                && Math.max(xa, xb) <= getWidth() + tolerance;
+    }
+
+    float getEditingWallCenterYForTest() {
+        if (room == null || editingEdgeId == null) return Float.NaN;
+        NativeProjectStore.EdgeData edge = edgeById(editingEdgeId);
+        if (edge == null) return Float.NaN;
+        NativeProjectStore.PointData a = renderPointIndex.get(room, edge.a);
+        NativeProjectStore.PointData b = renderPointIndex.get(room, edge.b);
+        if (a == null || b == null) return Float.NaN;
+        return (a.y + b.y) * .5f * scale + offsetY;
+    }
+
+
 
     /** Coordinates use the real resized View; no assumptions about screen px. */
     boolean isEditingWallFullyVisibleForTest() {
