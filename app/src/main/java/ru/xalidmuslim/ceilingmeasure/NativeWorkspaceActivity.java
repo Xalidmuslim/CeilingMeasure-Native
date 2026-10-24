@@ -1955,10 +1955,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private void repositionWallCanvasAboveDialog(int dialogScreenTop) {
         if(wallDialog==null || drawingCanvasWrap==null || drawingCard==null
                 || editorScroll==null || dialogScreenTop<=0) return;
-        if(lastWallDialogScreenTop!=Integer.MIN_VALUE
-                && Math.abs(dialogScreenTop-lastWallDialogScreenTop)<dp(18)) {
-            return;
-        }
+        // The numeric Dialog can report the SAME top edge after the Canvas
+        // itself finishes a pending layout. Never skip this correction based
+        // solely on unchanged IME coordinates: the wall could still be hidden.
         lastWallDialogScreenTop=dialogScreenTop;
         int[] scrollPosition=new int[2];
         editorScroll.getLocationOnScreen(scrollPosition);
@@ -2085,6 +2084,26 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     // Read-only, package-scoped hooks used by Android regression instrumentation.
     void adjustWallCanvasToDialogTopForTest(int screenTop){
         repositionWallCanvasAboveDialog(screenTop);
+    }
+
+    String wallViewportDebugForTest(int requestedDialogTop){
+        int[] scrollPos=new int[2];
+        int[] canvasPos=new int[2];
+        if(editorScroll!=null) editorScroll.getLocationOnScreen(scrollPos);
+        if(drawingCanvasWrap!=null) drawingCanvasWrap.getLocationOnScreen(canvasPos);
+        ViewGroup content=editorScroll==null?null:(ViewGroup)editorScroll.getChildAt(0);
+        return "requestedDialogTop="+requestedDialogTop
+                +", actualDialogTop="+lastWallDialogScreenTop
+                +", editorScrollTop="+scrollPos[1]
+                +", scrollY="+(editorScroll==null?-1:editorScroll.getScrollY())
+                +", scrollHeight="+(editorScroll==null?-1:editorScroll.getHeight())
+                +", scrollContentHeight="+(content==null?-1:content.getHeight())
+                +", drawingTop="+canvasPos[1]
+                +", drawingHeight="+(drawingCanvasWrap==null?-1:drawingCanvasWrap.getHeight())
+                +", desiredHeight="+(drawingCanvasWrap==null?-1:drawingCanvasWrap.getLayoutParams().height)
+                +", cardTranslation="+(drawingCard==null?999: drawingCard.getTranslationY())
+                +", spacer="+(wallInputTemporaryScrollSpacer!=null)
+                +", dialogShowing="+(wallDialog!=null&&wallDialog.isShowing());
     }
 
     boolean isWallEditorShowingForTest(){
