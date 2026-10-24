@@ -21,6 +21,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.Window;
 import android.widget.FrameLayout;
 import android.widget.Button;
@@ -115,6 +116,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private FrameLayout drawingCanvasWrap;
     private View wallScrollStrip;
     private int normalCanvasHeight;
+    // Keep enough temporary scroll range to bring the *entire* drawing above
+    // the IME. A short, single-room project otherwise clamps scrollTo too
+    // early, leaving the edited edge under the floating input window.
+    private View wallInputTemporaryScrollSpacer;
+    private int wallInputSavedScrollY;
     private float stripLastY;
     private final ArrayDeque<String> undoRooms = new ArrayDeque<>();
     private final ArrayDeque<String> redoRooms = new ArrayDeque<>();
@@ -1801,7 +1807,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         wallSequenceMode=sequence||wallSequenceMode;
         wallEditId=edgeId;
-        if(drawingView!=null)drawingView.setEditingEdgeId(edgeId);
+        reserveWallEditorScrollSpace();
+        if(drawingView!=null){
+            drawingView.setEditingEdgeId(edgeId);
+            // Fitting is temporary; user pan/zoom and geometry are unchanged.
+            // Every next wall in a wall-sequence uses the same fitted canvas.
+            drawingView.beginWallInputViewport();
+        }
         List<NativeProjectStore.EdgeData> ordered=NativeGeometry.orderedEdges(room);
         int index=ordered.indexOf(edge);
         String title=wallSequenceMode&&index>=0
@@ -1883,6 +1895,39 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         enterWallEditorLayout();
     }
 
+    private void reserveWallEditorScrollSpace() {
+        if (editorScroll == null || wallInputTemporaryScrollSpacer != null) return;
+        wallInputSavedScrollY = editorScroll.getScrollY();
+        // Do NOT increase ScrollView's bottom PADDING: clipToPadding=true
+        // then clips the usable drawing viewport almost entirely. This was
+        // the root cause of the fourth wall disappearing above the visible
+        // area even after the room's camera was fitted.
+        //
+        // A temporary spacer CHILD increases the document's scroll extent
+        // without consuming any of the physical visible ScrollView height.
+        ViewGroup scrollContent = (ViewGroup) editorScroll.getChildAt(0);
+        if (scrollContent == null) return;
+        wallInputTemporaryScrollSpacer = new View(this);
+        wallInputTemporaryScrollSpacer.setTag("native_wall_input_scroll_reserve");
+        scrollContent.addView(wallInputTemporaryScrollSpacer,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        Math.max(dp(300), editorScroll.getHeight())));
+    }
+
+    private void restoreWallEditorScrollSpace() {
+        if (editorScroll == null || wallInputTemporaryScrollSpacer == null) return;
+        View spacer = wallInputTemporaryScrollSpacer;
+        wallInputTemporaryScrollSpacer = null;
+        ViewParent parent = spacer.getParent();
+        if (parent instanceof ViewGroup) ((ViewGroup) parent).removeView(spacer);
+        int originalY = wallInputSavedScrollY;
+        editorScroll.post(() -> {
+            if (editorScroll != null && wallDialog == null)
+                editorScroll.scrollTo(0, Math.max(0, originalY));
+        });
+    }
+
     private void enterWallEditorLayout(){
         if(wallDialog==null)return;
         Window window=wallDialog.getWindow();
@@ -1927,17 +1972,58 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             lp.height=bounded;
             drawingCanvasWrap.setLayoutParams(lp);
         }
-        editorScroll.post(()->{
-            if(wallDialog==null || editorScroll==null || drawingCard==null
-                    || !wallDialog.isShowing())return;
-            Rect cardRect=new Rect(0,0,drawingCard.getWidth(),drawingCard.getHeight());
-            editorScroll.offsetDescendantRectToMyCoords(drawingCard,cardRect);
-            int delta=cardRect.top-editorScroll.getPaddingTop()-dp(4);
-            int y=Math.max(0,editorScroll.getScrollY()+delta);
-            if(Math.abs(editorScroll.getScrollY()-y)>dp(2)){
-                editorScroll.scrollTo(0,y);
-            }
-        });
+        // Scroll the actual wall endpoints into the region between system
+        // insets and the TOP of the number-input Dialog. Do not align the
+        // card/header itself: auto-focus, font size and narrow windows can
+        // place the edge above ScrollView's clip despite a fitted Canvas.
+        editorScroll.post(() -> positionActiveWallInVisibleViewport(dialogScreenTop, 0));
+    }
+
+    private void positionActiveWallInVisibleViewport(int dialogScreenTop, int attempt) {
+        if (wallDialog == null || !wallDialog.isShowing() || editorScroll == null
+                || drawingView == null || wallEditId == null || attempt > 3) return;
+        NativeProjectStore.RoomData room = activeRoom();
+        NativeProjectStore.EdgeData edited = findEdge(room, wallEditId);
+        if (edited == null || drawingView.getHeight() <= 0) return;
+
+        NativeProjectStore.PointData first = null, second = null;
+        for (NativeProjectStore.PointData point : room.points) {
+            if (edited.a.equals(point.id)) first = point;
+            if (edited.b.equals(point.id)) second = point;
+        }
+        if (first == null || second == null) return;
+
+        int[] atScroll = new int[2];
+        int[] atDrawing = new int[2];
+        editorScroll.getLocationOnScreen(atScroll);
+        drawingView.getLocationOnScreen(atDrawing);
+        float top = atScroll[1] + editorScroll.getPaddingTop() + dp(11);
+        // Only the actual physical viewport is relevant here. The temporary
+        // bottom padding exists solely to give short documents scroll range.
+        float bottom = Math.min(dialogScreenTop - dp(14),
+                atScroll[1] + editorScroll.getHeight() - dp(11));
+        if (bottom - top < dp(55)) return;
+
+        float scale = drawingView.getScaleForTest();
+        float offsetY = drawingView.getPanYForTest();
+        float ay = atDrawing[1] + offsetY + first.y * scale;
+        float by = atDrawing[1] + offsetY + second.y * scale;
+        float wallTop = Math.min(ay, by);
+        float wallBottom = Math.max(ay, by);
+        float wallCenter = (wallTop + wallBottom) * .5f;
+        float visibleCenter = (top + bottom) * .5f;
+        if (wallTop >= top && wallBottom <= bottom) return;
+
+        // ScrollView scrollTo is bounded by actual document height. The
+        // temporary extra bottom padding reserves room to align short plans.
+        float desiredShift = wallCenter - visibleCenter;
+        int target = Math.max(0, Math.round(editorScroll.getScrollY() + desiredShift));
+        int before = editorScroll.getScrollY();
+        editorScroll.scrollTo(0, target);
+        if (Math.abs(before - target) > dp(2) && attempt < 3) {
+            editorScroll.postOnAnimation(() ->
+                    positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
+        }
     }
 
     // Read-only, package-scoped hooks used by Android regression instrumentation.
@@ -1973,9 +2059,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(drawingView!=null){
             drawingView.setEditingEdgeId(null);
             drawingView.setWallSequenceActive(false);
+            // The canvas is about to grow back; ignore its transient size
+            // shift and restore the exact pre-keyboard camera instead.
+            drawingView.endWallInputViewport();
         }
         if(historyNavView!=null)historyNavView.setVisibility(View.VISIBLE);
         restoreDrawingCanvasHeight();
+        restoreWallEditorScrollSpace();
         updateDrawingChrome();
     }
 

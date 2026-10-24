@@ -159,6 +159,17 @@ final class CeilingDrawingView extends View {
     private boolean point90SnapActive;
     private String editingEdgeId;
     private boolean wallPulseBright = true;
+
+    // Purely temporary camera for the numeric wall input. A shortened canvas
+    // must never crop the edited wall, and must never modify the saved zoom,
+    // pan, room coordinates or geometric measurements.
+    private boolean wallInputViewportActive;
+    private boolean wallInputViewportRestorePending;
+    private float wallInputSavedScale;
+    private float wallInputSavedPanX;
+    private float wallInputSavedPanY;
+    private final Runnable clearWallViewportRestoreFlag = () ->
+            wallInputViewportRestorePending = false;
     private static final long WALL_PULSE_HALF_PERIOD_MS = 420L;
     private final Runnable wallPulseTick = new Runnable() {
         @Override public void run() {
@@ -372,6 +383,7 @@ final class CeilingDrawingView extends View {
 
     @Override protected void onDetachedFromWindow() {
         handler.removeCallbacks(wallPulseTick);
+        removeCallbacks(clearWallViewportRestoreFlag);
         super.onDetachedFromWindow();
     }
 
@@ -395,6 +407,108 @@ final class CeilingDrawingView extends View {
     String getEditingEdgeIdForTest() {
         return editingEdgeId;
     }
+
+    /**
+     * Temporarily show the WHOLE contour (and therefore the selected edge) in
+     * the smaller drawing viewport above the wall keypad. This is strictly a
+     * visual camera, not an adjustment of room.viewScale or room.panX/panY.
+     */
+    void beginWallInputViewport() {
+        if (wallInputViewportActive) return;
+        removeCallbacks(clearWallViewportRestoreFlag);
+        wallInputViewportRestorePending = false;
+        wallInputSavedScale = scale;
+        wallInputSavedPanX = offsetX;
+        wallInputSavedPanY = offsetY;
+        wallInputViewportActive = true;
+        fitWallInputViewport();
+    }
+
+    private void fitWallInputViewport() {
+        if (!wallInputViewportActive || room == null
+                || room.points.isEmpty() || getWidth() <= 0 || getHeight() <= 0) {
+            return;
+        }
+        float minX = Float.MAX_VALUE;
+        float maxX = -Float.MAX_VALUE;
+        float minY = Float.MAX_VALUE;
+        float maxY = -Float.MAX_VALUE;
+        for (NativeProjectStore.PointData point : room.points) {
+            minX = Math.min(minX, point.x);
+            maxX = Math.max(maxX, point.x);
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+        }
+
+        // The +/- zoom controls float at the right. Leave them their existing
+        // space, with symmetric visual margin above/below the fitted contour.
+        // Limit padding on small screens so at least the full wall remains in
+        // view when an IME and its own Dialog are visible simultaneously.
+        float left = Math.min(dp(24), getWidth() * .09f);
+        float right = getWidth() - Math.min(dp(86), getWidth() * .22f);
+        float top = Math.min(dp(24), getHeight() * .14f);
+        float bottom = getHeight() - Math.min(dp(32), getHeight() * .16f);
+        float width = Math.max(1f, right - left);
+        float height = Math.max(1f, bottom - top);
+        float contourWidth = Math.max(1f, maxX - minX);
+        float contourHeight = Math.max(1f, maxY - minY);
+
+        // The temporary view is allowed to fit more widely than normal
+        // zoom (0.08f), since large real-world rooms must also remain visible.
+        scale = Math.max(.01f, Math.min(12f,
+                Math.min(width / contourWidth, height / contourHeight)));
+        offsetX = (left + right) / 2f - ((minX + maxX) / 2f) * scale;
+        offsetY = (top + bottom) / 2f - ((minY + maxY) / 2f) * scale;
+        postInvalidateOnAnimation();
+    }
+
+    void endWallInputViewport() {
+        if (!wallInputViewportActive) return;
+        wallInputViewportActive = false;
+        restoreWallViewportSnapshot();
+        // The original canvas height is restored by the parent immediately
+        // after this call. onSizeChanged must NOT auto-recenter that original
+        // pan again (which caused a second jump when hiding the keyboard).
+        wallInputViewportRestorePending = true;
+        removeCallbacks(clearWallViewportRestoreFlag);
+        postDelayed(clearWallViewportRestoreFlag, 320L);
+        postInvalidateOnAnimation();
+    }
+
+    private void restoreWallViewportSnapshot() {
+        scale = wallInputSavedScale;
+        offsetX = wallInputSavedPanX;
+        offsetY = wallInputSavedPanY;
+    }
+
+    boolean isWallInputViewportActiveForTest() {
+        return wallInputViewportActive;
+    }
+
+    /** Coordinates use the real resized View; no assumptions about screen px. */
+    boolean isEditingWallFullyVisibleForTest() {
+        if (room == null || editingEdgeId == null) return false;
+        NativeProjectStore.EdgeData edge = edgeById(editingEdgeId);
+        if (edge == null || getWidth() <= 0 || getHeight() <= 0) return false;
+        NativeProjectStore.PointData a = renderPointIndex.get(room, edge.a);
+        NativeProjectStore.PointData b = renderPointIndex.get(room, edge.b);
+        if (a == null || b == null) return false;
+        float minX = dp(12f);
+        float maxX = getWidth() - Math.min(dp(61), getWidth() * .19f);
+        float minY = dp(12f);
+        float maxY = getHeight() - dp(14f);
+        return isInsideWallInputViewport(a, minX, maxX, minY, maxY)
+                && isInsideWallInputViewport(b, minX, maxX, minY, maxY);
+    }
+
+    private boolean isInsideWallInputViewport(NativeProjectStore.PointData p,
+            float minX, float maxX, float minY, float maxY) {
+        float x = p.x * scale + offsetX;
+        float y = p.y * scale + offsetY;
+        return x >= minX && x <= maxX && y >= minY && y <= maxY;
+    }
+
+
 
     void setListener(@Nullable Listener listener) {
         this.listener = listener;
@@ -588,11 +702,23 @@ final class CeilingDrawingView extends View {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
+        if (wallInputViewportActive) {
+            // Fit again only on the actual size change, not every blink tick.
+            // This is why the upper wall no longer disappears offscreen when
+            // Android moves the wall-input Dialog over its keyboard.
+            fitWallInputViewport();
+            return;
+        }
+        if (wallInputViewportRestorePending) {
+            wallInputViewportRestorePending = false;
+            removeCallbacks(clearWallViewportRestoreFlag);
+            restoreWallViewportSnapshot();
+            postInvalidateOnAnimation();
+            return;
+        }
         if (room == null || room.points.isEmpty() || oldw <= 0 || oldh <= 0) return;
 
-        // Keep the same world point under the visual centre when the canvas
-        // changes size (for example while the wall editor is docked/closed).
-        // Geometry is untouched; only the viewport offset is compensated.
+        // Preserve established pan behavior outside wall-number editing.
         offsetX += (w - oldw) / 2f;
         offsetY += (h - oldh) / 2f;
         clampViewportAfterTransform();
