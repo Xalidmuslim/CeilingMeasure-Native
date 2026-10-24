@@ -1965,17 +1965,58 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             lp.height=bounded;
             drawingCanvasWrap.setLayoutParams(lp);
         }
-        editorScroll.post(()->{
-            if(wallDialog==null || editorScroll==null || drawingCard==null
-                    || !wallDialog.isShowing())return;
-            Rect cardRect=new Rect(0,0,drawingCard.getWidth(),drawingCard.getHeight());
-            editorScroll.offsetDescendantRectToMyCoords(drawingCard,cardRect);
-            int delta=cardRect.top-editorScroll.getPaddingTop()-dp(4);
-            int y=Math.max(0,editorScroll.getScrollY()+delta);
-            if(Math.abs(editorScroll.getScrollY()-y)>dp(2)){
-                editorScroll.scrollTo(0,y);
-            }
-        });
+        // Scroll the actual wall endpoints into the region between system
+        // insets and the TOP of the number-input Dialog. Do not align the
+        // card/header itself: auto-focus, font size and narrow windows can
+        // place the edge above ScrollView's clip despite a fitted Canvas.
+        editorScroll.post(() -> positionActiveWallInVisibleViewport(dialogScreenTop, 0));
+    }
+
+    private void positionActiveWallInVisibleViewport(int dialogScreenTop, int attempt) {
+        if (wallDialog == null || !wallDialog.isShowing() || editorScroll == null
+                || drawingView == null || wallEditId == null || attempt > 3) return;
+        NativeProjectStore.RoomData room = activeRoom();
+        NativeProjectStore.EdgeData edited = findEdge(room, wallEditId);
+        if (edited == null || drawingView.getHeight() <= 0) return;
+
+        NativeProjectStore.PointData first = null, second = null;
+        for (NativeProjectStore.PointData point : room.points) {
+            if (edited.a.equals(point.id)) first = point;
+            if (edited.b.equals(point.id)) second = point;
+        }
+        if (first == null || second == null) return;
+
+        int[] atScroll = new int[2];
+        int[] atDrawing = new int[2];
+        editorScroll.getLocationOnScreen(atScroll);
+        drawingView.getLocationOnScreen(atDrawing);
+        float top = atScroll[1] + editorScroll.getPaddingTop() + dp(11);
+        // Only the actual physical viewport is relevant here. The temporary
+        // bottom padding exists solely to give short documents scroll range.
+        float bottom = Math.min(dialogScreenTop - dp(14),
+                atScroll[1] + editorScroll.getHeight() - dp(11));
+        if (bottom - top < dp(55)) return;
+
+        float scale = drawingView.getScaleForTest();
+        float offsetY = drawingView.getPanYForTest();
+        float ay = atDrawing[1] + offsetY + first.y * scale;
+        float by = atDrawing[1] + offsetY + second.y * scale;
+        float wallTop = Math.min(ay, by);
+        float wallBottom = Math.max(ay, by);
+        float wallCenter = (wallTop + wallBottom) * .5f;
+        float visibleCenter = (top + bottom) * .5f;
+        if (wallTop >= top && wallBottom <= bottom) return;
+
+        // ScrollView scrollTo is bounded by actual document height. The
+        // temporary extra bottom padding reserves room to align short plans.
+        float desiredShift = wallCenter - visibleCenter;
+        int target = Math.max(0, Math.round(editorScroll.getScrollY() + desiredShift));
+        int before = editorScroll.getScrollY();
+        editorScroll.scrollTo(0, target);
+        if (Math.abs(before - target) > dp(2) && attempt < 3) {
+            editorScroll.postOnAnimation(() ->
+                    positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
+        }
     }
 
     // Read-only, package-scoped hooks used by Android regression instrumentation.
