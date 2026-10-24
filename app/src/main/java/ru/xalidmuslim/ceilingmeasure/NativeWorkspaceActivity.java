@@ -115,6 +115,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private FrameLayout drawingCanvasWrap;
     private View wallScrollStrip;
     private int normalCanvasHeight;
+    // Keep enough temporary scroll range to bring the *entire* drawing above
+    // the IME. A short, single-room project otherwise clamps scrollTo too
+    // early, leaving the edited edge under the floating input window.
+    private int wallInputSavedScrollPaddingBottom = -1;
+    private int wallInputSavedScrollY;
     private float stripLastY;
     private final ArrayDeque<String> undoRooms = new ArrayDeque<>();
     private final ArrayDeque<String> redoRooms = new ArrayDeque<>();
@@ -1801,6 +1806,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         wallSequenceMode=sequence||wallSequenceMode;
         wallEditId=edgeId;
+        reserveWallEditorScrollSpace();
         if(drawingView!=null){
             drawingView.setEditingEdgeId(edgeId);
             // Fitting is temporary; user pan/zoom and geometry are unchanged.
@@ -1886,6 +1892,33 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         lastWallDialogScreenTop = Integer.MIN_VALUE;
         wallDialog.show();
         enterWallEditorLayout();
+    }
+
+    private void reserveWallEditorScrollSpace() {
+        if(editorScroll==null || wallInputSavedScrollPaddingBottom>=0) return;
+        wallInputSavedScrollPaddingBottom=editorScroll.getPaddingBottom();
+        wallInputSavedScrollY=editorScroll.getScrollY();
+        // Reserve one viewport of scroll range below a compact drawing. This
+        // affects only the wall input session; no page content or measurements
+        // are added, and the original padding returns when the dialog closes.
+        int bottom=wallInputSavedScrollPaddingBottom
+                +Math.max(dp(280),editorScroll.getHeight());
+        editorScroll.setPadding(editorScroll.getPaddingLeft(),
+                editorScroll.getPaddingTop(),editorScroll.getPaddingRight(),bottom);
+    }
+
+    private void restoreWallEditorScrollSpace() {
+        if(editorScroll==null || wallInputSavedScrollPaddingBottom<0) return;
+        int bottom=wallInputSavedScrollPaddingBottom;
+        int originalY=wallInputSavedScrollY;
+        wallInputSavedScrollPaddingBottom=-1;
+        editorScroll.setPadding(editorScroll.getPaddingLeft(),
+                editorScroll.getPaddingTop(),editorScroll.getPaddingRight(),bottom);
+        editorScroll.post(()->{
+            if(editorScroll!=null && wallDialog==null) {
+                editorScroll.scrollTo(0,Math.max(0,originalY));
+            }
+        });
     }
 
     private void enterWallEditorLayout(){
@@ -1994,6 +2027,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         }
         if(historyNavView!=null)historyNavView.setVisibility(View.VISIBLE);
         restoreDrawingCanvasHeight();
+        restoreWallEditorScrollSpace();
         updateDrawingChrome();
     }
 
