@@ -60,7 +60,8 @@ jobs:
           disable-animations: false
           emulator-boot-timeout: 600
           script: |
-            set -euo pipefail
+            # Emulator action executes /bin/sh, not bash; -o pipefail is invalid there.
+            set -eu
             mkdir -p build/v249-evidence
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
