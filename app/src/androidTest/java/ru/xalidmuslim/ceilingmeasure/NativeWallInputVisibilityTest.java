@@ -122,6 +122,88 @@ public final class NativeWallInputVisibilityTest {
         }
     }
 
+    /**
+     * Reproduction of user screenshot: wall 4 is above the clipped drawing
+     * when the keyboard compresses the canvas. Temporary visual fitting must
+     * place BOTH endpoints of the active wall inside the actual drawing View.
+     * The user's persisted pan/zoom and all wall geometry must be unchanged.
+     */
+    @Test public void fourthWallRemainsFullyVisibleWhenNumberKeyboardShrinksCanvas()
+            throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, START);
+        try (ActivityScenario<NativeWorkspaceActivity> scene = ActivityScenario.launch(intent)) {
+            scene.onActivity(activity -> {
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                addRectangularRoom(room);
+                CeilingDrawingView drawing = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                assertNotNull(drawing);
+                drawing.setRoom(room);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+            final float[] before = new float[3];
+            final float[] roomBefore = new float[3];
+            scene.onActivity(activity -> {
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                CeilingDrawingView drawing = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                drawing.fitView();
+                drawing.zoomBy(2.4f);
+                before[0] = drawing.getScaleForTest();
+                before[1] = drawing.getPanXForTest();
+                before[2] = drawing.getPanYForTest();
+                roomBefore[0] = room.viewScale;
+                roomBefore[1] = room.panX;
+                roomBefore[2] = room.panY;
+
+                // Wall 4 of 4 is the one most likely to be clipped above.
+                NativeProjectStore.EdgeData fourth = room.edges.get(3);
+                activity.onWallLongPressed(fourth.id, fourth.value);
+                assertTrue(activity.isWallEditorShowingForTest());
+                int[] top = new int[2];
+                View scroll = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_editor_scroll");
+                scroll.getLocationOnScreen(top);
+                activity.adjustWallCanvasToDialogTopForTest(top[1] +
+                        Math.round(300f * activity.getResources().getDisplayMetrics().density));
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+            scene.onActivity(activity -> {
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                CeilingDrawingView drawing = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                assertTrue("The selected fourth wall has disappeared beyond the " +
+                                "top/bottom edge of the compact drawing",
+                        drawing.isEditingWallFullyVisibleForTest());
+                assertTrue("View must use a temporary fitted wall-editor viewport",
+                        drawing.isWallInputViewportActiveForTest());
+                assertEquals("Temporary fitting must not rewrite stored zoom",
+                        roomBefore[0], room.viewScale, .0001f);
+                assertEquals("Temporary fitting must not rewrite stored pan X",
+                        roomBefore[1], room.panX, .0001f);
+                assertEquals("Temporary fitting must not rewrite stored pan Y",
+                        roomBefore[2], room.panY, .0001f);
+                activity.dismissWallInputForTest();
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scene.onActivity(activity -> {
+                CeilingDrawingView drawing = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                assertFalse(drawing.isWallInputViewportActiveForTest());
+                assertEquals("Original zoom must return after keyboard closes",
+                        before[0], drawing.getScaleForTest(), .0001f);
+                assertEquals("Original panX must return after keyboard closes",
+                        before[1], drawing.getPanXForTest(), .0001f);
+                assertEquals("Original panY must return after keyboard closes",
+                        before[2], drawing.getPanYForTest(), .0001f);
+            });
+        }
+    }
+
     private static void addRectangularRoom(NativeProjectStore.RoomData room) {
         room.points.clear();
         room.edges.clear();
