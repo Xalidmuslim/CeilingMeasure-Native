@@ -1944,8 +1944,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             int[] drawingAt=new int[2];
             editorScroll.getLocationOnScreen(scrollAt);
             drawingView.getLocationOnScreen(drawingAt);
-            int visibleTop=scrollAt[1]+editorScroll.getPaddingTop()+dp(5);
-            int delta=drawingAt[1]-visibleTop;
+            int canvasViewportTop=scrollAt[1]+editorScroll.getPaddingTop()+dp(5);
+            int delta=drawingAt[1]-canvasViewportTop;
             int y=Math.max(0,editorScroll.getScrollY()+delta);
             if(Math.abs(editorScroll.getScrollY()-y)>dp(2)){
                 // No smooth fling while typing: a delayed scroll animation
