@@ -1996,7 +1996,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 scrollOnScreen[1] + editorScroll.getHeight() - dp(7));
 
         if (drawingView.getHeight() <= 0 || screenBottom - screenTop < dp(45)) {
-            if (attempt < 4) editorScroll.postOnAnimation(() ->
+            if (attempt < 4) editorScroll.post(() ->
                     positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
             return;
         }
@@ -2014,10 +2014,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             }
         }
 
-        // Wait for the scroll and any IME-triggered canvas resize to be laid
-        // out, then calculate the *physical intersection* of the Canvas,
-        // ScrollView and keypad overlay. Focus using these exact coordinates.
-        editorScroll.postOnAnimation(() -> {
+        // Wait for any IME-triggered layout, then calculate the physical
+        // viewport. A regular UI post runs before the next frame and is not
+        // delayed by a paused or busy Choreographer animation callback.
+        editorScroll.post(() -> {
             if (wallDialog == null || !wallDialog.isShowing() || drawingView == null
                     || wallEditId == null || editorScroll == null) return;
             int[] scrollAt = new int[2];
@@ -2028,13 +2028,33 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             float clipTop = scrollAt[1] + editorScroll.getPaddingTop() + dp(9);
             float clipBottom = Math.min(dialogScreenTop - dp(13),
                     scrollAt[1] + editorScroll.getHeight() - dp(9));
+
+            // The ScrollView can reach its scroll limit while the drawing is
+            // still below the numeric dialog (observed on Android 15 and
+            // user's phone). The camera cannot fix this: the whole View is
+            // physically covered. Compensate ONLY the temporary drawing card
+            // translation for the editor session, then restore it on close.
+            float freeHeight = clipBottom - clipTop;
+            float drawingHeight = drawingView.getHeight();
+            if (drawingCard != null && drawingHeight > 0f
+                    && freeHeight > dp(55)) {
+                float idealTop = clipTop + Math.max(0f,
+                        (freeHeight - drawingHeight) * .5f);
+                float correctedTop = drawingAt[1];
+                if (correctedTop < clipTop - dp(3)
+                        || correctedTop + drawingHeight > clipBottom + dp(3)) {
+                    drawingCard.setTranslationY(
+                            drawingCard.getTranslationY() + idealTop - correctedTop);
+                    drawingView.getLocationOnScreen(drawingAt);
+                }
+            }
             float localTop = Math.max(0f, clipTop - drawingAt[1]);
             float localBottom = Math.min(drawingView.getHeight(),
                     clipBottom - drawingAt[1]);
             if (localBottom - localTop < dp(42)) {
                 // The overlay is still moving. Retry a bounded number of
                 // times while Android finishes keyboard insets/layout.
-                if (attempt < 4) editorScroll.postOnAnimation(() ->
+                if (attempt < 4) editorScroll.post(() ->
                         positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
                 return;
             }
@@ -2074,6 +2094,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private void closeWallDialog(){
         lastWallDialogScreenTop=Integer.MIN_VALUE;
         lastCameraFocusedWallId = null;
+        if (drawingCard != null) drawingCard.setTranslationY(0f);
         if(wallDialog!=null){
             wallDialog.dismiss();
             wallDialog=null;
