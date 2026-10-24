@@ -1801,7 +1801,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         wallSequenceMode=sequence||wallSequenceMode;
         wallEditId=edgeId;
-        if(drawingView!=null)drawingView.setEditingEdgeId(edgeId);
+        if(drawingView!=null){
+            drawingView.setEditingEdgeId(edgeId);
+            // Fitting is temporary; user pan/zoom and geometry are unchanged.
+            // Every next wall in a wall-sequence uses the same fitted canvas.
+            drawingView.beginWallInputViewport();
+        }
         List<NativeProjectStore.EdgeData> ordered=NativeGeometry.orderedEdges(room);
         int index=ordered.indexOf(edge);
         String title=wallSequenceMode&&index>=0
@@ -1973,6 +1978,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(drawingView!=null){
             drawingView.setEditingEdgeId(null);
             drawingView.setWallSequenceActive(false);
+            // The canvas is about to grow back; ignore its transient size
+            // shift and restore the exact pre-keyboard camera instead.
+            drawingView.endWallInputViewport();
         }
         if(historyNavView!=null)historyNavView.setVisibility(View.VISIBLE);
         restoreDrawingCanvasHeight();
