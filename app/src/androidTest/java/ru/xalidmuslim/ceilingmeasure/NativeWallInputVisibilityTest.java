@@ -86,11 +86,16 @@ public final class NativeWallInputVisibilityTest {
 
                 activity.onWallLongPressed(room.edges.get(0).id, 300f);
                 assertTrue(activity.isWallEditorShowingForTest());
-                // Simulates dialog relocated immediately above an Android IME.
-                int[] screen = new int[2];
-                scroll.getLocationOnScreen(screen);
-                expectedTop[0] = screen[1] + Math.round(
-                        340f * activity.getResources().getDisplayMetrics().density);
+                // Do not invent a fake keyboard Y coordinate here. The
+                // separate numeric Dialog gets repositioned by the real IME
+                // after opening; its true physical top must be inspected.
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            SystemClock.sleep(200L);
+            scene.onActivity(activity -> {
+                expectedTop[0] = activity.wallDialogScreenTopForTest();
+                assertTrue("Numeric input dialog must have a real screen top",
+                        expectedTop[0] > 0);
                 activity.adjustWallCanvasToDialogTopForTest(expectedTop[0]);
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -103,7 +108,8 @@ public final class NativeWallInputVisibilityTest {
                 int[] location = new int[2];
                 canvas.getLocationOnScreen(location);
                 assertTrue("Wall drawing bottom must stay above number input window: " +
-                                (location[1]+canvas.getHeight()) + " vs "+ expectedTop[0],
+                                (location[1]+canvas.getHeight()) + " vs "+ expectedTop[0]
+                                +" | "+ activity.wallViewportDebugForTest(expectedTop[0]),
                         location[1] + canvas.getHeight() <= expectedTop[0] - 2);
                 NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
                 assertEquals(originalPoints[0][0], (int)room.points.get(0).x);
@@ -164,12 +170,14 @@ public final class NativeWallInputVisibilityTest {
                 NativeProjectStore.EdgeData fourth = room.edges.get(3);
                 activity.onWallLongPressed(fourth.id, fourth.value);
                 assertTrue(activity.isWallEditorShowingForTest());
-                int[] top = new int[2];
-                View scroll = activity.getWindow().getDecorView()
-                        .findViewWithTag("native_editor_scroll");
-                scroll.getLocationOnScreen(top);
-                inputDialogTop[0] = top[1] +
-                        Math.round(300f * activity.getResources().getDisplayMetrics().density);
+                // Observe the REAL floating numeric dialog, not a synthetic
+                // 300dp keyboard top that Android immediately overrides.
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            SystemClock.sleep(200L);
+            scene.onActivity(activity -> {
+                inputDialogTop[0] = activity.wallDialogScreenTopForTest();
+                assertTrue(inputDialogTop[0] > 0);
                 activity.adjustWallCanvasToDialogTopForTest(inputDialogTop[0]);
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -214,7 +222,8 @@ public final class NativeWallInputVisibilityTest {
                                     + actualScreenY + " < " + visibleTop,
                             actualScreenY >= visibleTop);
                     assertTrue("Edited wall still overlaps dialog/IME: "
-                                    + actualScreenY + " > " + visibleBottom,
+                                    + actualScreenY + " > " + visibleBottom
+                                    + " | " + activity.wallViewportDebugForTest(inputDialogTop[0]),
                             actualScreenY <= visibleBottom);
                 }
                 assertTrue("View must use a temporary fitted wall-editor viewport",
