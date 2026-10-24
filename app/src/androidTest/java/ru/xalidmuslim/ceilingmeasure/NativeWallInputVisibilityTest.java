@@ -86,11 +86,16 @@ public final class NativeWallInputVisibilityTest {
 
                 activity.onWallLongPressed(room.edges.get(0).id, 300f);
                 assertTrue(activity.isWallEditorShowingForTest());
-                // Simulates dialog relocated immediately above an Android IME.
-                int[] screen = new int[2];
-                scroll.getLocationOnScreen(screen);
-                expectedTop[0] = screen[1] + Math.round(
-                        340f * activity.getResources().getDisplayMetrics().density);
+                // Do not invent a fake keyboard Y coordinate here. The
+                // separate numeric Dialog gets repositioned by the real IME
+                // after opening; its true physical top must be inspected.
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            SystemClock.sleep(200L);
+            scene.onActivity(activity -> {
+                expectedTop[0] = activity.wallDialogScreenTopForTest();
+                assertTrue("Numeric input dialog must have a real screen top",
+                        expectedTop[0] > 0);
                 activity.adjustWallCanvasToDialogTopForTest(expectedTop[0]);
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -165,12 +170,14 @@ public final class NativeWallInputVisibilityTest {
                 NativeProjectStore.EdgeData fourth = room.edges.get(3);
                 activity.onWallLongPressed(fourth.id, fourth.value);
                 assertTrue(activity.isWallEditorShowingForTest());
-                int[] top = new int[2];
-                View scroll = activity.getWindow().getDecorView()
-                        .findViewWithTag("native_editor_scroll");
-                scroll.getLocationOnScreen(top);
-                inputDialogTop[0] = top[1] +
-                        Math.round(300f * activity.getResources().getDisplayMetrics().density);
+                // Observe the REAL floating numeric dialog, not a synthetic
+                // 300dp keyboard top that Android immediately overrides.
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            SystemClock.sleep(200L);
+            scene.onActivity(activity -> {
+                inputDialogTop[0] = activity.wallDialogScreenTopForTest();
+                assertTrue(inputDialogTop[0] > 0);
                 activity.adjustWallCanvasToDialogTopForTest(inputDialogTop[0]);
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
