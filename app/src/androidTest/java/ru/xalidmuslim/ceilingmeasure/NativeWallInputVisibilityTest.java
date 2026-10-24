@@ -146,6 +146,7 @@ public final class NativeWallInputVisibilityTest {
 
             final float[] before = new float[3];
             final float[] roomBefore = new float[3];
+            final int[] inputDialogTop = new int[1];
             scene.onActivity(activity -> {
                 NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
                 CeilingDrawingView drawing = activity.getWindow().getDecorView()
@@ -167,8 +168,9 @@ public final class NativeWallInputVisibilityTest {
                 View scroll = activity.getWindow().getDecorView()
                         .findViewWithTag("native_editor_scroll");
                 scroll.getLocationOnScreen(top);
-                activity.adjustWallCanvasToDialogTopForTest(top[1] +
-                        Math.round(300f * activity.getResources().getDisplayMetrics().density));
+                inputDialogTop[0] = top[1] +
+                        Math.round(300f * activity.getResources().getDisplayMetrics().density);
+                activity.adjustWallCanvasToDialogTopForTest(inputDialogTop[0]);
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
@@ -179,6 +181,42 @@ public final class NativeWallInputVisibilityTest {
                 assertTrue("The selected fourth wall has disappeared beyond the " +
                                 "top/bottom edge of the compact drawing",
                         drawing.isEditingWallFullyVisibleForTest());
+
+                // The screenshot bug can also occur when the ScrollView itself
+                // clips the top of an otherwise correctly fitted Canvas.
+                // Assert actual device SCREEN coordinates against both the
+                // ScrollView clip and the top of the numeric dialog/keyboard.
+                ScrollView scroll = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_editor_scroll");
+                assertNotNull(scroll);
+                int[] drawOnScreen = new int[2];
+                int[] scrollOnScreen = new int[2];
+                drawing.getLocationOnScreen(drawOnScreen);
+                scroll.getLocationOnScreen(scrollOnScreen);
+                float density = activity.getResources().getDisplayMetrics().density;
+                float visibleTop = scrollOnScreen[1] + 8f * density;
+                float visibleBottom = Math.min(inputDialogTop[0],
+                        scrollOnScreen[1] + scroll.getHeight()) - 8f * density;
+                NativeProjectStore.EdgeData edited = room.edges.get(3);
+                for (String endpointId : new String[]{edited.a, edited.b}) {
+                    NativeProjectStore.PointData point = null;
+                    for (NativeProjectStore.PointData candidate : room.points) {
+                        if (endpointId.equals(candidate.id)) {
+                            point = candidate;
+                            break;
+                        }
+                    }
+                    assertNotNull(point);
+                    float actualScreenY = drawOnScreen[1]
+                            + point.y * drawing.getScaleForTest()
+                            + drawing.getPanYForTest();
+                    assertTrue("Edited wall is still hidden by ScrollView top: "
+                                    + actualScreenY + " < " + visibleTop,
+                            actualScreenY >= visibleTop);
+                    assertTrue("Edited wall still overlaps dialog/IME: "
+                                    + actualScreenY + " > " + visibleBottom,
+                            actualScreenY <= visibleBottom);
+                }
                 assertTrue("View must use a temporary fitted wall-editor viewport",
                         drawing.isWallInputViewportActiveForTest());
                 assertEquals("Temporary fitting must not rewrite stored zoom",
