@@ -1966,23 +1966,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             drawingCanvasWrap.setLayoutParams(lp);
         }
         editorScroll.post(()->{
-            if(wallDialog==null || editorScroll==null || drawingView==null
+            if(wallDialog==null || editorScroll==null || drawingCard==null
                     || !wallDialog.isShowing())return;
-            // Align the actual DRAWING View, not its parent card. The card
-            // contains a toolbar/header; Android's own focus scrolling can
-            // leave the compact canvas partly ABOVE the ScrollView clip even
-            // when all contour points fit inside the View. That is exactly
-            // why wall 4 was invisible in the user's keyboard screenshot.
-            int[] scrollAt=new int[2];
-            int[] drawingAt=new int[2];
-            editorScroll.getLocationOnScreen(scrollAt);
-            drawingView.getLocationOnScreen(drawingAt);
-            int canvasViewportTop=scrollAt[1]+editorScroll.getPaddingTop()+dp(5);
-            int delta=drawingAt[1]-canvasViewportTop;
+            Rect cardRect=new Rect(0,0,drawingCard.getWidth(),drawingCard.getHeight());
+            editorScroll.offsetDescendantRectToMyCoords(drawingCard,cardRect);
+            int delta=cardRect.top-editorScroll.getPaddingTop()-dp(4);
             int y=Math.max(0,editorScroll.getScrollY()+delta);
             if(Math.abs(editorScroll.getScrollY()-y)>dp(2)){
-                // No smooth fling while typing: a delayed scroll animation
-                // would move the wall during digit entry and feel like a jump.
                 editorScroll.scrollTo(0,y);
             }
         });
