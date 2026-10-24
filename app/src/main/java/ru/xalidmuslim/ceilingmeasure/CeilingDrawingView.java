@@ -543,6 +543,7 @@ final class CeilingDrawingView extends View {
         float centerY = (a.y + b.y) * .5f;
         float targetX = (left + right) * .5f - centerX * targetScale;
         float targetY = (top + bottom) * .5f - centerY * targetScale;
+        final float cameraScaleTarget = targetScale;
         if (wallFocusAnimator != null) {
             wallFocusAnimator.cancel();
             wallFocusAnimator = null;
@@ -572,7 +573,7 @@ final class CeilingDrawingView extends View {
         camera.addUpdateListener(value -> {
             if (!wallInputViewportActive || wallFocusAnimator != camera) return;
             float fraction = (float)value.getAnimatedValue();
-            scale = startingScale + (targetScale - startingScale) * fraction;
+            scale = startingScale + (cameraScaleTarget - startingScale) * fraction;
             offsetX = startingX + (targetX - startingX) * fraction;
             offsetY = startingY + (targetY - startingY) * fraction;
             postInvalidateOnAnimation();
