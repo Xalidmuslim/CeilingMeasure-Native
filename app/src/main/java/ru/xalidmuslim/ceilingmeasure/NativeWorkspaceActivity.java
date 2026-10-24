@@ -135,6 +135,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private String wallEditId;
     private NativeWallMeasureDialog wallDialog;
     private int lastWallDialogScreenTop = Integer.MIN_VALUE;
+    @Nullable private String lastCameraFocusedWallId;
     private boolean showingSavedMeasurements;
     private boolean savedOpenedFromEditor;
     private boolean editorOpenedFromSavedMeasurements;
@@ -1981,49 +1982,71 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void positionActiveWallInVisibleViewport(int dialogScreenTop, int attempt) {
         if (wallDialog == null || !wallDialog.isShowing() || editorScroll == null
-                || drawingView == null || wallEditId == null || attempt > 3) return;
-        NativeProjectStore.RoomData room = activeRoom();
-        NativeProjectStore.EdgeData edited = findEdge(room, wallEditId);
-        if (edited == null || drawingView.getHeight() <= 0) return;
+                || drawingView == null || wallEditId == null || attempt > 4) return;
 
-        NativeProjectStore.PointData first = null, second = null;
-        for (NativeProjectStore.PointData point : room.points) {
-            if (edited.a.equals(point.id)) first = point;
-            if (edited.b.equals(point.id)) second = point;
-        }
-        if (first == null || second == null) return;
+        // First expose the DRAWING itself. The temporary trailing content
+        // spacer provides a valid scroll range even for a one-room project.
+        // Do not scroll to the whole card or an unrelated input field.
+        int[] scrollOnScreen = new int[2];
+        int[] drawingOnScreen = new int[2];
+        editorScroll.getLocationOnScreen(scrollOnScreen);
+        drawingView.getLocationOnScreen(drawingOnScreen);
+        int screenTop = scrollOnScreen[1] + editorScroll.getPaddingTop() + dp(7);
+        int screenBottom = Math.min(dialogScreenTop - dp(12),
+                scrollOnScreen[1] + editorScroll.getHeight() - dp(7));
 
-        int[] atScroll = new int[2];
-        int[] atDrawing = new int[2];
-        editorScroll.getLocationOnScreen(atScroll);
-        drawingView.getLocationOnScreen(atDrawing);
-        float top = atScroll[1] + editorScroll.getPaddingTop() + dp(11);
-        // Only the actual physical viewport is relevant here. The temporary
-        // bottom padding exists solely to give short documents scroll range.
-        float bottom = Math.min(dialogScreenTop - dp(14),
-                atScroll[1] + editorScroll.getHeight() - dp(11));
-        if (bottom - top < dp(55)) return;
-
-        float scale = drawingView.getScaleForTest();
-        float offsetY = drawingView.getPanYForTest();
-        float ay = atDrawing[1] + offsetY + first.y * scale;
-        float by = atDrawing[1] + offsetY + second.y * scale;
-        float wallTop = Math.min(ay, by);
-        float wallBottom = Math.max(ay, by);
-        float wallCenter = (wallTop + wallBottom) * .5f;
-        float visibleCenter = (top + bottom) * .5f;
-        if (wallTop >= top && wallBottom <= bottom) return;
-
-        // ScrollView scrollTo is bounded by actual document height. The
-        // temporary extra bottom padding reserves room to align short plans.
-        float desiredShift = wallCenter - visibleCenter;
-        int target = Math.max(0, Math.round(editorScroll.getScrollY() + desiredShift));
-        int before = editorScroll.getScrollY();
-        editorScroll.scrollTo(0, target);
-        if (Math.abs(before - target) > dp(2) && attempt < 3) {
-            editorScroll.postOnAnimation(() ->
+        if (drawingView.getHeight() <= 0 || screenBottom - screenTop < dp(45)) {
+            if (attempt < 4) editorScroll.postOnAnimation(() ->
                     positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
+            return;
         }
+
+        // Scroll only when the Canvas itself would be clipped. If the Canvas
+        // is already visible, leave its ScrollView in place and move only its
+        // temporary camera to the selected wall.
+        int desiredTop = screenTop;
+        int actualTop = drawingOnScreen[1];
+        int delta = actualTop - desiredTop;
+        if (Math.abs(delta) > dp(3)) {
+            int requested = Math.max(0, editorScroll.getScrollY() + delta);
+            if (Math.abs(requested - editorScroll.getScrollY()) > dp(2)) {
+                editorScroll.scrollTo(0, requested);
+            }
+        }
+
+        // Wait for the scroll and any IME-triggered canvas resize to be laid
+        // out, then calculate the *physical intersection* of the Canvas,
+        // ScrollView and keypad overlay. Focus using these exact coordinates.
+        editorScroll.postOnAnimation(() -> {
+            if (wallDialog == null || !wallDialog.isShowing() || drawingView == null
+                    || wallEditId == null || editorScroll == null) return;
+            int[] scrollAt = new int[2];
+            int[] drawingAt = new int[2];
+            editorScroll.getLocationOnScreen(scrollAt);
+            drawingView.getLocationOnScreen(drawingAt);
+
+            float clipTop = scrollAt[1] + editorScroll.getPaddingTop() + dp(9);
+            float clipBottom = Math.min(dialogScreenTop - dp(13),
+                    scrollAt[1] + editorScroll.getHeight() - dp(9));
+            float localTop = Math.max(0f, clipTop - drawingAt[1]);
+            float localBottom = Math.min(drawingView.getHeight(),
+                    clipBottom - drawingAt[1]);
+            if (localBottom - localTop < dp(42)) {
+                // The overlay is still moving. Retry a bounded number of
+                // times while Android finishes keyboard insets/layout.
+                if (attempt < 4) editorScroll.postOnAnimation(() ->
+                        positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
+                return;
+            }
+            boolean changedWall = !wallEditId.equals(lastCameraFocusedWallId);
+            // Initial display and IME reposition are immediate; switching
+            // from wall 1 to 2/3/4 glides once in 215ms FastOutSlowIn.
+            boolean animateMove = changedWall && lastCameraFocusedWallId != null;
+            if (drawingView.focusEditingWallInVisibleBand(
+                    localTop, localBottom, animateMove)) {
+                lastCameraFocusedWallId = wallEditId;
+            }
+        });
     }
 
     // Read-only, package-scoped hooks used by Android regression instrumentation.
@@ -2050,6 +2073,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void closeWallDialog(){
         lastWallDialogScreenTop=Integer.MIN_VALUE;
+        lastCameraFocusedWallId = null;
         if(wallDialog!=null){
             wallDialog.dismiss();
             wallDialog=null;
