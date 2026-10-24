@@ -103,7 +103,8 @@ public final class NativeWallInputVisibilityTest {
                 int[] location = new int[2];
                 canvas.getLocationOnScreen(location);
                 assertTrue("Wall drawing bottom must stay above number input window: " +
-                                (location[1]+canvas.getHeight()) + " vs "+ expectedTop[0],
+                                (location[1]+canvas.getHeight()) + " vs "+ expectedTop[0]
+                                +" | "+ activity.wallViewportDebugForTest(expectedTop[0]),
                         location[1] + canvas.getHeight() <= expectedTop[0] - 2);
                 NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
                 assertEquals(originalPoints[0][0], (int)room.points.get(0).x);
@@ -214,7 +215,8 @@ public final class NativeWallInputVisibilityTest {
                                     + actualScreenY + " < " + visibleTop,
                             actualScreenY >= visibleTop);
                     assertTrue("Edited wall still overlaps dialog/IME: "
-                                    + actualScreenY + " > " + visibleBottom,
+                                    + actualScreenY + " > " + visibleBottom
+                                    + " | " + activity.wallViewportDebugForTest(inputDialogTop[0]),
                             actualScreenY <= visibleBottom);
                 }
                 assertTrue("View must use a temporary fitted wall-editor viewport",
