@@ -2,7 +2,7 @@ name: CeilingMeasure v251 Auto-Follow Edited Wall Above Keyboard
 
 on:
   push:
-    branches: [fix/v251-keep-active-wall-visible]
+    branches: [fix/v251-follow-active-wall-camera]
   workflow_dispatch:
 
 permissions:
