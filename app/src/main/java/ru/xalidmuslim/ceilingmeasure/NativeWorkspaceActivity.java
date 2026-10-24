@@ -1973,6 +1973,19 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             lp.height=bounded;
             drawingCanvasWrap.setLayoutParams(lp);
         }
+        // IMMEDIATE placement before Android's next layout pass: the keypad
+        // can already cover the old canvas bounds while the view-size change
+        // is queued. Compare its current screen top to the TARGET compact
+        // height instead of the stale measured full height.
+        if (drawingCard != null) {
+            int[] canvasAt = new int[2];
+            drawingCanvasWrap.getLocationOnScreen(canvasAt);
+            float overlap = canvasAt[1] + bounded - (dialogScreenTop - dp(18));
+            if (overlap > dp(2)) {
+                drawingCard.setTranslationY(
+                        drawingCard.getTranslationY() - overlap);
+            }
+        }
         // Scroll the actual wall endpoints into the region between system
         // insets and the TOP of the number-input Dialog. Do not align the
         // card/header itself: auto-focus, font size and narrow windows can
