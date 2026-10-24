@@ -1,6 +1,7 @@
 package ru.xalidmuslim.ceilingmeasure;
 
 import android.content.Context;
+import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
@@ -61,6 +62,9 @@ final class CeilingDrawingView extends View {
     private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint edgeNormalPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint edgeSelectedPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // Reused ink; blinking is a local, low-frequency wall-only invalidation.
+    // Never animate the entire drawing surface or create a hardware layer.
+    private final Paint edgeEditingHaloPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pointLetterPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint.FontMetrics pointLetterFontMetrics = new Paint.FontMetrics();
     private float edgePaintScale = Float.NaN;
@@ -154,6 +158,17 @@ final class CeilingDrawingView extends View {
     private boolean redGuideSnapActive;
     private boolean point90SnapActive;
     private String editingEdgeId;
+    private boolean wallPulseBright = true;
+    private static final long WALL_PULSE_HALF_PERIOD_MS = 420L;
+    private final Runnable wallPulseTick = new Runnable() {
+        @Override public void run() {
+            if (editingEdgeId == null || !isAttachedToWindow()
+                    || !ValueAnimator.areAnimatorsEnabled()) return;
+            wallPulseBright = !wallPulseBright;
+            invalidateEditingWallBounds();
+            handler.postDelayed(this, WALL_PULSE_HALF_PERIOD_MS);
+        }
+    };
     private String lastWallCornerSnapId;
     private String lastDiagonalSnapId;
     private PointF magnifierFocus;
@@ -173,6 +188,9 @@ final class CeilingDrawingView extends View {
         edgeNormalPaint.set(linePaint);
         edgeSelectedPaint.set(linePaint);
         edgeSelectedPaint.setColor(BLUE);
+        edgeEditingHaloPaint.set(linePaint);
+        edgeEditingHaloPaint.setColor(Color.argb(175, 32, 169, 255));
+        edgeEditingHaloPaint.setStrokeCap(Paint.Cap.ROUND);
         pointPaint.setStyle(Paint.Style.FILL);
 
         gridPaint.setColor(GRID);
@@ -314,8 +332,63 @@ final class CeilingDrawingView extends View {
     }
 
     void setEditingEdgeId(@Nullable String edgeId) {
+        if (java.util.Objects.equals(editingEdgeId, edgeId)) return;
+        // Stop before losing the previous edge so its highlight is erased.
+        handler.removeCallbacks(wallPulseTick);
+        invalidateEditingWallBounds();
         editingEdgeId = edgeId;
+        wallPulseBright = true;
+        if (edgeId != null) startWallPulseIfEnabled();
         postInvalidateOnAnimation();
+    }
+
+    private void startWallPulseIfEnabled() {
+        handler.removeCallbacks(wallPulseTick);
+        if (editingEdgeId != null && isAttachedToWindow()
+                && ValueAnimator.areAnimatorsEnabled()) {
+            handler.postDelayed(wallPulseTick, WALL_PULSE_HALF_PERIOD_MS);
+        }
+    }
+
+    private void invalidateEditingWallBounds() {
+        if (room == null || editingEdgeId == null || getWidth() <= 0) return;
+        NativeProjectStore.EdgeData edge = edgeById(editingEdgeId);
+        if (edge == null) return;
+        NativeProjectStore.PointData a = renderPointIndex.get(room, edge.a);
+        NativeProjectStore.PointData b = renderPointIndex.get(room, edge.b);
+        if (a == null || b == null) return;
+        int margin = Math.round(dp(20));
+        int l = Math.round(Math.min(a.x, b.x) * scale + offsetX) - margin;
+        int t = Math.round(Math.min(a.y, b.y) * scale + offsetY) - margin;
+        int right = Math.round(Math.max(a.x, b.x) * scale + offsetX) + margin;
+        int bottom = Math.round(Math.max(a.y, b.y) * scale + offsetY) + margin;
+        postInvalidateOnAnimation(l, t, right, bottom);
+    }
+
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        startWallPulseIfEnabled();
+    }
+
+    @Override protected void onDetachedFromWindow() {
+        handler.removeCallbacks(wallPulseTick);
+        super.onDetachedFromWindow();
+    }
+
+    @Override protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+        if (visibility == VISIBLE) startWallPulseIfEnabled();
+        else handler.removeCallbacks(wallPulseTick);
+    }
+
+    boolean isWallPulseActiveForTest() {
+        return editingEdgeId != null
+                && (handler.hasCallbacks(wallPulseTick)
+                        || !ValueAnimator.areAnimatorsEnabled());
+    }
+
+    boolean isWallPulseBrightForTest() {
+        return wallPulseBright;
     }
 
     @Nullable
@@ -566,7 +639,8 @@ final class CeilingDrawingView extends View {
         if(Float.compare(edgePaintScale,scale)!=0){
             float factor=Math.max(MIN_VIEW_SCALE,scale);
             edgeNormalPaint.setStrokeWidth(dp(1.8f)/factor);
-            edgeSelectedPaint.setStrokeWidth(dp(2.5f)/factor);
+            edgeSelectedPaint.setStrokeWidth(dp(3.8f)/factor);
+            edgeEditingHaloPaint.setStrokeWidth(dp(10.5f)/factor);
             edgePaintScale=scale;
         }
 
@@ -575,10 +649,18 @@ final class CeilingDrawingView extends View {
             NativeProjectStore.PointData b = renderPointIndex.get(room, edge.b);
             if (a == null || b == null) continue;
 
-            Paint paint = edge.id.equals(editingEdgeId)
-                    ? edgeSelectedPaint
-                    : edgeNormalPaint;
-            canvas.drawLine(a.x, a.y, b.x, b.y, paint);
+            if (edge.id.equals(editingEdgeId)) {
+                // Noticeable blue/cyan beacon: the selected segment stays
+                // identifiable even in the dim phase. Paint-only redraw avoids
+                // a continuously composited GPU layer or view movement.
+                edgeEditingHaloPaint.setAlpha(wallPulseBright ? 195 : 58);
+                canvas.drawLine(a.x, a.y, b.x, b.y, edgeEditingHaloPaint);
+                edgeSelectedPaint.setColor(wallPulseBright
+                        ? Color.rgb(0, 111, 245) : Color.rgb(25, 100, 193));
+                canvas.drawLine(a.x, a.y, b.x, b.y, edgeSelectedPaint);
+            } else {
+                canvas.drawLine(a.x, a.y, b.x, b.y, edgeNormalPaint);
+            }
         }
     }
 
