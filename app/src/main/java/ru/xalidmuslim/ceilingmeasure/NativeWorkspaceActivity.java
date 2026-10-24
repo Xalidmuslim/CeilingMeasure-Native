@@ -2086,6 +2086,15 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         repositionWallCanvasAboveDialog(screenTop);
     }
 
+    /** Live position of numeric Dialog (including physical keyboard height). */
+    int wallDialogScreenTopForTest() {
+        if (wallDialog == null || !wallDialog.isShowing()
+                || wallDialog.getWindow() == null) return -1;
+        int[] xy = new int[2];
+        wallDialog.getWindow().getDecorView().getLocationOnScreen(xy);
+        return xy[1];
+    }
+
     String wallViewportDebugForTest(int requestedDialogTop){
         int[] scrollPos=new int[2];
         int[] canvasPos=new int[2];
