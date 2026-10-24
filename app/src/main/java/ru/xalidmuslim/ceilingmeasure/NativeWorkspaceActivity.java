@@ -8,6 +8,7 @@ import android.text.Editable;
 import android.net.Uri;
 import android.app.Activity;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
@@ -127,6 +128,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private boolean wallSequenceMode;
     private String wallEditId;
     private NativeWallMeasureDialog wallDialog;
+    private int lastWallDialogScreenTop = Integer.MIN_VALUE;
     private boolean showingSavedMeasurements;
     private boolean savedOpenedFromEditor;
     private boolean editorOpenedFromSavedMeasurements;
@@ -1873,28 +1875,82 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                         closeWallDialog();
                     }
                 });
+        // Observe this Dialog's real position as the system IME animates up;
+        // Activity insets alone exclude the separate dialog's keyboard window.
+        wallDialog.setEditorViewportListener(this::repositionWallCanvasAboveDialog);
+        lastWallDialogScreenTop = Integer.MIN_VALUE;
         wallDialog.show();
         enterWallEditorLayout();
     }
 
     private void enterWallEditorLayout(){
-        if(wallDialog==null||drawingCanvasWrap==null)return;
+        if(wallDialog==null)return;
         Window window=wallDialog.getWindow();
         View decor=window==null?null:window.getDecorView();
         if(decor==null)return;
+        // Initial layout, then the Dialog's global-layout callback updates the
+        // same viewport as soon as Android moves the input above the keyboard.
         decor.post(()->{
-            int dockHeight=Math.max(dp(220),decor.getHeight());
-            int viewport=getResources().getDisplayMetrics().heightPixels;
-            int usable=Math.max(dp(300),Math.min(dp(560),viewport-dockHeight-dp(155)));
-            ViewGroup.LayoutParams lp=drawingCanvasWrap.getLayoutParams();
-            if(lp!=null){
-                lp.height=usable;
-                drawingCanvasWrap.setLayoutParams(lp);
-            }
-            if(editorScroll!=null&&drawingCard!=null){
-                editorScroll.post(()->editorScroll.scrollTo(0,drawingCard.getTop()));
+            if(wallDialog==null || !wallDialog.isShowing())return;
+            int[] pos=new int[2];
+            decor.getLocationOnScreen(pos);
+            if(pos[1]>0)repositionWallCanvasAboveDialog(pos[1]);
+        });
+    }
+
+    /**
+     * The drawing is inside the Activity ScrollView, but numeric input owns
+     * a separate bottom Dialog window. Use that window's ACTUAL top edge (the
+     * keyboard moves it) to size and scroll the drawing into its visible
+     * region, rather than subtracting an estimated IME height.
+     *
+     * No vertices, measurements, room history, colors or zoom settings change.
+     */
+    private void repositionWallCanvasAboveDialog(int dialogScreenTop) {
+        if(wallDialog==null || drawingCanvasWrap==null || drawingCard==null
+                || editorScroll==null || dialogScreenTop<=0) return;
+        if(lastWallDialogScreenTop!=Integer.MIN_VALUE
+                && Math.abs(dialogScreenTop-lastWallDialogScreenTop)<dp(18)) {
+            return;
+        }
+        lastWallDialogScreenTop=dialogScreenTop;
+        int[] scrollPosition=new int[2];
+        editorScroll.getLocationOnScreen(scrollPosition);
+        int visibleTop=scrollPosition[1]+editorScroll.getPaddingTop()+dp(4);
+        // drawingCanvasWrap.getTop() is the real header + mode-bar height in
+        // the card, not a hard-coded top offset that changes with font scaling.
+        int canvasHeader=Math.max(0,drawingCanvasWrap.getTop());
+        int available=dialogScreenTop-visibleTop-canvasHeader-dp(18);
+        int bounded=Math.max(dp(160),Math.min(normalCanvasHeight,available));
+        ViewGroup.LayoutParams lp=drawingCanvasWrap.getLayoutParams();
+        if(lp!=null && lp.height!=bounded){
+            lp.height=bounded;
+            drawingCanvasWrap.setLayoutParams(lp);
+        }
+        editorScroll.post(()->{
+            if(wallDialog==null || editorScroll==null || drawingCard==null
+                    || !wallDialog.isShowing())return;
+            Rect cardRect=new Rect(0,0,drawingCard.getWidth(),drawingCard.getHeight());
+            editorScroll.offsetDescendantRectToMyCoords(drawingCard,cardRect);
+            int delta=cardRect.top-editorScroll.getPaddingTop()-dp(4);
+            int y=Math.max(0,editorScroll.getScrollY()+delta);
+            if(Math.abs(editorScroll.getScrollY()-y)>dp(2)){
+                editorScroll.scrollTo(0,y);
             }
         });
+    }
+
+    // Read-only, package-scoped hooks used by Android regression instrumentation.
+    void adjustWallCanvasToDialogTopForTest(int screenTop){
+        repositionWallCanvasAboveDialog(screenTop);
+    }
+
+    boolean isWallEditorShowingForTest(){
+        return wallDialog!=null && wallDialog.isShowing();
+    }
+
+    void dismissWallInputForTest(){
+        closeWallDialog();
     }
 
     private void restoreDrawingCanvasHeight(){
@@ -1907,6 +1963,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void closeWallDialog(){
+        lastWallDialogScreenTop=Integer.MIN_VALUE;
         if(wallDialog!=null){
             wallDialog.dismiss();
             wallDialog=null;
