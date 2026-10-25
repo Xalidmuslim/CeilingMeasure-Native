@@ -1956,22 +1956,22 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
      * No vertices, measurements, room history, colors or zoom settings change.
      */
     private void repositionWallCanvasAboveDialog(int dialogScreenTop) {
-        if (wallDialogTopOverrideForTest != null)
-            dialogScreenTop = wallDialogTopOverrideForTest;
+        final int effectiveDialogTop = wallDialogTopOverrideForTest != null
+                ? wallDialogTopOverrideForTest : dialogScreenTop;
         if(wallDialog==null || drawingCanvasWrap==null || drawingCard==null
-                || editorScroll==null || dialogScreenTop<=0) return;
+                || editorScroll==null || effectiveDialogTop<=0) return;
         if(lastWallDialogScreenTop!=Integer.MIN_VALUE
-                && Math.abs(dialogScreenTop-lastWallDialogScreenTop)<dp(18)) {
+                && Math.abs(effectiveDialogTop-lastWallDialogScreenTop)<dp(18)) {
             return;
         }
-        lastWallDialogScreenTop=dialogScreenTop;
+        lastWallDialogScreenTop=effectiveDialogTop;
         int[] scrollPosition=new int[2];
         editorScroll.getLocationOnScreen(scrollPosition);
         int visibleTop=scrollPosition[1]+editorScroll.getPaddingTop()+dp(4);
         // drawingCanvasWrap.getTop() is the real header + mode-bar height in
         // the card, not a hard-coded top offset that changes with font scaling.
         int canvasHeader=Math.max(0,drawingCanvasWrap.getTop());
-        int available=dialogScreenTop-visibleTop-canvasHeader-dp(18);
+        int available=effectiveDialogTop-visibleTop-canvasHeader-dp(18);
         int bounded=Math.max(dp(160),Math.min(normalCanvasHeight,available));
         ViewGroup.LayoutParams lp=drawingCanvasWrap.getLayoutParams();
         if(lp!=null && lp.height!=bounded){
@@ -1982,7 +1982,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         // insets and the TOP of the number-input Dialog. Do not align the
         // card/header itself: auto-focus, font size and narrow windows can
         // place the edge above ScrollView's clip despite a fitted Canvas.
-        editorScroll.post(() -> positionActiveWallInVisibleViewport(dialogScreenTop, 0));
+        editorScroll.post(() -> positionActiveWallInVisibleViewport(effectiveDialogTop, 0));
     }
 
     private void positionActiveWallInVisibleViewport(int dialogScreenTop, int attempt) {
