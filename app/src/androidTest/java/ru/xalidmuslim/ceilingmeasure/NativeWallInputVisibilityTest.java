@@ -226,11 +226,19 @@ public final class NativeWallInputVisibilityTest {
                 assertEquals("Temporary fitting must not rewrite stored pan Y",
                         roomBefore[2], room.panY, .0001f);
                 activity.dismissWallInputForTest();
+                if (NativeMotion.animationsEnabled()) {
+                    assertTrue("Camera must not snap back on dialog dismiss",
+                            drawing.isWallInputViewportRestorePendingForTest());
+                }
             });
+            SystemClock.sleep(510L);
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
             scene.onActivity(activity -> {
                 CeilingDrawingView drawing = activity.getWindow().getDecorView()
                         .findViewWithTag("native_drawing_view");
+                assertFalse("Camera return animation must finish",
+                        activity.isWallReturnAnimationRunningForTest());
+                assertFalse(drawing.isWallInputViewportRestorePendingForTest());
                 assertFalse(drawing.isWallInputViewportActiveForTest());
                 assertEquals("Original zoom must return after keyboard closes",
                         before[0], drawing.getScaleForTest(), .0001f);
