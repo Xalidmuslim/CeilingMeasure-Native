@@ -135,6 +135,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private String wallEditId;
     private NativeWallMeasureDialog wallDialog;
     private int lastWallDialogScreenTop = Integer.MIN_VALUE;
+    // Instrumentation can simulate a smaller IME viewport. Without pinning
+    // it, a subsequent real Dialog layout callback races the test's geometry.
+    // Production always uses the actual Dialog screen top.
+    private int wallInputSimulatedDialogTopForTest = -1;
     private boolean showingSavedMeasurements;
     private boolean savedOpenedFromEditor;
     private boolean editorOpenedFromSavedMeasurements;
@@ -1952,20 +1956,24 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
      * No vertices, measurements, room history, colors or zoom settings change.
      */
     private void repositionWallCanvasAboveDialog(int dialogScreenTop) {
+        // The fake top is only populated by package-private Android tests;
+        // production follows the real Android window's changing coordinates.
+        final int effectiveTop = wallInputSimulatedDialogTopForTest > 0
+                ? wallInputSimulatedDialogTopForTest : dialogScreenTop;
         if(wallDialog==null || drawingCanvasWrap==null || drawingCard==null
-                || editorScroll==null || dialogScreenTop<=0) return;
+                || editorScroll==null || effectiveTop<=0) return;
         if(lastWallDialogScreenTop!=Integer.MIN_VALUE
-                && Math.abs(dialogScreenTop-lastWallDialogScreenTop)<dp(18)) {
+                && Math.abs(effectiveTop-lastWallDialogScreenTop)<dp(6)) {
             return;
         }
-        lastWallDialogScreenTop=dialogScreenTop;
+        lastWallDialogScreenTop=effectiveTop;
         int[] scrollPosition = new int[2];
         editorScroll.getLocationOnScreen(scrollPosition);
         int visibleTop = scrollPosition[1] + editorScroll.getPaddingTop() + dp(8);
         // The drawing header gets scrolled OUT of view. Never subtract its
         // height here: doing so kept the canvas too small/low behind the
         // numeric keypad, especially for wall 4 at the upper screen edge.
-        int availableHeight = dialogScreenTop - visibleTop - dp(24);
+        int availableHeight = effectiveTop - visibleTop - dp(24);
         int boundedHeight = Math.max(dp(125),
                 Math.min(normalCanvasHeight, availableHeight));
         ViewGroup.LayoutParams params = drawingCanvasWrap.getLayoutParams();
@@ -1976,7 +1984,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         // Layout of the compact canvas happens asynchronously. Only after
         // layout can we position the edited edge in true screen coordinates.
         editorScroll.post(() -> positionActiveWallInVisibleViewport(
-                dialogScreenTop, 0));
+                effectiveTop, 0));
     }
 
     /**
@@ -2074,6 +2082,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     // Read-only, package-scoped hooks used by Android regression instrumentation.
     void adjustWallCanvasToDialogTopForTest(int screenTop){
+        wallInputSimulatedDialogTopForTest = screenTop;
+        lastWallDialogScreenTop = Integer.MIN_VALUE;
         repositionWallCanvasAboveDialog(screenTop);
     }
 
@@ -2096,6 +2106,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void closeWallDialog(){
         lastWallDialogScreenTop=Integer.MIN_VALUE;
+        wallInputSimulatedDialogTopForTest=-1;
         if(wallDialog!=null){
             wallDialog.dismiss();
             wallDialog=null;
