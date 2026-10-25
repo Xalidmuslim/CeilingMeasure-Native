@@ -3,6 +3,8 @@ package ru.xalidmuslim.ceilingmeasure;
 import android.content.Context;
 import android.graphics.Color;
 import android.text.Editable;
+import android.text.InputType;
+import android.text.method.DigitsKeyListener;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,6 +25,11 @@ final class NativeCompactNumericKeypad {
     private NativeCompactNumericKeypad(){}
 
     static View attach(EditText input,NativeUiPrefs prefs){
+        // Accept comma on any device locale, including English Android layouts.
+        // Raw numeric inputType preserves numeric semantics without replacing
+        // our explicit punctuation filter with the user's IME conventions.
+        input.setKeyListener(DigitsKeyListener.getInstance("0123456789,."));
+        input.setRawInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         input.setShowSoftInputOnFocus(false);
 
         Context context=input.getContext();
