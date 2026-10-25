@@ -510,9 +510,9 @@ final class CeilingDrawingView extends View {
         if (room.points.isEmpty()) return;
         float contourWidth = Math.max(1f, maxX - minX);
         float contourHeight = Math.max(1f, maxY - minY);
-        // 70% of the available fitted scale = deliberate zoom-out and
+        // 65% of the available fitted scale = deliberate zoom-out and
         // breathing room around the drawing. Never zoom IN while editing.
-        float fitScale = .70f * Math.min(
+        float fitScale = .65f * Math.min(
                 (right - left) / contourWidth,
                 (bottom - top) / contourHeight);
         float targetScale = Math.max(.01f, Math.min(scale, fitScale));
