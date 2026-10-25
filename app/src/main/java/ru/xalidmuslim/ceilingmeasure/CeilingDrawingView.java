@@ -1,6 +1,8 @@
 package ru.xalidmuslim.ceilingmeasure;
 
 import android.content.Context;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -164,6 +166,7 @@ final class CeilingDrawingView extends View {
     // must never crop the edited wall, and must never modify the saved zoom,
     // pan, room coordinates or geometric measurements.
     private boolean wallInputViewportActive;
+    private boolean wallInputSmoothEntry;
     // A lightweight camera transition, never a translated/GPU-composited View.
     // The temporary camera is restored on exiting wall input.
     private ValueAnimator wallInputFocusAnimator;
@@ -279,6 +282,7 @@ final class CeilingDrawingView extends View {
 
     void setRoom(@NonNull NativeProjectStore.RoomData room) {
         cancelPendingLongPress();
+        cancelWallInputFocusAnimation();
         cancelTransientGestures();
         moveArmedLabel = null;
         selectedLabel = null;
@@ -420,6 +424,10 @@ final class CeilingDrawingView extends View {
      * visual camera, not an adjustment of room.viewScale or room.panX/panY.
      */
     void beginWallInputViewport() {
+        beginWallInputViewport(false);
+    }
+
+    void beginWallInputViewport(boolean animateCamera) {
         if (wallInputViewportActive) return;
         // A second editor may open while the previous return was underway.
         // Always snapshot the exact original camera, never a halfway frame.
@@ -428,8 +436,19 @@ final class CeilingDrawingView extends View {
         wallInputSavedPanX = offsetX;
         wallInputSavedPanY = offsetY;
         wallInputViewportActive = true;
+        wallInputSmoothEntry = animateCamera && NativeMotion.animationsEnabled()
+                && isAttachedToWindow();
         lastFocusedInputWallId = null;
-        fitWallInputViewport();
+        if (wallInputSmoothEntry) {
+            // No synchronous camera jump when the keypad is requested.
+            // The next layout uses the actual shortened canvas dimensions.
+            post(() -> {
+                if (wallInputViewportActive && lastFocusedInputWallId == null
+                        && wallInputFocusAnimator == null) fitWallInputViewport();
+            });
+        } else {
+            fitWallInputViewport();
+        }
     }
 
     private void fitWallInputViewport() {
@@ -463,11 +482,15 @@ final class CeilingDrawingView extends View {
 
         // The temporary view is allowed to fit more widely than normal
         // zoom (0.08f), since large real-world rooms must also remain visible.
-        scale = Math.max(.01f, Math.min(12f,
+        float targetScale = Math.max(.01f, Math.min(12f,
                 Math.min(width / contourWidth, height / contourHeight)));
-        offsetX = (left + right) / 2f - ((minX + maxX) / 2f) * scale;
-        offsetY = (top + bottom) / 2f - ((minY + maxY) / 2f) * scale;
-        postInvalidateOnAnimation();
+        float targetX = (left + right) / 2f
+                - ((minX + maxX) / 2f) * targetScale;
+        float targetY = (top + bottom) / 2f
+                - ((minY + maxY) / 2f) * targetScale;
+        setWallInputCamera(targetScale,targetX,targetY,
+                wallInputSmoothEntry && NativeMotion.animationsEnabled()
+                        && isAttachedToWindow());
     }
 
     /**
@@ -537,42 +560,57 @@ final class CeilingDrawingView extends View {
                 ? Math.max(minOffsetY, Math.min(maxOffsetY, wantedY))
                 : (top + bottom) * .5f - (minY + maxY) * .5f * targetScale;
 
-        // Show the first selected wall immediately so it never hides during
-        // keyboard opening. Animate only movement from one edited wall to
-        // another after the first wall already has visible focus.
-        boolean differentWall = lastFocusedInputWallId != null
+        // Smoothly glide to the FIRST measured wall, too. Previously only
+        // subsequent walls animated and opening the keypad snapped the zoom.
+        boolean firstFocus = lastFocusedInputWallId == null;
+        boolean differentWall = !firstFocus
                 && !editingEdgeId.equals(lastFocusedInputWallId);
+        boolean inFlight = wallInputFocusAnimator != null;
         lastFocusedInputWallId = editingEdgeId;
-        if (wallInputFocusAnimator != null) {
-            wallInputFocusAnimator.cancel();
-            wallInputFocusAnimator = null;
-        }
+        boolean animate = NativeMotion.animationsEnabled() && isAttachedToWindow()
+                && (differentWall || (wallInputSmoothEntry && (firstFocus || inFlight)));
+        setWallInputCamera(focusScale,targetX,targetY,animate);
+    }
 
-        // Animate only deliberate changes of the edited wall, not the tiny
-        // dialog/IME layout corrections. No scale/translation View layer.
-        if (differentWall && ValueAnimator.areAnimatorsEnabled()
-                && isAttachedToWindow()) {
-            final float initialScale = scale;
-            final float initialX = offsetX;
-            final float initialY = offsetY;
-            ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
-            wallInputFocusAnimator = animator;
-            animator.setDuration(NativeMotion.ENTER_MS);
-            animator.setInterpolator(NativeMotion.easing());
-            animator.addUpdateListener(frame -> {
-                float fraction = (float) frame.getAnimatedValue();
-                scale = initialScale + (focusScale - initialScale) * fraction;
-                offsetX = initialX + (targetX - initialX) * fraction;
-                offsetY = initialY + (targetY - initialY) * fraction;
-                postInvalidateOnAnimation();
-            });
-            animator.start();
-        } else {
+    private void setWallInputCamera(float targetScale,float targetX,float targetY,
+            boolean animate) {
+        cancelWallInputFocusAnimation();
+        if(!animate) {
             scale = targetScale;
             offsetX = targetX;
             offsetY = targetY;
             postInvalidateOnAnimation();
+            return;
         }
+        final float initialScale=scale;
+        final float initialX=offsetX;
+        final float initialY=offsetY;
+        ValueAnimator animator=ValueAnimator.ofFloat(0f,1f);
+        wallInputFocusAnimator=animator;
+        animator.setDuration(300L);
+        animator.setInterpolator(NativeMotion.easing());
+        animator.addUpdateListener(frame->{
+            if(wallInputFocusAnimator!=animator)return;
+            float fraction=(float)frame.getAnimatedValue();
+            scale=initialScale+(targetScale-initialScale)*fraction;
+            offsetX=initialX+(targetX-initialX)*fraction;
+            offsetY=initialY+(targetY-initialY)*fraction;
+            postInvalidateOnAnimation();
+        });
+        animator.addListener(new AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(Animator animation) {
+                if(wallInputFocusAnimator==animator)wallInputFocusAnimator=null;
+            }
+        });
+        animator.start();
+    }
+
+    float getEditingLineWidthPxForTest() {
+        return edgeSelectedPaint.getStrokeWidth() * scale;
+    }
+
+    float getEditingHaloWidthPxForTest() {
+        return edgeEditingHaloPaint.getStrokeWidth() * scale;
     }
 
     private void cancelWallInputFocusAnimation() {
@@ -590,6 +628,7 @@ final class CeilingDrawingView extends View {
     void beginWallInputViewportRestore() {
         if (!wallInputViewportActive) return;
         wallInputViewportActive = false;
+        wallInputSmoothEntry = false;
         cancelWallInputFocusAnimation();
         lastFocusedInputWallId = null;
         wallInputRestoreFromScale = scale;
@@ -919,8 +958,8 @@ final class CeilingDrawingView extends View {
         if(Float.compare(edgePaintScale,scale)!=0){
             float factor=Math.max(MIN_VIEW_SCALE,scale);
             edgeNormalPaint.setStrokeWidth(dp(1.8f)/factor);
-            edgeSelectedPaint.setStrokeWidth(dp(3.8f)/factor);
-            edgeEditingHaloPaint.setStrokeWidth(dp(10.5f)/factor);
+            edgeSelectedPaint.setStrokeWidth(dp(2.25f)/factor);
+            edgeEditingHaloPaint.setStrokeWidth(dp(5.6f)/factor);
             edgePaintScale=scale;
         }
 
@@ -1466,10 +1505,8 @@ final class CeilingDrawingView extends View {
         }
         getParent().requestDisallowInterceptTouchEvent(true);
 
-        if (preferredWall != null) {
-            scheduleLongPress("edge", preferredWall.id);
-            return true;
-        }
+        // While tracing an open contour, walls are drawing guides only.
+        // Prefer their free endpoint so the next segment can be drawn.
         if (nearest != null) {
             if (distance(x, y, nearest.x, nearest.y)
                     <= dp(NativeTouchTargetPolicy.PRECISE_CORNER_RADIUS_DP) / scale) {
@@ -1484,7 +1521,7 @@ final class CeilingDrawingView extends View {
                     false);
             return true;
         }
-        if (edge != null) scheduleLongPress("edge", edge.id);
+        // Do not offer measurements for an unfinished wall.
         return true;
     }
 
@@ -1979,6 +2016,7 @@ final class CeilingDrawingView extends View {
     }
 
     private void scheduleMeasurementLongPressIfHit(float x, float y) {
+        if(room == null || !NativeGeometry.isClosed(room))return;
         NativeProjectStore.EdgeData preferred = preferredWallAt(x, y);
         if (preferred != null) {
             scheduleLongPress("edge", preferred.id);
@@ -2075,7 +2113,8 @@ final class CeilingDrawingView extends View {
                 }
             } else if ("edge".equals(kind)) {
                 NativeProjectStore.EdgeData edge = edgeById(id);
-                if (edge != null) listener.onWallLongPressed(edge.id, edge.value);
+                if (edge != null && room != null && NativeGeometry.isClosed(room))
+                    listener.onWallLongPressed(edge.id, edge.value);
             } else {
                 NativeProjectStore.DiagonalData diagonal = diagonalById(id);
                 if (diagonal != null) {

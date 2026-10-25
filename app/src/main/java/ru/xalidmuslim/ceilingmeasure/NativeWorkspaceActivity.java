@@ -1755,6 +1755,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(drawingView==null || drawingView.getMode()!=CeilingDrawingView.Mode.LABEL)
             return;
         NativeProjectStore.RoomData room=activeRoom();
+        if(!NativeGeometry.isClosed(room))return;
         NativeProjectStore.DiagonalData diagonalItem=diagonal
                 ?findDiagonal(room,labelId):null;
         NativeProjectStore.EdgeData wallItem=diagonal
@@ -1787,6 +1788,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     @Override public void onDiagonalLongPressed(String diagonalId,float currentValue){
         NativeProjectStore.RoomData r=activeRoom();
+        if(!NativeGeometry.isClosed(r))return;
         NativeProjectStore.DiagonalData diagonal=findDiagonal(r,diagonalId);
         if(diagonal==null)return;
 
@@ -1817,10 +1819,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void editWall(String edgeId,float currentValue,boolean sequence){
+        NativeProjectStore.RoomData room=activeRoom();
+        // A wall is measurable only after a real cyclic contour is closed.
+        // This guard covers long-presses, number labels, and direct callbacks.
+        if(room==null || !NativeGeometry.isClosed(room))return;
         // Tapping another wall during the return must never snapshot an
         // intermediate frame or let an old animation touch the new editor.
         finishWallReturnImmediately();
-        NativeProjectStore.RoomData room=activeRoom();
         NativeProjectStore.EdgeData edge=findEdge(room,edgeId);
         if(edge==null)return;
 
@@ -1831,7 +1836,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             drawingView.setEditingEdgeId(edgeId);
             // Fitting is temporary; user pan/zoom and geometry are unchanged.
             // Every next wall in a wall-sequence uses the same fitted canvas.
-            drawingView.beginWallInputViewport();
+            drawingView.beginWallInputViewport(true);
         }
         List<NativeProjectStore.EdgeData> ordered=NativeGeometry.orderedEdges(room);
         int index=ordered.indexOf(edge);
@@ -2229,6 +2234,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void editDiagonal(String diagonalId,float currentValue){
         NativeProjectStore.RoomData room=activeRoom();
+        if(!NativeGeometry.isClosed(room))return;
         NativeProjectStore.DiagonalData diagonal=findDiagonal(room,diagonalId);
         if(diagonal==null)return;
 
