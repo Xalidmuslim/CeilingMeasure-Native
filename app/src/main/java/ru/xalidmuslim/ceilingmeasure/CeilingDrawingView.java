@@ -165,6 +165,7 @@ final class CeilingDrawingView extends View {
     // pan, room coordinates or geometric measurements.
     private boolean wallInputViewportActive;
     private boolean wallInputViewportRestorePending;
+    private ValueAnimator wallFocusAnimator;
     private float wallInputSavedScale;
     private float wallInputSavedPanX;
     private float wallInputSavedPanY;
@@ -349,7 +350,12 @@ final class CeilingDrawingView extends View {
         invalidateEditingWallBounds();
         editingEdgeId = edgeId;
         wallPulseBright = true;
-        if (edgeId != null) startWallPulseIfEnabled();
+        if (edgeId != null) {
+            startWallPulseIfEnabled();
+            if (wallInputViewportActive) focusEditedWallInViewport(true);
+        } else {
+            cancelWallFocusAnimation();
+        }
         postInvalidateOnAnimation();
     }
 
@@ -384,6 +390,7 @@ final class CeilingDrawingView extends View {
     @Override protected void onDetachedFromWindow() {
         handler.removeCallbacks(wallPulseTick);
         removeCallbacks(clearWallViewportRestoreFlag);
+        cancelWallFocusAnimation();
         super.onDetachedFromWindow();
     }
 
@@ -422,6 +429,7 @@ final class CeilingDrawingView extends View {
         wallInputSavedPanY = offsetY;
         wallInputViewportActive = true;
         fitWallInputViewport();
+        focusEditedWallInViewport(true);
     }
 
     private void fitWallInputViewport() {
@@ -462,9 +470,67 @@ final class CeilingDrawingView extends View {
         postInvalidateOnAnimation();
     }
 
+    /**
+     * Centre the wall actually being measured, not the entire plan or the
+     * scrolling page. Above/below walls shift the camera in opposite
+     * directions as the user moves through the number sequence.
+     *
+     * Viewport only: no persisted zoom, pan, wall dimensions or coordinates.
+     */
+    private void focusEditedWallInViewport(boolean animate) {
+        if (!wallInputViewportActive || room == null || editingEdgeId == null
+                || getWidth() <= 0 || getHeight() <= 0) return;
+        NativeProjectStore.EdgeData edge = edgeById(editingEdgeId);
+        if (edge == null) return;
+        NativeProjectStore.PointData a = renderPointIndex.get(room, edge.a);
+        NativeProjectStore.PointData b = renderPointIndex.get(room, edge.b);
+        if (a == null || b == null) return;
+
+        float left = Math.min(dp(24), getWidth() * .09f);
+        float right = getWidth() - Math.min(dp(86), getWidth() * .22f);
+        float top = Math.min(dp(24), getHeight() * .14f);
+        float bottom = getHeight() - Math.min(dp(32), getHeight() * .16f);
+        float wallCenterX = (a.x + b.x) * .5f;
+        float wallCenterY = (a.y + b.y) * .5f;
+        float toX = (left + right) * .5f - wallCenterX * scale;
+        float toY = (top + bottom) * .5f - wallCenterY * scale;
+        cancelWallFocusAnimation();
+
+        if (!animate || !NativeMotion.animationsEnabled()
+                || !isAttachedToWindow()) {
+            offsetX = toX;
+            offsetY = toY;
+            postInvalidateOnAnimation();
+            return;
+        }
+        final float fromX = offsetX, fromY = offsetY;
+        if (Math.abs(fromX - toX) < 1f && Math.abs(fromY - toY) < 1f)
+            return;
+        ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
+        wallFocusAnimator = animator;
+        animator.setDuration(NativeMotion.ENTER_MS);
+        animator.setInterpolator(NativeMotion.easing());
+        animator.addUpdateListener(animation -> {
+            if (!wallInputViewportActive || wallFocusAnimator != animation)
+                return;
+            float t = (float) animation.getAnimatedValue();
+            offsetX = fromX + (toX - fromX) * t;
+            offsetY = fromY + (toY - fromY) * t;
+            postInvalidateOnAnimation();
+        });
+        animator.start();
+    }
+
+    private void cancelWallFocusAnimation() {
+        ValueAnimator animator = wallFocusAnimator;
+        wallFocusAnimator = null;
+        if (animator != null) animator.cancel();
+    }
+
     void endWallInputViewport() {
         if (!wallInputViewportActive) return;
         wallInputViewportActive = false;
+        cancelWallFocusAnimation();
         restoreWallViewportSnapshot();
         // The original canvas height is restored by the parent immediately
         // after this call. onSizeChanged must NOT auto-recenter that original
@@ -706,7 +772,9 @@ final class CeilingDrawingView extends View {
             // Fit again only on the actual size change, not every blink tick.
             // This is why the upper wall no longer disappears offscreen when
             // Android moves the wall-input Dialog over its keyboard.
+            cancelWallFocusAnimation();
             fitWallInputViewport();
+            focusEditedWallInViewport(false);
             return;
         }
         if (wallInputViewportRestorePending) {

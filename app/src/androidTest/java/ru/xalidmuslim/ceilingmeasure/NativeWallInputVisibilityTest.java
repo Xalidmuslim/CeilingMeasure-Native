@@ -86,20 +86,26 @@ public final class NativeWallInputVisibilityTest {
 
                 activity.onWallLongPressed(room.edges.get(0).id, 300f);
                 assertTrue(activity.isWallEditorShowingForTest());
-                // Simulates dialog relocated immediately above an Android IME.
-                int[] screen = new int[2];
-                scroll.getLocationOnScreen(screen);
-                expectedTop[0] = screen[1] + Math.round(
-                        340f * activity.getResources().getDisplayMetrics().density);
-                activity.adjustWallCanvasToDialogTopForTest(expectedTop[0]);
+                // The system moves its own Dialog above the real IME.
+                // Simulated bounds race with onGlobalLayout and provide a
+                // different viewport from the one shown on the screen.
+                // Read the real window after layout instead.
+                expectedTop[0] = activity.getWallDialogScreenTopForTest();
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            SystemClock.sleep(250L); // Dialog and IME reach their final screen positions.
             scene.onActivity(activity -> {
+                expectedTop[0] = activity.getWallDialogScreenTopForTest();
+                assertTrue("Real numeric Dialog must be laid out", expectedTop[0] > 0);
                 View canvas = activity.getWindow().getDecorView()
                         .findViewWithTag("native_canvas_wrap");
                 assertNotNull(canvas);
-                assertTrue("Canvas becomes compact in the available IME space",
-                        canvas.getHeight() < normalHeight[0]);
+                assertTrue("Drawing must be docked outside the document scroll area",
+                        activity.isWallDrawingPinnedForTest());
+                // If actual dialog top leaves enough space Android may keep
+                // the original height; only SHRINK when necessary, never grow.
+                assertTrue("Canvas height must respect normal size",
+                        canvas.getHeight() <= normalHeight[0]);
                 int[] location = new int[2];
                 canvas.getLocationOnScreen(location);
                 assertTrue("Wall drawing bottom must stay above number input window: " +
@@ -164,17 +170,13 @@ public final class NativeWallInputVisibilityTest {
                 NativeProjectStore.EdgeData fourth = room.edges.get(3);
                 activity.onWallLongPressed(fourth.id, fourth.value);
                 assertTrue(activity.isWallEditorShowingForTest());
-                int[] top = new int[2];
-                View scroll = activity.getWindow().getDecorView()
-                        .findViewWithTag("native_editor_scroll");
-                scroll.getLocationOnScreen(top);
-                inputDialogTop[0] = top[1] +
-                        Math.round(300f * activity.getResources().getDisplayMetrics().density);
-                activity.adjustWallCanvasToDialogTopForTest(inputDialogTop[0]);
+                inputDialogTop[0] = activity.getWallDialogScreenTopForTest();
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-
+            SystemClock.sleep(260L);
             scene.onActivity(activity -> {
+                inputDialogTop[0] = activity.getWallDialogScreenTopForTest();
+                assertTrue("Real numeric Dialog must be on screen", inputDialogTop[0] > 0);
                 NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
                 CeilingDrawingView drawing = activity.getWindow().getDecorView()
                         .findViewWithTag("native_drawing_view");
@@ -240,6 +242,86 @@ public final class NativeWallInputVisibilityTest {
                         before[2], drawing.getPanYForTest(), .0001f);
             });
         }
+    }
+
+    @Test public void changingEditedWallAutomaticallyPansUpOrDownToThatWall()
+            throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, START);
+        try (ActivityScenario<NativeWorkspaceActivity> scene = ActivityScenario.launch(intent)) {
+            scene.onActivity(activity -> {
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                addRectangularRoom(room);
+                CeilingDrawingView drawing = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                drawing.setRoom(room);
+                activity.onWallLongPressed(room.edges.get(0).id, room.edges.get(0).value);
+                assertTrue(activity.isWallEditorShowingForTest());
+                ScrollView scroll = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_editor_scroll");
+                int[] top = new int[2];
+                scroll.getLocationOnScreen(top);
+                activity.adjustWallCanvasToDialogTopForTest(top[1]
+                        + Math.round(340f * activity.getResources().getDisplayMetrics().density));
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            final float[] firstPan = {0f};
+            scene.onActivity(activity -> {
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                CeilingDrawingView drawing = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                assertTrue("Input must temporarily pin drawing above keyboard",
+                        activity.isWallDrawingPinnedForTest());
+                assertTrue(drawing.isEditingWallFullyVisibleForTest());
+                firstPan[0] = drawing.getPanYForTest();
+                drawing.setEditingEdgeId(room.edges.get(2).id);
+            });
+            SystemClock.sleep(330L);
+            scene.onActivity(activity -> {
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                CeilingDrawingView drawing = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                assertTrue(drawing.isEditingWallFullyVisibleForTest());
+                float secondY = wallMidpointScreenY(drawing, room, room.edges.get(2));
+                int[] pos = new int[2];
+                drawing.getLocationOnScreen(pos);
+                float center = pos[1] + drawing.getHeight()*.5f;
+                assertTrue("Lower wall not centered: " + secondY,
+                        Math.abs(secondY - center) < drawing.getHeight()*.20f);
+                assertTrue("Wall change must actually pan camera",
+                        Math.abs(drawing.getPanYForTest() - firstPan[0]) > 8f);
+                drawing.setEditingEdgeId(room.edges.get(0).id);
+            });
+            SystemClock.sleep(330L);
+            scene.onActivity(activity -> {
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                CeilingDrawingView drawing = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                float backY = wallMidpointScreenY(drawing, room, room.edges.get(0));
+                int[] pos = new int[2];
+                drawing.getLocationOnScreen(pos);
+                assertTrue("Returning to upper wall must pan in reverse",
+                        Math.abs(backY-(pos[1]+drawing.getHeight()*.5f))
+                                < drawing.getHeight()*.20f);
+                activity.dismissWallInputForTest();
+            });
+        }
+    }
+
+    private static float wallMidpointScreenY(CeilingDrawingView drawing,
+            NativeProjectStore.RoomData room, NativeProjectStore.EdgeData edge) {
+        NativeProjectStore.PointData start = null, end = null;
+        for (NativeProjectStore.PointData p : room.points) {
+            if (edge.a.equals(p.id)) start = p;
+            if (edge.b.equals(p.id)) end = p;
+        }
+        assertNotNull(start);
+        assertNotNull(end);
+        int[] pos = new int[2];
+        drawing.getLocationOnScreen(pos);
+        return pos[1] + drawing.getPanYForTest()
+                + (start.y+end.y)*.5f*drawing.getScaleForTest();
     }
 
     private static void addRectangularRoom(NativeProjectStore.RoomData room) {

@@ -120,6 +120,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     // the IME. A short, single-room project otherwise clamps scrollTo too
     // early, leaving the edited edge under the floating input window.
     private View wallInputTemporaryScrollSpacer;
+    // Keyboard-safe drawing dock. Unlike ScrollView scrolling, this is
+    // independent of document length and never clips an active wall.
+    private FrameLayout wallInputPinnedCanvas;
+    private ViewGroup wallInputCanvasParent;
+    private ViewGroup.LayoutParams wallInputCanvasOriginalParams;
+    private int wallInputCanvasOriginalIndex = -1;
     private int wallInputSavedScrollY;
     private float stripLastY;
     private final ArrayDeque<String> undoRooms = new ArrayDeque<>();
@@ -1952,78 +1958,90 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
      * No vertices, measurements, room history, colors or zoom settings change.
      */
     private void repositionWallCanvasAboveDialog(int dialogScreenTop) {
-        if(wallDialog==null || drawingCanvasWrap==null || drawingCard==null
-                || editorScroll==null || dialogScreenTop<=0) return;
-        if(lastWallDialogScreenTop!=Integer.MIN_VALUE
-                && Math.abs(dialogScreenTop-lastWallDialogScreenTop)<dp(18)) {
-            return;
+        if (wallDialog == null || !wallDialog.isShowing()
+                || drawingCanvasWrap == null || editorScroll == null
+                || !(workspacePage instanceof FrameLayout)
+                || dialogScreenTop <= 0) return;
+        if (lastWallDialogScreenTop != Integer.MIN_VALUE
+                && Math.abs(dialogScreenTop - lastWallDialogScreenTop) < dp(2)
+                && wallInputPinnedCanvas != null) return;
+        lastWallDialogScreenTop = dialogScreenTop;
+
+        // Separate modal/IME windows cannot be handled reliably by scrolling
+        // the long Workspace ScrollView: ScrollView limits scrollTo to content
+        // height, so on short orders the active line remains hidden under the
+        // number pad. Temporarily dock the EXISTING Canvas above the Dialog.
+        // No geometry, drawings, zoom settings or numeric values are copied.
+        FrameLayout page = (FrameLayout) workspacePage;
+        int[] scrollAt = new int[2], pageAt = new int[2];
+        editorScroll.getLocationOnScreen(scrollAt);
+        page.getLocationOnScreen(pageAt);
+        int topOnScreen = scrollAt[1] + editorScroll.getPaddingTop() + dp(8);
+        int limit = Math.min(dialogScreenTop - dp(12),
+                scrollAt[1] + editorScroll.getHeight() - dp(8));
+        int room = limit - topOnScreen;
+        if (room <= dp(90)) return; // preserve normal editing on tiny windows
+        int dockHeight = Math.min(normalCanvasHeight, room);
+
+        if (wallInputPinnedCanvas == null) {
+            ViewParent owner = drawingCanvasWrap.getParent();
+            if (!(owner instanceof ViewGroup)) return;
+            wallInputCanvasParent = (ViewGroup) owner;
+            wallInputCanvasOriginalIndex =
+                    wallInputCanvasParent.indexOfChild(drawingCanvasWrap);
+            wallInputCanvasOriginalParams = drawingCanvasWrap.getLayoutParams();
+
+            FrameLayout dock = new FrameLayout(this);
+            dock.setTag("native_active_wall_canvas_overlay");
+            dock.setBackgroundColor(NativeVisualTokens.APP_SOFT);
+            wallInputCanvasParent.removeView(drawingCanvasWrap);
+            dock.addView(drawingCanvasWrap, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, dockHeight));
+            wallInputPinnedCanvas = dock;
+            page.addView(dock);
         }
-        lastWallDialogScreenTop=dialogScreenTop;
-        int[] scrollPosition=new int[2];
-        editorScroll.getLocationOnScreen(scrollPosition);
-        int visibleTop=scrollPosition[1]+editorScroll.getPaddingTop()+dp(4);
-        // drawingCanvasWrap.getTop() is the real header + mode-bar height in
-        // the card, not a hard-coded top offset that changes with font scaling.
-        int canvasHeader=Math.max(0,drawingCanvasWrap.getTop());
-        int available=dialogScreenTop-visibleTop-canvasHeader-dp(18);
-        int bounded=Math.max(dp(160),Math.min(normalCanvasHeight,available));
-        ViewGroup.LayoutParams lp=drawingCanvasWrap.getLayoutParams();
-        if(lp!=null && lp.height!=bounded){
-            lp.height=bounded;
-            drawingCanvasWrap.setLayoutParams(lp);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dockHeight, Gravity.TOP);
+        lp.leftMargin = dp(8);
+        lp.rightMargin = dp(8);
+        lp.topMargin = Math.max(0, topOnScreen - pageAt[1]);
+        wallInputPinnedCanvas.setLayoutParams(lp);
+        // The child must have a real compact height, rather than reporting
+        // MATCH_PARENT (-1): the drawing's original layout height is then
+        // restored unchanged when the keypad is dismissed.
+        ViewGroup.LayoutParams canvasLp = drawingCanvasWrap.getLayoutParams();
+        if (canvasLp != null && canvasLp.height != dockHeight) {
+            canvasLp.height = dockHeight;
+            drawingCanvasWrap.setLayoutParams(canvasLp);
         }
-        // Scroll the actual wall endpoints into the region between system
-        // insets and the TOP of the number-input Dialog. Do not align the
-        // card/header itself: auto-focus, font size and narrow windows can
-        // place the edge above ScrollView's clip despite a fitted Canvas.
-        editorScroll.post(() -> positionActiveWallInVisibleViewport(dialogScreenTop, 0));
+
+        // The View changes size once; CeilingDrawingView then fits its
+        // temporary camera and focuses the current wall. It never calls
+        // syncViewToRoom() for that temporary keyboard viewport.
     }
 
-    private void positionActiveWallInVisibleViewport(int dialogScreenTop, int attempt) {
-        if (wallDialog == null || !wallDialog.isShowing() || editorScroll == null
-                || drawingView == null || wallEditId == null || attempt > 3) return;
-        NativeProjectStore.RoomData room = activeRoom();
-        NativeProjectStore.EdgeData edited = findEdge(room, wallEditId);
-        if (edited == null || drawingView.getHeight() <= 0) return;
-
-        NativeProjectStore.PointData first = null, second = null;
-        for (NativeProjectStore.PointData point : room.points) {
-            if (edited.a.equals(point.id)) first = point;
-            if (edited.b.equals(point.id)) second = point;
+    private void restoreWallInputPinnedCanvas() {
+        if (wallInputPinnedCanvas == null) return;
+        FrameLayout dock = wallInputPinnedCanvas;
+        wallInputPinnedCanvas = null;
+        dock.removeView(drawingCanvasWrap);
+        if (wallInputCanvasParent != null) {
+            int index = Math.min(Math.max(0, wallInputCanvasOriginalIndex),
+                    wallInputCanvasParent.getChildCount());
+            wallInputCanvasParent.addView(
+                    drawingCanvasWrap, index, wallInputCanvasOriginalParams);
         }
-        if (first == null || second == null) return;
+        ViewParent owner = dock.getParent();
+        if (owner instanceof ViewGroup) ((ViewGroup) owner).removeView(dock);
+        wallInputCanvasParent = null;
+        wallInputCanvasOriginalParams = null;
+        wallInputCanvasOriginalIndex = -1;
+    }
 
-        int[] atScroll = new int[2];
-        int[] atDrawing = new int[2];
-        editorScroll.getLocationOnScreen(atScroll);
-        drawingView.getLocationOnScreen(atDrawing);
-        float top = atScroll[1] + editorScroll.getPaddingTop() + dp(11);
-        // Only the actual physical viewport is relevant here. The temporary
-        // bottom padding exists solely to give short documents scroll range.
-        float bottom = Math.min(dialogScreenTop - dp(14),
-                atScroll[1] + editorScroll.getHeight() - dp(11));
-        if (bottom - top < dp(55)) return;
-
-        float scale = drawingView.getScaleForTest();
-        float offsetY = drawingView.getPanYForTest();
-        float ay = atDrawing[1] + offsetY + first.y * scale;
-        float by = atDrawing[1] + offsetY + second.y * scale;
-        float wallTop = Math.min(ay, by);
-        float wallBottom = Math.max(ay, by);
-        float wallCenter = (wallTop + wallBottom) * .5f;
-        float visibleCenter = (top + bottom) * .5f;
-        if (wallTop >= top && wallBottom <= bottom) return;
-
-        // ScrollView scrollTo is bounded by actual document height. The
-        // temporary extra bottom padding reserves room to align short plans.
-        float desiredShift = wallCenter - visibleCenter;
-        int target = Math.max(0, Math.round(editorScroll.getScrollY() + desiredShift));
-        int before = editorScroll.getScrollY();
-        editorScroll.scrollTo(0, target);
-        if (Math.abs(before - target) > dp(2) && attempt < 3) {
-            editorScroll.postOnAnimation(() ->
-                    positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
-        }
+    boolean isWallDrawingPinnedForTest() {
+        return wallInputPinnedCanvas != null
+                && drawingCanvasWrap.getParent() == wallInputPinnedCanvas;
     }
 
     // Read-only, package-scoped hooks used by Android regression instrumentation.
@@ -2033,6 +2051,16 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     boolean isWallEditorShowingForTest(){
         return wallDialog!=null && wallDialog.isShowing();
+    }
+
+    int getWallDialogScreenTopForTest() {
+        if (wallDialog == null || !wallDialog.isShowing()
+                || wallDialog.getWindow() == null) return -1;
+        View decor = wallDialog.getWindow().getDecorView();
+        if (decor.getHeight() <= 0) return -1;
+        int[] at = new int[2];
+        decor.getLocationOnScreen(at);
+        return at[1];
     }
 
     void dismissWallInputForTest(){
@@ -2063,6 +2091,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             // shift and restore the exact pre-keyboard camera instead.
             drawingView.endWallInputViewport();
         }
+        restoreWallInputPinnedCanvas();
         if(historyNavView!=null)historyNavView.setVisibility(View.VISIBLE);
         restoreDrawingCanvasHeight();
         restoreWallEditorScrollSpace();
