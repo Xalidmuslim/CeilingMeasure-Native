@@ -352,6 +352,69 @@ public final class NativeWallInputVisibilityTest {
         }
     }
 
+    @Test public void returnFromWallNumbersInterpolatesViewportBeforeRestoringSavedCamera()
+            throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent=new Intent(context,NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,START);
+        try(ActivityScenario<NativeWorkspaceActivity> scene=ActivityScenario.launch(intent)){
+            scene.onActivity(activity->{
+                NativeProjectStore.RoomData room=activity.getActiveRoomForTest();
+                addRectangularRoom(room);
+                CeilingDrawingView drawing=activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                drawing.setRoom(room);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scene.onActivity(activity->{
+                NativeProjectStore.RoomData room=activity.getActiveRoomForTest();
+                CeilingDrawingView drawing=activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                drawing.fitView();
+                drawing.zoomBy(1.8f);
+                float savedScale=drawing.getScaleForTest();
+                float savedPanX=drawing.getPanXForTest();
+                float savedPanY=drawing.getPanYForTest();
+                float persistentScale=room.viewScale;
+                float persistentPanX=room.panX;
+                float persistentPanY=room.panY;
+
+                drawing.setEditingEdgeId(room.edges.get(0).id);
+                drawing.beginWallInputViewport();
+                drawing.focusEditingWallInVisibleSlice(0f,drawing.getHeight());
+                float editingScale=drawing.getScaleForTest();
+                float editingPanX=drawing.getPanXForTest();
+                float editingPanY=drawing.getPanYForTest();
+                assertTrue("The wall editor must use a different temporary camera",
+                        Math.abs(savedScale-editingScale)>.05f);
+
+                drawing.beginWallInputViewportRestore();
+                assertTrue("Restore must stay pending during smooth transition",
+                        drawing.isWallInputViewportRestorePendingForTest());
+                // Do not snap at t=0.
+                assertEquals(editingScale,drawing.getScaleForTest(),.0001f);
+                drawing.applyWallInputViewportRestoreFraction(.5f);
+                assertEquals((editingScale+savedScale)/2f,
+                        drawing.getScaleForTest(),.0001f);
+                assertEquals((editingPanX+savedPanX)/2f,
+                        drawing.getPanXForTest(),.0001f);
+                assertEquals((editingPanY+savedPanY)/2f,
+                        drawing.getPanYForTest(),.0001f);
+                assertEquals("Preview animation must not persist zoom",
+                        persistentScale,room.viewScale,.0001f);
+                assertEquals(persistentPanX,room.panX,.0001f);
+                assertEquals(persistentPanY,room.panY,.0001f);
+
+                drawing.finishWallInputViewportRestore();
+                drawing.setEditingEdgeId(null);
+                assertFalse(drawing.isWallInputViewportRestorePendingForTest());
+                assertEquals(savedScale,drawing.getScaleForTest(),.0001f);
+                assertEquals(savedPanX,drawing.getPanXForTest(),.0001f);
+                assertEquals(savedPanY,drawing.getPanYForTest(),.0001f);
+            });
+        }
+    }
+
     private static void addRectangularRoom(NativeProjectStore.RoomData room) {
         room.points.clear();
         room.edges.clear();
