@@ -36,6 +36,10 @@ public final class NativeSystemKeyboardTest {
                 View priceKey=price.findViewById(android.R.id.content).getRootView()
                         .findViewWithTag("native_numeric_key_7");
                 assertNotNull("Compact numeric keypad is visible",priceKey);
+                int compactLimit=Math.round(39f*activity.getResources()
+                        .getDisplayMetrics().density);
+                assertTrue("Numeric buttons must be smaller than v252",
+                        priceKey.getLayoutParams().height<=compactLimit);
                 number.selectAll();
                 priceKey.performClick();
                 assertEquals("7",number.getText().toString());
