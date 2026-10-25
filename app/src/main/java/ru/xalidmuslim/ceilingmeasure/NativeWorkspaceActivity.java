@@ -1755,6 +1755,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(drawingView==null || drawingView.getMode()!=CeilingDrawingView.Mode.LABEL)
             return;
         NativeProjectStore.RoomData room=activeRoom();
+        if(!NativeGeometry.isClosed(room))return;
         NativeProjectStore.DiagonalData diagonalItem=diagonal
                 ?findDiagonal(room,labelId):null;
         NativeProjectStore.EdgeData wallItem=diagonal
@@ -1787,6 +1788,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     @Override public void onDiagonalLongPressed(String diagonalId,float currentValue){
         NativeProjectStore.RoomData r=activeRoom();
+        if(!NativeGeometry.isClosed(r))return;
         NativeProjectStore.DiagonalData diagonal=findDiagonal(r,diagonalId);
         if(diagonal==null)return;
 
@@ -2232,6 +2234,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void editDiagonal(String diagonalId,float currentValue){
         NativeProjectStore.RoomData room=activeRoom();
+        if(!NativeGeometry.isClosed(room))return;
         NativeProjectStore.DiagonalData diagonal=findDiagonal(room,diagonalId);
         if(diagonal==null)return;
 
