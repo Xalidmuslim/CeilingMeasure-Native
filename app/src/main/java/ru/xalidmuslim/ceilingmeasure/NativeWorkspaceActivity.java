@@ -1817,10 +1817,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void editWall(String edgeId,float currentValue,boolean sequence){
+        NativeProjectStore.RoomData room=activeRoom();
+        // A wall is measurable only after a real cyclic contour is closed.
+        // This guard covers long-presses, number labels, and direct callbacks.
+        if(room==null || !NativeGeometry.isClosed(room))return;
         // Tapping another wall during the return must never snapshot an
         // intermediate frame or let an old animation touch the new editor.
         finishWallReturnImmediately();
-        NativeProjectStore.RoomData room=activeRoom();
         NativeProjectStore.EdgeData edge=findEdge(room,edgeId);
         if(edge==null)return;
 
@@ -1831,7 +1834,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             drawingView.setEditingEdgeId(edgeId);
             // Fitting is temporary; user pan/zoom and geometry are unchanged.
             // Every next wall in a wall-sequence uses the same fitted canvas.
-            drawingView.beginWallInputViewport();
+            drawingView.beginWallInputViewport(true);
         }
         List<NativeProjectStore.EdgeData> ordered=NativeGeometry.orderedEdges(room);
         int index=ordered.indexOf(edge);
