@@ -1,5 +1,8 @@
 package ru.xalidmuslim.ceilingmeasure;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.res.ColorStateList;
@@ -121,6 +124,15 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     // early, leaving the edited edge under the floating input window.
     private View wallInputTemporaryScrollSpacer;
     private int wallInputSavedScrollY;
+    // Slower, Medicine FastOutSlowIn navigation to the currently edited wall.
+    // Only the ScrollView scrollY changes; never animate drawing geometry.
+    private static final long WALL_FOCUS_SCROLL_MS = 460L;
+    private static final long WALL_FOCUS_SETTLE_MS = 85L;
+    private ValueAnimator wallFocusScrollAnimator;
+    private final Runnable scheduleWallFocus = () -> {
+        if (lastWallDialogScreenTop != Integer.MIN_VALUE)
+            positionActiveWallInVisibleViewport(lastWallDialogScreenTop, 0);
+    };
     private float stripLastY;
     private final ArrayDeque<String> undoRooms = new ArrayDeque<>();
     private final ArrayDeque<String> redoRooms = new ArrayDeque<>();
@@ -258,6 +270,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     @Override
     protected void onDestroy() {
+        cancelWallFocusScroll();
         uiHandler.removeCallbacks(deferredSave);
         if (homeMaterialsDialog != null && homeMaterialsDialog.isShowing()) {
             homeMaterialsDialog.dismiss();
@@ -1807,6 +1820,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         wallSequenceMode=sequence||wallSequenceMode;
         wallEditId=edgeId;
+        // A new wall takes focus from the current animated position, never
+        // letting the previous wall's scroll animation finish afterwards.
+        cancelWallFocusScroll();
         reserveWallEditorScrollSpace();
         if(drawingView!=null){
             drawingView.setEditingEdgeId(edgeId);
@@ -1972,11 +1988,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             lp.height=bounded;
             drawingCanvasWrap.setLayoutParams(lp);
         }
-        // Scroll the actual wall endpoints into the region between system
-        // insets and the TOP of the number-input Dialog. Do not align the
-        // card/header itself: auto-focus, font size and narrow windows can
-        // place the edge above ScrollView's clip despite a fitted Canvas.
-        editorScroll.post(() -> positionActiveWallInVisibleViewport(dialogScreenTop, 0));
+        // Keyboard/Dialog layout may move several times within one animation.
+        // Coalesce these events, then perform ONE controlled 460 ms ease
+        // instead of a burst of immediate scrollTo jumps.
+        editorScroll.removeCallbacks(scheduleWallFocus);
+        editorScroll.postDelayed(scheduleWallFocus, WALL_FOCUS_SETTLE_MS);
     }
 
     private void positionActiveWallInVisibleViewport(int dialogScreenTop, int attempt) {
@@ -2014,16 +2030,87 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         float visibleCenter = (top + bottom) * .5f;
         if (wallTop >= top && wallBottom <= bottom) return;
 
-        // ScrollView scrollTo is bounded by actual document height. The
-        // temporary extra bottom padding reserves room to align short plans.
-        float desiredShift = wallCenter - visibleCenter;
-        int target = Math.max(0, Math.round(editorScroll.getScrollY() + desiredShift));
-        int before = editorScroll.getScrollY();
-        editorScroll.scrollTo(0, target);
-        if (Math.abs(before - target) > dp(2) && attempt < 3) {
-            editorScroll.postOnAnimation(() ->
-                    positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
+        // Prefer the shortest movement that reveals the edited wall. If
+        // both ends cannot fit into the available height, centre the wall.
+        // Positive shift scrolls page UP to a lower wall; negative scrolls
+        // page DOWN to an upper wall.
+        float desiredShift;
+        if (wallBottom - wallTop > bottom - top) {
+            desiredShift = wallCenter - visibleCenter;
+        } else if (wallTop < top) {
+            desiredShift = wallTop - top;
+        } else {
+            desiredShift = wallBottom - bottom;
         }
+        int target = Math.max(0, Math.round(editorScroll.getScrollY() + desiredShift));
+        animateWallFocusScroll(target, () -> {
+            if (attempt < 2 && lastWallDialogScreenTop == dialogScreenTop
+                    && wallEditId != null && wallDialog != null
+                    && wallDialog.isShowing()) {
+                // Only recheck AFTER the glide has finished. No intermediate
+                // snap, overlapping animator, or recursive per-frame scroll.
+                positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1);
+            }
+        });
+    }
+
+    /**
+     * Native View equivalent of Medicine Smooth Motion's FastOutSlowIn scroll.
+     * ValueAnimator runs on the UI frame clock; only scrollY is animated, with
+     * no additional GPU/offscreen compositing layers.
+     */
+    private void animateWallFocusScroll(int target, @Nullable Runnable onDone) {
+        if (editorScroll == null) return;
+        cancelWallFocusScroll();
+        View content = editorScroll.getChildAt(0);
+        int maxScroll = content == null ? 0
+                : Math.max(0, content.getHeight() - editorScroll.getHeight());
+        int boundedTarget = Math.max(0, Math.min(maxScroll, target));
+        int startY = editorScroll.getScrollY();
+        if (Math.abs(startY - boundedTarget) <= dp(2)
+                || !NativeMotion.animationsEnabled()) {
+            editorScroll.scrollTo(0, boundedTarget);
+            if (onDone != null) onDone.run();
+            return;
+        }
+
+        ValueAnimator animator = ValueAnimator.ofInt(startY, boundedTarget);
+        animator.setDuration(WALL_FOCUS_SCROLL_MS);
+        animator.setInterpolator(NativeMotion.easing());
+        animator.addUpdateListener(frame -> {
+            if (editorScroll != null && wallFocusScrollAnimator == frame)
+                editorScroll.scrollTo(0, (Integer) frame.getAnimatedValue());
+        });
+        animator.addListener(new AnimatorListenerAdapter() {
+            private boolean cancelled;
+            @Override public void onAnimationCancel(Animator animation) {
+                cancelled = true;
+            }
+            @Override public void onAnimationEnd(Animator animation) {
+                if (wallFocusScrollAnimator != animation) return;
+                wallFocusScrollAnimator = null;
+                if (!cancelled && onDone != null) onDone.run();
+            }
+        });
+        wallFocusScrollAnimator = animator;
+        animator.start();
+    }
+
+    private void cancelWallFocusScroll() {
+        if (editorScroll != null) editorScroll.removeCallbacks(scheduleWallFocus);
+        ValueAnimator animator = wallFocusScrollAnimator;
+        if (animator != null) {
+            wallFocusScrollAnimator = null;
+            animator.cancel();
+        }
+    }
+
+    long getWallFocusScrollDurationForTest() {
+        return WALL_FOCUS_SCROLL_MS;
+    }
+
+    void animateWallFocusScrollToForTest(int target) {
+        animateWallFocusScroll(target, null);
     }
 
     // Read-only, package-scoped hooks used by Android regression instrumentation.
@@ -2049,6 +2136,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void closeWallDialog(){
+        cancelWallFocusScroll();
         lastWallDialogScreenTop=Integer.MIN_VALUE;
         if(wallDialog!=null){
             wallDialog.dismiss();
