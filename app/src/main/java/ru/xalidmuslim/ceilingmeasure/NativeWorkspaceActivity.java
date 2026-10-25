@@ -135,6 +135,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private String wallEditId;
     private NativeWallMeasureDialog wallDialog;
     private int lastWallDialogScreenTop = Integer.MIN_VALUE;
+    // Test-only override. Real Android dialog callbacks must not overwrite a
+    // synthetic IME position before the regression finishes measuring it.
+    private Integer wallDialogTopOverrideForTest;
     private boolean showingSavedMeasurements;
     private boolean savedOpenedFromEditor;
     private boolean editorOpenedFromSavedMeasurements;
@@ -1890,6 +1893,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         // Observe this Dialog's real position as the system IME animates up;
         // Activity insets alone exclude the separate dialog's keyboard window.
         wallDialog.setEditorViewportListener(this::repositionWallCanvasAboveDialog);
+        wallDialogTopOverrideForTest = null;
         lastWallDialogScreenTop = Integer.MIN_VALUE;
         wallDialog.show();
         enterWallEditorLayout();
@@ -1952,6 +1956,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
      * No vertices, measurements, room history, colors or zoom settings change.
      */
     private void repositionWallCanvasAboveDialog(int dialogScreenTop) {
+        if (wallDialogTopOverrideForTest != null)
+            dialogScreenTop = wallDialogTopOverrideForTest;
         if(wallDialog==null || drawingCanvasWrap==null || drawingCard==null
                 || editorScroll==null || dialogScreenTop<=0) return;
         if(lastWallDialogScreenTop!=Integer.MIN_VALUE
@@ -2056,6 +2062,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     // Read-only, package-scoped hooks used by Android regression instrumentation.
     void adjustWallCanvasToDialogTopForTest(int screenTop){
+        wallDialogTopOverrideForTest = screenTop;
+        lastWallDialogScreenTop = Integer.MIN_VALUE;
         repositionWallCanvasAboveDialog(screenTop);
     }
 
@@ -2077,6 +2085,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void closeWallDialog(){
+        wallDialogTopOverrideForTest = null;
         lastWallDialogScreenTop=Integer.MIN_VALUE;
         if(wallDialog!=null){
             wallDialog.dismiss();
