@@ -65,6 +65,11 @@ jobs:
             mkdir -p build/v251-evidence
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            # Explicitly enable motion: zero-scale emulator settings bypass it.
+            adb shell settings put global animator_duration_scale 1
+            adb shell settings put global transition_animation_scale 1
+            adb shell settings put global window_animation_scale 1
+            adb shell settings get global animator_duration_scale | tee build/v251-evidence/animator-scale.txt
             adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeWallFocusMotionTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee build/v251-evidence/wall-focus-motion-tests.txt
             grep -q 'OK (2 tests)' build/v251-evidence/wall-focus-motion-tests.txt
             adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeWallInputVisibilityTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee build/v251-evidence/wall-input-tests.txt
