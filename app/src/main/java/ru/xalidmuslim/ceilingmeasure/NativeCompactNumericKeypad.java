@@ -36,9 +36,9 @@ final class NativeCompactNumericKeypad {
         LinearLayout panel=new LinearLayout(context);
         panel.setTag("native_compact_number_keypad");
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(context,4),dp(context,4),dp(context,4),dp(context,4));
+        panel.setPadding(dp(context,2),dp(context,2),dp(context,2),dp(context,2));
         panel.setBackground(NativeVisualTokens.outlined(
-                NativeVisualTokens.APP_SOFT,NativeVisualTokens.LINE,dp(context,15),dp(context,1)));
+                NativeVisualTokens.APP_SOFT,NativeVisualTokens.LINE,dp(context,12),dp(context,1)));
 
         GridLayout grid=new GridLayout(context);
         grid.setColumnCount(3);
@@ -62,15 +62,15 @@ final class NativeCompactNumericKeypad {
             button.setPadding(0,0,0,0);
             button.setTextColor("⌫".equals(key)
                     ?NativeVisualTokens.MUTED:NativeVisualTokens.TEXT);
-            NativeTypography.register(button,"⌫".equals(key)?19:21,true,prefs);
+            NativeTypography.register(button,"⌫".equals(key)?18:19,true,prefs);
             button.setBackground(NativeVisualTokens.rippleOutlined(
                     NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,
-                    dp(context,11),dp(context,1),Color.argb(24,30,49,68)));
+                    dp(context,9),dp(context,1),Color.argb(24,30,49,68)));
             button.setOnClickListener(v->type(input,key));
 
             GridLayout.LayoutParams item=new GridLayout.LayoutParams();
             item.width=0;
-            item.height=dp(context,43);
+            item.height=dp(context,38);
             item.columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f);
             item.setMargins(dp(context,3),dp(context,3),
                     dp(context,3),dp(context,3));
