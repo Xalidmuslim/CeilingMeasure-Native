@@ -311,6 +311,47 @@ public final class NativeWallInputVisibilityTest {
         }
     }
 
+    @Test public void keypadEditingZoomsOutWholeContourWithoutSavingCamera()
+            throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent=new Intent(context,NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,START);
+        try(ActivityScenario<NativeWorkspaceActivity> scene=ActivityScenario.launch(intent)){
+            scene.onActivity(activity->{
+                NativeProjectStore.RoomData room=activity.getActiveRoomForTest();
+                addRectangularRoom(room);
+                CeilingDrawingView drawing=activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                drawing.setRoom(room);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scene.onActivity(activity->{
+                NativeProjectStore.RoomData room=activity.getActiveRoomForTest();
+                CeilingDrawingView drawing=activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                assertTrue(drawing.getWidth()>0 && drawing.getHeight()>0);
+                float roomScale=room.viewScale;
+                float roomPanX=room.panX;
+                float roomPanY=room.panY;
+                drawing.setEditingEdgeId(room.edges.get(0).id);
+                drawing.beginWallInputViewport();
+                float initialFit=drawing.getScaleForTest();
+                drawing.focusEditingWallInVisibleSlice(0f,drawing.getHeight());
+                assertTrue("Entering measurements must zoom OUT noticeably from initial fit",
+                        drawing.getScaleForTest()<=initialFit*.89f);
+                assertTrue("Selected wall remains visible",drawing.isEditingWallFullyVisibleForTest());
+                assertEquals(roomScale,room.viewScale,.0001f);
+                assertEquals(roomPanX,room.panX,.0001f);
+                assertEquals(roomPanY,room.panY,.0001f);
+                drawing.endWallInputViewport();
+                drawing.setEditingEdgeId(null);
+                assertEquals(roomScale,room.viewScale,.0001f);
+                assertEquals(roomPanX,room.panX,.0001f);
+                assertEquals(roomPanY,room.panY,.0001f);
+            });
+        }
+    }
+
     private static void addRectangularRoom(NativeProjectStore.RoomData room) {
         room.points.clear();
         room.edges.clear();
