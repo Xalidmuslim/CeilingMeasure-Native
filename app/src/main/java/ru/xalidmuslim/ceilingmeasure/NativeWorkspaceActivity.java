@@ -2053,6 +2053,16 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         return wallDialog!=null && wallDialog.isShowing();
     }
 
+    int getWallDialogScreenTopForTest() {
+        if (wallDialog == null || !wallDialog.isShowing()
+                || wallDialog.getWindow() == null) return -1;
+        View decor = wallDialog.getWindow().getDecorView();
+        if (decor.getHeight() <= 0) return -1;
+        int[] at = new int[2];
+        decor.getLocationOnScreen(at);
+        return at[1];
+    }
+
     void dismissWallInputForTest(){
         closeWallDialog();
     }
