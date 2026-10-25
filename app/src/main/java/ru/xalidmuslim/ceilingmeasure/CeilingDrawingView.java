@@ -1,6 +1,8 @@
 package ru.xalidmuslim.ceilingmeasure;
 
 import android.content.Context;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -594,6 +596,11 @@ final class CeilingDrawingView extends View {
             offsetX=initialX+(targetX-initialX)*fraction;
             offsetY=initialY+(targetY-initialY)*fraction;
             postInvalidateOnAnimation();
+        });
+        animator.addListener(new AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(Animator animation) {
+                if(wallInputFocusAnimator==animator)wallInputFocusAnimator=null;
+            }
         });
         animator.start();
     }
