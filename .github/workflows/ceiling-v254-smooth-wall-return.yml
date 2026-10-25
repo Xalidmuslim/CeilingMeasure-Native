@@ -1,0 +1,117 @@
+name: CeilingMeasure v254 Smooth Wall Return
+
+on:
+  push:
+    branches: [fix/v254-smooth-wall-editor-return]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ceiling-v254-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Lint unit tests and R8 optimized APK
+        run: gradle --no-daemon clean lintDebug testDebugUnitTest assembleDebug assembleDebugAndroidTest assembleReleasePreview
+      - name: Verify optimized APK
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/mapping/releasePreview/mapping.txt
+          test -s app/build/outputs/apk/releasePreview/app-releasePreview.apk
+          sha256sum app/build/outputs/apk/releasePreview/app-releasePreview.apk
+      - name: Enable Android emulator KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 custom keypad and saved wall viewport
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: false
+          emulator-boot-timeout: 600
+          script: |
+            set -eu
+            mkdir -p build/v254-evidence
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeSystemKeyboardTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee build/v254-evidence/numeric-keypad.txt
+            grep -q 'OK (2 tests)' build/v254-evidence/numeric-keypad.txt
+            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeWallInputVisibilityTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee build/v254-evidence/wall-viewport.txt
+            grep -q 'OK (6 tests)' build/v254-evidence/wall-viewport.txt
+            adb install -r app/build/outputs/apk/releasePreview/app-releasePreview.apk
+            adb shell am force-stop ru.xalidmuslim.ceilingmeasure.smooth254
+            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.smooth254/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity | tee build/v254-evidence/optimized-launch.txt
+            adb exec-out screencap -p > build/v254-evidence/optimized-home.png
+            adb logcat -d -s AndroidRuntime:E > build/v254-evidence/runtime-errors.txt
+            if grep -q 'FATAL EXCEPTION' build/v254-evidence/runtime-errors.txt; then exit 1; fi
+      - name: Save native APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-v254-Smooth-Return-R8
+          path: app/build/outputs/apk/releasePreview/app-releasePreview.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Save Android test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-v254-Motion-QA
+          path: build/v254-evidence/
+          retention-days: 30
+          if-no-files-found: warn
+
+  publish-direct-apk:
+    name: Public direct-download preview APK
+    needs: build-and-check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Retrieve tested, R8-optimized APK
+        uses: actions/download-artifact@v4
+        with:
+          name: CeilingMeasure-v254-Smooth-Return-R8
+          path: release
+      - name: Use short download filename
+        run: |
+          set -euo pipefail
+          test -s release/app-releasePreview.apk
+          mv release/app-releasePreview.apk release/Zamer-254.apk
+          sha256sum release/Zamer-254.apk
+      - name: Publish direct APK under GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: zamer-v254-preview
+          target_commitish: ${{ github.sha }}
+          name: "Замер потолков v254 — плавный возврат чертежа"
+          prerelease: true
+          draft: false
+          fail_on_unmatched_files: true
+          files: release/Zamer-254.apk
+          body: |
+            Тестовый APK для Android (Java, R8): более компактная цифровая клавиатура,
+            автоматическое уменьшение чертежа при вводе стен и плавный возврат камеры/прокрутки,
+            сохранение исходного масштаба и положения при закрытии ввода.
+            Устанавливается отдельно от v252.
+            Проверено в Android 15 Emulator, на реальном устройстве ещё не тестировалось.
