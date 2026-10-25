@@ -508,7 +508,11 @@ final class CeilingDrawingView extends View {
         float targetX = (left + right) * .5f - centerX * targetScale;
         float targetY = (top + bottom) * .5f - centerY * targetScale;
 
-        boolean differentWall = !editingEdgeId.equals(lastFocusedInputWallId);
+        // Show the first selected wall immediately so it never hides during
+        // keyboard opening. Animate only movement from one edited wall to
+        // another after the first wall already has visible focus.
+        boolean differentWall = lastFocusedInputWallId != null
+                && !editingEdgeId.equals(lastFocusedInputWallId);
         lastFocusedInputWallId = editingEdgeId;
         if (wallInputFocusAnimator != null) {
             wallInputFocusAnimator.cancel();
