@@ -135,6 +135,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private String wallEditId;
     private NativeWallMeasureDialog wallDialog;
     private int lastWallDialogScreenTop = Integer.MIN_VALUE;
+    // Instrumentation can simulate a smaller IME viewport. Without pinning
+    // it, a subsequent real Dialog layout callback races the test's geometry.
+    // Production always uses the actual Dialog screen top.
+    private int wallInputSimulatedDialogTopForTest = -1;
     private boolean showingSavedMeasurements;
     private boolean savedOpenedFromEditor;
     private boolean editorOpenedFromSavedMeasurements;
@@ -1952,82 +1956,134 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
      * No vertices, measurements, room history, colors or zoom settings change.
      */
     private void repositionWallCanvasAboveDialog(int dialogScreenTop) {
+        // The fake top is only populated by package-private Android tests;
+        // production follows the real Android window's changing coordinates.
+        final int effectiveTop = wallInputSimulatedDialogTopForTest > 0
+                ? wallInputSimulatedDialogTopForTest : dialogScreenTop;
         if(wallDialog==null || drawingCanvasWrap==null || drawingCard==null
-                || editorScroll==null || dialogScreenTop<=0) return;
+                || editorScroll==null || effectiveTop<=0) return;
         if(lastWallDialogScreenTop!=Integer.MIN_VALUE
-                && Math.abs(dialogScreenTop-lastWallDialogScreenTop)<dp(18)) {
+                && Math.abs(effectiveTop-lastWallDialogScreenTop)<dp(6)) {
             return;
         }
-        lastWallDialogScreenTop=dialogScreenTop;
-        int[] scrollPosition=new int[2];
+        lastWallDialogScreenTop=effectiveTop;
+        int[] scrollPosition = new int[2];
         editorScroll.getLocationOnScreen(scrollPosition);
-        int visibleTop=scrollPosition[1]+editorScroll.getPaddingTop()+dp(4);
-        // drawingCanvasWrap.getTop() is the real header + mode-bar height in
-        // the card, not a hard-coded top offset that changes with font scaling.
-        int canvasHeader=Math.max(0,drawingCanvasWrap.getTop());
-        int available=dialogScreenTop-visibleTop-canvasHeader-dp(18);
-        int bounded=Math.max(dp(160),Math.min(normalCanvasHeight,available));
-        ViewGroup.LayoutParams lp=drawingCanvasWrap.getLayoutParams();
-        if(lp!=null && lp.height!=bounded){
-            lp.height=bounded;
-            drawingCanvasWrap.setLayoutParams(lp);
+        int visibleTop = scrollPosition[1] + editorScroll.getPaddingTop() + dp(8);
+        // The drawing header gets scrolled OUT of view. Never subtract its
+        // height here: doing so kept the canvas too small/low behind the
+        // numeric keypad, especially for wall 4 at the upper screen edge.
+        int availableHeight = effectiveTop - visibleTop - dp(24);
+        int boundedHeight = Math.max(dp(125),
+                Math.min(normalCanvasHeight, availableHeight));
+        ViewGroup.LayoutParams params = drawingCanvasWrap.getLayoutParams();
+        if (params != null && params.height != boundedHeight) {
+            params.height = boundedHeight;
+            drawingCanvasWrap.setLayoutParams(params);
         }
-        // Scroll the actual wall endpoints into the region between system
-        // insets and the TOP of the number-input Dialog. Do not align the
-        // card/header itself: auto-focus, font size and narrow windows can
-        // place the edge above ScrollView's clip despite a fitted Canvas.
-        editorScroll.post(() -> positionActiveWallInVisibleViewport(dialogScreenTop, 0));
+        // Layout of the compact canvas happens asynchronously. Only after
+        // layout can we position the edited edge in true screen coordinates.
+        editorScroll.post(() -> positionActiveWallInVisibleViewport(
+                effectiveTop, 0));
     }
 
-    private void positionActiveWallInVisibleViewport(int dialogScreenTop, int attempt) {
+    /**
+     * First bring the drawing itself under the status/navigation safe area.
+     * Then pan the CAMERA within the part not occluded by the numeric dialog.
+     * Scrolling the page alone cannot help if the selected wall is offscreen
+     * inside the drawing's own world->screen transformation.
+     */
+    private void positionActiveWallInVisibleViewport(
+            int dialogScreenTop, int attempt) {
         if (wallDialog == null || !wallDialog.isShowing() || editorScroll == null
-                || drawingView == null || wallEditId == null || attempt > 3) return;
-        NativeProjectStore.RoomData room = activeRoom();
-        NativeProjectStore.EdgeData edited = findEdge(room, wallEditId);
-        if (edited == null || drawingView.getHeight() <= 0) return;
-
-        NativeProjectStore.PointData first = null, second = null;
-        for (NativeProjectStore.PointData point : room.points) {
-            if (edited.a.equals(point.id)) first = point;
-            if (edited.b.equals(point.id)) second = point;
-        }
-        if (first == null || second == null) return;
-
-        int[] atScroll = new int[2];
-        int[] atDrawing = new int[2];
-        editorScroll.getLocationOnScreen(atScroll);
-        drawingView.getLocationOnScreen(atDrawing);
-        float top = atScroll[1] + editorScroll.getPaddingTop() + dp(11);
-        // Only the actual physical viewport is relevant here. The temporary
-        // bottom padding exists solely to give short documents scroll range.
-        float bottom = Math.min(dialogScreenTop - dp(14),
-                atScroll[1] + editorScroll.getHeight() - dp(11));
-        if (bottom - top < dp(55)) return;
-
-        float scale = drawingView.getScaleForTest();
-        float offsetY = drawingView.getPanYForTest();
-        float ay = atDrawing[1] + offsetY + first.y * scale;
-        float by = atDrawing[1] + offsetY + second.y * scale;
-        float wallTop = Math.min(ay, by);
-        float wallBottom = Math.max(ay, by);
-        float wallCenter = (wallTop + wallBottom) * .5f;
-        float visibleCenter = (top + bottom) * .5f;
-        if (wallTop >= top && wallBottom <= bottom) return;
-
-        // ScrollView scrollTo is bounded by actual document height. The
-        // temporary extra bottom padding reserves room to align short plans.
-        float desiredShift = wallCenter - visibleCenter;
-        int target = Math.max(0, Math.round(editorScroll.getScrollY() + desiredShift));
-        int before = editorScroll.getScrollY();
-        editorScroll.scrollTo(0, target);
-        if (Math.abs(before - target) > dp(2) && attempt < 3) {
+                || drawingView == null || wallEditId == null || attempt > 6) return;
+        if (drawingView.getHeight() <= 0) {
             editorScroll.postOnAnimation(() ->
                     positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
+            return;
         }
+
+        int[] scrollAt = new int[2];
+        int[] drawingAt = new int[2];
+        editorScroll.getLocationOnScreen(scrollAt);
+        drawingView.getLocationOnScreen(drawingAt);
+        int upperBound = scrollAt[1] + editorScroll.getPaddingTop() + dp(8);
+        int lowerBound = Math.min(dialogScreenTop - dp(12),
+                scrollAt[1] + editorScroll.getHeight() - dp(8));
+        if (lowerBound - upperBound < dp(50)) return;
+
+        // Scroll the top of the DRAWING, not its containing card/header.
+        // A temporary spacer already provides extra scroll range while the
+        // editor is open. Do not animate the ScrollView and the camera at
+        // the same time (that caused the previous double-jump effect).
+        int shiftToTop = drawingAt[1] - upperBound;
+        if (Math.abs(shiftToTop) > dp(4) && attempt < 6) {
+            int before = editorScroll.getScrollY();
+            editorScroll.scrollTo(0, Math.max(0, before + shiftToTop));
+            if (editorScroll.getScrollY() != before) {
+                editorScroll.postOnAnimation(() ->
+                        positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
+                return;
+            }
+        }
+
+        // Effective visible slice of the drawing's OWN coordinates after
+        // clipping both by ScrollView and the floating numeric input.
+        drawingView.getLocationOnScreen(drawingAt);
+        float localTop = Math.max(0f, upperBound - drawingAt[1]);
+        float localBottom = Math.min(drawingView.getHeight(),
+                lowerBound - drawingAt[1]);
+        if (localBottom - localTop >= dp(56)) {
+            drawingView.focusEditingWallInVisibleSlice(localTop, localBottom);
+        }
+    }
+
+    boolean isSelectedWallVisibleAboveKeypadForTest(int dialogTop) {
+        if (wallEditId == null || drawingView == null || editorScroll == null) {
+            return false;
+        }
+        NativeProjectStore.EdgeData edge = findEdge(activeRoom(), wallEditId);
+        if (edge == null) return false;
+        NativeProjectStore.PointData a = null, b = null;
+        for (NativeProjectStore.PointData point : activeRoom().points) {
+            if (edge.a.equals(point.id)) a = point;
+            if (edge.b.equals(point.id)) b = point;
+        }
+        if (a == null || b == null) return false;
+        int[] drawingAt = new int[2];
+        int[] scrollAt = new int[2];
+        drawingView.getLocationOnScreen(drawingAt);
+        editorScroll.getLocationOnScreen(scrollAt);
+        float upper = scrollAt[1] + editorScroll.getPaddingTop() + dp(10);
+        float lower = Math.min(dialogTop, scrollAt[1] + editorScroll.getHeight())
+                - dp(10);
+        float ay = drawingAt[1] + drawingView.getPanYForTest()
+                + a.y * drawingView.getScaleForTest();
+        float by = drawingAt[1] + drawingView.getPanYForTest()
+                + b.y * drawingView.getScaleForTest();
+        return Math.min(ay, by) >= upper && Math.max(ay, by) <= lower;
+    }
+
+    float activeWallCenterScreenYForTest() {
+        if (wallEditId == null || drawingView == null) return Float.NaN;
+        NativeProjectStore.EdgeData edge = findEdge(activeRoom(), wallEditId);
+        if (edge == null) return Float.NaN;
+        NativeProjectStore.PointData a = null, b = null;
+        for (NativeProjectStore.PointData point : activeRoom().points) {
+            if (edge.a.equals(point.id)) a = point;
+            if (edge.b.equals(point.id)) b = point;
+        }
+        if (a == null || b == null) return Float.NaN;
+        int[] drawingAt = new int[2];
+        drawingView.getLocationOnScreen(drawingAt);
+        return drawingAt[1] + drawingView.getPanYForTest()
+                + (a.y + b.y) * .5f * drawingView.getScaleForTest();
     }
 
     // Read-only, package-scoped hooks used by Android regression instrumentation.
     void adjustWallCanvasToDialogTopForTest(int screenTop){
+        wallInputSimulatedDialogTopForTest = screenTop;
+        lastWallDialogScreenTop = Integer.MIN_VALUE;
         repositionWallCanvasAboveDialog(screenTop);
     }
 
@@ -2050,6 +2106,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void closeWallDialog(){
         lastWallDialogScreenTop=Integer.MIN_VALUE;
+        wallInputSimulatedDialogTopForTest=-1;
         if(wallDialog!=null){
             wallDialog.dismiss();
             wallDialog=null;

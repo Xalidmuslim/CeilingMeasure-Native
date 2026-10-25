@@ -164,6 +164,10 @@ final class CeilingDrawingView extends View {
     // must never crop the edited wall, and must never modify the saved zoom,
     // pan, room coordinates or geometric measurements.
     private boolean wallInputViewportActive;
+    // A lightweight camera transition, never a translated/GPU-composited View.
+    // The temporary camera is restored on exiting wall input.
+    private ValueAnimator wallInputFocusAnimator;
+    private String lastFocusedInputWallId;
     private boolean wallInputViewportRestorePending;
     private float wallInputSavedScale;
     private float wallInputSavedPanX;
@@ -384,6 +388,7 @@ final class CeilingDrawingView extends View {
     @Override protected void onDetachedFromWindow() {
         handler.removeCallbacks(wallPulseTick);
         removeCallbacks(clearWallViewportRestoreFlag);
+        cancelWallInputFocusAnimation();
         super.onDetachedFromWindow();
     }
 
@@ -421,6 +426,7 @@ final class CeilingDrawingView extends View {
         wallInputSavedPanX = offsetX;
         wallInputSavedPanY = offsetY;
         wallInputViewportActive = true;
+        lastFocusedInputWallId = null;
         fitWallInputViewport();
     }
 
@@ -462,9 +468,96 @@ final class CeilingDrawingView extends View {
         postInvalidateOnAnimation();
     }
 
+    /**
+     * Bring the currently edited wall to the center of the ACTUALLY visible
+     * slice of the drawing. The parent ScrollView and the numeric dialog each
+     * clip part of the canvas. Using just the canvas center made wall 4
+     * disappear. This camera adjustment is not persisted to RoomData.
+     *
+     * @param visibleTop local coordinate after ScrollView clipping
+     * @param visibleBottom local coordinate before the numeric keypad
+     */
+    void focusEditingWallInVisibleSlice(float visibleTop, float visibleBottom) {
+        if (!wallInputViewportActive || editingEdgeId == null || room == null
+                || getWidth() <= 0 || getHeight() <= 0) return;
+        NativeProjectStore.EdgeData edge = edgeById(editingEdgeId);
+        if (edge == null) return;
+        NativeProjectStore.PointData a = renderPointIndex.get(room, edge.a);
+        NativeProjectStore.PointData b = renderPointIndex.get(room, edge.b);
+        if (a == null || b == null) return;
+
+        float pad = dp(14);
+        float top = Math.max(pad, visibleTop + pad);
+        float bottom = Math.min(getHeight() - pad, visibleBottom - pad);
+        if (bottom <= top + dp(42)) return;
+        float left = dp(18);
+        float right = getWidth() - Math.min(dp(83), getWidth() * .22f);
+        if (right <= left + dp(40)) right = getWidth() - dp(14);
+
+        // Never allow a long edited wall to extend outside the visible area.
+        // Only reduce temporary zoom if the wall exceeds the available slice.
+        float edgeWidth = Math.max(.0001f, Math.abs(a.x - b.x));
+        float edgeHeight = Math.max(.0001f, Math.abs(a.y - b.y));
+        float targetScale = Math.min(scale, Math.min(
+                (right - left) / edgeWidth,
+                (bottom - top) / edgeHeight));
+        targetScale = Math.max(.01f, targetScale);
+        final float focusScale = targetScale;
+        float centerX = (a.x + b.x) * .5f;
+        float centerY = (a.y + b.y) * .5f;
+        float targetX = (left + right) * .5f - centerX * targetScale;
+        float targetY = (top + bottom) * .5f - centerY * targetScale;
+
+        // Show the first selected wall immediately so it never hides during
+        // keyboard opening. Animate only movement from one edited wall to
+        // another after the first wall already has visible focus.
+        boolean differentWall = lastFocusedInputWallId != null
+                && !editingEdgeId.equals(lastFocusedInputWallId);
+        lastFocusedInputWallId = editingEdgeId;
+        if (wallInputFocusAnimator != null) {
+            wallInputFocusAnimator.cancel();
+            wallInputFocusAnimator = null;
+        }
+
+        // Animate only deliberate changes of the edited wall, not the tiny
+        // dialog/IME layout corrections. No scale/translation View layer.
+        if (differentWall && ValueAnimator.areAnimatorsEnabled()
+                && isAttachedToWindow()) {
+            final float initialScale = scale;
+            final float initialX = offsetX;
+            final float initialY = offsetY;
+            ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
+            wallInputFocusAnimator = animator;
+            animator.setDuration(NativeMotion.ENTER_MS);
+            animator.setInterpolator(NativeMotion.easing());
+            animator.addUpdateListener(frame -> {
+                float fraction = (float) frame.getAnimatedValue();
+                scale = initialScale + (focusScale - initialScale) * fraction;
+                offsetX = initialX + (targetX - initialX) * fraction;
+                offsetY = initialY + (targetY - initialY) * fraction;
+                postInvalidateOnAnimation();
+            });
+            animator.start();
+        } else {
+            scale = targetScale;
+            offsetX = targetX;
+            offsetY = targetY;
+            postInvalidateOnAnimation();
+        }
+    }
+
+    private void cancelWallInputFocusAnimation() {
+        if (wallInputFocusAnimator != null) {
+            wallInputFocusAnimator.cancel();
+            wallInputFocusAnimator = null;
+        }
+    }
+
     void endWallInputViewport() {
         if (!wallInputViewportActive) return;
         wallInputViewportActive = false;
+        cancelWallInputFocusAnimation();
+        lastFocusedInputWallId = null;
         restoreWallViewportSnapshot();
         // The original canvas height is restored by the parent immediately
         // after this call. onSizeChanged must NOT auto-recenter that original
@@ -703,6 +796,7 @@ final class CeilingDrawingView extends View {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         if (wallInputViewportActive) {
+            cancelWallInputFocusAnimation();
             // Fit again only on the actual size change, not every blink tick.
             // This is why the upper wall no longer disappears offscreen when
             // Android moves the wall-input Dialog over its keyboard.
