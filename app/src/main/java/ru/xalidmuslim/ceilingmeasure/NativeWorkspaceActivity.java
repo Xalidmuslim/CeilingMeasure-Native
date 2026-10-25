@@ -1,5 +1,8 @@
 package ru.xalidmuslim.ceilingmeasure;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.res.ColorStateList;
@@ -135,6 +138,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private String wallEditId;
     private NativeWallMeasureDialog wallDialog;
     private int lastWallDialogScreenTop = Integer.MIN_VALUE;
+    // Local to numeric-wall editing. Does not change the frozen Medicine
+    // Smooth Motion profile or the drawing's persisted zoom/pan.
+    private static final long WALL_AUTO_SCROLL_MS = 220L;
+    private ValueAnimator wallAutoScrollAnimator;
+    private int wallAutoScrollTarget = Integer.MIN_VALUE;
     private boolean showingSavedMeasurements;
     private boolean savedOpenedFromEditor;
     private boolean editorOpenedFromSavedMeasurements;
@@ -258,6 +266,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     @Override
     protected void onDestroy() {
+        cancelWallAutoScroll();
         uiHandler.removeCallbacks(deferredSave);
         if (homeMaterialsDialog != null && homeMaterialsDialog.isShowing()) {
             homeMaterialsDialog.dismiss();
@@ -1801,6 +1810,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void editWall(String edgeId,float currentValue,boolean sequence){
+        cancelWallAutoScroll();
         NativeProjectStore.RoomData room=activeRoom();
         NativeProjectStore.EdgeData edge=findEdge(room,edgeId);
         if(edge==null)return;
@@ -2019,11 +2029,94 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         float desiredShift = wallCenter - visibleCenter;
         int target = Math.max(0, Math.round(editorScroll.getScrollY() + desiredShift));
         int before = editorScroll.getScrollY();
-        editorScroll.scrollTo(0, target);
-        if (Math.abs(before - target) > dp(2) && attempt < 3) {
-            editorScroll.postOnAnimation(() ->
-                    positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
+        if (Math.abs(before - target) <= dp(2)) return;
+        final String selectedEdge = wallEditId;
+        animateWallAutoScroll(target, () -> {
+            // Verify after this glide has ended, never on every animation
+            // frame. The parent ScrollView can clamp if the document is short.
+            if (attempt < 3 && selectedEdge != null
+                    && selectedEdge.equals(wallEditId)) {
+                editorScroll.postOnAnimation(() ->
+                        positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
+            }
+        });
+    }
+
+    private void cancelWallAutoScroll() {
+        ValueAnimator current = wallAutoScrollAnimator;
+        wallAutoScrollAnimator = null;
+        wallAutoScrollTarget = Integer.MIN_VALUE;
+        if (current != null) current.cancel();
+    }
+
+    /**
+     * Glide the drawing toward the edited wall using the same
+     * FastOutSlowInEasing as the saved Medicine Smooth Motion profile.
+     *
+     * No scale/translation of the drawing View, offscreen compositing or
+     * geometry updates: only the native ScrollView's scrollY changes.
+     * A new target retargets the glide from its actual on-screen position.
+     */
+    private void animateWallAutoScroll(int requestedTarget, @Nullable Runnable completed) {
+        if (editorScroll == null) return;
+        int maxScroll = 0;
+        if (editorScroll.getChildCount() > 0) {
+            View content = editorScroll.getChildAt(0);
+            maxScroll = Math.max(0, content.getHeight()
+                    + editorScroll.getPaddingTop() + editorScroll.getPaddingBottom()
+                    - editorScroll.getHeight());
         }
+        int target = Math.min(maxScroll, Math.max(0, requestedTarget));
+        int origin = editorScroll.getScrollY();
+        if (Math.abs(target - origin) <= dp(2)) {
+            cancelWallAutoScroll();
+            if (completed != null) completed.run();
+            return;
+        }
+        // The layout and dialog can report their position repeatedly while
+        // the keyboard moves. Never restart an identical animation each frame.
+        if (wallAutoScrollAnimator != null
+                && wallAutoScrollAnimator.isRunning()
+                && Math.abs(target - wallAutoScrollTarget) <= dp(2)) return;
+        cancelWallAutoScroll();
+        if (!NativeMotion.animationsEnabled()) {
+            editorScroll.scrollTo(0, target);
+            if (completed != null) completed.run();
+            return;
+        }
+
+        ValueAnimator animator = ValueAnimator.ofInt(origin, target);
+        wallAutoScrollAnimator = animator;
+        wallAutoScrollTarget = target;
+        animator.setDuration(WALL_AUTO_SCROLL_MS);
+        animator.setInterpolator(NativeMotion.easing());
+        animator.addUpdateListener(value -> {
+            if (wallAutoScrollAnimator == animator && editorScroll != null) {
+                editorScroll.scrollTo(0, (Integer) value.getAnimatedValue());
+            }
+        });
+        animator.addListener(new AnimatorListenerAdapter() {
+            private boolean cancelled;
+            @Override public void onAnimationCancel(Animator animation) {
+                cancelled = true;
+            }
+            @Override public void onAnimationEnd(Animator animation) {
+                if (wallAutoScrollAnimator != animator) return;
+                wallAutoScrollAnimator = null;
+                wallAutoScrollTarget = Integer.MIN_VALUE;
+                if (!cancelled && completed != null) completed.run();
+            }
+        });
+        animator.start();
+    }
+
+    // Read-only, package-scoped hooks for the Android motion regression test.
+    void animateWallScrollForTest(int target) {
+        animateWallAutoScroll(target, null);
+    }
+
+    boolean isWallAutoScrollRunningForTest() {
+        return wallAutoScrollAnimator != null && wallAutoScrollAnimator.isRunning();
     }
 
     // Read-only, package-scoped hooks used by Android regression instrumentation.
@@ -2049,6 +2142,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void closeWallDialog(){
+        cancelWallAutoScroll();
         lastWallDialogScreenTop=Integer.MIN_VALUE;
         if(wallDialog!=null){
             wallDialog.dismiss();
