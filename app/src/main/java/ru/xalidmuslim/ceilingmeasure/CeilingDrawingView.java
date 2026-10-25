@@ -172,8 +172,9 @@ final class CeilingDrawingView extends View {
     private float wallInputSavedScale;
     private float wallInputSavedPanX;
     private float wallInputSavedPanY;
-    private final Runnable clearWallViewportRestoreFlag = () ->
-            wallInputViewportRestorePending = false;
+    private float wallInputRestoreFromScale;
+    private float wallInputRestoreFromPanX;
+    private float wallInputRestoreFromPanY;
     private static final long WALL_PULSE_HALF_PERIOD_MS = 420L;
     private final Runnable wallPulseTick = new Runnable() {
         @Override public void run() {
@@ -420,8 +421,9 @@ final class CeilingDrawingView extends View {
      */
     void beginWallInputViewport() {
         if (wallInputViewportActive) return;
-        removeCallbacks(clearWallViewportRestoreFlag);
-        wallInputViewportRestorePending = false;
+        // A second editor may open while the previous return was underway.
+        // Always snapshot the exact original camera, never a halfway frame.
+        finishWallInputViewportRestore();
         wallInputSavedScale = scale;
         wallInputSavedPanX = offsetX;
         wallInputSavedPanY = offsetY;
@@ -580,19 +582,51 @@ final class CeilingDrawingView extends View {
         }
     }
 
-    void endWallInputViewport() {
+    /**
+     * Leave the temporary camera in place until the full-size canvas has
+     * relaid out. The activity animates this camera and the page scroll with
+     * the SAME timing curve to avoid an abrupt two-step return.
+     */
+    void beginWallInputViewportRestore() {
         if (!wallInputViewportActive) return;
         wallInputViewportActive = false;
         cancelWallInputFocusAnimation();
         lastFocusedInputWallId = null;
-        restoreWallViewportSnapshot();
-        // The original canvas height is restored by the parent immediately
-        // after this call. onSizeChanged must NOT auto-recenter that original
-        // pan again (which caused a second jump when hiding the keyboard).
+        wallInputRestoreFromScale = scale;
+        wallInputRestoreFromPanX = offsetX;
+        wallInputRestoreFromPanY = offsetY;
         wallInputViewportRestorePending = true;
-        removeCallbacks(clearWallViewportRestoreFlag);
-        postDelayed(clearWallViewportRestoreFlag, 320L);
         postInvalidateOnAnimation();
+    }
+
+    void applyWallInputViewportRestoreFraction(float fraction) {
+        if (!wallInputViewportRestorePending) return;
+        float progress = Math.max(0f, Math.min(1f, fraction));
+        scale = wallInputRestoreFromScale
+                + (wallInputSavedScale - wallInputRestoreFromScale) * progress;
+        offsetX = wallInputRestoreFromPanX
+                + (wallInputSavedPanX - wallInputRestoreFromPanX) * progress;
+        offsetY = wallInputRestoreFromPanY
+                + (wallInputSavedPanY - wallInputRestoreFromPanY) * progress;
+        // Only the transient camera moves. Do not call syncViewToRoom().
+        postInvalidateOnAnimation();
+    }
+
+    void finishWallInputViewportRestore() {
+        if (!wallInputViewportRestorePending) return;
+        wallInputViewportRestorePending = false;
+        restoreWallViewportSnapshot();
+        postInvalidateOnAnimation();
+    }
+
+    /** Emergency / animation-disabled path retaining previous exact restore. */
+    void endWallInputViewport() {
+        beginWallInputViewportRestore();
+        finishWallInputViewportRestore();
+    }
+
+    boolean isWallInputViewportRestorePendingForTest() {
+        return wallInputViewportRestorePending;
     }
 
     private void restoreWallViewportSnapshot() {
@@ -831,9 +865,8 @@ final class CeilingDrawingView extends View {
             return;
         }
         if (wallInputViewportRestorePending) {
-            wallInputViewportRestorePending = false;
-            removeCallbacks(clearWallViewportRestoreFlag);
-            restoreWallViewportSnapshot();
+            // The Activity expands the canvas BEFORE its single synchronized
+            // scroll+camera animator begins. Do not snap on this resize.
             postInvalidateOnAnimation();
             return;
         }
