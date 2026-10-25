@@ -2193,7 +2193,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         }
         if(historyNavView!=null)historyNavView.setVisibility(View.VISIBLE);
         restoreDrawingCanvasHeight();
-        if(hadEditor && editorScroll!=null && NativeMotion.animationsEnabled()){
+        if(hadEditor && editorScroll!=null){
             int generation=++wallReturnGeneration;
             editorScroll.post(()->startWallReturnAnimation(generation,0));
         }else{
