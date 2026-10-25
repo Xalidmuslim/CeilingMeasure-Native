@@ -103,18 +103,18 @@ final class NativeWallMeasureDialog extends Dialog {
 
         LinearLayout shell=new LinearLayout(getContext());
         shell.setOrientation(LinearLayout.VERTICAL);
-        shell.setPadding(dp(10),dp(9),dp(10),dp(9));
+        shell.setPadding(dp(9),dp(6),dp(9),dp(7));
         shell.setBackground(rounded(Color.WHITE,LINE,19,1));
 
         LinearLayout head=new LinearLayout(getContext());
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
         TextView title=text(titleText,15,TEXT,true);
-        head.addView(title,new LinearLayout.LayoutParams(0,dp(48),1f));
+        head.addView(title,new LinearLayout.LayoutParams(0,dp(40),1f));
         Button x=button("×",false);
         x.setTag("native_wall_dismiss");
         x.setOnClickListener(v->listener.onClose());
-        head.addView(x,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        head.addView(x,new LinearLayout.LayoutParams(dp(40),dp(40)));
         shell.addView(head);
 
         TextView sub=text(
@@ -152,8 +152,8 @@ final class NativeWallMeasureDialog extends Dialog {
             }
         });
         LinearLayout.LayoutParams dpv=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(52));
-        dpv.topMargin=dp(7);
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(44));
+        dpv.topMargin=dp(5);
         shell.addView(display,dpv);
 
         meterHint=text("",10,MUTED,false);
@@ -167,7 +167,7 @@ final class NativeWallMeasureDialog extends Dialog {
         View keypad=NativeCompactNumericKeypad.attach(display,uiPrefs);
         LinearLayout.LayoutParams kp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
-        kp.topMargin=dp(7);
+        kp.topMargin=dp(4);
         shell.addView(keypad,kp);
 
         Button delete=button("Удалить стену",false);
@@ -176,15 +176,15 @@ final class NativeWallMeasureDialog extends Dialog {
         delete.setVisibility(sequence?View.GONE:View.VISIBLE);
         delete.setOnClickListener(v->listener.onDelete());
         LinearLayout.LayoutParams delp=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(48));
-        delp.topMargin=dp(5);
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(42));
+        delp.topMargin=dp(3);
         shell.addView(delete,delp);
 
         LinearLayout actions=new LinearLayout(getContext());
         actions.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,dp(48));
-        ap.topMargin=dp(6);
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(42));
+        ap.topMargin=dp(4);
         shell.addView(actions,ap);
 
         Button back=button(sequence?"Назад":"Закрыть",false);
@@ -197,10 +197,10 @@ final class NativeWallMeasureDialog extends Dialog {
         done.setTag("native_wall_done");
         done.setOnClickListener(v->submit());
 
-        LinearLayout.LayoutParams half=new LinearLayout.LayoutParams(0,dp(48),1f);
+        LinearLayout.LayoutParams half=new LinearLayout.LayoutParams(0,dp(42),1f);
         half.rightMargin=dp(3);
         actions.addView(back,new LinearLayout.LayoutParams(half));
-        LinearLayout.LayoutParams half2=new LinearLayout.LayoutParams(0,dp(48),1f);
+        LinearLayout.LayoutParams half2=new LinearLayout.LayoutParams(0,dp(42),1f);
         half2.leftMargin=dp(3);
         actions.addView(done,half2);
 
