@@ -80,3 +80,38 @@ jobs:
           path: build/v253-evidence/
           retention-days: 30
           if-no-files-found: warn
+
+  publish-direct-apk:
+    name: Public direct-download preview APK
+    needs: build-and-check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Retrieve tested, R8-optimized APK
+        uses: actions/download-artifact@v4
+        with:
+          name: CeilingMeasure-v253-Compact-Keypad-R8
+          path: release
+      - name: Use short download filename
+        run: |
+          set -euo pipefail
+          test -s release/app-releasePreview.apk
+          mv release/app-releasePreview.apk release/Zamer-253.apk
+          sha256sum release/Zamer-253.apk
+      - name: Publish direct APK under GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: zamer-v253-preview
+          target_commitish: ${{ github.sha }}
+          name: "Замер потолков v253 — тестовая сборка"
+          prerelease: true
+          draft: false
+          fail_on_unmatched_files: true
+          files: release/Zamer-253.apk
+          body: |
+            Тестовый APK для Android (Java, R8): более компактная цифровая клавиатура,
+            автоматическое уменьшение чертежа при вводе размеров стен,
+            сохранение исходного масштаба и положения при закрытии ввода.
+            Устанавливается отдельно от v252.
+            Проверено в Android 15 Emulator, на реальном устройстве ещё не тестировалось.
