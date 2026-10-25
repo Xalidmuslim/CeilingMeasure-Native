@@ -1,0 +1,87 @@
+name: CeilingMeasure v251 Smooth Wall Focus Movement
+
+on:
+  push:
+    branches: [fix/v251-smooth-wall-focus-scroll]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ceiling-v251-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  r8-wall-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Compile, lint, native unit tests, R8 preview and UI test APK
+        run: >
+          gradle --no-daemon clean lintDebug testDebugUnitTest
+          assembleDebug assembleDebugAndroidTest assembleReleasePreview
+      - name: Validate R8 output and APK metadata
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/mapping/releasePreview/mapping.txt
+          test -s app/build/outputs/apk/releasePreview/app-releasePreview.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          sha256sum app/build/outputs/apk/releasePreview/app-releasePreview.apk
+      - name: Save v251 optimized APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-v251-Wall-Pulse-IME-R8
+          path: app/build/outputs/apk/releasePreview/app-releasePreview.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Enable KVM for API35 emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: 'Android 15: measure focused wall blink and IME occlusion'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: false
+          emulator-boot-timeout: 600
+          script: |
+            # Emulator action executes /bin/sh, not bash; -o pipefail is invalid there.
+            set -eu
+            mkdir -p build/v251-evidence
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeWallFocusMotionTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee build/v251-evidence/wall-focus-motion-tests.txt
+            grep -q 'OK (2 tests)' build/v251-evidence/wall-focus-motion-tests.txt
+            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeWallInputVisibilityTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee build/v251-evidence/wall-input-tests.txt
+            grep -q 'OK (3 tests)' build/v251-evidence/wall-input-tests.txt
+            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeKeyboardNavigationInsetsTest,ru.xalidmuslim.ceilingmeasure.NativeSystemKeyboardTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee build/v251-evidence/existing-keyboard-tests.txt
+            grep -q 'OK (3 tests)' build/v251-evidence/existing-keyboard-tests.txt
+            adb install -r app/build/outputs/apk/releasePreview/app-releasePreview.apk
+            adb shell am force-stop ru.xalidmuslim.ceilingmeasure.wall251
+            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.wall251/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity | tee build/v251-evidence/optimized-launch.txt
+            adb exec-out screencap -p > build/v251-evidence/optimized-home.png
+            adb logcat -d -s AndroidRuntime:E > build/v251-evidence/runtime-errors.txt
+            if grep -q 'FATAL EXCEPTION' build/v251-evidence/runtime-errors.txt; then exit 1; fi
+      - name: Save Android wall input evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-v251-Wall-IME-Android-Tests
+          path: build/v251-evidence/
+          retention-days: 30
+          if-no-files-found: warn
