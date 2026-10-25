@@ -462,6 +462,80 @@ final class CeilingDrawingView extends View {
         postInvalidateOnAnimation();
     }
 
+    /**
+     * Follow the selected wall (up OR down) inside the part of the canvas
+     * genuinely visible above the numeric keyboard. The surrounding document
+     * may be scrolled or clipped by a ScrollView; local View coordinates alone
+     * are insufficient. This is a temporary viewport-only pan, never a
+     * modification of room.viewScale, panX, panY or measured coordinates.
+     *
+     * @param visibleTopScreen screen-space top of the intersecting visible area
+     * @param visibleBottomScreen screen-space bottom above keyboard/dialog
+     */
+    boolean focusEditingWallInScreenRange(
+            float visibleTopScreen, float visibleBottomScreen) {
+        if (!wallInputViewportActive || editingEdgeId == null || room == null
+                || getWidth() <= 0 || getHeight() <= 0) return false;
+        NativeProjectStore.EdgeData edge = edgeById(editingEdgeId);
+        if (edge == null) return false;
+        NativeProjectStore.PointData first =
+                NativeGeometry.pointById(room, edge.a);
+        NativeProjectStore.PointData second =
+                NativeGeometry.pointById(room, edge.b);
+        if (first == null || second == null) return false;
+
+        float availableHeight = visibleBottomScreen - visibleTopScreen;
+        if (availableHeight < dp(40)) return false;
+        int[] viewOrigin = new int[2];
+        getLocationOnScreen(viewOrigin);
+        float safeVertical = Math.max(dp(20), availableHeight - dp(30));
+        float safeHorizontal = Math.max(dp(45),
+                getWidth() - Math.min(dp(105), getWidth() * .26f));
+        float segmentWidth = Math.abs(first.x - second.x);
+        float segmentHeight = Math.abs(first.y - second.y);
+        float safeScale = scale;
+        if (segmentHeight > .001f)
+            safeScale = Math.min(safeScale, safeVertical / segmentHeight);
+        if (segmentWidth > .001f)
+            safeScale = Math.min(safeScale, safeHorizontal / segmentWidth);
+        if (safeScale < scale) {
+            scale = Math.max(.005f, safeScale);
+        }
+
+        // Center the edited wall within the *visible* screen-space band.
+        // A lower wall moves the whole drawing UP; an upper wall moves it
+        // DOWN. No parent View translation, GPU layer or fling is introduced.
+        float worldMidY = (first.y + second.y) * .5f;
+        float targetScreenMidY = (visibleTopScreen + visibleBottomScreen) * .5f;
+        float newY = targetScreenMidY - viewOrigin[1] - worldMidY * scale;
+        float worldMidX = (first.x + second.x) * .5f;
+        float targetLocalMidX = (getWidth() - Math.min(dp(70),
+                getWidth() * .16f)) * .5f;
+        float newX = targetLocalMidX - worldMidX * scale;
+        if (Math.abs(newX - offsetX) >= .25f || Math.abs(newY - offsetY) >= .25f) {
+            offsetX = newX;
+            offsetY = newY;
+            postInvalidateOnAnimation();
+        }
+        return true;
+    }
+
+    boolean isEditingWallVisibleInScreenRangeForTest(
+            float topScreen, float bottomScreen) {
+        if (editingEdgeId == null || room == null) return false;
+        NativeProjectStore.EdgeData edge = edgeById(editingEdgeId);
+        if (edge == null) return false;
+        NativeProjectStore.PointData a = NativeGeometry.pointById(room, edge.a);
+        NativeProjectStore.PointData b = NativeGeometry.pointById(room, edge.b);
+        if (a == null || b == null) return false;
+        int[] origin = new int[2];
+        getLocationOnScreen(origin);
+        float ay = origin[1] + offsetY + a.y * scale;
+        float by = origin[1] + offsetY + b.y * scale;
+        return ay >= topScreen && ay <= bottomScreen
+                && by >= topScreen && by <= bottomScreen;
+    }
+
     void endWallInputViewport() {
         if (!wallInputViewportActive) return;
         wallInputViewportActive = false;

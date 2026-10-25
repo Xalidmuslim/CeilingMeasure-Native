@@ -103,7 +103,8 @@ public final class NativeWallInputVisibilityTest {
                 int[] location = new int[2];
                 canvas.getLocationOnScreen(location);
                 assertTrue("Wall drawing bottom must stay above number input window: " +
-                                (location[1]+canvas.getHeight()) + " vs "+ expectedTop[0],
+                                (location[1]+canvas.getHeight()) + " vs "+ expectedTop[0]
+                                + " " + activity.wallViewportDiagnosticsForTest(expectedTop[0]),
                         location[1] + canvas.getHeight() <= expectedTop[0] - 2);
                 NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
                 assertEquals(originalPoints[0][0], (int)room.points.get(0).x);
@@ -214,7 +215,8 @@ public final class NativeWallInputVisibilityTest {
                                     + actualScreenY + " < " + visibleTop,
                             actualScreenY >= visibleTop);
                     assertTrue("Edited wall still overlaps dialog/IME: "
-                                    + actualScreenY + " > " + visibleBottom,
+                                    + actualScreenY + " > " + visibleBottom
+                                    + " " + activity.wallViewportDiagnosticsForTest(inputDialogTop[0]),
                             actualScreenY <= visibleBottom);
                 }
                 assertTrue("View must use a temporary fitted wall-editor viewport",
@@ -238,6 +240,60 @@ public final class NativeWallInputVisibilityTest {
                         before[1], drawing.getPanXForTest(), .0001f);
                 assertEquals("Original panY must return after keyboard closes",
                         before[2], drawing.getPanYForTest(), .0001f);
+            });
+        }
+    }
+
+    /** Entering a wall must pan toward its *own* position rather than
+     *  keeping the previous wall or the full rectangle centered. */
+    @Test public void cameraFollowsUpperAndLowerEditedWallsAboveKeyboard()
+            throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, START);
+        try (ActivityScenario<NativeWorkspaceActivity> scene = ActivityScenario.launch(intent)) {
+            scene.onActivity(activity -> {
+                NativeProjectStore.RoomData room=activity.getActiveRoomForTest();
+                addRectangularRoom(room);
+                CeilingDrawingView view=activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                assertNotNull(view);
+                view.setRoom(room);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scene.onActivity(activity -> {
+                NativeProjectStore.RoomData room=activity.getActiveRoomForTest();
+                CeilingDrawingView view=activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                view.beginWallInputViewport();
+                int[] drawingPos=new int[2];
+                view.getLocationOnScreen(drawingPos);
+                float top=drawingPos[1]+24f;
+                float bottom=drawingPos[1]+view.getHeight()-24f;
+                assertTrue(bottom > top + 50f);
+                view.setEditingEdgeId(room.edges.get(0).id);
+                assertTrue("Upper wall must be centered in its own visible region",
+                        view.focusEditingWallInScreenRange(top,bottom));
+                assertTrue("Upper wall must be visible",
+                        view.isEditingWallVisibleInScreenRangeForTest(top,bottom));
+
+                float upperPan=view.getPanYForTest();
+                view.setEditingEdgeId(room.edges.get(2).id);
+                assertTrue("Lower wall must cause a camera shift",
+                        view.focusEditingWallInScreenRange(top,bottom));
+                assertTrue("Lower wall must also be entirely visible",
+                        view.isEditingWallVisibleInScreenRangeForTest(top,bottom));
+                assertTrue("Viewport must move UP toward lower wall rather than " +
+                        "stay on the previous upper wall",
+                        view.getPanYForTest() < upperPan);
+
+                float lowerPan=view.getPanYForTest();
+                view.setEditingEdgeId(room.edges.get(0).id);
+                assertTrue(view.focusEditingWallInScreenRange(top,bottom));
+                assertTrue("Viewport must move DOWN toward upper wall",
+                        view.getPanYForTest() > lowerPan);
+                view.endWallInputViewport();
+                view.setEditingEdgeId(null);
             });
         }
     }
