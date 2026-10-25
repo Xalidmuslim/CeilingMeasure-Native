@@ -1,5 +1,8 @@
 package ru.xalidmuslim.ceilingmeasure;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.res.ColorStateList;
@@ -121,6 +124,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     // early, leaving the edited edge under the floating input window.
     private View wallInputTemporaryScrollSpacer;
     private int wallInputSavedScrollY;
+    private ValueAnimator wallReturnAnimator;
+    private int wallReturnGeneration;
+    // Single choreographed scroll + camera restore (one frame clock, one easing).
+    private static final long WALL_RETURN_DURATION_MS = 390L;
     private float stripLastY;
     private final ArrayDeque<String> undoRooms = new ArrayDeque<>();
     private final ArrayDeque<String> redoRooms = new ArrayDeque<>();
@@ -262,6 +269,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     @Override
     protected void onDestroy() {
+        wallReturnGeneration++;
+        if (wallReturnAnimator != null) {
+            wallReturnAnimator.cancel();
+            wallReturnAnimator = null;
+        }
         uiHandler.removeCallbacks(deferredSave);
         if (homeMaterialsDialog != null && homeMaterialsDialog.isShowing()) {
             homeMaterialsDialog.dismiss();
@@ -1805,6 +1817,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void editWall(String edgeId,float currentValue,boolean sequence){
+        // Tapping another wall during the return must never snapshot an
+        // intermediate frame or let an old animation touch the new editor.
+        finishWallReturnImmediately();
         NativeProjectStore.RoomData room=activeRoom();
         NativeProjectStore.EdgeData edge=findEdge(room,edgeId);
         if(edge==null)return;
@@ -1925,11 +1940,65 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         wallInputTemporaryScrollSpacer = null;
         ViewParent parent = spacer.getParent();
         if (parent instanceof ViewGroup) ((ViewGroup) parent).removeView(spacer);
-        int originalY = wallInputSavedScrollY;
-        editorScroll.post(() -> {
-            if (editorScroll != null && wallDialog == null)
-                editorScroll.scrollTo(0, Math.max(0, originalY));
+        // The page is already at its target when the animator finishes.
+        // Avoid a posted second scroll that previously caused a visible jump.
+        editorScroll.scrollTo(0, Math.max(0, wallInputSavedScrollY));
+    }
+
+    private void finishWallReturnImmediately(){
+        wallReturnGeneration++;
+        if(wallReturnAnimator!=null){
+            ValueAnimator animator=wallReturnAnimator;
+            wallReturnAnimator=null;
+            animator.cancel();
+        }
+        if(drawingView!=null && drawingView.isWallInputViewportRestorePendingForTest()){
+            drawingView.finishWallInputViewportRestore();
+            if(wallDialog==null)restoreWallEditorScrollSpace();
+        }
+    }
+
+    private void startWallReturnAnimation(int generation,int attempt){
+        if(generation!=wallReturnGeneration || wallDialog!=null
+                || drawingView==null || editorScroll==null
+                || !drawingView.isWallInputViewportRestorePendingForTest())return;
+        if(drawingCanvasWrap!=null && drawingCanvasWrap.getHeight()!=normalCanvasHeight
+                && attempt<6){
+            editorScroll.postOnAnimation(()->startWallReturnAnimation(generation,attempt+1));
+            return;
+        }
+        if(!NativeMotion.animationsEnabled() || !drawingView.isAttachedToWindow()){
+            drawingView.finishWallInputViewportRestore();
+            restoreWallEditorScrollSpace();
+            return;
+        }
+        final int startScroll=editorScroll.getScrollY();
+        final int targetScroll=wallInputSavedScrollY;
+        ValueAnimator animator=ValueAnimator.ofFloat(0f,1f);
+        wallReturnAnimator=animator;
+        animator.setDuration(WALL_RETURN_DURATION_MS);
+        animator.setInterpolator(NativeMotion.easing());
+        animator.addUpdateListener(frame->{
+            if(generation!=wallReturnGeneration || wallReturnAnimator!=animator)return;
+            float fraction=(float)frame.getAnimatedValue();
+            drawingView.applyWallInputViewportRestoreFraction(fraction);
+            editorScroll.scrollTo(0,Math.round(startScroll
+                    +(targetScroll-startScroll)*fraction));
         });
+        animator.addListener(new AnimatorListenerAdapter(){
+            @Override public void onAnimationEnd(Animator animation){
+                if(generation!=wallReturnGeneration || wallReturnAnimator!=animator)return;
+                wallReturnAnimator=null;
+                drawingView.finishWallInputViewportRestore();
+                restoreWallEditorScrollSpace();
+                updateDrawingChrome();
+            }
+        });
+        animator.start();
+    }
+
+    boolean isWallReturnAnimationRunningForTest(){
+        return wallReturnAnimator!=null && wallReturnAnimator.isRunning();
     }
 
     private void enterWallEditorLayout(){
@@ -2113,17 +2182,25 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         }
         wallEditId=null;
         wallSequenceMode=false;
+        boolean hadEditor=drawingView!=null
+                && drawingView.isWallInputViewportActiveForTest();
         if(drawingView!=null){
             drawingView.setEditingEdgeId(null);
             drawingView.setWallSequenceActive(false);
-            // The canvas is about to grow back; ignore its transient size
-            // shift and restore the exact pre-keyboard camera instead.
-            drawingView.endWallInputViewport();
+            // Keep the small fitted camera until the canvas is back at its
+            // normal height, then smoothly return zoom, pan AND page scroll.
+            if(hadEditor)drawingView.beginWallInputViewportRestore();
         }
         if(historyNavView!=null)historyNavView.setVisibility(View.VISIBLE);
         restoreDrawingCanvasHeight();
-        restoreWallEditorScrollSpace();
-        updateDrawingChrome();
+        if(hadEditor && editorScroll!=null && NativeMotion.animationsEnabled()){
+            int generation=++wallReturnGeneration;
+            editorScroll.post(()->startWallReturnAnimation(generation,0));
+        }else{
+            if(drawingView!=null)drawingView.finishWallInputViewportRestore();
+            restoreWallEditorScrollSpace();
+            updateDrawingChrome();
+        }
     }
 
     private void commitOpenWallValueIfValid(){
