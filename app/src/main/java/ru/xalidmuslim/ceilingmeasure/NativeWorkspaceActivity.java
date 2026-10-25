@@ -129,10 +129,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private static final long WALL_FOCUS_SCROLL_MS = 460L;
     private static final long WALL_FOCUS_SETTLE_MS = 85L;
     private ValueAnimator wallFocusScrollAnimator;
-    private final Runnable scheduleWallFocus = () -> {
-        if (lastWallDialogScreenTop != Integer.MIN_VALUE)
-            positionActiveWallInVisibleViewport(lastWallDialogScreenTop, 0);
-    };
+
     private float stripLastY;
     private final ArrayDeque<String> undoRooms = new ArrayDeque<>();
     private final ArrayDeque<String> redoRooms = new ArrayDeque<>();
@@ -147,6 +144,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private String wallEditId;
     private NativeWallMeasureDialog wallDialog;
     private int lastWallDialogScreenTop = Integer.MIN_VALUE;
+    private final Runnable scheduleWallFocus = () -> {
+        if (lastWallDialogScreenTop != Integer.MIN_VALUE)
+            positionActiveWallInVisibleViewport(lastWallDialogScreenTop, 0);
+    };
     private boolean showingSavedMeasurements;
     private boolean savedOpenedFromEditor;
     private boolean editorOpenedFromSavedMeasurements;
