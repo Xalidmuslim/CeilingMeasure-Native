@@ -11,14 +11,13 @@ import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextWatcher;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.GridLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -126,6 +125,12 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         dpv.topMargin=dp(9);
         shell.addView(display,dpv);
 
+        View keypad=NativeCompactNumericKeypad.attach(display,uiPrefs);
+        LinearLayout.LayoutParams kp=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
+        kp.topMargin=dp(7);
+        shell.addView(keypad,kp);
+
         Button delete=button("Удалить диагональ",false);
         delete.setTextColor(DANGER);
         delete.setTag("native_diag_delete");
@@ -177,7 +182,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
             lp.gravity=Gravity.CENTER;
             window.setAttributes(lp);
             window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-                    |WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+                    |WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         }
     }
 
@@ -185,12 +190,7 @@ final class NativeDiagonalMeasureDialog extends Dialog {
         super.onStart();
         if(display!=null){
             display.requestFocus();
-            display.post(()->{
-                InputMethodManager keyboard=(InputMethodManager)getContext().getSystemService(
-                        Context.INPUT_METHOD_SERVICE);
-                if(keyboard!=null)keyboard.showSoftInput(
-                        display,InputMethodManager.SHOW_IMPLICIT);
-            });
+            display.selectAll();
         }
     }
 
@@ -206,36 +206,6 @@ final class NativeDiagonalMeasureDialog extends Dialog {
                     "Введите диагональ, например 4120",
                     Toast.LENGTH_SHORT).show();
         }
-    }
-
-    private void addKey(GridLayout grid,String key){
-        Button b=button(key,false);
-        NativeTypography.register(b,"⌫".equals(key)?22:24,true,uiPrefs);
-        b.setPadding(0,0,0,0);
-        b.setBackground(NativeVisualTokens.rippleOutlined(
-                NativeVisualTokens.APP_SOFT,
-                LINE,
-                dp(18),
-                dp(1),
-                Color.argb(24,30,49,68)));
-        b.setOnClickListener(v->{
-            if("⌫".equals(key)){
-                buffer=buffer.length()<=1?"0":buffer.substring(0,buffer.length()-1);
-            }else if(",".equals(key)){
-                if(!buffer.contains(",")&&!buffer.contains(".")){
-                    buffer=("0".equals(buffer)||buffer.isEmpty())?"0,":buffer+",";
-                }
-            }else{
-                if("0".equals(buffer))buffer="";
-                if(buffer.length()<8)buffer+=key;
-            }
-            display.setText(buffer);
-        });
-        GridLayout.LayoutParams p=new GridLayout.LayoutParams();
-        p.width=0;p.height=dp(58);
-        p.columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f);
-        p.setMargins(dp(4),dp(4),dp(4),dp(4));
-        grid.addView(b,p);
     }
 
     private Button button(String value,boolean primary){

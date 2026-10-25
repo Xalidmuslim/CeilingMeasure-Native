@@ -17,7 +17,7 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public final class NativeSystemKeyboardTest {
-    @Test public void numericEditorsRequestUsersAndroidKeyboard() {
+    @Test public void numericEditorsUseCompactKeypadAndTextEditorsKeepSystemIme() {
         Context ctx=InstrumentationRegistry.getInstrumentation().getTargetContext();
         Intent launch=new Intent(ctx, NativeWorkspaceActivity.class);
         launch.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
@@ -32,6 +32,18 @@ public final class NativeSystemKeyboardTest {
                 assertNotNull(number);
                 assertEquals(InputType.TYPE_CLASS_NUMBER,
                         number.getInputType()&InputType.TYPE_MASK_CLASS);
+                assertFalse("Price must not open Android IME",number.getShowSoftInputOnFocus());
+                View priceKey=price.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_numeric_key_7");
+                assertNotNull("Compact numeric keypad is visible",priceKey);
+                number.selectAll();
+                priceKey.performClick();
+                assertEquals("7",number.getText().toString());
+                View decimal=price.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_numeric_key_decimal");
+                assertNotNull(decimal);
+                decimal.performClick();
+                assertEquals("7,",number.getText().toString());
                 price.dismiss();
 
                 NativeTextPadDialog rename=new NativeTextPadDialog(
@@ -42,6 +54,9 @@ public final class NativeSystemKeyboardTest {
                 assertNotNull(name);
                 assertEquals(InputType.TYPE_CLASS_TEXT,
                         name.getInputType()&InputType.TYPE_MASK_CLASS);
+                assertTrue("Text fields use system keyboard",name.getShowSoftInputOnFocus());
+                assertNull(rename.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_compact_number_keypad"));
                 rename.dismiss();
 
                 NativeWallMeasureDialog wall=new NativeWallMeasureDialog(
@@ -55,6 +70,15 @@ public final class NativeSystemKeyboardTest {
                 EditText wallInput=(EditText)wall.findViewById(android.R.id.content)
                         .getRootView().findViewWithTag("native_wall_value");
                 assertNotNull(wallInput);
+                assertFalse(wallInput.getShowSoftInputOnFocus());
+                assertNotNull(wall.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_compact_number_keypad"));
+                wallInput.selectAll();
+                wall.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_numeric_key_5").performClick();
+                wall.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_numeric_key_8").performClick();
+                assertEquals(58f,wall.currentUnitsOrNull(),.01f);
                 wallInput.setText("0,58");
                 assertEquals(58f,wall.currentUnitsOrNull(),.01f);
                 wall.dismiss();
@@ -72,6 +96,13 @@ public final class NativeSystemKeyboardTest {
                 assertNotNull(diagInput);
                 assertEquals(InputType.TYPE_CLASS_NUMBER,
                         diagInput.getInputType()&InputType.TYPE_MASK_CLASS);
+                assertFalse(diagInput.getShowSoftInputOnFocus());
+                assertNotNull(diag.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_compact_number_keypad"));
+                diagInput.selectAll();
+                diag.findViewById(android.R.id.content).getRootView()
+                        .findViewWithTag("native_numeric_key_4").performClick();
+                assertEquals("4",diagInput.getText().toString());
                 diag.dismiss();
             });
         }

@@ -11,17 +11,17 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 import java.util.Locale;
 
-/** Amount/quantity editor delegates key arrangement and language to the user's Android IME. */
+/** Amounts and quantities use the compact keypad; text dialogs retain system IME. */
 final class NativeNumberPadDialog extends Dialog {
     interface Listener { void onValue(float value); }
 
@@ -53,7 +53,7 @@ final class NativeNumberPadDialog extends Dialog {
         shell.setBackground(NativeVisualTokens.outlined(
                 NativeVisualTokens.SURFACE,NativeVisualTokens.LINE,dp(19),dp(1)));
         shell.addView(text(titleText,17,true,NativeVisualTokens.TEXT));
-        TextView hint=text("Введите значение с клавиатуры телефона",11.5f,false,
+        TextView hint=text("Введите число",11.5f,false,
                 NativeVisualTokens.MUTED);
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -84,6 +84,12 @@ final class NativeNumberPadDialog extends Dialog {
                 ViewGroup.LayoutParams.MATCH_PARENT,dp(54));
         ip.topMargin=dp(11);
         shell.addView(input,ip);
+
+        View keypad=NativeCompactNumericKeypad.attach(input,prefs);
+        LinearLayout.LayoutParams kp=new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
+        kp.topMargin=dp(9);
+        shell.addView(keypad,kp);
 
         LinearLayout actions=new LinearLayout(getContext());
         actions.setOrientation(LinearLayout.HORIZONTAL);
@@ -119,7 +125,7 @@ final class NativeNumberPadDialog extends Dialog {
             lp.gravity=Gravity.CENTER;
             window.setAttributes(lp);
             window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-                    |WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+                    |WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         }
     }
 
@@ -127,11 +133,7 @@ final class NativeNumberPadDialog extends Dialog {
         super.onStart();
         if(input!=null){
             input.requestFocus();
-            input.post(()->{
-                InputMethodManager keyboard=(InputMethodManager)getContext().getSystemService(
-                        Context.INPUT_METHOD_SERVICE);
-                if(keyboard!=null)keyboard.showSoftInput(input,InputMethodManager.SHOW_IMPLICIT);
-            });
+            input.selectAll();
         }
     }
 
