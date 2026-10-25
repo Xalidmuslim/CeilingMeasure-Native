@@ -100,8 +100,12 @@ public final class NativeWallInputVisibilityTest {
                 View canvas = activity.getWindow().getDecorView()
                         .findViewWithTag("native_canvas_wrap");
                 assertNotNull(canvas);
-                assertTrue("Canvas becomes compact in the available IME space",
-                        canvas.getHeight() < normalHeight[0]);
+                assertTrue("Drawing must be docked outside the document scroll area",
+                        activity.isWallDrawingPinnedForTest());
+                // If actual dialog top leaves enough space Android may keep
+                // the original height; only SHRINK when necessary, never grow.
+                assertTrue("Canvas height must respect normal size",
+                        canvas.getHeight() <= normalHeight[0]);
                 int[] location = new int[2];
                 canvas.getLocationOnScreen(location);
                 assertTrue("Wall drawing bottom must stay above number input window: " +
