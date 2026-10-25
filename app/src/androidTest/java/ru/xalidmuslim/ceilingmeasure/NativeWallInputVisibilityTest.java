@@ -242,6 +242,75 @@ public final class NativeWallInputVisibilityTest {
         }
     }
 
+    @Test public void changingEditedWallMovesDrawingUpOrDownToThatWallAboveKeypad()
+            throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, START);
+        try (ActivityScenario<NativeWorkspaceActivity> scene = ActivityScenario.launch(intent)) {
+            scene.onActivity(activity -> {
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                addRectangularRoom(room);
+                CeilingDrawingView drawing = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                drawing.setRoom(room);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+            final int[] keypadTop = new int[1];
+            final float[] upperWallScreenY = new float[1];
+            final float[] lowerWallScreenY = new float[1];
+            final float[] storedRoomState = new float[3];
+            scene.onActivity(activity -> {
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                ScrollView scroll = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_editor_scroll");
+                int[] pos = new int[2];
+                scroll.getLocationOnScreen(pos);
+                keypadTop[0] = pos[1] + Math.round(
+                        330f * activity.getResources().getDisplayMetrics().density);
+                storedRoomState[0] = room.viewScale;
+                storedRoomState[1] = room.panX;
+                storedRoomState[2] = room.panY;
+                activity.onWallLongPressed(room.edges.get(0).id, 300f);
+                activity.adjustWallCanvasToDialogTopForTest(keypadTop[0]);
+            });
+            Thread.sleep(320L);
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scene.onActivity(activity -> {
+                CeilingDrawingView drawing = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                assertTrue("Upper selected wall must be visible above keypad",
+                        activity.isSelectedWallVisibleAboveKeypadForTest(keypadTop[0]));
+                upperWallScreenY[0] = activity.activeWallCenterScreenYForTest();
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                // Select the low horizontal wall. View should now follow it
+                // instead of leaving the user looking at the former wall.
+                activity.onWallLongPressed(room.edges.get(2).id, 300f);
+                activity.adjustWallCanvasToDialogTopForTest(keypadTop[0]);
+            });
+            Thread.sleep(320L);
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scene.onActivity(activity -> {
+                assertTrue("Lower wall must come back into view without manually scrolling",
+                        activity.isSelectedWallVisibleAboveKeypadForTest(keypadTop[0]));
+                lowerWallScreenY[0] = activity.activeWallCenterScreenYForTest();
+                CeilingDrawingView drawing = activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                assertTrue("Wall input must keep a temporary editing camera",
+                        drawing.isWallInputViewportActiveForTest());
+                assertTrue("Focus must remain in stable visible region",
+                        Math.abs(upperWallScreenY[0] - lowerWallScreenY[0])
+                                < 85f * activity.getResources().getDisplayMetrics().density);
+                NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
+                assertEquals(storedRoomState[0], room.viewScale, 0.0001f);
+                assertEquals(storedRoomState[1], room.panX, 0.0001f);
+                assertEquals(storedRoomState[2], room.panY, 0.0001f);
+                activity.dismissWallInputForTest();
+            });
+        }
+    }
+
     private static void addRectangularRoom(NativeProjectStore.RoomData room) {
         room.points.clear();
         room.edges.clear();
