@@ -18,8 +18,8 @@ android {
         applicationId 'ru.xalidmuslim.ceilingmeasure'
         minSdk 29
         targetSdk 35
-        versionCode 253
-        versionName '1.0.253-compact-keypad-zoom-out-r8'
+        versionCode 254
+        versionName '1.0.254-smooth-wall-return-r8'
 
         buildConfigField 'String', 'LICENSE_SERVER_URL', JsonOutput.toJson(licenseUrl)
         buildConfigField 'String', 'LICENSE_PUBLIC_KEY_B64', JsonOutput.toJson(licenseKey)
@@ -51,10 +51,10 @@ android {
             // Install next to BOTH production and the previous v242 debug preview.
             // The standard Android debug keystore signs only this test build.
             signingConfig signingConfigs.debug
-            // v253 has a dedicated install ID: GitHub runners generate separate
+            // v254 has a dedicated install ID: GitHub runners generate separate
             // ephemeral debug signing keys, so replacing an older .optimized APK
             // could otherwise require uninstalling it and deleting test data.
-            applicationIdSuffix '.keypad253'
+            applicationIdSuffix '.smooth254'
             versionNameSuffix '-preview'
             matchingFallbacks = ['release']
         }
