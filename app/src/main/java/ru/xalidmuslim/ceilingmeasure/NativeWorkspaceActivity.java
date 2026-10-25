@@ -129,6 +129,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private static final long WALL_FOCUS_SCROLL_MS = 460L;
     private static final long WALL_FOCUS_SETTLE_MS = 85L;
     private ValueAnimator wallFocusScrollAnimator;
+    private int wallFocusIntermediateFramesForTest;
 
     private float stripLastY;
     private final ArrayDeque<String> undoRooms = new ArrayDeque<>();
@@ -2075,12 +2076,16 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             return;
         }
 
+        wallFocusIntermediateFramesForTest = 0;
         ValueAnimator animator = ValueAnimator.ofInt(startY, boundedTarget);
         animator.setDuration(WALL_FOCUS_SCROLL_MS);
         animator.setInterpolator(NativeMotion.easing());
         animator.addUpdateListener(frame -> {
-            if (editorScroll != null && wallFocusScrollAnimator == frame)
-                editorScroll.scrollTo(0, (Integer) frame.getAnimatedValue());
+            if (editorScroll == null || wallFocusScrollAnimator != frame) return;
+            int y = (Integer) frame.getAnimatedValue();
+            if (y != startY && y != boundedTarget)
+                wallFocusIntermediateFramesForTest++;
+            editorScroll.scrollTo(0, y);
         });
         animator.addListener(new AnimatorListenerAdapter() {
             private boolean cancelled;
@@ -2108,6 +2113,15 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     long getWallFocusScrollDurationForTest() {
         return WALL_FOCUS_SCROLL_MS;
+    }
+
+    boolean isWallFocusScrollAnimatingForTest() {
+        return wallFocusScrollAnimator != null
+                && wallFocusScrollAnimator.isRunning();
+    }
+
+    int getWallFocusIntermediateFramesForTest() {
+        return wallFocusIntermediateFramesForTest;
     }
 
     void animateWallFocusScrollToForTest(int target) {
