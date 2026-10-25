@@ -388,7 +388,7 @@ final class CeilingDrawingView extends View {
 
     @Override protected void onDetachedFromWindow() {
         handler.removeCallbacks(wallPulseTick);
-        removeCallbacks(clearWallViewportRestoreFlag);
+        // The Activity owns the restore animator; no delayed camera snap.
         cancelWallInputFocusAnimation();
         super.onDetachedFromWindow();
     }
