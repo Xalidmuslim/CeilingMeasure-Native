@@ -1996,8 +1996,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             dock.setBackgroundColor(NativeVisualTokens.APP_SOFT);
             wallInputCanvasParent.removeView(drawingCanvasWrap);
             dock.addView(drawingCanvasWrap, new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT));
+                    ViewGroup.LayoutParams.MATCH_PARENT, dockHeight));
             wallInputPinnedCanvas = dock;
             page.addView(dock);
         }
@@ -2008,6 +2007,14 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         lp.rightMargin = dp(8);
         lp.topMargin = Math.max(0, topOnScreen - pageAt[1]);
         wallInputPinnedCanvas.setLayoutParams(lp);
+        // The child must have a real compact height, rather than reporting
+        // MATCH_PARENT (-1): the drawing's original layout height is then
+        // restored unchanged when the keypad is dismissed.
+        ViewGroup.LayoutParams canvasLp = drawingCanvasWrap.getLayoutParams();
+        if (canvasLp != null && canvasLp.height != dockHeight) {
+            canvasLp.height = dockHeight;
+            drawingCanvasWrap.setLayoutParams(canvasLp);
+        }
 
         // The View changes size once; CeilingDrawingView then fits its
         // temporary camera and focuses the current wall. It never calls
