@@ -94,6 +94,7 @@ public final class NativeWallInputVisibilityTest {
                 activity.adjustWallCanvasToDialogTopForTest(expectedTop[0]);
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            SystemClock.sleep(700L); // 85ms IME settle + 460ms eased wall tracking.
             scene.onActivity(activity -> {
                 View canvas = activity.getWindow().getDecorView()
                         .findViewWithTag("native_canvas_wrap");
@@ -173,6 +174,7 @@ public final class NativeWallInputVisibilityTest {
                 activity.adjustWallCanvasToDialogTopForTest(inputDialogTop[0]);
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            SystemClock.sleep(700L); // Assert FINAL wall position after smooth tracking.
 
             scene.onActivity(activity -> {
                 NativeProjectStore.RoomData room = activity.getActiveRoomForTest();
