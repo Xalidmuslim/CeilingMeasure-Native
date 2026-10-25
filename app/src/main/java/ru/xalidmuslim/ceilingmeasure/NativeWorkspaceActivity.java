@@ -2031,6 +2031,29 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         }
     }
 
+    // Non-mutating diagnostic readout for Android screen-space regression.
+    String wallViewportDiagnosticsForTest(int screenTop) {
+        if (drawingView == null || editorScroll == null
+                || drawingCanvasWrap == null) return "missing draw/scroll";
+        int[] atDraw = new int[2], atScroll = new int[2], atCard = new int[2];
+        drawingView.getLocationOnScreen(atDraw);
+        editorScroll.getLocationOnScreen(atScroll);
+        drawingCard.getLocationOnScreen(atCard);
+        int maxScroll = 0;
+        if (editorScroll.getChildCount() > 0) {
+            View content = editorScroll.getChildAt(0);
+            maxScroll = Math.max(0, content.getHeight() - editorScroll.getHeight());
+        }
+        return "dialogTop=" + screenTop + " actualLastDialogTop=" + lastWallDialogScreenTop
+                + " scrollXY=" + atScroll[0] + "," + atScroll[1]
+                + " scrollY=" + editorScroll.getScrollY() + " maxScroll=" + maxScroll
+                + " scrollH=" + editorScroll.getHeight()
+                + " cardTop=" + atCard[1]
+                + " drawingTop=" + atDraw[1] + " drawingH=" + drawingView.getHeight()
+                + " wrapH=" + drawingCanvasWrap.getHeight()
+                + " drawingLPH=" + drawingCanvasWrap.getLayoutParams().height;
+    }
+
     // Read-only, package-scoped hooks used by Android regression instrumentation.
     void adjustWallCanvasToDialogTopForTest(int screenTop){
         repositionWallCanvasAboveDialog(screenTop);
