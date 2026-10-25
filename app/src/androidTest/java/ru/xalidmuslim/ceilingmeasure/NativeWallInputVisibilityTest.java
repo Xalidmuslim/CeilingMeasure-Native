@@ -172,6 +172,7 @@ public final class NativeWallInputVisibilityTest {
                         Math.round(300f * activity.getResources().getDisplayMetrics().density);
                 activity.adjustWallCanvasToDialogTopForTest(inputDialogTop[0]);
             });
+            SystemClock.sleep(440L);
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
             scene.onActivity(activity -> {
