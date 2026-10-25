@@ -494,19 +494,46 @@ final class CeilingDrawingView extends View {
         float right = getWidth() - Math.min(dp(83), getWidth() * .22f);
         if (right <= left + dp(40)) right = getWidth() - dp(14);
 
-        // Never allow a long edited wall to extend outside the visible area.
-        // Only reduce temporary zoom if the wall exceeds the available slice.
-        float edgeWidth = Math.max(.0001f, Math.abs(a.x - b.x));
-        float edgeHeight = Math.max(.0001f, Math.abs(a.y - b.y));
-        float targetScale = Math.min(scale, Math.min(
-                (right - left) / edgeWidth,
-                (bottom - top) / edgeHeight));
-        targetScale = Math.max(.01f, targetScale);
+        // Show the FULL room, not just the edited segment. Keeping the
+        // previous edge-only zoom made the wall large and hid other walls
+        // behind the numeric editor on short phone displays.
+        float minX = Float.MAX_VALUE;
+        float maxX = -Float.MAX_VALUE;
+        float minY = Float.MAX_VALUE;
+        float maxY = -Float.MAX_VALUE;
+        for (NativeProjectStore.PointData point : room.points) {
+            minX = Math.min(minX, point.x);
+            maxX = Math.max(maxX, point.x);
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+        }
+        if (room.points.isEmpty()) return;
+        float contourWidth = Math.max(1f, maxX - minX);
+        float contourHeight = Math.max(1f, maxY - minY);
+        // 70% of the available fitted scale = deliberate zoom-out and
+        // breathing room around the drawing. Never zoom IN while editing.
+        float fitScale = .70f * Math.min(
+                (right - left) / contourWidth,
+                (bottom - top) / contourHeight);
+        float targetScale = Math.max(.01f, Math.min(scale, fitScale));
         final float focusScale = targetScale;
-        float centerX = (a.x + b.x) * .5f;
-        float centerY = (a.y + b.y) * .5f;
-        float targetX = (left + right) * .5f - centerX * targetScale;
-        float targetY = (top + bottom) * .5f - centerY * targetScale;
+        float wallCenterX = (a.x + b.x) * .5f;
+        float wallCenterY = (a.y + b.y) * .5f;
+
+        // Bias the camera towards the blinking selected wall while keeping
+        // every vertex of the room inside the visible drawing slice.
+        float wantedX = (left + right) * .5f - wallCenterX * targetScale;
+        float wantedY = (top + bottom) * .5f - wallCenterY * targetScale;
+        float minOffsetX = left - minX * targetScale;
+        float maxOffsetX = right - maxX * targetScale;
+        float minOffsetY = top - minY * targetScale;
+        float maxOffsetY = bottom - maxY * targetScale;
+        float targetX = minOffsetX <= maxOffsetX
+                ? Math.max(minOffsetX, Math.min(maxOffsetX, wantedX))
+                : (left + right) * .5f - (minX + maxX) * .5f * targetScale;
+        float targetY = minOffsetY <= maxOffsetY
+                ? Math.max(minOffsetY, Math.min(maxOffsetY, wantedY))
+                : (top + bottom) * .5f - (minY + maxY) * .5f * targetScale;
 
         // Show the first selected wall immediately so it never hides during
         // keyboard opening. Animate only movement from one edited wall to
