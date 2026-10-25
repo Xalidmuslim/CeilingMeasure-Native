@@ -59,8 +59,8 @@ jobs:
             adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeWallInputVisibilityTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee build/v252-evidence/wall-viewport.txt
             grep -q 'OK (4 tests)' build/v252-evidence/wall-viewport.txt
             adb install -r app/build/outputs/apk/releasePreview/app-releasePreview.apk
-            adb shell am force-stop ru.xalidmuslim.ceilingmeasure.wall251
-            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.wall251/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity | tee build/v252-evidence/optimized-launch.txt
+            adb shell am force-stop ru.xalidmuslim.ceilingmeasure.keypad252
+            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.keypad252/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity | tee build/v252-evidence/optimized-launch.txt
             adb exec-out screencap -p > build/v252-evidence/optimized-home.png
             adb logcat -d -s AndroidRuntime:E > build/v252-evidence/runtime-errors.txt
             if grep -q 'FATAL EXCEPTION' build/v252-evidence/runtime-errors.txt; then exit 1; fi
