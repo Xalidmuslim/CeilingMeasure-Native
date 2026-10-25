@@ -8,6 +8,8 @@ import android.content.Intent;
 import android.os.SystemClock;
 import android.view.View;
 import android.widget.ScrollView;
+import java.util.ArrayList;
+import java.util.List;
 
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -31,6 +33,7 @@ public final class NativeWallSmoothAutoScrollTest {
             final int[] destination = new int[1];
             final int[] start = new int[1];
             final ScrollView[] scroll = new ScrollView[1];
+            final List<Integer> capturedFrames = new ArrayList<>();
             scene.onActivity(activity -> {
                 scroll[0] = activity.getWindow().getDecorView()
                         .findViewWithTag("native_editor_scroll");
@@ -59,21 +62,31 @@ public final class NativeWallSmoothAutoScrollTest {
                 destination[0] = Math.min(max - 8, start[0] + 190);
                 assertTrue(destination[0] - start[0] >= 105);
                 assertTrue(ValueAnimator.areAnimatorsEnabled());
+                // Record actual native scroll callbacks on the Android UI
+                // thread. ActivityScenario.onActivity may be queued for
+                // seconds on a loaded emulator and cannot sample 85ms
+                // animation frames reliably using host-side sleeps.
+                s.setOnScrollChangeListener((View v, int x, int y,
+                        int oldX, int oldY) -> capturedFrames.add(y));
                 activity.animateWallScrollForTest(destination[0]);
                 assertEquals("The drawing must not jump synchronously to the wall",
                         start[0], s.getScrollY());
             });
-            SystemClock.sleep(85L);
+            SystemClock.sleep(450L);
             scene.onActivity(activity -> {
-                int midway = scroll[0].getScrollY();
-                assertTrue("Expected intermediate frames before reaching wall, not a snap: " +
-                                midway + " vs " + start[0] + " to " + destination[0],
-                        midway > start[0] + 3 && midway < destination[0] - 3);
-            });
-            SystemClock.sleep(300L);
-            scene.onActivity(activity -> {
+                boolean hadIntermediateFrame = false;
+                for (int y : capturedFrames) {
+                    if (y > start[0] + 3 && y < destination[0] - 3) {
+                        hadIntermediateFrame = true;
+                        break;
+                    }
+                }
+                assertTrue("Expected intermediate scroll callbacks, not a " +
+                                "single jump: " + capturedFrames,
+                        hadIntermediateFrame);
                 assertEquals("The active wall must reach its final visible position",
                         destination[0], scroll[0].getScrollY(), 2);
+                scroll[0].setOnScrollChangeListener(null);
                 assertFalse("The auto-scroll animation must stop when complete",
                         activity.isWallAutoScrollRunningForTest());
                 activity.dismissWallInputForTest();
