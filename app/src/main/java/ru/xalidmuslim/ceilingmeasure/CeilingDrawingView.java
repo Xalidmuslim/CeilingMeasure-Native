@@ -502,6 +502,7 @@ final class CeilingDrawingView extends View {
                 (right - left) / edgeWidth,
                 (bottom - top) / edgeHeight));
         targetScale = Math.max(.01f, targetScale);
+        final float focusScale = targetScale;
         float centerX = (a.x + b.x) * .5f;
         float centerY = (a.y + b.y) * .5f;
         float targetX = (left + right) * .5f - centerX * targetScale;
@@ -527,7 +528,7 @@ final class CeilingDrawingView extends View {
             animator.setInterpolator(NativeMotion.easing());
             animator.addUpdateListener(frame -> {
                 float fraction = (float) frame.getAnimatedValue();
-                scale = initialScale + (targetScale - initialScale) * fraction;
+                scale = initialScale + (focusScale - initialScale) * fraction;
                 offsetX = initialX + (targetX - initialX) * fraction;
                 offsetY = initialY + (targetY - initialY) * fraction;
                 postInvalidateOnAnimation();
