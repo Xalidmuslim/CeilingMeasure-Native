@@ -423,6 +423,88 @@ public final class NativeWallInputVisibilityTest {
         }
     }
 
+    @Test public void unfinishedContourNeverOpensWallNumberEditor()
+            throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent=new Intent(context,NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,START);
+        try(ActivityScenario<NativeWorkspaceActivity> scene=ActivityScenario.launch(intent)){
+            scene.onActivity(activity->{
+                NativeProjectStore.RoomData room=activity.getActiveRoomForTest();
+                room.points.clear();
+                room.edges.clear();
+                room.points.add(new NativeProjectStore.PointData("open_a",80f,80f));
+                room.points.add(new NativeProjectStore.PointData("open_b",350f,80f));
+                room.points.add(new NativeProjectStore.PointData("open_c",350f,300f));
+                room.edges.add(new NativeProjectStore.EdgeData("open_a","open_b"));
+                CeilingDrawingView drawing=activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                drawing.setRoom(room);
+                assertFalse(NativeGeometry.isClosed(room));
+                activity.onWallLongPressed(room.edges.get(0).id,0f);
+                assertFalse("One wall must NOT request numbers",
+                        activity.isWallEditorShowingForTest());
+                assertFalse(drawing.isWallInputViewportActiveForTest());
+                room.edges.add(new NativeProjectStore.EdgeData("open_b","open_c"));
+                activity.onWallLongPressed(room.edges.get(0).id,0f);
+                assertFalse("Open two-wall polyline must NOT request numbers",
+                        activity.isWallEditorShowingForTest());
+                assertFalse(drawing.isWallInputViewportActiveForTest());
+            });
+        }
+    }
+
+    @Test public void openingMeasurementsZoomsSmoothlyAndUsesThinBlinkingLine()
+            throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent=new Intent(context,NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,START);
+        try(ActivityScenario<NativeWorkspaceActivity> scene=ActivityScenario.launch(intent)){
+            scene.onActivity(activity->{
+                NativeProjectStore.RoomData room=activity.getActiveRoomForTest();
+                addRectangularRoom(room);
+                CeilingDrawingView drawing=activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                drawing.setRoom(room);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            final float[] before=new float[1];
+            scene.onActivity(activity->{
+                NativeProjectStore.RoomData room=activity.getActiveRoomForTest();
+                CeilingDrawingView drawing=activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                drawing.fitView();
+                drawing.zoomBy(2.4f);
+                before[0]=drawing.getScaleForTest();
+                activity.onWallLongPressed(room.edges.get(0).id,room.edges.get(0).value);
+                assertTrue(activity.isWallEditorShowingForTest());
+                if(NativeMotion.animationsEnabled()){
+                    assertEquals("Opening keypad must not jump camera in same frame",
+                            before[0],drawing.getScaleForTest(),.0001f);
+                }
+            });
+            SystemClock.sleep(550L);
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scene.onActivity(activity->{
+                CeilingDrawingView drawing=activity.getWindow().getDecorView()
+                        .findViewWithTag("native_drawing_view");
+                assertTrue("Camera must zoom out to fit the selected wall",
+                        drawing.getScaleForTest()<before[0]*.9f);
+                android.graphics.Bitmap image=android.graphics.Bitmap.createBitmap(
+                        Math.max(1,drawing.getWidth()),Math.max(1,drawing.getHeight()),
+                        android.graphics.Bitmap.Config.ARGB_8888);
+                drawing.draw(new android.graphics.Canvas(image));
+                float density=activity.getResources().getDisplayMetrics().density;
+                assertTrue("Blinking blue selected line must be subtle",
+                        drawing.getEditingLineWidthPxForTest()<=2.8f*density);
+                assertTrue("Wide glow obscures the precise measurement line",
+                        drawing.getEditingHaloWidthPxForTest()<=7f*density);
+                image.recycle();
+                activity.dismissWallInputForTest();
+            });
+        }
+    }
+
     private static void addRectangularRoom(NativeProjectStore.RoomData room) {
         room.points.clear();
         room.edges.clear();
