@@ -1810,8 +1810,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         reserveWallEditorScrollSpace();
         if(drawingView!=null){
             drawingView.setEditingEdgeId(edgeId);
-            // Fitting is temporary; user pan/zoom and geometry are unchanged.
-            // Every next wall in a wall-sequence uses the same fitted canvas.
+            // Preserve the original camera for the entire numeric-edit
+            // session; switching to another wall merely refocuses the View.
             drawingView.beginWallInputViewport();
         }
         List<NativeProjectStore.EdgeData> ordered=NativeGeometry.orderedEdges(room);
@@ -1982,45 +1982,50 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private void positionActiveWallInVisibleViewport(int dialogScreenTop, int attempt) {
         if (wallDialog == null || !wallDialog.isShowing() || editorScroll == null
                 || drawingView == null || wallEditId == null || attempt > 3) return;
-        NativeProjectStore.RoomData room = activeRoom();
-        NativeProjectStore.EdgeData edited = findEdge(room, wallEditId);
-        if (edited == null || drawingView.getHeight() <= 0) return;
-
-        NativeProjectStore.PointData first = null, second = null;
-        for (NativeProjectStore.PointData point : room.points) {
-            if (edited.a.equals(point.id)) first = point;
-            if (edited.b.equals(point.id)) second = point;
+        if (drawingView.getHeight() <= 0 || editorScroll.getHeight() <= 0) {
+            editorScroll.postOnAnimation(() ->
+                    positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
+            return;
         }
-        if (first == null || second == null) return;
 
-        int[] atScroll = new int[2];
-        int[] atDrawing = new int[2];
-        editorScroll.getLocationOnScreen(atScroll);
-        drawingView.getLocationOnScreen(atDrawing);
-        float top = atScroll[1] + editorScroll.getPaddingTop() + dp(11);
-        // Only the actual physical viewport is relevant here. The temporary
-        // bottom padding exists solely to give short documents scroll range.
-        float bottom = Math.min(dialogScreenTop - dp(14),
-                atScroll[1] + editorScroll.getHeight() - dp(11));
-        if (bottom - top < dp(55)) return;
+        // 1) Bring the actual Canvas into the ScrollView's physical viewport.
+        // Do not scroll toward the header/card: it is often tall enough to
+        // leave wall 4 clipped even when the view's internal fit is correct.
+        int[] scrollAt = new int[2];
+        int[] drawingAt = new int[2];
+        editorScroll.getLocationOnScreen(scrollAt);
+        drawingView.getLocationOnScreen(drawingAt);
+        int scrollTopScreen = scrollAt[1] + editorScroll.getPaddingTop() + dp(8);
+        int desiredDocumentScroll = Math.max(0, editorScroll.getScrollY()
+                + drawingAt[1] - scrollTopScreen);
+        int currentDocumentScroll = editorScroll.getScrollY();
+        if (Math.abs(currentDocumentScroll - desiredDocumentScroll) > dp(3)) {
+            // The temporary document spacer makes this range reachable even
+            // for a short drawing. Immediate scroll avoids a moving target
+            // while the user enters digits on the keyboard.
+            editorScroll.scrollTo(0, desiredDocumentScroll);
+        }
 
-        float scale = drawingView.getScaleForTest();
-        float offsetY = drawingView.getPanYForTest();
-        float ay = atDrawing[1] + offsetY + first.y * scale;
-        float by = atDrawing[1] + offsetY + second.y * scale;
-        float wallTop = Math.min(ay, by);
-        float wallBottom = Math.max(ay, by);
-        float wallCenter = (wallTop + wallBottom) * .5f;
-        float visibleCenter = (top + bottom) * .5f;
-        if (wallTop >= top && wallBottom <= bottom) return;
+        // 2) Fit the *selected* wall inside the actual on-screen intersection
+        // of ScrollView + Canvas + number dialog, not just inside the View.
+        drawingView.getLocationOnScreen(drawingAt);
+        float top = Math.max(scrollTopScreen, drawingAt[1] + dp(10));
+        float bottom = Math.min(
+                Math.min(dialogScreenTop - dp(12),
+                        scrollAt[1] + editorScroll.getHeight()
+                                - editorScroll.getPaddingBottom() - dp(8)),
+                drawingAt[1] + drawingView.getHeight() - dp(10));
+        if (bottom - top < dp(40)) {
+            if (attempt < 3) editorScroll.postOnAnimation(() ->
+                    positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
+            return;
+        }
+        drawingView.focusEditingWallInScreenRange(top, bottom);
 
-        // ScrollView scrollTo is bounded by actual document height. The
-        // temporary extra bottom padding reserves room to align short plans.
-        float desiredShift = wallCenter - visibleCenter;
-        int target = Math.max(0, Math.round(editorScroll.getScrollY() + desiredShift));
-        int before = editorScroll.getScrollY();
-        editorScroll.scrollTo(0, target);
-        if (Math.abs(before - target) > dp(2) && attempt < 3) {
+        // Layout of the compact Canvas can finish after Dialog focus and
+        // relocation. Once it settles, correct the wall center one last time.
+        if (attempt == 0 && Math.abs(currentDocumentScroll
+                - editorScroll.getScrollY()) > dp(2)) {
             editorScroll.postOnAnimation(() ->
                     positionActiveWallInVisibleViewport(dialogScreenTop, attempt + 1));
         }
