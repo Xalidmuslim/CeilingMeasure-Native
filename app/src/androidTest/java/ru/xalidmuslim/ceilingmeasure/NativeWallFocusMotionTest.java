@@ -5,6 +5,8 @@ import static org.junit.Assert.*;
 import android.content.Context;
 import android.content.Intent;
 import android.os.SystemClock;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.ScrollView;
 import androidx.test.core.app.ActivityScenario;
@@ -37,21 +39,20 @@ public final class NativeWallFocusMotionTest {
                 assertTrue("Wall auto-focus should be deliberately slower",
                         activity.getWallFocusScrollDurationForTest() >= 410L);
                 activity.animateWallFocusScrollToForTest(target[0]);
+                assertTrue("A real animation must run instead of a one-frame jump",
+                        activity.isWallFocusScrollAnimatingForTest());
                 assertTrue("Auto-focus must not teleport on the first frame",
                         scroll.getScrollY() < target[0] / 4);
             });
-            SystemClock.sleep(165L);
+            // Run the emulator UI loop, then inspect the animator's actual
+            // intermediate values recorded by frame callbacks. Android
+            // instrumentation callbacks themselves can be delayed >460ms.
+            SystemClock.sleep(850L);
             scene.onActivity(activity -> {
                 ScrollView scroll = activity.getWindow().getDecorView()
                         .findViewWithTag("native_editor_scroll");
-                int y = scroll.getScrollY();
-                assertTrue("Wall focus must actually glide during the transition: " + y,
-                        y > 0 && y < target[0]);
-            });
-            SystemClock.sleep(550L);
-            scene.onActivity(activity -> {
-                ScrollView scroll = activity.getWindow().getDecorView()
-                        .findViewWithTag("native_editor_scroll");
+                assertTrue("No interpolation frames: movement was an instant jump",
+                        activity.getWallFocusIntermediateFramesForTest() > 0);
                 assertEquals("Wall must land on exact intended position",
                         target[0], scroll.getScrollY());
             });
@@ -77,11 +78,13 @@ public final class NativeWallFocusMotionTest {
                 first[0] = Math.min(extent, 560);
                 second[0] = Math.min(extent, 205);
                 activity.animateWallFocusScrollToForTest(first[0]);
+                // Schedule the second wall selection on the same Android
+                // frame loop while the first is still moving.
+                new Handler(Looper.getMainLooper()).postDelayed(
+                        () -> activity.animateWallFocusScrollToForTest(second[0]),
+                        120L);
             });
-            SystemClock.sleep(160L);
-            scene.onActivity(activity ->
-                    activity.animateWallFocusScrollToForTest(second[0]));
-            SystemClock.sleep(620L);
+            SystemClock.sleep(850L);
             scene.onActivity(activity -> {
                 ScrollView scroll = activity.getWindow().getDecorView()
                         .findViewWithTag("native_editor_scroll");
