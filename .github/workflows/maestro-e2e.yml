@@ -52,9 +52,7 @@ jobs:
           target: google_apis
           arch: x86_64
           script: |
-            set -euo pipefail
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            maestro test .maestro 2>&1 | tee maestro-output.log
+            bash -euo pipefail -c 'adb install -r app/build/outputs/apk/debug/app-debug.apk; maestro test .maestro 2>&1 | tee maestro-output.log'
       - name: Upload Maestro logs
         if: always()
         uses: actions/upload-artifact@v4
