@@ -1,0 +1,14 @@
+appId: ru.xalidmuslim.ceilingmeasure
+name: Ceiling Measure - settings and saved measurements
+tags:
+  - regression
+---
+- launchApp:
+    clearState: true
+- tapOn: "Настройки"
+- assertVisible: "Изменения применяются сразу ко всему приложению"
+- assertVisible: "Шрифт"
+- tapOn: "Закрыть"
+- assertVisible: "Новый заказ"
+- tapOn: "Замеры"
+- assertVisible: "Сохранённые замеры"
