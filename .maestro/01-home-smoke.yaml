@@ -1,0 +1,11 @@
+appId: ru.xalidmuslim.ceilingmeasure
+name: Ceiling Measure - home smoke
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Замер потолков"
+- assertVisible: "Новый заказ"
+- assertVisible: "Замеры"
+- assertVisible: "Чертёж"
