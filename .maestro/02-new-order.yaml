@@ -1,0 +1,11 @@
+appId: ru.xalidmuslim.ceilingmeasure
+name: Ceiling Measure - new order opens editor
+tags:
+  - regression
+---
+- launchApp:
+    clearState: true
+- tapOn: "Новый заказ"
+- assertVisible: "Текущий заказ"
+- assertVisible: "Заказчик"
+- assertVisible: "Помещения"
