@@ -1213,7 +1213,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         b.setPadding(dp(4),0,dp(4),0);
         b.setAutoSizeTextTypeUniformWithConfiguration(
                 8,11,1,TypedValue.COMPLEX_UNIT_SP);
-        b.setOnClickListener(v->setMode(mode));
+        b.setOnClickListener(v->{
+            NativeTransformerMotion.selection(b,
+                    TransformerMotionProfile.directionForIndex(
+                            mode.ordinal(),CeilingDrawingView.Mode.values().length));
+            setMode(mode);
+        });
         return b;
     }
 
