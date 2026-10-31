@@ -454,6 +454,7 @@ final class NativeUiSettingsDialog extends Dialog {
 
     private void setMotionMode(boolean enabled) {
         NativeTransformerMode.setEnabled(activity, enabled);
+        listener.onPrefsChanged(prefs);
         updateMotionButton(transformerChoice, enabled);
         updateMotionButton(ordinaryChoice, !enabled);
     }
