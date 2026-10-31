@@ -2808,6 +2808,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         Intent intent = new Intent(this, NativeHomeActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(intent);
+        overridePendingTransition(0, 0);
         finish();
     }
 
