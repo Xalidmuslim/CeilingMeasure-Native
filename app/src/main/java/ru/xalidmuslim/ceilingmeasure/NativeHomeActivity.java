@@ -30,6 +30,7 @@ public final class NativeHomeActivity extends ComponentActivity {
     private View shellRoot;
     private NativePremiumHomeUi premiumUi;
     private int pendingHomeLoad;
+    private boolean openingWorkspace;
     private TextView savedMeta;
     private TextView drawingMeta;
     private NativeUiSettingsDialog settingsDialog;
@@ -97,6 +98,7 @@ public final class NativeHomeActivity extends ComponentActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        openingWorkspace = false;
         uiPrefs = NativeUiPrefs.load(this);
         if (shellRoot != null) NativeTypography.applyTree(shellRoot, uiPrefs);
         if (premiumUi != null) premiumUi.updateMotionMode();
@@ -360,6 +362,8 @@ public final class NativeHomeActivity extends ComponentActivity {
 
     private void openRecentProject(String projectId) {
         if (licenseClient != null && !licenseClient.canEdit()) { showLicense(); return; }
+        if (openingWorkspace) return;
+        openingWorkspace = true;
         Intent intent = new Intent(this, NativeWorkspaceActivity.class);
         intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, NativeWorkspaceActivity.ACTION_RECENT_PROJECT);
         intent.putExtra(NativeWorkspaceActivity.EXTRA_PROJECT_ID, projectId);
@@ -378,10 +382,12 @@ public final class NativeHomeActivity extends ComponentActivity {
             showLicense();
             return;
         }
+        if (openingWorkspace) return;
         if (!NativeHomeExpressiveMotion.enabled(source)) {
             openWorkspace(NativeWorkspaceActivity.ACTION_NEW_ORDER);
             return;
         }
+        openingWorkspace = true;
         Intent intent = new Intent(this, NativeWorkspaceActivity.class);
         intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
                 NativeWorkspaceActivity.ACTION_NEW_ORDER);
@@ -397,6 +403,8 @@ public final class NativeHomeActivity extends ComponentActivity {
             showLicense();
             return;
         }
+        if (openingWorkspace) return;
+        openingWorkspace = true;
         Intent intent = new Intent(this, NativeWorkspaceActivity.class);
         intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, action);
         startActivity(intent);
