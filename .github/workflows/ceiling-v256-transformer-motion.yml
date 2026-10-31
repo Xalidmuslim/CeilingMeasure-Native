@@ -3,6 +3,8 @@ name: CeilingMeasure v256 Transformer Motion
 on:
   push:
     branches: [feature/v256-transformer-motion]
+  pull_request:
+    branches: [fix/v255-smooth-drawing-entry-closed-contour-only]
   workflow_dispatch:
 
 permissions:
