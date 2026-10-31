@@ -3,6 +3,7 @@ package ru.xalidmuslim.ceilingmeasure;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.animation.OvershootInterpolator;
 
 import androidx.annotation.NonNull;
@@ -42,6 +43,37 @@ final class NativeTransformerMotion {
                     .setDuration(TransformerMotionProfile.ENTRY_MS)
                     .start();
         });
+    }
+
+    /**
+     * A small alternating card-fold choreography: only the first few chrome
+     * surfaces move, never the drawing canvas or a potentially huge list.
+     */
+    static void staggerVisible(@NonNull ViewGroup parent, int maximum) {
+        if (!NativeMotion.animationsEnabled()) return;
+        int count = Math.min(Math.max(0, maximum), parent.getChildCount());
+        for (int i = 0; i < count; i++) {
+            View card = parent.getChildAt(i);
+            if (card.getVisibility() != View.VISIBLE) continue;
+            final int side = TransformerMotionProfile.directionForIndex(i, count);
+            final long delay = i * 44L;
+            card.animate().cancel();
+            card.setTranslationX(side * dp(card, 11f));
+            card.setTranslationY(dp(card, 4f));
+            card.setRotationY(side * 2.2f);
+            card.setScaleX(.994f);
+            card.post(() -> {
+                if (!card.isAttachedToWindow() || !NativeMotion.animationsEnabled()) {
+                    reset(card);
+                    return;
+                }
+                card.animate().translationX(0f).translationY(0f)
+                        .rotationY(0f).scaleX(1f)
+                        .setStartDelay(delay)
+                        .setDuration(TransformerMotionProfile.ENTRY_MS)
+                        .setInterpolator(NativeMotion.easing()).start();
+            });
+        }
     }
 
     /**
@@ -106,6 +138,7 @@ final class NativeTransformerMotion {
         v.setTranslationX(0f);
         v.setTranslationY(0f);
         v.setRotation(0f);
+        v.setRotationY(0f);
         v.setScaleX(1f);
         v.setScaleY(1f);
     }
