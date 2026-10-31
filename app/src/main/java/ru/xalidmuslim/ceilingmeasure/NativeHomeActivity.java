@@ -74,6 +74,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         // including gesture navigation, never exits or backgrounds the app.
         getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true){
             @Override public void handleOnBackPressed(){
+                if (premiumUi != null && premiumUi.dismissSpeedDial()) return;
                 if (homeMaterialsDialog != null && homeMaterialsDialog.isShowing()) {
                     homeMaterialsDialog.dismiss();
                     return;
@@ -98,6 +99,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         super.onResume();
         uiPrefs = NativeUiPrefs.load(this);
         if (shellRoot != null) NativeTypography.applyTree(shellRoot, uiPrefs);
+        if (premiumUi != null) premiumUi.updateMotionMode();
         refreshHomeMeta();
         if (NativeLicenseClient.enabled() && !licenseClient.recoveryCode().isEmpty()) {
             licenseClient.refresh((success, message) -> refreshLicenseOnly());
