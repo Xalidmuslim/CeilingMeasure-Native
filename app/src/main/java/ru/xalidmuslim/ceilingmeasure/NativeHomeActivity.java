@@ -53,7 +53,9 @@ public final class NativeHomeActivity extends ComponentActivity {
         licenseClient = new NativeLicenseClient(this);
         View content = createContent();
         setContentView(content);
-        NativeMotion.enter(content);
+        // Fixed background does not animate: only content and dock transform.
+        NativeTransformerMotion.reveal(premiumUi.scroll(), 1);
+        NativeTransformerMotion.reveal(premiumUi.dock(), 0);
         content.requestApplyInsets();
         // The launcher is the terminal in-app destination. Android Back,
         // including gesture navigation, never exits or backgrounds the app.
