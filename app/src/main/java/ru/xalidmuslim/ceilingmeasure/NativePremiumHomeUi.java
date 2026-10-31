@@ -6,6 +6,8 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PathMeasure;
+import android.animation.ValueAnimator;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
@@ -423,8 +425,10 @@ final class NativePremiumHomeUi {
                 dp(24), dp(44), Gravity.END | Gravity.CENTER_VERTICAL);
         arrow.rightMargin = dp(9);
         primary.addView(chevron, arrow);
-        NativeHomeExpressiveMotion.bindCard(primary, art, chevron,
-                () -> activity.openPrimaryCta(primary), true, false);
+        NativeHomeExpressiveMotion.bindCard(primary, art, chevron, () -> {
+            ((CeilingContour) art).scanOnce();
+            primary.postDelayed(() -> activity.openPrimaryCta(primary), 155L);
+        }, true, false);
     }
 
     private void addRow(LinearLayout list, int image, String title, String detail,
@@ -481,6 +485,8 @@ final class NativePremiumHomeUi {
         screen.addView(dock, dockLp);
         liquidIndicator = new View(activity);
         liquidIndicator.setTag("native_home_liquid_indicator");
+        liquidIndicator.setVisibility(NativeTransformerMode.enabled(activity)
+                ? View.VISIBLE : View.GONE);
         liquidIndicator.setBackground(round(Color.rgb(220, 235, 249), 16));
         dock.addView(liquidIndicator, new FrameLayout.LayoutParams(
                 dp(48), dp(43), Gravity.TOP | Gravity.LEFT));
@@ -699,9 +705,30 @@ final class NativePremiumHomeUi {
                 }).start();
     }
 
-    void resetTransientUi() {
-        if (speedDial == null || !speedDialOpen) return;
+    boolean dismissSpeedDial() {
+        if (!speedDialOpen) return false;
         closeSpeedDial();
+        return true;
+    }
+
+    void updateMotionMode() {
+        if (liquidIndicator == null) return;
+        boolean expressive = NativeTransformerMode.enabled(activity);
+        liquidIndicator.setVisibility(expressive ? View.VISIBLE : View.GONE);
+        if (expressive) {
+            liquidIndicator.post(() ->
+                    NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 0));
+        } else {
+            resetTransientUi();
+            dock.animate().cancel();
+            dock.setTranslationY(0f);
+            if (compactHeader != null) compactHeader.setVisibility(View.INVISIBLE);
+            compactShowing = false;
+        }
+    }
+
+    void resetTransientUi() {
+        if (speedDial != null && speedDialOpen) closeSpeedDial();
     }
 
     private void onHomeScroll(FrameLayout screen, int y, int previousY) {
@@ -821,6 +848,10 @@ final class NativePremiumHomeUi {
                 15f, 39f, 77f, 20f, 111f, 35f, 50f, 73f);
         private final Path ledChannel = new Path();
         private final Path magneticTrack = new Path();
+        private final PathMeasure contourMeasure = new PathMeasure(perimeter, false);
+        private final Path scannedLine = new Path();
+        private float scanProgress;
+        private ValueAnimator scanAnimator;
 
         CeilingContour(NativeHomeActivity activity) {
             super(activity);
@@ -832,6 +863,19 @@ final class NativePremiumHomeUi {
 
             magneticTrack.moveTo(42f, 43f);
             magneticTrack.lineTo(83f, 29f);
+        }
+
+        void scanOnce() {
+            if (!NativeHomeExpressiveMotion.enabled(this)) return;
+            if (scanAnimator != null) scanAnimator.cancel();
+            scanAnimator = ValueAnimator.ofFloat(0f, 1f);
+            scanAnimator.setDuration(485L);
+            scanAnimator.setInterpolator(NativeMotion.easing());
+            scanAnimator.addUpdateListener(a -> {
+                scanProgress = (Float) a.getAnimatedValue();
+                invalidate();
+            });
+            scanAnimator.start();
         }
 
         private static Path polygon(
@@ -871,6 +915,13 @@ final class NativePremiumHomeUi {
             // Flush perimeter and the baguette shadow-gap profile.
             stroke(1.12f, Color.argb(211, 241, 251, 255));
             canvas.drawPath(perimeter, ink);
+            if (scanProgress > 0f && scanProgress < 1f) {
+                scannedLine.reset();
+                contourMeasure.getSegment(0f,
+                        contourMeasure.getLength() * scanProgress, scannedLine, true);
+                stroke(1.85f, Color.argb(198, 181, 217, 244));
+                canvas.drawPath(scannedLine, ink);
+            }
             stroke(.72f, Color.argb(136, 237, 249, 255));
             canvas.drawPath(shadowGap, ink);
 
