@@ -530,6 +530,188 @@ final class NativePremiumHomeUi {
                 });
     }
 
+    /** Actual local loading placeholder: one matte opacity pass, no glossy shimmer. */
+    private void addLoadingSkeleton() {
+        for (int i = 0; i < 2; i++) {
+            LinearLayout skeleton = new LinearLayout(activity);
+            skeleton.setTag("native_home_loading_skeleton");
+            skeleton.setGravity(Gravity.CENTER_VERTICAL);
+            skeleton.setPadding(dp(15), dp(12), dp(15), dp(12));
+            View icon = new View(activity);
+            icon.setBackground(round(Color.rgb(225, 232, 239), 10));
+            skeleton.addView(icon, new LinearLayout.LayoutParams(dp(36), dp(36)));
+            LinearLayout bars = new LinearLayout(activity);
+            bars.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams barsLp =
+                    new LinearLayout.LayoutParams(0, dp(36), 1f);
+            barsLp.leftMargin = dp(12);
+            skeleton.addView(bars, barsLp);
+            View first = new View(activity);
+            first.setBackground(round(Color.rgb(225, 232, 239), 5));
+            bars.addView(first, new LinearLayout.LayoutParams(
+                    i == 0 ? dp(115) : dp(145), dp(13)));
+            View second = new View(activity);
+            second.setBackground(round(Color.rgb(235, 240, 245), 5));
+            LinearLayout.LayoutParams secondLp = new LinearLayout.LayoutParams(
+                    i == 0 ? dp(88) : dp(112), dp(9));
+            secondLp.topMargin = dp(8);
+            bars.addView(second, secondLp);
+            recentRows.addView(skeleton, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(60)));
+            if (NativeHomeExpressiveMotion.enabled(skeleton)) {
+                skeleton.setAlpha(.65f);
+                skeleton.animate().alpha(.95f).setDuration(440)
+                        .setInterpolator(NativeMotion.easing()).start();
+            }
+        }
+    }
+
+    private void addCompactHeader(FrameLayout screen) {
+        compactHeader = new LinearLayout(activity);
+        compactHeader.setTag("native_home_collapsing_app_bar");
+        compactHeader.setGravity(Gravity.CENTER_VERTICAL);
+        compactHeader.setPadding(dp(18), 0, dp(14), 0);
+        compactHeader.setBackground(panelDrawable(Color.rgb(248, 249, 250),
+                BORDER, 0));
+        compactHeader.setVisibility(View.INVISIBLE);
+        TextView title = text("Замер потолков", 15f, INK, true);
+        compactHeader.addView(title, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        ImageView settings = smallIcon(R.drawable.ic_shell_sliders, 36);
+        settings.setTag("native_home_compact_settings");
+        settings.setContentDescription("Настройки");
+        settings.setClickable(true);
+        settings.setFocusable(true);
+        settings.setOnClickListener(v -> openSettings.run());
+        compactHeader.addView(settings, new LinearLayout.LayoutParams(dp(36), dp(36)));
+        screen.addView(compactHeader, 1, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(50), Gravity.TOP));
+    }
+
+    private void addSpeedDial(FrameLayout screen) {
+        speedDial = new FrameLayout(activity);
+        speedDial.setTag("native_home_speed_dial");
+        speedDial.setBackgroundColor(Color.argb(67, 19, 34, 50));
+        speedDial.setClickable(true);
+        speedDial.setFocusable(true);
+        speedDial.setContentDescription("Закрыть быстрые действия");
+        speedDial.setOnClickListener(v -> closeSpeedDial());
+        speedDial.setVisibility(View.GONE);
+        String[] names = {"Новый замер", "Открыть чертёж", "Сохранённые замеры"};
+        Runnable[] actions = {openNew, openDrawing, openSaved};
+        for (int i = 0; i < NativeHomeExpressiveProfile.QUICK_ACTIONS_COUNT; i++) {
+            final int index = i;
+            TextView item = text(names[i], 12.5f, INK, true);
+            item.setTag("native_home_speed_action_" + i);
+            item.setContentDescription(names[i]);
+            item.setGravity(Gravity.CENTER);
+            item.setBackground(panelDrawable(Color.WHITE, BORDER, 15));
+            item.setElevation(dp(2));
+            item.setClickable(true);
+            item.setFocusable(true);
+            item.setOnClickListener(v -> {
+                closeSpeedDial();
+                v.postDelayed(actions[index], 135L);
+            });
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                    dp(160), dp(45), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+            lp.bottomMargin = dp(115 + i * 60);
+            speedDial.addView(item, lp);
+        }
+        // Behind the permanent dock so the same central + also closes the dial.
+        screen.addView(speedDial, 2, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void toggleSpeedDial() {
+        if (speedDialOpen) {
+            closeSpeedDial();
+            return;
+        }
+        speedDialOpen = true;
+        NativeHomeExpressiveMotion.fabState(plusButton, true);
+        speedDial.setVisibility(View.VISIBLE);
+        speedDial.animate().cancel();
+        speedDial.setAlpha(0f);
+        speedDial.animate().alpha(1f).setDuration(170)
+                .setInterpolator(NativeMotion.easing()).start();
+        for (int i = 0; i < speedDial.getChildCount(); i++) {
+            View button = speedDial.getChildAt(i);
+            float targetX = (i - 1) * dp(58);
+            button.animate().cancel();
+            button.setAlpha(0f);
+            button.setTranslationX(0f);
+            button.setTranslationY(dp(28));
+            button.setScaleX(.8f);
+            button.setScaleY(.88f);
+            button.animate().alpha(1f).translationX(targetX).translationY(0f)
+                    .scaleX(1f).scaleY(1f).setStartDelay(i * 42L)
+                    .setDuration(260).setInterpolator(
+                            new android.view.animation.OvershootInterpolator(.67f)).start();
+        }
+    }
+
+    private void closeSpeedDial() {
+        if (!speedDialOpen || speedDial == null) return;
+        speedDialOpen = false;
+        NativeHomeExpressiveMotion.fabState(plusButton, false);
+        for (int i = 0; i < speedDial.getChildCount(); i++) {
+            View button = speedDial.getChildAt(i);
+            button.animate().cancel();
+            button.animate().alpha(0f).translationY(dp(22)).scaleX(.9f)
+                    .setDuration(135).setInterpolator(NativeMotion.easing()).start();
+        }
+        speedDial.animate().cancel();
+        speedDial.animate().alpha(0f).setDuration(155)
+                .withEndAction(() -> {
+                    if (!speedDialOpen) speedDial.setVisibility(View.GONE);
+                }).start();
+    }
+
+    void resetTransientUi() {
+        if (speedDial == null || !speedDialOpen) return;
+        closeSpeedDial();
+    }
+
+    private void onHomeScroll(FrameLayout screen, int y, int previousY) {
+        int available = scroll.getChildAt(0).getHeight() - scroll.getHeight();
+        boolean motion = NativeHomeExpressiveMotion.enabled(scroll);
+        if (!motion) {
+            dock.animate().cancel();
+            dock.setTranslationY(0f);
+            if (compactHeader != null) compactHeader.setVisibility(View.INVISIBLE);
+            return;
+        }
+        if (NativeHomeExpressiveProfile.shouldHideDock(
+                y, previousY, available, dp(48))) {
+            dock.animate().translationY(dp(83)).setDuration(245)
+                    .setInterpolator(NativeMotion.easing()).start();
+            if (speedDialOpen) closeSpeedDial();
+        } else if (y < dp(8) || previousY - y >= dp(3)) {
+            dock.animate().translationY(0f).setDuration(225)
+                    .setInterpolator(NativeMotion.easing()).start();
+        }
+        boolean show = y >= dp(73);
+        if (show == compactShowing) return;
+        compactShowing = show;
+        int top = NativeShellInsets.currentSafeInsets(screen).top;
+        compactHeader.animate().cancel();
+        if (show) {
+            compactHeader.setVisibility(View.VISIBLE);
+            compactHeader.setAlpha(0f);
+            compactHeader.setTranslationY(top - dp(15));
+            compactHeader.animate().alpha(1f).translationY(top)
+                    .setDuration(230).setInterpolator(NativeMotion.easing()).start();
+        } else {
+            compactHeader.animate().alpha(0f).translationY(top - dp(12))
+                    .setDuration(180).setInterpolator(NativeMotion.easing())
+                    .withEndAction(() -> {
+                        if (!compactShowing) compactHeader.setVisibility(View.INVISIBLE);
+                    }).start();
+        }
+    }
+
     private ImageView smallIcon(int drawable, int size) {
         ImageView icon = new ImageView(activity);
         icon.setImageResource(drawable);
