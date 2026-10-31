@@ -2830,6 +2830,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         savedOpenedFromEditor = false;
         setContentView(workspacePage);
         NativeTransformerMotion.reveal(editorScroll, -1);
+        NativeTransformerMotion.staggerVisible(root, 5);
+        NativeTransformerMotion.staggerDock(historyNavView);
         ensureHistoryNavigationVisible();
         workspacePage.requestApplyInsets();
     }
