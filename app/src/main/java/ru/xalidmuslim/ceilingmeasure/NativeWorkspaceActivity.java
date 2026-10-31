@@ -745,7 +745,6 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         setContentView(page);
         NativeTransformerMotion.reveal(editorScroll, 1);
-        NativeTransformerMotion.reveal(historyNavView, 0);
         ensureHistoryNavigationVisible();
         page.requestApplyInsets();
         setMode(CeilingDrawingView.Mode.WALL);
@@ -2823,7 +2822,6 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         savedOpenedFromEditor = false;
         setContentView(workspacePage);
         NativeTransformerMotion.reveal(editorScroll, -1);
-        NativeTransformerMotion.reveal(historyNavView, 0);
         ensureHistoryNavigationVisible();
         workspacePage.requestApplyInsets();
     }
