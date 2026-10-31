@@ -294,6 +294,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         settingsDialog = new NativeUiSettingsDialog(this, uiPrefs, next -> {
             uiPrefs = next;
             if (shellRoot != null) NativeTypography.applyTree(shellRoot, uiPrefs);
+            if (premiumUi != null) premiumUi.updateMotionMode();
         });
         // Home owns this dialog; no Activity/window transition is needed.
         settingsDialog.setStableHomeTransition(true);
