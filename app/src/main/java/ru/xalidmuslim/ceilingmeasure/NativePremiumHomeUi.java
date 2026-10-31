@@ -54,6 +54,12 @@ final class NativePremiumHomeUi {
     private String recentSnapshotKey;
     private TextView savedCount;
     private TextView licenseState;
+    private View liquidIndicator;
+    private FrameLayout speedDial;
+    private TextView plusButton;
+    private LinearLayout compactHeader;
+    private boolean compactShowing;
+    private boolean speedDialOpen;
 
     NativePremiumHomeUi(
             NativeHomeActivity activity,
@@ -137,11 +143,14 @@ final class NativePremiumHomeUi {
         recentRows.setBackground(panel(16));
         content.addView(recentRows, matchTop(0));
 
-        // Avoid a misleading empty list while saved projects are being read asynchronously.
-        recentRows.addView(text("Загрузка замеров…", 11.5f, MUTED, false),
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT, dp(46)));
+        // Load is LOCAL (not a server request): matte skeletons replace a
+        // misleading empty list until NativeHomePreloader finishes.
+        addLoadingSkeleton();
         addDock(screen);
+        addCompactHeader(screen);
+        addSpeedDial(screen);
+        scroll.setOnScrollChangeListener((View v, int x, int y, int oldX, int oldY) ->
+                onHomeScroll(screen, y, oldY));
         return screen;
     }
 
@@ -348,7 +357,7 @@ final class NativePremiumHomeUi {
                 gradient, round(Color.WHITE, 16)));
         primary.setClickable(true);
         primary.setFocusable(true);
-        primary.setOnClickListener(v -> openNew.run());
+        primary.setTransitionName(NativeHomeExpressiveProfile.CTA_TRANSITION_NAME);
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(100));
         p.topMargin = dp(14);
@@ -384,6 +393,8 @@ final class NativePremiumHomeUi {
                 dp(24), dp(44), Gravity.END | Gravity.CENTER_VERTICAL);
         arrow.rightMargin = dp(9);
         primary.addView(chevron, arrow);
+        NativeHomeExpressiveMotion.bindCard(primary, art, chevron,
+                () -> activity.openPrimaryCta(primary), true, false);
     }
 
     private void addRow(LinearLayout list, int image, String title, String detail,
@@ -397,7 +408,6 @@ final class NativePremiumHomeUi {
         row.setBackground(pressBackground(Color.WHITE, BORDER, 15));
         row.setClickable(true);
         row.setFocusable(true);
-        row.setOnClickListener(v -> open.run());
         list.addView(row, matchTop(topMargin));
 
         ImageView icon = smallIcon(image, 43);
@@ -427,6 +437,8 @@ final class NativePremiumHomeUi {
         LinearLayout.LayoutParams arrowLp = new LinearLayout.LayoutParams(dp(20), dp(38));
         arrowLp.leftMargin = dp(5);
         row.addView(arrow, arrowLp);
+        NativeHomeExpressiveMotion.bindCard(row, icon, arrow, open, false,
+                "native_home_drawing".equals(tag));
     }
 
     private void addDock(FrameLayout screen) {
