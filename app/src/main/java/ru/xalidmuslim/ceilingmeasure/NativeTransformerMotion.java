@@ -4,6 +4,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.view.animation.OvershootInterpolator;
 
 import androidx.annotation.NonNull;
@@ -88,6 +89,25 @@ final class NativeTransformerMotion {
             slots = (ViewGroup) group.getChildAt(0);
         }
         staggerVisible(slots, Math.min(6, slots.getChildCount()));
+    }
+
+    /** Separately assemble choice buttons in Settings (font, weight, motion). */
+    static void staggerSettingsButtons(@NonNull ViewGroup sheet) {
+        if (!enabled(sheet)) return;
+        for (int i = 0; i < sheet.getChildCount(); i++) {
+            View child = sheet.getChildAt(i);
+            if (!(child instanceof ViewGroup)) continue;
+            ViewGroup section = (ViewGroup) child;
+            for (int j = 0; j < section.getChildCount(); j++) {
+                View candidate = section.getChildAt(j);
+                if (!(candidate instanceof ViewGroup)) continue;
+                ViewGroup row = (ViewGroup) candidate;
+                if (row.getChildCount() >= 2 && row.getChildCount() <= 4
+                        && row.getChildAt(0) instanceof Button) {
+                    staggerVisible(row, row.getChildCount());
+                }
+            }
+        }
     }
 
     /**
