@@ -460,7 +460,7 @@ final class NativePremiumHomeUi {
         plus.setClickable(true);
         plus.setFocusable(true);
         plus.setContentDescription("Новый замер");
-        plus.setOnClickListener(v -> openNew.run());
+        NativeTransformerMotion.bindNavigation(plus, plus, 0, openNew);
         plusSlot.addView(plus, new LinearLayout.LayoutParams(dp(48), dp(48)));
         plusSlot.addView(text("Новый", 9.5f, MUTED, false), matchTop(1));
 
@@ -476,7 +476,7 @@ final class NativePremiumHomeUi {
         slot.setClickable(true);
         slot.setFocusable(true);
         slot.setContentDescription(label);
-        slot.setOnClickListener(v -> callback.run());
+        // Navigation listeners are attached after creating the icon.
         parent.addView(slot, new LinearLayout.LayoutParams(0, dp(70), 1f));
 
         ImageView glyph = new ImageView(activity);
@@ -488,6 +488,9 @@ final class NativePremiumHomeUi {
         text.setSingleLine(true);
         text.setGravity(Gravity.CENTER);
         slot.addView(text, matchTop(2));
+        NativeTransformerMotion.bindNavigation(slot, glyph,
+                TransformerMotionProfile.directionForIndex(parent.getChildCount() - 1, 5),
+                callback);
     }
 
     private ImageView smallIcon(int drawable, int size) {
