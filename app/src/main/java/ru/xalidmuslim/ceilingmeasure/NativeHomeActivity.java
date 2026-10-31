@@ -1,6 +1,8 @@
 package ru.xalidmuslim.ceilingmeasure;
 
 import android.content.Intent;
+import android.app.ActivityOptions;
+import android.view.Window;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -38,6 +40,8 @@ public final class NativeHomeActivity extends ComponentActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS);
+        NativeHomeExpressiveMotion.configureSharedElement(this);
         NativeShellInsets.configureWindow(this);
         // Match the opaque Home surface behind every dialog and during cold
         // launch. The theme's generic workspace window is a different gray,
@@ -58,12 +62,12 @@ public final class NativeHomeActivity extends ComponentActivity {
         NativeTransformerMotion.staggerDock(premiumUi.dock());
         if (premiumUi.scroll().getChildCount() > 0
                 && premiumUi.scroll().getChildAt(0) instanceof ViewGroup) {
-            NativeTransformerMotion.staggerVisible(
-                    (ViewGroup) premiumUi.scroll().getChildAt(0), 6);
+            NativeHomeExpressiveMotion.staggerChildren(
+                    (ViewGroup) premiumUi.scroll().getChildAt(0));
         }
         View actionRows = content.findViewWithTag("native_home_actions");
         if (actionRows instanceof ViewGroup) {
-            NativeTransformerMotion.staggerVisible((ViewGroup) actionRows, 3);
+            NativeHomeExpressiveMotion.staggerChildren((ViewGroup) actionRows);
         }
         content.requestApplyInsets();
         // The launcher is the terminal in-app destination. Android Back,
@@ -317,6 +321,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         // A stale queued decode must not redraw the launcher while another
         // screen owns the window. onResume requests the latest saved snapshot.
         pendingHomeLoad++;
+        if (premiumUi != null) premiumUi.resetTransientUi();
         super.onStop();
     }
 
@@ -356,7 +361,31 @@ public final class NativeHomeActivity extends ComponentActivity {
         intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, NativeWorkspaceActivity.ACTION_RECENT_PROJECT);
         intent.putExtra(NativeWorkspaceActivity.EXTRA_PROJECT_ID, projectId);
         startActivity(intent);
-        overridePendingTransition(0, 0);
+        if (NativeTransformerMode.enabled(this) && NativeMotion.animationsEnabled()) {
+            overridePendingTransition(R.anim.ceiling_axis_in_right,
+                    R.anim.ceiling_axis_out_left);
+        } else {
+            overridePendingTransition(0, 0);
+        }
+    }
+
+    /** Real system shared-element expansion from the original blue CTA. */
+    void openPrimaryCta(View source) {
+        if (licenseClient != null && !licenseClient.canEdit()) {
+            showLicense();
+            return;
+        }
+        if (!NativeHomeExpressiveMotion.enabled(source)) {
+            openWorkspace(NativeWorkspaceActivity.ACTION_NEW_ORDER);
+            return;
+        }
+        Intent intent = new Intent(this, NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.ACTION_NEW_ORDER);
+        intent.putExtra(NativeHomeExpressiveProfile.CTA_LAUNCH_EXTRA, true);
+        ActivityOptions options = ActivityOptions.makeSceneTransitionAnimation(
+                this, source, NativeHomeExpressiveProfile.CTA_TRANSITION_NAME);
+        startActivity(intent, options.toBundle());
     }
 
     private void openWorkspace(String action) {
@@ -368,8 +397,14 @@ public final class NativeHomeActivity extends ComponentActivity {
         Intent intent = new Intent(this, NativeWorkspaceActivity.class);
         intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, action);
         startActivity(intent);
-        // Native content performs one transformer transition; do not stack a window slide.
-        overridePendingTransition(0, 0);
+        if (NativeTransformerMode.enabled(this) && NativeMotion.animationsEnabled()
+                && (NativeWorkspaceActivity.ACTION_SAVED_MEASUREMENTS.equals(action)
+                    || NativeWorkspaceActivity.ACTION_DRAWING.equals(action))) {
+            overridePendingTransition(R.anim.ceiling_axis_in_right,
+                    R.anim.ceiling_axis_out_left);
+        } else {
+            overridePendingTransition(0, 0);
+        }
     }
 
     NativeUiPrefs getUiPrefsForTest() {
