@@ -70,7 +70,7 @@ final class NativeEstimateDialog extends Dialog {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         NativeFullScreenDialogShell.configure(this);
         render();
-        if(content!=null)NativeMotion.enter(content);
+        // The fullscreen shell animates scroll once; avoid a second nested alpha layer.
 
         Window window=getWindow();
         if(window!=null){
