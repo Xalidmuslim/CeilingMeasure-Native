@@ -4,7 +4,7 @@ on:
   push:
     branches: [feature/v258-expressive-home-motion]
   pull_request:
-    branches: [feature/v258-expressive-home-motion]
+    branches: [feature/v257-transformer-stagger-settings-toggle]
   workflow_dispatch:
 
 permissions:
