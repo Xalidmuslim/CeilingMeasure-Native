@@ -11,6 +11,7 @@ import android.text.Editable;
 import android.net.Uri;
 import android.app.Activity;
 import android.graphics.Color;
+import android.transition.Transition;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -749,9 +750,47 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 historyNavView,
                 dp(NativeVisualTokens.HISTORY_BOTTOM_DP));
 
+        final boolean sharedCta = getIntent().getBooleanExtra(
+                NativeHomeExpressiveProfile.CTA_LAUNCH_EXTRA, false)
+                && NativeTransformerMode.enabled(this)
+                && NativeMotion.animationsEnabled();
+        if (sharedCta) {
+            // Shared element takes over the FULL viewport before the editor
+            // surfaces emerge. No saved geometry or workspace views are changed.
+            View morph = new View(this);
+            morph.setTag("native_editor_container_transform_overlay");
+            morph.setBackgroundColor(Color.rgb(20, 91, 152));
+            morph.setTransitionName(NativeHomeExpressiveProfile.CTA_TRANSITION_NAME);
+            page.addView(morph, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT));
+            final boolean[] alreadyRevealed = {false};
+            Runnable revealEditor = () -> {
+                if (alreadyRevealed[0]) return;
+                alreadyRevealed[0] = true;
+                morph.animate().alpha(0f).setDuration(170L)
+                        .setInterpolator(NativeMotion.easing())
+                        .withEndAction(() -> page.removeView(morph)).start();
+            };
+            Transition transition = getWindow().getSharedElementEnterTransition();
+            if (transition == null) {
+                morph.postDelayed(revealEditor, NativeHomeExpressiveProfile.MORPH_MS);
+            } else {
+                transition.addListener(new Transition.TransitionListener() {
+                    @Override public void onTransitionStart(Transition t) {}
+                    @Override public void onTransitionEnd(Transition t) { revealEditor.run(); }
+                    @Override public void onTransitionCancel(Transition t) { revealEditor.run(); }
+                    @Override public void onTransitionPause(Transition t) {}
+                    @Override public void onTransitionResume(Transition t) {}
+                });
+                // If Android cancels transition delivery, never leave a blue
+                // overlay covering controls indefinitely.
+                morph.postDelayed(revealEditor,
+                        NativeHomeExpressiveProfile.MORPH_MS + 550L);
+            }
+        }
         setContentView(page);
-        if (!getIntent().getBooleanExtra(
-                NativeHomeExpressiveProfile.CTA_LAUNCH_EXTRA, false)) {
+        if (!sharedCta) {
             NativeTransformerMotion.reveal(editorScroll, 1);
         }
         NativeTransformerMotion.staggerVisible(root, 5);
@@ -780,7 +819,6 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if (getIntent().getBooleanExtra(
                 NativeHomeExpressiveProfile.CTA_LAUNCH_EXTRA, false)
                 && NativeHomeExpressiveMotion.enabled(bar)) {
-            bar.setTransitionName(NativeHomeExpressiveProfile.CTA_TRANSITION_NAME);
             NativeHomeExpressiveMotion.shiftHeaderColor(bar,
                     Color.rgb(20, 91, 152), NativeVisualTokens.SURFACE);
         }
