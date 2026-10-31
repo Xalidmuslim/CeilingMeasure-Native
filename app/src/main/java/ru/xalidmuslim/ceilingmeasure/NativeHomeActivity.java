@@ -359,7 +359,8 @@ public final class NativeHomeActivity extends ComponentActivity {
         Intent intent = new Intent(this, NativeWorkspaceActivity.class);
         intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, action);
         startActivity(intent);
-        if (NativeWorkspaceActivity.ACTION_MATERIALS.equals(action)) overridePendingTransition(0, 0);
+        // Native content performs one transformer transition; do not stack a window slide.
+        overridePendingTransition(0, 0);
     }
 
     NativeUiPrefs getUiPrefsForTest() {
