@@ -56,7 +56,7 @@ jobs:
             adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeTransformerMotionTest,ru.xalidmuslim.ceilingmeasure.NativeTransformerModeTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/transformer-test.txt
             grep -q 'OK (2 tests)' /tmp/transformer-test.txt
             adb install -r app/build/outputs/apk/releasePreview/app-releasePreview.apk
-            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.smooth256/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity
+            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.smooth257/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity
             adb logcat -d -s AndroidRuntime:E | tee /tmp/transformer-errors.txt
             if grep -q 'FATAL EXCEPTION' /tmp/transformer-errors.txt; then exit 1; fi
       - name: Upload preview APK
