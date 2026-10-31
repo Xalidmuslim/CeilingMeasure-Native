@@ -449,14 +449,24 @@ final class NativePremiumHomeUi {
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(70),
                 Gravity.BOTTOM);
         screen.addView(dock, dockLp);
+        liquidIndicator = new View(activity);
+        liquidIndicator.setTag("native_home_liquid_indicator");
+        liquidIndicator.setBackground(round(Color.rgb(220, 235, 249), 16));
+        dock.addView(liquidIndicator, new FrameLayout.LayoutParams(
+                dp(48), dp(43), Gravity.TOP | Gravity.LEFT));
+        liquidIndicator.setTranslationY(dp(10));
+        liquidIndicator.post(() ->
+                NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 0));
+
         LinearLayout slots = new LinearLayout(activity);
         slots.setGravity(Gravity.CENTER);
         dock.addView(slots, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
-        addNav(slots, R.drawable.ic_shell_home, "Главная", true, () -> scroll.smoothScrollTo(0, 0));
-        addNav(slots, R.drawable.ic_shell_saved, "Замеры", false, openSaved);
+        addNav(slots, R.drawable.ic_shell_home, "Главная", true,
+                () -> scroll.smoothScrollTo(0, 0), 0);
+        addNav(slots, R.drawable.ic_shell_saved, "Замеры", false, openSaved, 1);
 
         LinearLayout plusSlot = new LinearLayout(activity);
         plusSlot.setOrientation(LinearLayout.VERTICAL);
@@ -472,16 +482,23 @@ final class NativePremiumHomeUi {
         plus.setClickable(true);
         plus.setFocusable(true);
         plus.setContentDescription("Новый замер");
-        NativeTransformerMotion.bindNavigation(plus, plus, 0, openNew);
+        plusButton = plus;
+        plus.setOnClickListener(v -> {
+            if (!NativeHomeExpressiveMotion.enabled(v)) {
+                openNew.run();
+            } else {
+                toggleSpeedDial();
+            }
+        });
         plusSlot.addView(plus, new LinearLayout.LayoutParams(dp(48), dp(48)));
         plusSlot.addView(text("Новый", 9.5f, MUTED, false), matchTop(1));
 
-        addNav(slots, R.drawable.ic_shell_layers, "Материалы", false, openMaterials);
-        addNav(slots, R.drawable.ic_shell_sliders, "Настройки", false, openSettings);
+        addNav(slots, R.drawable.ic_shell_layers, "Материалы", false, openMaterials, 3);
+        addNav(slots, R.drawable.ic_shell_sliders, "Настройки", false, openSettings, 4);
     }
 
     private void addNav(LinearLayout parent, int icon, String label,
-                        boolean active, Runnable callback) {
+                        boolean active, Runnable callback, int position) {
         LinearLayout slot = new LinearLayout(activity);
         slot.setOrientation(LinearLayout.VERTICAL);
         slot.setGravity(Gravity.CENTER);
@@ -501,8 +518,16 @@ final class NativePremiumHomeUi {
         text.setGravity(Gravity.CENTER);
         slot.addView(text, matchTop(2));
         NativeTransformerMotion.bindNavigation(slot, glyph,
-                TransformerMotionProfile.directionForIndex(parent.getChildCount() - 1, 5),
-                callback);
+                TransformerMotionProfile.directionForIndex(position,
+                        NativeHomeExpressiveProfile.DOCK_SLOTS),
+                () -> {
+                    if (NativeHomeExpressiveMotion.enabled(slot)) {
+                        NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, position);
+                        slot.postDelayed(callback, 140L);
+                    } else {
+                        callback.run();
+                    }
+                });
     }
 
     private ImageView smallIcon(int drawable, int size) {
