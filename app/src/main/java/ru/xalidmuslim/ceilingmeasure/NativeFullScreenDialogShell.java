@@ -164,6 +164,9 @@ final class NativeFullScreenDialogShell {
         ViewCompat.requestApplyInsets(root);
         // Keep the opaque dialog background stationary; animate content and dock.
         NativeTransformerMotion.reveal(scroll, 1);
+        if (scroll.getChildCount() > 0 && scroll.getChildAt(0) instanceof ViewGroup) {
+            NativeTransformerMotion.staggerVisible((ViewGroup) scroll.getChildAt(0), 2);
+        }
         NativeTransformerMotion.reveal(nav, 0);
         return root;
     }
