@@ -2977,6 +2977,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         savedPage.addView(savedNav,historyNavParams());
         setContentView(savedPage);
         NativeTransformerMotion.reveal(scroll, 1);
+        NativeTransformerMotion.staggerVisible(content, 3);
         NativeTransformerMotion.reveal(savedNav, 0);
         NativeShellInsets.bindWorkspace(
                 savedPage,scroll,savedNav,dp(NativeVisualTokens.HISTORY_BOTTOM_DP));
