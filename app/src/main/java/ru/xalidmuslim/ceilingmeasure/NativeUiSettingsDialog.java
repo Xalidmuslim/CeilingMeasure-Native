@@ -98,7 +98,7 @@ final class NativeUiSettingsDialog extends Dialog {
             if (!NativeMotion.animationsEnabled()) {
                 backdrop.setAlpha(1f);
             } else {
-                backdrop.setAlpha(0f);
+                backdrop.setAlpha(NativeTransformerMode.enabled(activity) ? .72f : 0f);
                 backdrop.animate().alpha(1f)
                         .setDuration(NativeMotion.DIALOG_ENTER_MS)
                         .setInterpolator(NativeMotion.easing()).start();
@@ -109,6 +109,7 @@ final class NativeUiSettingsDialog extends Dialog {
                 // Both the panel and each of its controls assemble independently.
                 NativeTransformerMotion.reveal(sheet, 1);
                 NativeTransformerMotion.staggerVisible(sheet, 8);
+                NativeTransformerMotion.staggerSettingsButtons(sheet);
             } else if (!stableHomeTransition) {
                 NativeMotion.enterCompact(sheet);
             }
