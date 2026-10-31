@@ -55,7 +55,12 @@ public final class NativeHomeActivity extends ComponentActivity {
         setContentView(content);
         // Fixed background does not animate: only content and dock transform.
         NativeTransformerMotion.reveal(premiumUi.scroll(), 1);
-        NativeTransformerMotion.reveal(premiumUi.dock(), 0);
+        NativeTransformerMotion.staggerDock(premiumUi.dock());
+        if (premiumUi.scroll().getChildCount() > 0
+                && premiumUi.scroll().getChildAt(0) instanceof ViewGroup) {
+            NativeTransformerMotion.staggerVisible(
+                    (ViewGroup) premiumUi.scroll().getChildAt(0), 6);
+        }
         View actionRows = content.findViewWithTag("native_home_actions");
         if (actionRows instanceof ViewGroup) {
             NativeTransformerMotion.staggerVisible((ViewGroup) actionRows, 3);

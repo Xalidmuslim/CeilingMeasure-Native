@@ -745,7 +745,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         setContentView(page);
         NativeTransformerMotion.reveal(editorScroll, 1);
-        NativeTransformerMotion.staggerVisible(root, 2);
+        NativeTransformerMotion.staggerVisible(root, 5);
+        NativeTransformerMotion.staggerDock(historyNavView);
         ensureHistoryNavigationVisible();
         page.requestApplyInsets();
         setMode(CeilingDrawingView.Mode.WALL);
@@ -2829,6 +2830,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         savedOpenedFromEditor = false;
         setContentView(workspacePage);
         NativeTransformerMotion.reveal(editorScroll, -1);
+        NativeTransformerMotion.staggerVisible(root, 5);
+        NativeTransformerMotion.staggerDock(historyNavView);
         ensureHistoryNavigationVisible();
         workspacePage.requestApplyInsets();
     }
@@ -2977,8 +2980,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         savedPage.addView(savedNav,historyNavParams());
         setContentView(savedPage);
         NativeTransformerMotion.reveal(scroll, 1);
-        NativeTransformerMotion.staggerVisible(content, 3);
-        NativeTransformerMotion.reveal(savedNav, 0);
+        NativeTransformerMotion.staggerVisible(content, 5);
+        NativeTransformerMotion.staggerDock((ViewGroup) savedNav);
         NativeShellInsets.bindWorkspace(
                 savedPage,scroll,savedNav,dp(NativeVisualTokens.HISTORY_BOTTOM_DP));
     }
