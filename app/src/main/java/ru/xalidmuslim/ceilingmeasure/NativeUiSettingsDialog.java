@@ -104,23 +104,18 @@ final class NativeUiSettingsDialog extends Dialog {
                         .setDuration(NativeMotion.DIALOG_ENTER_MS)
                         .setInterpolator(NativeMotion.easing())
                         .start();
+                // The scrim stays one surface; its matte sheet transforms within it.
+                if (sheet != null) {
+                    sheet.setTranslationX(activity.getResources().getDisplayMetrics().density * 12f);
+                    sheet.setScaleX(.988f);
+                    sheet.setScaleY(.988f);
+                    sheet.animate().translationX(0f).scaleX(1f).scaleY(1f)
+                            .setDuration(TransformerMotionProfile.ENTRY_MS)
+                            .setInterpolator(NativeMotion.easing()).start();
+                }
             }
         } else if (sheet != null) {
-            // Preserve the established Workspace settings transition.
-            sheet.animate().cancel();
-            sheet.setScaleX(1f);
-            sheet.setScaleY(1f);
-            sheet.setTranslationY(0f);
-            sheet.setAlpha(.94f);
-            if (!NativeMotion.animationsEnabled()) {
-                sheet.setAlpha(1f);
-            } else {
-                sheet.animate()
-                        .alpha(1f)
-                        .setDuration(NativeVisualTokens.OVERLAY_MOTION_MS)
-                        .setInterpolator(NativeMotion.easing())
-                        .start();
-            }
+            NativeTransformerMotion.reveal(sheet, 1);
         }
     }
 
