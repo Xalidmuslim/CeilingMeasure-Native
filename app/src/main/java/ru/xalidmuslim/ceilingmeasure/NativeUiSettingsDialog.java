@@ -255,6 +255,18 @@ final class NativeUiSettingsDialog extends Dialog {
 
         setContentView(backdrop);
         ViewCompat.requestApplyInsets(backdrop);
+        // The new animation row makes settings taller. Constrain its viewport
+        // to system-bar-safe space on short phones; keep all choices scrollable.
+        scroll.post(() -> {
+            if (backdrop == null || !scroll.isAttachedToWindow()) return;
+            int available = backdrop.getHeight() - backdrop.getPaddingTop()
+                    - backdrop.getPaddingBottom() - dp(14);
+            if (available > dp(240) && scroll.getHeight() > available) {
+                ViewGroup.LayoutParams params = scroll.getLayoutParams();
+                params.height = available;
+                scroll.setLayoutParams(params);
+            }
+        });
         NativeTypography.applyTree(sheet, prefs);
     }
 
