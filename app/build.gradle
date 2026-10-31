@@ -18,8 +18,8 @@ android {
         applicationId 'ru.xalidmuslim.ceilingmeasure'
         minSdk 29
         targetSdk 35
-        versionCode 257
-        versionName '1.0.257-stagger-transformer-settings-r8'
+        versionCode 258
+        versionName '1.0.258-expressive-home-motion-r8'
 
         buildConfigField 'String', 'LICENSE_SERVER_URL', JsonOutput.toJson(licenseUrl)
         buildConfigField 'String', 'LICENSE_PUBLIC_KEY_B64', JsonOutput.toJson(licenseKey)
@@ -54,7 +54,7 @@ android {
             // v257 has a dedicated install ID: GitHub runners generate separate
             // ephemeral debug signing keys, so replacing an older .optimized APK
             // could otherwise require uninstalling it and deleting test data.
-            applicationIdSuffix '.smooth257'
+            applicationIdSuffix '.smooth258'
             versionNameSuffix '-preview'
             matchingFallbacks = ['release']
         }
@@ -92,6 +92,7 @@ tasks.named('preBuild').configure {
 
 dependencies {
     implementation 'androidx.activity:activity:1.9.3'
+    implementation 'androidx.dynamicanimation:dynamicanimation:1.0.0'
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
