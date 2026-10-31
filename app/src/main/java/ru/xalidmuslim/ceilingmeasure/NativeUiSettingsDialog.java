@@ -41,6 +41,8 @@ final class NativeUiSettingsDialog extends Dialog {
     private FrameLayout backdrop;
     private boolean stableHomeTransition;
     private TextView sizeValue;
+    private Button transformerChoice;
+    private Button ordinaryChoice;
     private boolean closing;
     private final Handler scaleHandler=new Handler(Looper.getMainLooper());
     private Runnable pendingScaleApply;
@@ -71,7 +73,7 @@ final class NativeUiSettingsDialog extends Dialog {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             // The Home dialog fades as one complete surface, so the Android
             // window must not apply a second alpha transition on top of it.
-            window.setWindowAnimations(stableHomeTransition
+            window.setWindowAnimations((stableHomeTransition || NativeTransformerMode.enabled(activity))
                     ? R.style.CeilingNoWindowAnimation
                     : R.style.CeilingFadeWindowAnimation);
             window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
@@ -92,30 +94,24 @@ final class NativeUiSettingsDialog extends Dialog {
         View decor = window == null ? null : window.getDecorView();
         if (decor != null) decor.requestApplyInsets();
         if (stableHomeTransition && backdrop != null) {
-            // One frame-stable fade of the scrim and panel together.
-            // The Home behind the dialog stays at alpha=1 and never moves.
             backdrop.animate().cancel();
             if (!NativeMotion.animationsEnabled()) {
                 backdrop.setAlpha(1f);
             } else {
                 backdrop.setAlpha(0f);
-                backdrop.animate()
-                        .alpha(1f)
+                backdrop.animate().alpha(1f)
                         .setDuration(NativeMotion.DIALOG_ENTER_MS)
-                        .setInterpolator(NativeMotion.easing())
-                        .start();
-                // The scrim stays one surface; its matte sheet transforms within it.
-                if (sheet != null) {
-                    sheet.setTranslationX(activity.getResources().getDisplayMetrics().density * 12f);
-                    sheet.setScaleX(.988f);
-                    sheet.setScaleY(.988f);
-                    sheet.animate().translationX(0f).scaleX(1f).scaleY(1f)
-                            .setDuration(TransformerMotionProfile.ENTRY_MS)
-                            .setInterpolator(NativeMotion.easing()).start();
-                }
+                        .setInterpolator(NativeMotion.easing()).start();
             }
-        } else if (sheet != null) {
-            NativeTransformerMotion.reveal(sheet, 1);
+        }
+        if (sheet != null) {
+            if (NativeTransformerMotion.enabled(sheet)) {
+                // Both the panel and each of its controls assemble independently.
+                NativeTransformerMotion.reveal(sheet, 1);
+                NativeTransformerMotion.staggerVisible(sheet, 8);
+            } else if (!stableHomeTransition) {
+                NativeMotion.enterCompact(sheet);
+            }
         }
     }
 
@@ -145,7 +141,7 @@ final class NativeUiSettingsDialog extends Dialog {
     public void dismiss() {
         cancelPendingScaleApply();
         if (closing) return;
-        if (stableHomeTransition && isShowing()) {
+        if (isShowing()) {
             dismissAnimated();
         } else {
             super.dismiss();
@@ -156,6 +152,11 @@ final class NativeUiSettingsDialog extends Dialog {
         if (closing) return;
         cancelPendingScaleApply();
         closing = true;
+        if (sheet != null && backdrop != null && NativeTransformerMotion.enabled(sheet)) {
+            NativeTransformerMotion.closeSettings(sheet, backdrop,
+                    () -> NativeUiSettingsDialog.super.dismiss());
+            return;
+        }
         if (stableHomeTransition && backdrop != null) {
             // The backdrop, typography, and panel fade as ONE surface.
             // Do not leave a separate dim scrim after the sheet disappears.
@@ -247,6 +248,7 @@ final class NativeUiSettingsDialog extends Dialog {
         addFontGroup();
         addSizeGroup();
         addWeightGroup();
+        addMotionGroup();
         addPreview();
         addActions();
 
@@ -409,6 +411,53 @@ final class NativeUiSettingsDialog extends Dialog {
                 () -> changePrefs(prefs.withWeight(NativeUiPrefs.WEIGHT_BOLD), true));
     }
 
+    /** Preference is separate from font JSON, saved drawings and backup. */
+    private void addMotionGroup() {
+        LinearLayout group = group("Анимация интерфейса",
+                "Трансформер — поочерёдная сборка карточек и кнопок. "
+                + "Обычная — прежние плавные переходы.");
+        LinearLayout choices = threeColumnRow();
+        group.addView(choices, topMargin(dp(6)));
+
+        transformerChoice = choiceButton("Трансформер",
+                NativeTransformerMode.enabled(activity));
+        transformerChoice.setTag("native_ui_motion_transformer");
+        transformerChoice.setContentDescription("Включить анимации трансформера");
+        transformerChoice.setOnClickListener(v -> setMotionMode(true));
+
+        ordinaryChoice = choiceButton("Обычная",
+                !NativeTransformerMode.enabled(activity));
+        ordinaryChoice.setTag("native_ui_motion_ordinary");
+        ordinaryChoice.setContentDescription("Использовать обычные анимации");
+        ordinaryChoice.setOnClickListener(v -> setMotionMode(false));
+
+        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, dp(48), 1f);
+        left.rightMargin = dp(4);
+        LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(0, dp(48), 1f);
+        right.leftMargin = dp(4);
+        choices.addView(transformerChoice, left);
+        choices.addView(ordinaryChoice, right);
+    }
+
+    private void setMotionMode(boolean enabled) {
+        NativeTransformerMode.setEnabled(activity, enabled);
+        updateMotionButton(transformerChoice, enabled);
+        updateMotionButton(ordinaryChoice, !enabled);
+    }
+
+    private void updateMotionButton(Button button, boolean selected) {
+        if (button == null) return;
+        button.setTextColor(selected ? Color.WHITE : NativeVisualTokens.TEXT);
+        button.setBackground(selected
+                ? NativeVisualTokens.primaryButton(dp(12), 0)
+                : NativeVisualTokens.outlined(NativeVisualTokens.APP_SOFT,
+                        Color.TRANSPARENT, dp(12), 0));
+    }
+
+    boolean isTransformerModeForTest() {
+        return NativeTransformerMode.enabled(activity);
+    }
+
     private void addPreview() {
         LinearLayout preview = new LinearLayout(activity);
         preview.setTag("native_ui_preview");
@@ -441,7 +490,10 @@ final class NativeUiSettingsDialog extends Dialog {
 
         Button reset = choiceButton("По умолчанию", false);
         reset.setTag("native_ui_reset");
-        reset.setOnClickListener(v -> changePrefs(NativeUiPrefs.defaults(), true));
+        reset.setOnClickListener(v -> {
+            NativeTransformerMode.setEnabled(activity, true);
+            changePrefs(NativeUiPrefs.defaults(), true);
+        });
 
         Button done = choiceButton("Готово", true);
         done.setTag("native_ui_done");
