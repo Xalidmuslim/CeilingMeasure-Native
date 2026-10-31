@@ -114,7 +114,7 @@ final class NativeFullScreenDialogShell {
                     NativeVisualTokens.SURFACE,Color.TRANSPARENT,
                     px(density,NativeVisualTokens.HISTORY_BUTTON_RADIUS_DP),0,
                     Color.argb(22,33,110,147)));
-            button.setOnClickListener(v->action.callback.run());
+            // Bind after icon construction so the icon has its own motion path.
             ImageView icon=new ImageView(dialog.getContext());
             icon.setImageResource(action.iconRes);
             icon.setImageTintList(ColorStateList.valueOf(NativeVisualTokens.TEXT));
@@ -132,6 +132,9 @@ final class NativeFullScreenDialogShell {
             button.addView(label,new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT));
+            NativeTransformerMotion.bindNavigation(button, icon,
+                    TransformerMotionProfile.directionForIndex(i, actions.length),
+                    action.callback);
 
             LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(
                     0,px(density,NativeVisualTokens.HISTORY_BUTTON_HEIGHT_DP),1f);
@@ -159,6 +162,12 @@ final class NativeFullScreenDialogShell {
             return insets;
         });
         ViewCompat.requestApplyInsets(root);
+        // Keep the opaque dialog background stationary; animate content and dock.
+        NativeTransformerMotion.reveal(scroll, 1);
+        if (scroll.getChildCount() > 0 && scroll.getChildAt(0) instanceof ViewGroup) {
+            NativeTransformerMotion.staggerVisible((ViewGroup) scroll.getChildAt(0), 2);
+        }
+        NativeTransformerMotion.reveal(nav, 0);
         return root;
     }
 

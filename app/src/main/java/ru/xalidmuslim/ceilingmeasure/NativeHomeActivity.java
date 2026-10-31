@@ -53,7 +53,13 @@ public final class NativeHomeActivity extends ComponentActivity {
         licenseClient = new NativeLicenseClient(this);
         View content = createContent();
         setContentView(content);
-        NativeMotion.enter(content);
+        // Fixed background does not animate: only content and dock transform.
+        NativeTransformerMotion.reveal(premiumUi.scroll(), 1);
+        NativeTransformerMotion.reveal(premiumUi.dock(), 0);
+        View actionRows = content.findViewWithTag("native_home_actions");
+        if (actionRows instanceof ViewGroup) {
+            NativeTransformerMotion.staggerVisible((ViewGroup) actionRows, 3);
+        }
         content.requestApplyInsets();
         // The launcher is the terminal in-app destination. Android Back,
         // including gesture navigation, never exits or backgrounds the app.
@@ -357,7 +363,8 @@ public final class NativeHomeActivity extends ComponentActivity {
         Intent intent = new Intent(this, NativeWorkspaceActivity.class);
         intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION, action);
         startActivity(intent);
-        if (NativeWorkspaceActivity.ACTION_MATERIALS.equals(action)) overridePendingTransition(0, 0);
+        // Native content performs one transformer transition; do not stack a window slide.
+        overridePendingTransition(0, 0);
     }
 
     NativeUiPrefs getUiPrefsForTest() {
