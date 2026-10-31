@@ -2,7 +2,7 @@ name: CeilingMeasure v257 Transformer Scatter + Settings Mode
 
 on:
   push:
-    branches: [feature/v257-transformer-motion]
+    branches: [feature/v257-transformer-stagger-settings-toggle]
   pull_request:
     branches: [feature/v256-transformer-motion]
   workflow_dispatch:
