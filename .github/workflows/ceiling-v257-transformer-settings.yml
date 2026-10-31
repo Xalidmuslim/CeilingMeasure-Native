@@ -53,8 +53,8 @@ jobs:
             set -eu
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeTransformerMotionTest,ru.xalidmuslim.ceilingmeasure.NativeTransformerModeTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/transformer-test.txt
-            grep -q 'OK (2 tests)' /tmp/transformer-test.txt
+            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeTransformerMotionTest,ru.xalidmuslim.ceilingmeasure.NativeTransformerModeTest,ru.xalidmuslim.ceilingmeasure.NativeUiMotionSettingsTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/transformer-test.txt
+            grep -q 'OK (3 tests)' /tmp/transformer-test.txt
             adb install -r app/build/outputs/apk/releasePreview/app-releasePreview.apk
             adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.smooth257/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity
             adb logcat -d -s AndroidRuntime:E | tee /tmp/transformer-errors.txt
