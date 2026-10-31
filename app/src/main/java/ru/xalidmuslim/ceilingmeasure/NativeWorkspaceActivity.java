@@ -744,7 +744,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_BOTTOM_DP));
 
         setContentView(page);
-        NativeMotion.enter(page);
+        NativeTransformerMotion.reveal(editorScroll, 1);
+        NativeTransformerMotion.reveal(historyNavView, 0);
         ensureHistoryNavigationVisible();
         page.requestApplyInsets();
         setMode(CeilingDrawingView.Mode.WALL);
@@ -985,18 +986,30 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             boolean collapsed) {
         if(card==null||body==null)return;
         body.animate().cancel();
-        // Geometry/height transitions used to jump and briefly clip room borders.
-        // Change height immediately, then softly reveal the expanded content.
-        if(collapsed){
+        if (!NativeMotion.animationsEnabled()) {
             body.setAlpha(1f);
-            body.setVisibility(View.GONE);
-        }else{
+            body.setTranslationY(0f);
+            body.setScaleY(1f);
+            body.setVisibility(collapsed ? View.GONE : View.VISIBLE);
+        } else if (collapsed) {
+            // Collapse the visible section first; no per-frame height remeasure.
+            body.animate().alpha(.06f).translationY(-dp(7)).scaleY(.987f)
+                    .setDuration(145L)
+                    .setInterpolator(NativeMotion.easing())
+                    .withEndAction(() -> {
+                        body.setVisibility(View.GONE);
+                        body.setAlpha(1f);
+                        body.setTranslationY(0f);
+                        body.setScaleY(1f);
+                    }).start();
+        } else {
             body.setVisibility(View.VISIBLE);
-            body.setAlpha(.9f);
-            body.animate().alpha(1f)
-                    .setDuration(NativeVisualTokens.COLLAPSE_MOTION_MS).start();
+            NativeTransformerMotion.reveal(body, 1);
         }
-        if(chevron!=null)chevron.setText(collapsed?"⌄":"⌃");
+        if(chevron!=null){
+            chevron.setText(collapsed?"⌄":"⌃");
+            NativeTransformerMotion.selection(chevron,collapsed?-1:1);
+        }
     }
 
     private void applySectionState(
@@ -1040,7 +1053,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             if(i==project.activeRoom)styleSelected(b);
             else styleRoomInactive(b);
             b.setOnClickListener(v->{
+                int travel=Integer.compare(index,project.activeRoom);
                 project.activeRoom=index;
+                NativeTransformerMotion.selection(b,travel);
                 updateRoomSelectionStyles();
                 undoRooms.clear();
                 redoRooms.clear();
@@ -1311,7 +1326,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 Color.TRANSPARENT,
                 dp(NativeVisualTokens.HISTORY_BUTTON_RADIUS_DP),
                 0));
-        button.setOnClickListener(listener);
+        // The callback is bound after the glyph so each navigation item can move.
         ImageView arrow=new ImageView(this);
         arrow.setImageResource(icon);
         arrow.setImageTintList(ColorStateList.valueOf(TEXT));
@@ -1327,6 +1342,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         iconParams.bottomMargin=dp(2);
         button.addView(arrow,iconParams);
         button.addView(small);
+        int direction=(tag.endsWith("_home") || tag.endsWith("_undo")
+                || tag.endsWith("_editor")) ? -1 : 1;
+        NativeTransformerMotion.bindNavigation(button,arrow,direction,()->listener.onClick(button));
         return button;
     }
 
@@ -2804,7 +2822,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         showingSavedMeasurements = false;
         savedOpenedFromEditor = false;
         setContentView(workspacePage);
-        NativeMotion.enterCompact(workspacePage);
+        NativeTransformerMotion.reveal(editorScroll, -1);
+        NativeTransformerMotion.reveal(historyNavView, 0);
         ensureHistoryNavigationVisible();
         workspacePage.requestApplyInsets();
     }
@@ -2905,12 +2924,14 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         final Runnable[] queuedSearch={null};
 
         recent.setOnClickListener(v->{
+            NativeTransformerMotion.selection(recent,-1);
             recentMode[0]=true;
             styleMode(recent,true);
             styleMode(all,false);
             render.run();
         });
         all.setOnClickListener(v->{
+            NativeTransformerMotion.selection(all,1);
             recentMode[0]=false;
             styleMode(recent,false);
             styleMode(all,true);
@@ -2950,7 +2971,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.SCROLL_NAV_RESERVE_DP));
         savedPage.addView(savedNav,historyNavParams());
         setContentView(savedPage);
-        NativeMotion.enterCompact(savedPage);
+        NativeTransformerMotion.reveal(scroll, 1);
+        NativeTransformerMotion.reveal(savedNav, 0);
         NativeShellInsets.bindWorkspace(
                 savedPage,scroll,savedNav,dp(NativeVisualTokens.HISTORY_BOTTOM_DP));
     }
