@@ -80,10 +80,12 @@ final class NativeTransformerMotion {
     }
 
     /** Home wraps the five buttons in a horizontal row; other docks are rows. */
-    static void staggerDock(@NonNull ViewGroup dock) {
-        ViewGroup slots = dock;
-        if (dock.getChildCount() == 1 && dock.getChildAt(0) instanceof ViewGroup) {
-            slots = (ViewGroup) dock.getChildAt(0);
+    static void staggerDock(@NonNull View dock) {
+        if (!(dock instanceof ViewGroup)) return;
+        ViewGroup group = (ViewGroup) dock;
+        ViewGroup slots = group;
+        if (group.getChildCount() == 1 && group.getChildAt(0) instanceof ViewGroup) {
+            slots = (ViewGroup) group.getChildAt(0);
         }
         staggerVisible(slots, Math.min(6, slots.getChildCount()));
     }
