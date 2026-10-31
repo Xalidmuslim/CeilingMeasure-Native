@@ -745,7 +745,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
         setContentView(page);
         NativeTransformerMotion.reveal(editorScroll, 1);
-        NativeTransformerMotion.staggerVisible(root, 2);
+        NativeTransformerMotion.staggerVisible(root, 5);
+        NativeTransformerMotion.staggerDock(historyNavView);
         ensureHistoryNavigationVisible();
         page.requestApplyInsets();
         setMode(CeilingDrawingView.Mode.WALL);
