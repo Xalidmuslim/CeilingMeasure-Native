@@ -163,6 +163,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS);
+        NativeHomeExpressiveMotion.configureSharedElement(this);
         NativeShellInsets.configureWindow(this);
         licenseClient = new NativeLicenseClient(this);
         if (!licenseClient.canEdit()) {
@@ -207,7 +209,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             }
         }
 
-        if (ACTION_MATERIALS.equals(action) || ACTION_RECENT_PROJECT.equals(action)) overridePendingTransition(0, 0);
+        if (ACTION_MATERIALS.equals(action)
+                || (ACTION_RECENT_PROJECT.equals(action)
+                    && !NativeTransformerMode.enabled(this))) {
+            overridePendingTransition(0, 0);
+        }
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -744,7 +750,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_BOTTOM_DP));
 
         setContentView(page);
-        NativeTransformerMotion.reveal(editorScroll, 1);
+        if (!getIntent().getBooleanExtra(
+                NativeHomeExpressiveProfile.CTA_LAUNCH_EXTRA, false)) {
+            NativeTransformerMotion.reveal(editorScroll, 1);
+        }
         NativeTransformerMotion.staggerVisible(root, 5);
         NativeTransformerMotion.staggerDock(historyNavView);
         ensureHistoryNavigationVisible();
@@ -768,6 +777,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         bar.setPadding(dp(10),dp(5),dp(10),dp(5));
         bar.setMinimumHeight(dp(50));
         bar.setBackgroundColor(NativeVisualTokens.SURFACE);
+        if (getIntent().getBooleanExtra(
+                NativeHomeExpressiveProfile.CTA_LAUNCH_EXTRA, false)
+                && NativeHomeExpressiveMotion.enabled(bar)) {
+            bar.setTransitionName(NativeHomeExpressiveProfile.CTA_TRANSITION_NAME);
+            NativeHomeExpressiveMotion.shiftHeaderColor(bar,
+                    Color.rgb(20, 91, 152), NativeVisualTokens.SURFACE);
+        }
         bar.setElevation(0f);
 
         LinearLayout brand=new LinearLayout(this);
@@ -2810,7 +2826,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         Intent intent = new Intent(this, NativeHomeActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(intent);
-        overridePendingTransition(0, 0);
+        if (NativeTransformerMode.enabled(this) && NativeMotion.animationsEnabled()) {
+            overridePendingTransition(R.anim.ceiling_axis_in_left,
+                    R.anim.ceiling_axis_out_right);
+        } else {
+            overridePendingTransition(0, 0);
+        }
         finish();
     }
 
