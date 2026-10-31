@@ -182,6 +182,27 @@ final class NativePremiumHomeUi {
             savedCount.setText(Integer.toString(records.size()));
             savedCount.setVisibility(records.isEmpty() ? View.GONE : View.VISIBLE);
         }
+        // Animate the previous matte loading/empty state away before replacing
+        // it. The data is already cached; this does not delay project loading.
+        if (NativeHomeExpressiveMotion.enabled(recentRows)
+                && recentRows.isAttachedToWindow()
+                && recentRows.getChildCount() > 0) {
+            recentRows.animate().cancel();
+            recentRows.animate().alpha(0f).scaleX(.98f).scaleY(.96f)
+                    .setDuration(125L).setInterpolator(NativeMotion.easing())
+                    .withEndAction(() -> {
+                        if (!key.equals(recentSnapshotKey)) return;
+                        recentRows.setAlpha(1f);
+                        recentRows.setScaleX(1f);
+                        recentRows.setScaleY(1f);
+                        renderSavedRows(records);
+                    }).start();
+        } else {
+            renderSavedRows(records);
+        }
+    }
+
+    private void renderSavedRows(@NonNull List<NativeProjectStore.ProjectData> records) {
         recentRows.removeAllViews();
         if (records.isEmpty()) {
             LinearLayout row = new LinearLayout(activity);
@@ -204,6 +225,14 @@ final class NativePremiumHomeUi {
             row.setClickable(true);
             row.setFocusable(true);
             recentRows.addView(row);
+            if (NativeHomeExpressiveMotion.enabled(recentRows)) {
+                row.setAlpha(.5f);
+                row.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                        .setDuration(290).setInterpolator(NativeMotion.easing()).start();
+                icon.animate().rotation(7f).setDuration(185)
+                        .withEndAction(() -> icon.animate().rotation(0f)
+                                .setDuration(220).start()).start();
+            }
             return;
         }
 
@@ -259,6 +288,7 @@ final class NativePremiumHomeUi {
             row.setOnClickListener(v -> openRecent.accept(project.id));
             recentRows.addView(row);
         }
+        NativeHomeExpressiveMotion.staggerChildren(recentRows);
     }
 
     void refreshLicense(NativeLicenseClient license) {
