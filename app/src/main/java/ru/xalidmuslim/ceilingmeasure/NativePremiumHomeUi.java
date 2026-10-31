@@ -6,6 +6,8 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PathMeasure;
+import android.animation.ValueAnimator;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
@@ -54,6 +56,12 @@ final class NativePremiumHomeUi {
     private String recentSnapshotKey;
     private TextView savedCount;
     private TextView licenseState;
+    private View liquidIndicator;
+    private FrameLayout speedDial;
+    private TextView plusButton;
+    private LinearLayout compactHeader;
+    private boolean compactShowing;
+    private boolean speedDialOpen;
 
     NativePremiumHomeUi(
             NativeHomeActivity activity,
@@ -137,11 +145,14 @@ final class NativePremiumHomeUi {
         recentRows.setBackground(panel(16));
         content.addView(recentRows, matchTop(0));
 
-        // Avoid a misleading empty list while saved projects are being read asynchronously.
-        recentRows.addView(text("Загрузка замеров…", 11.5f, MUTED, false),
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT, dp(46)));
+        // Load is LOCAL (not a server request): matte skeletons replace a
+        // misleading empty list until NativeHomePreloader finishes.
+        addLoadingSkeleton();
         addDock(screen);
+        addCompactHeader(screen);
+        addSpeedDial(screen);
+        scroll.setOnScrollChangeListener((View v, int x, int y, int oldX, int oldY) ->
+                onHomeScroll(screen, y, oldY));
         return screen;
     }
 
@@ -173,6 +184,27 @@ final class NativePremiumHomeUi {
             savedCount.setText(Integer.toString(records.size()));
             savedCount.setVisibility(records.isEmpty() ? View.GONE : View.VISIBLE);
         }
+        // Animate the previous matte loading/empty state away before replacing
+        // it. The data is already cached; this does not delay project loading.
+        if (NativeHomeExpressiveMotion.enabled(recentRows)
+                && recentRows.isAttachedToWindow()
+                && recentRows.getChildCount() > 0) {
+            recentRows.animate().cancel();
+            recentRows.animate().alpha(0f).scaleX(.98f).scaleY(.96f)
+                    .setDuration(125L).setInterpolator(NativeMotion.easing())
+                    .withEndAction(() -> {
+                        if (!key.equals(recentSnapshotKey)) return;
+                        recentRows.setAlpha(1f);
+                        recentRows.setScaleX(1f);
+                        recentRows.setScaleY(1f);
+                        renderSavedRows(records);
+                    }).start();
+        } else {
+            renderSavedRows(records);
+        }
+    }
+
+    private void renderSavedRows(@NonNull List<NativeProjectStore.ProjectData> records) {
         recentRows.removeAllViews();
         if (records.isEmpty()) {
             LinearLayout row = new LinearLayout(activity);
@@ -195,6 +227,14 @@ final class NativePremiumHomeUi {
             row.setClickable(true);
             row.setFocusable(true);
             recentRows.addView(row);
+            if (NativeHomeExpressiveMotion.enabled(recentRows)) {
+                row.setAlpha(.5f);
+                row.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                        .setDuration(290).setInterpolator(NativeMotion.easing()).start();
+                icon.animate().rotation(7f).setDuration(185)
+                        .withEndAction(() -> icon.animate().rotation(0f)
+                                .setDuration(220).start()).start();
+            }
             return;
         }
 
@@ -250,6 +290,7 @@ final class NativePremiumHomeUi {
             row.setOnClickListener(v -> openRecent.accept(project.id));
             recentRows.addView(row);
         }
+        NativeHomeExpressiveMotion.staggerChildren(recentRows);
     }
 
     void refreshLicense(NativeLicenseClient license) {
@@ -348,7 +389,7 @@ final class NativePremiumHomeUi {
                 gradient, round(Color.WHITE, 16)));
         primary.setClickable(true);
         primary.setFocusable(true);
-        primary.setOnClickListener(v -> openNew.run());
+        primary.setTransitionName(NativeHomeExpressiveProfile.CTA_TRANSITION_NAME);
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(100));
         p.topMargin = dp(14);
@@ -384,6 +425,10 @@ final class NativePremiumHomeUi {
                 dp(24), dp(44), Gravity.END | Gravity.CENTER_VERTICAL);
         arrow.rightMargin = dp(9);
         primary.addView(chevron, arrow);
+        NativeHomeExpressiveMotion.bindCard(primary, art, chevron, () -> {
+            ((CeilingContour) art).scanOnce();
+            primary.postDelayed(() -> activity.openPrimaryCta(primary), 155L);
+        }, true, false);
     }
 
     private void addRow(LinearLayout list, int image, String title, String detail,
@@ -397,7 +442,6 @@ final class NativePremiumHomeUi {
         row.setBackground(pressBackground(Color.WHITE, BORDER, 15));
         row.setClickable(true);
         row.setFocusable(true);
-        row.setOnClickListener(v -> open.run());
         list.addView(row, matchTop(topMargin));
 
         ImageView icon = smallIcon(image, 43);
@@ -427,6 +471,8 @@ final class NativePremiumHomeUi {
         LinearLayout.LayoutParams arrowLp = new LinearLayout.LayoutParams(dp(20), dp(38));
         arrowLp.leftMargin = dp(5);
         row.addView(arrow, arrowLp);
+        NativeHomeExpressiveMotion.bindCard(row, icon, arrow, open, false,
+                "native_home_drawing".equals(tag));
     }
 
     private void addDock(FrameLayout screen) {
@@ -437,14 +483,26 @@ final class NativePremiumHomeUi {
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(70),
                 Gravity.BOTTOM);
         screen.addView(dock, dockLp);
+        liquidIndicator = new View(activity);
+        liquidIndicator.setTag("native_home_liquid_indicator");
+        liquidIndicator.setVisibility(NativeTransformerMode.enabled(activity)
+                ? View.VISIBLE : View.GONE);
+        liquidIndicator.setBackground(round(Color.rgb(220, 235, 249), 16));
+        dock.addView(liquidIndicator, new FrameLayout.LayoutParams(
+                dp(48), dp(43), Gravity.TOP | Gravity.LEFT));
+        liquidIndicator.setTranslationY(dp(10));
+        liquidIndicator.post(() ->
+                NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 0));
+
         LinearLayout slots = new LinearLayout(activity);
         slots.setGravity(Gravity.CENTER);
         dock.addView(slots, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
-        addNav(slots, R.drawable.ic_shell_home, "Главная", true, () -> scroll.smoothScrollTo(0, 0));
-        addNav(slots, R.drawable.ic_shell_saved, "Замеры", false, openSaved);
+        addNav(slots, R.drawable.ic_shell_home, "Главная", true,
+                () -> scroll.smoothScrollTo(0, 0), 0);
+        addNav(slots, R.drawable.ic_shell_saved, "Замеры", false, openSaved, 1);
 
         LinearLayout plusSlot = new LinearLayout(activity);
         plusSlot.setOrientation(LinearLayout.VERTICAL);
@@ -460,16 +518,23 @@ final class NativePremiumHomeUi {
         plus.setClickable(true);
         plus.setFocusable(true);
         plus.setContentDescription("Новый замер");
-        NativeTransformerMotion.bindNavigation(plus, plus, 0, openNew);
+        plusButton = plus;
+        plus.setOnClickListener(v -> {
+            if (!NativeHomeExpressiveMotion.enabled(v)) {
+                openNew.run();
+            } else {
+                toggleSpeedDial();
+            }
+        });
         plusSlot.addView(plus, new LinearLayout.LayoutParams(dp(48), dp(48)));
         plusSlot.addView(text("Новый", 9.5f, MUTED, false), matchTop(1));
 
-        addNav(slots, R.drawable.ic_shell_layers, "Материалы", false, openMaterials);
-        addNav(slots, R.drawable.ic_shell_sliders, "Настройки", false, openSettings);
+        addNav(slots, R.drawable.ic_shell_layers, "Материалы", false, openMaterials, 3);
+        addNav(slots, R.drawable.ic_shell_sliders, "Настройки", false, openSettings, 4);
     }
 
     private void addNav(LinearLayout parent, int icon, String label,
-                        boolean active, Runnable callback) {
+                        boolean active, Runnable callback, int position) {
         LinearLayout slot = new LinearLayout(activity);
         slot.setOrientation(LinearLayout.VERTICAL);
         slot.setGravity(Gravity.CENTER);
@@ -489,8 +554,219 @@ final class NativePremiumHomeUi {
         text.setGravity(Gravity.CENTER);
         slot.addView(text, matchTop(2));
         NativeTransformerMotion.bindNavigation(slot, glyph,
-                TransformerMotionProfile.directionForIndex(parent.getChildCount() - 1, 5),
-                callback);
+                TransformerMotionProfile.directionForIndex(position,
+                        NativeHomeExpressiveProfile.DOCK_SLOTS),
+                () -> {
+                    if (NativeHomeExpressiveMotion.enabled(slot)) {
+                        NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, position);
+                        slot.postDelayed(callback, 140L);
+                    } else {
+                        callback.run();
+                    }
+                });
+    }
+
+    /** Actual local loading placeholder: one matte opacity pass, no glossy shimmer. */
+    private void addLoadingSkeleton() {
+        for (int i = 0; i < 2; i++) {
+            LinearLayout skeleton = new LinearLayout(activity);
+            skeleton.setTag("native_home_loading_skeleton");
+            skeleton.setGravity(Gravity.CENTER_VERTICAL);
+            skeleton.setPadding(dp(15), dp(12), dp(15), dp(12));
+            View icon = new View(activity);
+            icon.setBackground(round(Color.rgb(225, 232, 239), 10));
+            skeleton.addView(icon, new LinearLayout.LayoutParams(dp(36), dp(36)));
+            LinearLayout bars = new LinearLayout(activity);
+            bars.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams barsLp =
+                    new LinearLayout.LayoutParams(0, dp(36), 1f);
+            barsLp.leftMargin = dp(12);
+            skeleton.addView(bars, barsLp);
+            View first = new View(activity);
+            first.setBackground(round(Color.rgb(225, 232, 239), 5));
+            bars.addView(first, new LinearLayout.LayoutParams(
+                    i == 0 ? dp(115) : dp(145), dp(13)));
+            View second = new View(activity);
+            second.setBackground(round(Color.rgb(235, 240, 245), 5));
+            LinearLayout.LayoutParams secondLp = new LinearLayout.LayoutParams(
+                    i == 0 ? dp(88) : dp(112), dp(9));
+            secondLp.topMargin = dp(8);
+            bars.addView(second, secondLp);
+            recentRows.addView(skeleton, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(60)));
+            if (NativeHomeExpressiveMotion.enabled(skeleton)) {
+                skeleton.setAlpha(.65f);
+                skeleton.animate().alpha(.95f).setDuration(440)
+                        .setInterpolator(NativeMotion.easing()).start();
+            }
+        }
+    }
+
+    private void addCompactHeader(FrameLayout screen) {
+        compactHeader = new LinearLayout(activity);
+        compactHeader.setTag("native_home_collapsing_app_bar");
+        compactHeader.setGravity(Gravity.CENTER_VERTICAL);
+        compactHeader.setPadding(dp(18), 0, dp(14), 0);
+        compactHeader.setBackground(panelDrawable(Color.rgb(248, 249, 250),
+                BORDER, 0));
+        compactHeader.setVisibility(View.INVISIBLE);
+        TextView title = text("Замер потолков", 15f, INK, true);
+        compactHeader.addView(title, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        ImageView settings = smallIcon(R.drawable.ic_shell_sliders, 36);
+        settings.setTag("native_home_compact_settings");
+        settings.setContentDescription("Настройки");
+        settings.setClickable(true);
+        settings.setFocusable(true);
+        settings.setOnClickListener(v -> openSettings.run());
+        compactHeader.addView(settings, new LinearLayout.LayoutParams(dp(36), dp(36)));
+        screen.addView(compactHeader, 1, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(50), Gravity.TOP));
+    }
+
+    private void addSpeedDial(FrameLayout screen) {
+        speedDial = new FrameLayout(activity);
+        speedDial.setTag("native_home_speed_dial");
+        speedDial.setBackgroundColor(Color.argb(67, 19, 34, 50));
+        speedDial.setClickable(true);
+        speedDial.setFocusable(true);
+        speedDial.setContentDescription("Закрыть быстрые действия");
+        speedDial.setOnClickListener(v -> closeSpeedDial());
+        speedDial.setVisibility(View.GONE);
+        String[] names = {"Новый замер", "Открыть чертёж", "Сохранённые замеры"};
+        Runnable[] actions = {openNew, openDrawing, openSaved};
+        for (int i = 0; i < NativeHomeExpressiveProfile.QUICK_ACTIONS_COUNT; i++) {
+            final int index = i;
+            TextView item = text(names[i], 12.5f, INK, true);
+            item.setTag("native_home_speed_action_" + i);
+            item.setContentDescription(names[i]);
+            item.setGravity(Gravity.CENTER);
+            item.setBackground(panelDrawable(Color.WHITE, BORDER, 15));
+            item.setElevation(dp(2));
+            item.setClickable(true);
+            item.setFocusable(true);
+            item.setOnClickListener(v -> {
+                closeSpeedDial();
+                v.postDelayed(actions[index], 135L);
+            });
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                    dp(160), dp(45), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+            lp.bottomMargin = dp(115 + i * 60);
+            speedDial.addView(item, lp);
+        }
+        // Behind the permanent dock so the same central + also closes the dial.
+        screen.addView(speedDial, 2, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void toggleSpeedDial() {
+        if (speedDialOpen) {
+            closeSpeedDial();
+            return;
+        }
+        speedDialOpen = true;
+        NativeHomeExpressiveMotion.fabState(plusButton, true);
+        speedDial.setVisibility(View.VISIBLE);
+        speedDial.animate().cancel();
+        speedDial.setAlpha(0f);
+        speedDial.animate().alpha(1f).setDuration(170)
+                .setInterpolator(NativeMotion.easing()).start();
+        for (int i = 0; i < speedDial.getChildCount(); i++) {
+            View button = speedDial.getChildAt(i);
+            float targetX = (i - 1) * dp(58);
+            button.animate().cancel();
+            button.setAlpha(0f);
+            button.setTranslationX(0f);
+            button.setTranslationY(dp(28));
+            button.setScaleX(.8f);
+            button.setScaleY(.88f);
+            button.animate().alpha(1f).translationX(targetX).translationY(0f)
+                    .scaleX(1f).scaleY(1f).setStartDelay(i * 42L)
+                    .setDuration(260).setInterpolator(
+                            new android.view.animation.OvershootInterpolator(.67f)).start();
+        }
+    }
+
+    private void closeSpeedDial() {
+        if (!speedDialOpen || speedDial == null) return;
+        speedDialOpen = false;
+        NativeHomeExpressiveMotion.fabState(plusButton, false);
+        for (int i = 0; i < speedDial.getChildCount(); i++) {
+            View button = speedDial.getChildAt(i);
+            button.animate().cancel();
+            button.animate().alpha(0f).translationY(dp(22)).scaleX(.9f)
+                    .setDuration(135).setInterpolator(NativeMotion.easing()).start();
+        }
+        speedDial.animate().cancel();
+        speedDial.animate().alpha(0f).setDuration(155)
+                .withEndAction(() -> {
+                    if (!speedDialOpen) speedDial.setVisibility(View.GONE);
+                }).start();
+    }
+
+    boolean dismissSpeedDial() {
+        if (!speedDialOpen) return false;
+        closeSpeedDial();
+        return true;
+    }
+
+    void updateMotionMode() {
+        if (liquidIndicator == null) return;
+        boolean expressive = NativeTransformerMode.enabled(activity);
+        liquidIndicator.setVisibility(expressive ? View.VISIBLE : View.GONE);
+        if (expressive) {
+            liquidIndicator.post(() ->
+                    NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 0));
+        } else {
+            resetTransientUi();
+            dock.animate().cancel();
+            dock.setTranslationY(0f);
+            if (compactHeader != null) compactHeader.setVisibility(View.INVISIBLE);
+            compactShowing = false;
+        }
+    }
+
+    void resetTransientUi() {
+        if (speedDial != null && speedDialOpen) closeSpeedDial();
+    }
+
+    private void onHomeScroll(FrameLayout screen, int y, int previousY) {
+        int available = scroll.getChildAt(0).getHeight() - scroll.getHeight();
+        boolean motion = NativeHomeExpressiveMotion.enabled(scroll);
+        if (!motion) {
+            dock.animate().cancel();
+            dock.setTranslationY(0f);
+            if (compactHeader != null) compactHeader.setVisibility(View.INVISIBLE);
+            return;
+        }
+        if (NativeHomeExpressiveProfile.shouldHideDock(
+                y, previousY, available, dp(48))) {
+            dock.animate().translationY(dp(83)).setDuration(245)
+                    .setInterpolator(NativeMotion.easing()).start();
+            if (speedDialOpen) closeSpeedDial();
+        } else if (y < dp(8) || previousY - y >= dp(3)) {
+            dock.animate().translationY(0f).setDuration(225)
+                    .setInterpolator(NativeMotion.easing()).start();
+        }
+        boolean show = y >= dp(73);
+        if (show == compactShowing) return;
+        compactShowing = show;
+        int top = NativeShellInsets.currentSafeInsets(screen).top;
+        compactHeader.animate().cancel();
+        if (show) {
+            compactHeader.setVisibility(View.VISIBLE);
+            compactHeader.setAlpha(0f);
+            compactHeader.setTranslationY(top - dp(15));
+            compactHeader.animate().alpha(1f).translationY(top)
+                    .setDuration(230).setInterpolator(NativeMotion.easing()).start();
+        } else {
+            compactHeader.animate().alpha(0f).translationY(top - dp(12))
+                    .setDuration(180).setInterpolator(NativeMotion.easing())
+                    .withEndAction(() -> {
+                        if (!compactShowing) compactHeader.setVisibility(View.INVISIBLE);
+                    }).start();
+        }
     }
 
     private ImageView smallIcon(int drawable, int size) {
@@ -572,6 +848,10 @@ final class NativePremiumHomeUi {
                 15f, 39f, 77f, 20f, 111f, 35f, 50f, 73f);
         private final Path ledChannel = new Path();
         private final Path magneticTrack = new Path();
+        private final PathMeasure contourMeasure = new PathMeasure(perimeter, false);
+        private final Path scannedLine = new Path();
+        private float scanProgress;
+        private ValueAnimator scanAnimator;
 
         CeilingContour(NativeHomeActivity activity) {
             super(activity);
@@ -583,6 +863,19 @@ final class NativePremiumHomeUi {
 
             magneticTrack.moveTo(42f, 43f);
             magneticTrack.lineTo(83f, 29f);
+        }
+
+        void scanOnce() {
+            if (!NativeHomeExpressiveMotion.enabled(this)) return;
+            if (scanAnimator != null) scanAnimator.cancel();
+            scanAnimator = ValueAnimator.ofFloat(0f, 1f);
+            scanAnimator.setDuration(485L);
+            scanAnimator.setInterpolator(NativeMotion.easing());
+            scanAnimator.addUpdateListener(a -> {
+                scanProgress = (Float) a.getAnimatedValue();
+                invalidate();
+            });
+            scanAnimator.start();
         }
 
         private static Path polygon(
@@ -622,6 +915,13 @@ final class NativePremiumHomeUi {
             // Flush perimeter and the baguette shadow-gap profile.
             stroke(1.12f, Color.argb(211, 241, 251, 255));
             canvas.drawPath(perimeter, ink);
+            if (scanProgress > 0f && scanProgress < 1f) {
+                scannedLine.reset();
+                contourMeasure.getSegment(0f,
+                        contourMeasure.getLength() * scanProgress, scannedLine, true);
+                stroke(1.85f, Color.argb(198, 181, 217, 244));
+                canvas.drawPath(scannedLine, ink);
+            }
             stroke(.72f, Color.argb(136, 237, 249, 255));
             canvas.drawPath(shadowGap, ink);
 
