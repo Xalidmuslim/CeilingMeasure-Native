@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The More menu disappears as a whole instead of removing rows in sequence. -->
+<alpha xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fromAlpha="1.0"
+    android:toAlpha="0.05"
+    android:duration="205"
+    android:interpolator="@android:interpolator/fast_out_slow_in"/>
