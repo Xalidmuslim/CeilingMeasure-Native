@@ -2,9 +2,9 @@ name: CeilingMeasure v260 Rooms Overview and Ordinary Settings
 
 on:
   push:
-    branches: [feature/v260-simple-horizontal-pages]
-  pull_request:
     branches: [feature/v260-rooms-overview-settings]
+  pull_request:
+    branches: [feature/v259-simple-horizontal-pages]
   workflow_dispatch:
 
 permissions:
