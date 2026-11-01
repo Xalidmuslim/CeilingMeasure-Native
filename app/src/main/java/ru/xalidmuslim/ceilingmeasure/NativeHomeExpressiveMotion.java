@@ -31,8 +31,10 @@ final class NativeHomeExpressiveMotion {
         return NativeTransformerMotion.enabled(v);
     }
 
-    private static void spring(@NonNull View view, float target, float damping) {
-        if (!enabled(view)) return;
+    private static void spring(@NonNull View view, float target,
+            float damping, boolean allowOrdinary) {
+        if (!NativeMotion.animationsEnabled()
+                || (!allowOrdinary && !enabled(view))) return;
         SpringForce forceX = new SpringForce(target)
                 .setStiffness(SpringForce.STIFFNESS_MEDIUM)
                 .setDampingRatio(damping);
@@ -45,16 +47,37 @@ final class NativeHomeExpressiveMotion {
 
     /** A press is physical. Existing OnClick semantics remain, no touch consumption. */
     static void bindCard(@NonNull View card, @Nullable View icon, @Nullable View chevron,
-            @NonNull Runnable action, boolean mainCta, boolean scanner) {
+            @NonNull Runnable action, boolean mainCta, boolean scanner,
+            @Nullable Runnable onPrimaryPress) {
         card.setOnTouchListener((v, event) -> {
-            if (!enabled(v)) return false;
+            // The blue New Measurement illustration is a button microinteraction,
+            // NOT a transformer page transition. Keep it in Ordinary mode.
+            if (!NativeMotion.animationsEnabled()
+                    || (!mainCta && !enabled(v))) return false;
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
-                    spring(v, mainCta ? .96f : .975f, SpringForce.DAMPING_RATIO_NO_BOUNCY);
+                    spring(v, mainCta ? .975f : .975f,
+                            SpringForce.DAMPING_RATIO_NO_BOUNCY, mainCta);
+                    if (mainCta && icon != null) {
+                        icon.animate().cancel();
+                        icon.animate().translationX(-dp(icon, 6))
+                                .translationY(-dp(icon, 3)).rotation(-3f)
+                                .scaleX(1.07f).scaleY(1.07f)
+                                .setDuration(120L)
+                                .setInterpolator(NativeMotion.easing()).start();
+                        if (onPrimaryPress != null) onPrimaryPress.run();
+                    }
                     break;
                 case MotionEvent.ACTION_CANCEL:
                 case MotionEvent.ACTION_UP:
-                    spring(v, 1f, .59f);
+                    spring(v, 1f, .59f, mainCta);
+                    if (mainCta && icon != null) {
+                        icon.animate().cancel();
+                        icon.animate().translationX(0f).translationY(0f)
+                                .rotation(0f).scaleX(1f).scaleY(1f)
+                                .setDuration(190L)
+                                .setInterpolator(NativeMotion.easing()).start();
+                    }
                     break;
                 default:
                     break;
@@ -62,7 +85,8 @@ final class NativeHomeExpressiveMotion {
             return false;
         });
         card.setOnClickListener(v -> {
-            if (!enabled(v)) {
+            if (!NativeMotion.animationsEnabled()
+                    || (!mainCta && !enabled(v))) {
                 action.run();
                 return;
             }
@@ -149,6 +173,35 @@ final class NativeHomeExpressiveMotion {
                         .setDuration(NativeHomeExpressiveProfile.INDICATOR_SETTLE_MS)
                         .setInterpolator(NativeMotion.easing()).start())
                 .start();
+    }
+
+    /**
+     * Replay only the actual saved project cards. Reuses existing Views even
+     * when saved project data did not change on return from Workspace.
+     * No Transformer dependency, no layout animation or main-thread disk IO.
+     */
+    static void staggerRecentRows(@NonNull ViewGroup list) {
+        int shown = 0;
+        for (int i = 0; i < list.getChildCount(); i++) {
+            View child = list.getChildAt(i);
+            Object tag = child.getTag();
+            if (!(tag instanceof String)
+                    || (!((String) tag).startsWith("native_home_recent_item_")
+                    && !"native_home_recent_empty".equals(tag))) continue;
+            child.animate().cancel();
+            if (!NativeMotion.animationsEnabled()) {
+                child.setAlpha(1f);
+                child.setTranslationY(0f);
+                continue;
+            }
+            child.setAlpha(.12f);
+            child.setTranslationY(dp(child, 10));
+            child.animate().alpha(1f).translationY(0f)
+                    .setStartDelay(shown * NativeHomeExpressiveProfile.RECENT_STAGGER_MS)
+                    .setDuration(NativeHomeExpressiveProfile.RECENT_ENTER_MS)
+                    .setInterpolator(NativeMotion.easing()).start();
+            shown++;
+        }
     }
 
     static void staggerChildren(@NonNull ViewGroup list) {
