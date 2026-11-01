@@ -4,6 +4,8 @@ package ru.xalidmuslim.ceilingmeasure;
 final class NativeHomeExpressiveProfile {
     static final int MICRO_MS = 235;
     // Indicator reaches its tab before the destination obscures Home.
+    static final int RECENT_STAGGER_MS = 65;
+    static final int RECENT_ENTER_MS = 235;
     static final int INDICATOR_TRAVEL_MS = 145;
     static final int INDICATOR_SETTLE_MS = 85;
     static final int MORPH_MS = 460;

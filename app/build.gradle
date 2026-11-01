@@ -18,8 +18,8 @@ android {
         applicationId 'ru.xalidmuslim.ceilingmeasure'
         minSdk 29
         targetSdk 35
-        versionCode 264
-        versionName '1.0.264-window-motion-r8'
+        versionCode 265
+        versionName '1.0.265-home-press-replay-r8'
 
         buildConfigField 'String', 'LICENSE_SERVER_URL', JsonOutput.toJson(licenseUrl)
         buildConfigField 'String', 'LICENSE_PUBLIC_KEY_B64', JsonOutput.toJson(licenseKey)
@@ -51,10 +51,10 @@ android {
             // Install next to BOTH production and the previous v242 debug preview.
             // The standard Android debug keystore signs only this test build.
             signingConfig signingConfigs.debug
-            // v264 has a dedicated install ID: GitHub runners generate separate
+            // v265 has a dedicated install ID: GitHub runners generate separate
             // ephemeral debug signing keys, so replacing an older .optimized APK
             // could otherwise require uninstalling it and deleting test data.
-            applicationIdSuffix '.smooth264'
+            applicationIdSuffix '.smooth265'
             versionNameSuffix '-preview'
             matchingFallbacks = ['release']
         }

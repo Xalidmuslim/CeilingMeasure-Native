@@ -159,6 +159,13 @@ final class NativePremiumHomeUi {
     ScrollView scroll() { return scroll; }
     FrameLayout dock() { return dock; }
 
+    /** A Home return is a presentation event, even for unchanged saved data. */
+    void replayRecentOnHome() {
+        if (recentSnapshotKey != null) {
+            NativeHomeExpressiveMotion.staggerRecentRows(recentRows);
+        }
+    }
+
     void renderSaved(@NonNull List<NativeProjectStore.ProjectData> saved) {
         if (recentRows == null) return;
         // Saved projects arrive sorted from Dispatchers.IO-equivalent preload.
@@ -208,6 +215,7 @@ final class NativePremiumHomeUi {
         recentRows.removeAllViews();
         if (records.isEmpty()) {
             LinearLayout row = new LinearLayout(activity);
+            row.setTag("native_home_recent_empty");
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(dp(15), dp(15), dp(15), dp(15));
             row.setMinimumHeight(dp(66));
@@ -227,14 +235,7 @@ final class NativePremiumHomeUi {
             row.setClickable(true);
             row.setFocusable(true);
             recentRows.addView(row);
-            if (NativeHomeExpressiveMotion.enabled(recentRows)) {
-                row.setAlpha(.5f);
-                row.animate().alpha(1f).scaleX(1f).scaleY(1f)
-                        .setDuration(290).setInterpolator(NativeMotion.easing()).start();
-                icon.animate().rotation(7f).setDuration(185)
-                        .withEndAction(() -> icon.animate().rotation(0f)
-                                .setDuration(220).start()).start();
-            }
+            NativeHomeExpressiveMotion.staggerRecentRows(recentRows);
             return;
         }
 
@@ -244,6 +245,7 @@ final class NativePremiumHomeUi {
             NativeProjectStore.ProjectData project = records.get(index);
             if (index > 0) recentRows.addView(separator());
             LinearLayout row = new LinearLayout(activity);
+            row.setTag("native_home_recent_item_" + index);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(dp(12), dp(9), dp(12), dp(9));
             row.setMinimumHeight(dp(60));
@@ -290,7 +292,7 @@ final class NativePremiumHomeUi {
             row.setOnClickListener(v -> openRecent.accept(project.id));
             recentRows.addView(row);
         }
-        NativeHomeExpressiveMotion.staggerChildren(recentRows);
+        NativeHomeExpressiveMotion.staggerRecentRows(recentRows);
     }
 
     void refreshLicense(NativeLicenseClient license) {
@@ -425,10 +427,9 @@ final class NativePremiumHomeUi {
                 dp(24), dp(44), Gravity.END | Gravity.CENTER_VERTICAL);
         arrow.rightMargin = dp(9);
         primary.addView(chevron, arrow);
-        NativeHomeExpressiveMotion.bindCard(primary, art, chevron, () -> {
-            ((CeilingContour) art).scanOnce();
-            activity.openPrimaryCta(primary);
-        }, true, false);
+        NativeHomeExpressiveMotion.bindCard(primary, art, chevron,
+                () -> activity.openPrimaryCta(primary), true, false,
+                () -> ((CeilingContour) art).scanOnce());
     }
 
     private void addRow(LinearLayout list, int image, String title, String detail,
@@ -472,7 +473,7 @@ final class NativePremiumHomeUi {
         arrowLp.leftMargin = dp(5);
         row.addView(arrow, arrowLp);
         NativeHomeExpressiveMotion.bindCard(row, icon, arrow, open, false,
-                "native_home_drawing".equals(tag));
+                "native_home_drawing".equals(tag), null);
     }
 
     private void addDock(FrameLayout screen) {
@@ -501,7 +502,10 @@ final class NativePremiumHomeUi {
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
         addNav(slots, R.drawable.ic_shell_home, "Главная", true,
-                () -> scroll.smoothScrollTo(0, 0), 0);
+                () -> {
+                    scroll.smoothScrollTo(0, 0);
+                    replayRecentOnHome();
+                }, 0);
         addNav(slots, R.drawable.ic_shell_saved, "Замеры", false, openSaved, 1);
 
         LinearLayout plusSlot = new LinearLayout(activity);
@@ -870,7 +874,7 @@ final class NativePremiumHomeUi {
         }
 
         void scanOnce() {
-            if (!NativeHomeExpressiveMotion.enabled(this)) return;
+            if (!NativeMotion.animationsEnabled()) return;
             if (scanAnimator != null) scanAnimator.cancel();
             scanAnimator = ValueAnimator.ofFloat(0f, 1f);
             scanAnimator.setDuration(485L);
