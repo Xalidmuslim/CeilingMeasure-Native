@@ -29,11 +29,23 @@ public final class NativeCompactOverviewMotionTest {
                         .findViewWithTag("native_project_total_area");
                 TextView perimeter = activity.findViewById(android.R.id.content)
                         .findViewWithTag("native_project_total_perimeter");
-                TextView roomLines = activity.findViewById(android.R.id.content)
+                android.widget.LinearLayout roomLines = activity.findViewById(android.R.id.content)
                         .findViewWithTag("native_project_room_metrics");
                 assertNotNull(area);
                 assertNotNull(perimeter);
                 assertNotNull(roomLines);
+                android.widget.LinearLayout first =
+                        (android.widget.LinearLayout) roomLines.getChildAt(0);
+                assertEquals("Every room is one aligned three-column row", 3,
+                        first.getChildCount());
+                assertEquals("Numeric area is right aligned",
+                        android.view.Gravity.RIGHT,
+                        ((TextView) first.getChildAt(1)).getGravity()
+                                & android.view.Gravity.HORIZONTAL_GRAVITY_MASK);
+                assertEquals("Numeric perimeter is right aligned",
+                        android.view.Gravity.RIGHT,
+                        ((TextView) first.getChildAt(2)).getGravity()
+                                & android.view.Gravity.HORIZONTAL_GRAVITY_MASK);
                 float density = activity.getResources().getDisplayMetrics().scaledDensity;
                 float userScale = NativeUiPrefs.load(activity).scale;
                 assertTrue("Combined area must not use headline sized type",
@@ -41,7 +53,8 @@ public final class NativeCompactOverviewMotionTest {
                 assertTrue("Combined perimeter must not use headline sized type",
                         perimeter.getTextSize() / density <= 16.5f * userScale);
                 assertTrue("Per-room measurements remain immediately visible",
-                        roomLines.getText().toString().contains("Комната 1"));
+                        ((TextView) ((android.widget.LinearLayout) roomLines.getChildAt(0))
+                                .getChildAt(0)).getText().toString().contains("Комната 1"));
             });
         }
     }
@@ -64,13 +77,18 @@ public final class NativeCompactOverviewMotionTest {
         }
     }
 
-    @Test public void estimateAndMaterialsUseVisibleButOrdinaryFadeInAndOut() {
+    @Test public void fullscreenDialogsUseOnlyWindowEnterAnimation() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        Animation enter = AnimationUtils.loadAnimation(context, R.anim.native_fade_in);
-        Animation exit = AnimationUtils.loadAnimation(context, R.anim.native_fade_out);
-        assertTrue("Entrance fade should be perceptible", enter.getDuration() >= 170);
-        assertTrue("Exit fade should be perceptible", exit.getDuration() >= 140);
-        assertTrue("No long theatrical entry", enter.getDuration() <= 230);
-        assertTrue("No long theatrical exit", exit.getDuration() <= 210);
+        android.content.res.TypedArray style = context.obtainStyledAttributes(
+                R.style.CeilingFullscreenEnterOnly, new int[]{
+                        android.R.attr.windowEnterAnimation,
+                        android.R.attr.windowExitAnimation});
+        try {
+            assertTrue("Entry must be animated", style.getResourceId(0, 0) != 0);
+            assertEquals("Exit must be handled by one smooth decor animation",
+                    0, style.getResourceId(1, 0));
+        } finally {
+            style.recycle();
+        }
     }
 }
