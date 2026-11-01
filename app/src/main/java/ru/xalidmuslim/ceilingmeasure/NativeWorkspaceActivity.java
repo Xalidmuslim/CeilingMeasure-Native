@@ -485,35 +485,36 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         // Always-visible room overview; users need not open a client estimate.
         LinearLayout overviewCard = card();
         overviewCard.setTag("native_project_overview");
+        overviewCard.setPadding(dp(10), dp(8), dp(10), dp(8));
         root.addView(overviewCard, marginParams(0, 4));
-        overviewCard.addView(text("Общий замер всех комнат", 14.5f, TEXT, Typeface.BOLD));
+        overviewCard.addView(text("Общий замер всех комнат", 13.5f, TEXT, Typeface.BOLD));
         LinearLayout overviewTotals = new LinearLayout(this);
         overviewTotals.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams overviewTotalsParams = marginParams(0, 7);
+        LinearLayout.LayoutParams overviewTotalsParams = marginParams(0, 4);
         overviewCard.addView(overviewTotals, overviewTotalsParams);
         LinearLayout areaColumn = new LinearLayout(this);
         areaColumn.setOrientation(LinearLayout.VERTICAL);
         areaColumn.addView(text("Общая площадь", 10.5f, MUTED, Typeface.NORMAL));
-        projectTotalArea = text("—", 19, TEXT, Typeface.BOLD);
+        projectTotalArea = text("—", 16, TEXT, Typeface.BOLD);
         projectTotalArea.setTag("native_project_total_area");
-        areaColumn.addView(projectTotalArea, marginParams(0, 3));
+        areaColumn.addView(projectTotalArea, marginParams(0, 1));
         overviewTotals.addView(areaColumn, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout perimeterColumn = new LinearLayout(this);
         perimeterColumn.setOrientation(LinearLayout.VERTICAL);
         perimeterColumn.addView(text("Общий периметр", 10.5f, MUTED, Typeface.NORMAL));
-        projectTotalPerimeter = text("—", 19, TEXT, Typeface.BOLD);
+        projectTotalPerimeter = text("—", 16, TEXT, Typeface.BOLD);
         projectTotalPerimeter.setTag("native_project_total_perimeter");
-        perimeterColumn.addView(projectTotalPerimeter, marginParams(0, 3));
+        perimeterColumn.addView(projectTotalPerimeter, marginParams(0, 1));
         overviewTotals.addView(perimeterColumn, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        projectSummaryLines = text("", 12, TEXT, Typeface.NORMAL);
+        projectSummaryLines = text("", 11.5f, TEXT, Typeface.NORMAL);
         projectSummaryLines.setTag("native_project_room_metrics");
-        projectSummaryLines.setLineSpacing(dp(4), 1f);
-        overviewCard.addView(projectSummaryLines, marginParams(0, 9));
-        projectSummaryStatus = text("", 10.5f, MUTED, Typeface.NORMAL);
+        projectSummaryLines.setLineSpacing(dp(2), 1f);
+        overviewCard.addView(projectSummaryLines, marginParams(0, 6));
+        projectSummaryStatus = text("", 10f, MUTED, Typeface.NORMAL);
         projectSummaryStatus.setTag("native_project_summary_status");
-        overviewCard.addView(projectSummaryStatus, marginParams(0, 7));
+        overviewCard.addView(projectSummaryStatus, marginParams(0, 5));
         renderProjectOverview();
 
         drawingCard = card();
