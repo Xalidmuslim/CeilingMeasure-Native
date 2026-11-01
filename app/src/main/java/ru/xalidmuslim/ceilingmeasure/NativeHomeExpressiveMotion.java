@@ -104,20 +104,38 @@ final class NativeHomeExpressiveMotion {
                         .setInterpolator(OVERSHOOT).start()).start();
     }
 
-    /** Matte indicator stretches between existing tab positions and recoils. */
+    /** Fast matte dock selection without delaying the destination callback. */
     static void moveIndicator(@NonNull View indicator, int index) {
         if (!enabled(indicator)) return;
         ViewGroup parent = (ViewGroup) indicator.getParent();
-        if (parent.getWidth() <= 0) return;
+        if (parent == null) return;
+        if (parent.getWidth() <= 0) {
+            // A pre-layout tap must not silently lose its selection.
+            parent.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+                @Override public void onLayoutChange(View view, int left, int top,
+                        int right, int bottom, int oldLeft, int oldTop,
+                        int oldRight, int oldBottom) {
+                    if (right <= left) return;
+                    view.removeOnLayoutChangeListener(this);
+                    moveIndicator(indicator, index);
+                }
+            });
+            return;
+        }
+        int indicatorWidth = indicator.getWidth();
+        if (indicatorWidth <= 0 && indicator.getLayoutParams() != null) {
+            indicatorWidth = indicator.getLayoutParams().width;
+        }
         float center = parent.getWidth() * (index + .5f)
                 / NativeHomeExpressiveProfile.DOCK_SLOTS;
-        float x = center - indicator.getWidth() / 2f;
+        float x = center - indicatorWidth / 2f;
         indicator.animate().cancel();
-        indicator.animate().translationX(x).scaleX(1.34f).scaleY(.92f)
-                .setDuration(NativeHomeExpressiveProfile.MICRO_MS)
+        indicator.animate().translationX(x).scaleX(1.08f).scaleY(.96f)
+                .setDuration(NativeHomeExpressiveProfile.INDICATOR_TRAVEL_MS)
                 .setInterpolator(NativeMotion.easing())
                 .withEndAction(() -> indicator.animate().scaleX(1f).scaleY(1f)
-                        .setDuration(180).setInterpolator(OVERSHOOT).start())
+                        .setDuration(NativeHomeExpressiveProfile.INDICATOR_SETTLE_MS)
+                        .setInterpolator(NativeMotion.easing()).start())
                 .start();
     }
 
