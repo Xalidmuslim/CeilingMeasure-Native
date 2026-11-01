@@ -77,16 +77,30 @@ public final class NativeCompactOverviewMotionTest {
         }
     }
 
-    @Test public void fullscreenDialogsUseOnlyWindowEnterAnimation() {
+    @Test public void fullscreenWindowsHaveCompositorManagedEntranceAndExit() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         android.content.res.TypedArray style = context.obtainStyledAttributes(
-                R.style.CeilingFullscreenEnterOnly, new int[]{
+                R.style.CeilingFullscreenWindowMotion, new int[]{
                         android.R.attr.windowEnterAnimation,
                         android.R.attr.windowExitAnimation});
         try {
-            assertTrue("Entry must be animated", style.getResourceId(0, 0) != 0);
-            assertEquals("Exit must be handled by one smooth decor animation",
-                    0, style.getResourceId(1, 0));
+            assertEquals(R.anim.native_fullscreen_enter, style.getResourceId(0, 0));
+            assertEquals("Full window must fade out, not just its opaque decor",
+                    R.anim.native_fullscreen_exit, style.getResourceId(1, 0));
+        } finally {
+            style.recycle();
+        }
+    }
+
+    @Test public void moreBottomSheetHasVisibleSlideAndFadeMotion() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        android.content.res.TypedArray style = context.obtainStyledAttributes(
+                R.style.CeilingDrawToolsWindowMotion, new int[]{
+                        android.R.attr.windowEnterAnimation,
+                        android.R.attr.windowExitAnimation});
+        try {
+            assertEquals(R.anim.native_more_enter, style.getResourceId(0, 0));
+            assertEquals(R.anim.native_more_exit, style.getResourceId(1, 0));
         } finally {
             style.recycle();
         }
