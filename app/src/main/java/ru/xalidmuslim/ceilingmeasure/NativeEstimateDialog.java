@@ -78,7 +78,7 @@ final class NativeEstimateDialog extends Dialog {
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
             // Fade-only dialog transition. Never slide or scale the window.
-            window.setWindowAnimations(R.style.CeilingFullscreenEnterOnly);
+            window.setWindowAnimations(R.style.CeilingFullscreenWindowMotion);
             NativeFullScreenDialogShell.configure(this);
             WindowManager.LayoutParams lp=new WindowManager.LayoutParams();
             lp.copyFrom(window.getAttributes());
