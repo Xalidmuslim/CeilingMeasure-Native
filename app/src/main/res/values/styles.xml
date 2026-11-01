@@ -23,13 +23,16 @@
         <item name="android:windowShowAnimation">@null</item>
         <item name="android:windowHideAnimation">@null</item>
     </style>
-    <!-- Only the entrance uses a Window animation. Estimate/price exits fade
-         their already-laid-out decor once, then dismiss without a second
-         full-window fade. -->
-    <style name="CeilingFullscreenEnterOnly">
-        <item name="android:windowEnterAnimation">@anim/native_fade_in</item>
-        <item name="android:windowExitAnimation">@null</item>
-        <item name="android:windowHideAnimation">@null</item>
+    <!-- Animate the complete Window at Surface/WindowManager level. Animating
+         an opaque full-screen Dialog's decor alone does not reveal the
+         underlying Activity and may look like an abrupt dismissal. -->
+    <style name="CeilingFullscreenWindowMotion">
+        <item name="android:windowEnterAnimation">@anim/native_fullscreen_enter</item>
+        <item name="android:windowExitAnimation">@anim/native_fullscreen_exit</item>
+    </style>
+    <style name="CeilingDrawToolsWindowMotion">
+        <item name="android:windowEnterAnimation">@anim/native_more_enter</item>
+        <item name="android:windowExitAnimation">@anim/native_more_exit</item>
     </style>
     <style name="CeilingFadeWindowAnimation">
         <item name="android:windowEnterAnimation">@anim/native_fade_in</item>
