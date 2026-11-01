@@ -32,13 +32,14 @@ public final class NativeEstimateFullScreenNavigationTest {
         start.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
                 NativeWorkspaceActivity.ACTION_NEW_ORDER);
         try(ActivityScenario<NativeWorkspaceActivity> scenario=ActivityScenario.launch(start)){
+            for(NativeEstimateDialog.Mode mode:NativeEstimateDialog.Mode.values()) {
+            AtomicBoolean home=new AtomicBoolean();
             scenario.onActivity(activity->{
                 NativeProjectStore store=new NativeProjectStore(activity);
                 NativeProjectStore.ProjectData project=new NativeProjectStore.ProjectData();
                 NativeProjectStore.RoomData room=store.createRoom("Гостиная");
                 project.rooms.add(room);
-                for(NativeEstimateDialog.Mode mode:NativeEstimateDialog.Mode.values()){
-                    AtomicBoolean home=new AtomicBoolean();
+                {
                     NativeEstimateDialog dialog=new NativeEstimateDialog(
                             activity,store,project,mode,
                             new NativeEstimateDialog.Listener(){
@@ -91,12 +92,16 @@ public final class NativeEstimateFullScreenNavigationTest {
                             assertTrue(item.getPaddingBottom()<=dp(activity,2));
                         }
                         dock.findViewWithTag("native_estimate_nav_home").performClick();
-                        assertTrue("Home must execute a real action",home.get());
+                        assertTrue("Exit starts but content stays until its fade completes", dialog.isShowing());
                     }finally{
                         if(dialog.isShowing())dialog.dismiss();
                     }
                 }
             });
+            android.os.SystemClock.sleep(300);
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertTrue("Home runs after the smooth close", home.get());
+            }
         }
     }
 
@@ -106,12 +111,13 @@ public final class NativeEstimateFullScreenNavigationTest {
         start.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
                 NativeWorkspaceActivity.ACTION_NEW_ORDER);
         try(ActivityScenario<NativeWorkspaceActivity> scene=ActivityScenario.launch(start)){
+            for(boolean client:new boolean[]{true,false}){
+            AtomicBoolean home=new AtomicBoolean();
             scene.onActivity(activity->{
                 NativeProjectStore store=new NativeProjectStore(activity);
                 NativeProjectStore.ProjectData project=new NativeProjectStore.ProjectData();
                 project.rooms.add(store.createRoom("Зал"));
-                for(boolean client:new boolean[]{true,false}){
-                    AtomicBoolean home=new AtomicBoolean();
+                {
                     NativePricePresetDialog dialog=new NativePricePresetDialog(
                             activity,store,project,Collections.singletonList(project),
                             client,()->{});
@@ -125,12 +131,16 @@ public final class NativeEstimateFullScreenNavigationTest {
                         assertNotNull(window.findViewWithTag("native_price_nav_reorder"));
                         assertNotNull(window.findViewWithTag("native_price_nav_done"));
                         window.findViewWithTag("native_price_nav_home").performClick();
-                        assertTrue(home.get());
+                        assertTrue(dialog.isShowing());
                     }finally{
                         if(dialog.isShowing())dialog.dismiss();
                     }
                 }
             });
+            android.os.SystemClock.sleep(300);
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertTrue("Price home callback occurs only after smooth exit",home.get());
+            }
         }
     }
 
