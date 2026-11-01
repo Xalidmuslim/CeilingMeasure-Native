@@ -59,7 +59,7 @@ jobs:
             adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeProjectOverviewUiTest,ru.xalidmuslim.ceilingmeasure.NativeCompactOverviewMotionTest,ru.xalidmuslim.ceilingmeasure.NativeEstimateFullScreenNavigationTest,ru.xalidmuslim.ceilingmeasure.NativeFastNavigationAndOrdinaryDialogsTest,ru.xalidmuslim.ceilingmeasure.NativePriceDragUiTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/v264-tests.log
             grep -Eq '^OK \([0-9]+ tests?\)' /tmp/v264-tests.log
             adb install -r app/build/outputs/apk/releasePreview/app-releasePreview.apk
-            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.smooth263/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity
+            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.smooth264/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity
             adb logcat -d -s AndroidRuntime:E > /tmp/v264-crashes.log
             ! grep -q 'FATAL EXCEPTION' /tmp/v264-crashes.log
 
@@ -91,7 +91,7 @@ jobs:
           fail_on_unmatched_files: true
           files: release/Zamer-v264.apk
           body: |
-            Тестовая Android APK (native Java, R8), ставится отдельно как .smooth263.
+            Тестовая Android APK (native Java, R8), ставится отдельно как .smooth264.
             Обзор всех комнат: выровненные колонки Комната | Площадь | Периметр,
             компактный итог по всему объекту и сохранение точных расчётов.
             Смета клиента и закупочный прайс: плавный переход всего окна при открытии/закрытии.
