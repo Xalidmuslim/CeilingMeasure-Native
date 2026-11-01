@@ -92,7 +92,7 @@ final class NativeHomeExpressiveMotion {
     /** Pressing the plus reshapes it into the dismiss glyph, without fake actions. */
     static void fabState(@NonNull TextView plus, boolean open) {
         if (!enabled(plus)) return;
-        plus.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+        // Haptics happen only in the actual nav click, not when Back dismisses the menu.
         plus.animate().cancel();
         plus.animate().rotation(open ? 45f : 0f).scaleX(.88f).scaleY(1.13f)
                 .setDuration(135).setInterpolator(NativeMotion.easing())
