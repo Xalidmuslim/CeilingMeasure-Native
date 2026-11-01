@@ -12,6 +12,14 @@ public final class NativeHomeExpressiveProfileTest {
         assertTrue(NativeHomeExpressiveProfile.MICRO_MS <= 300);
     }
 
+    @Test public void dockIndicatorFinishesItsTravelBeforeOldBounceDid() {
+        assertTrue(NativeHomeExpressiveProfile.INDICATOR_TRAVEL_MS >= 110);
+        assertTrue(NativeHomeExpressiveProfile.INDICATOR_TRAVEL_MS <= 170);
+        assertTrue(NativeHomeExpressiveProfile.INDICATOR_SETTLE_MS <= 110);
+        assertTrue(NativeHomeExpressiveProfile.INDICATOR_TRAVEL_MS
+                + NativeHomeExpressiveProfile.INDICATOR_SETTLE_MS < 300);
+    }
+
     @Test public void dockHasOnlyRealExistingActions() {
         assertEquals(3, NativeHomeExpressiveProfile.QUICK_ACTIONS_COUNT);
         assertEquals(5, NativeHomeExpressiveProfile.DOCK_SLOTS);
