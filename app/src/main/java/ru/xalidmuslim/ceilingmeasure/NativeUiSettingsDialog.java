@@ -73,9 +73,8 @@ final class NativeUiSettingsDialog extends Dialog {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             // The Home dialog fades as one complete surface, so the Android
             // window must not apply a second alpha transition on top of it.
-            window.setWindowAnimations((stableHomeTransition || NativeTransformerMode.enabled(activity))
-                    ? R.style.CeilingNoWindowAnimation
-                    : R.style.CeilingFadeWindowAnimation);
+            // Settings always use one ordinary fade, regardless of transformer mode.
+            window.setWindowAnimations(R.style.CeilingNoWindowAnimation);
             window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             WindowCompat.setDecorFitsSystemWindows(window, false);
         }
@@ -93,26 +92,27 @@ final class NativeUiSettingsDialog extends Dialog {
         }
         View decor = window == null ? null : window.getDecorView();
         if (decor != null) decor.requestApplyInsets();
-        if (stableHomeTransition && backdrop != null) {
+        if (backdrop != null) {
             backdrop.animate().cancel();
+            // Fade the whole backdrop + sheet together; no cascade, rotation or morph.
             if (!NativeMotion.animationsEnabled()) {
                 backdrop.setAlpha(1f);
             } else {
-                backdrop.setAlpha(NativeTransformerMode.enabled(activity) ? .72f : 0f);
+                backdrop.setAlpha(0f);
                 backdrop.animate().alpha(1f)
                         .setDuration(NativeMotion.DIALOG_ENTER_MS)
                         .setInterpolator(NativeMotion.easing()).start();
             }
         }
         if (sheet != null) {
-            if (NativeTransformerMotion.enabled(sheet)) {
-                // Both the panel and each of its controls assemble independently.
-                NativeTransformerMotion.reveal(sheet, 1);
-                NativeTransformerMotion.staggerVisible(sheet, 8);
-                NativeTransformerMotion.staggerSettingsButtons(sheet);
-            } else if (!stableHomeTransition) {
-                NativeMotion.enterCompact(sheet);
-            }
+            sheet.animate().cancel();
+            sheet.setAlpha(1f);
+            sheet.setScaleX(1f);
+            sheet.setScaleY(1f);
+            sheet.setTranslationX(0f);
+            sheet.setTranslationY(0f);
+            sheet.setRotation(0f);
+            sheet.setRotationY(0f);
         }
     }
 
@@ -153,38 +153,14 @@ final class NativeUiSettingsDialog extends Dialog {
         if (closing) return;
         cancelPendingScaleApply();
         closing = true;
-        if (sheet != null && backdrop != null && NativeTransformerMotion.enabled(sheet)) {
-            NativeTransformerMotion.closeSettings(sheet, backdrop,
-                    () -> NativeUiSettingsDialog.super.dismiss());
-            return;
-        }
-        if (stableHomeTransition && backdrop != null) {
-            // The backdrop, typography, and panel fade as ONE surface.
-            // Do not leave a separate dim scrim after the sheet disappears.
-            backdrop.animate().cancel();
-            if (!NativeMotion.animationsEnabled()) {
-                NativeUiSettingsDialog.super.dismiss();
-                return;
-            }
-            backdrop.animate()
-                    .alpha(0f)
-                    .setDuration(NativeMotion.DIALOG_EXIT_MS)
-                    .setInterpolator(NativeMotion.easing())
-                    .withEndAction(() -> NativeUiSettingsDialog.super.dismiss())
-                    .start();
-            return;
-        }
-        if (sheet == null) {
-            super.dismiss();
-            return;
-        }
-        if (!NativeMotion.animationsEnabled()) {
+        if (backdrop == null || !NativeMotion.animationsEnabled()) {
             NativeUiSettingsDialog.super.dismiss();
             return;
         }
-        sheet.animate()
+        backdrop.animate().cancel();
+        backdrop.animate()
                 .alpha(0f)
-                .setDuration(NativeVisualTokens.OVERLAY_MOTION_MS)
+                .setDuration(NativeMotion.DIALOG_EXIT_MS)
                 .setInterpolator(NativeMotion.easing())
                 .withEndAction(() -> NativeUiSettingsDialog.super.dismiss())
                 .start();
@@ -427,8 +403,8 @@ final class NativeUiSettingsDialog extends Dialog {
     /** Preference is separate from font JSON, saved drawings and backup. */
     private void addMotionGroup() {
         LinearLayout group = group("Анимация интерфейса",
-                "Трансформер — поочерёдная сборка карточек и кнопок. "
-                + "Обычная — прежние плавные переходы.");
+                "Трансформер — выразительные эффекты кнопок и меню. "
+                + "Обычная — спокойные реакции. Настройки всегда открываются плавно.");
         LinearLayout choices = threeColumnRow();
         group.addView(choices, topMargin(dp(6)));
 

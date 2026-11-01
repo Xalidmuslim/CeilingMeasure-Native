@@ -95,6 +95,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private TextView drawingAreaValue;
     private TextView drawingPerimeterValue;
     private TextView drawingReliability;
+    private TextView projectTotalArea;
+    private TextView projectTotalPerimeter;
+    private TextView projectSummaryLines;
+    private TextView projectSummaryStatus;
     private Button wallMode;
     private Button pointMode;
     private Button diagonalMode;
@@ -477,6 +481,40 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         roomsHead.setOnClickListener(v->toggleRoomsSection(roomsCard));
         applySectionState(roomsBody,roomsChevron,roomsCollapsed);
         renderRooms();
+
+        // Always-visible room overview; users need not open a client estimate.
+        LinearLayout overviewCard = card();
+        overviewCard.setTag("native_project_overview");
+        root.addView(overviewCard, marginParams(0, 4));
+        overviewCard.addView(text("Общий замер всех комнат", 14.5f, TEXT, Typeface.BOLD));
+        LinearLayout overviewTotals = new LinearLayout(this);
+        overviewTotals.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams overviewTotalsParams = marginParams(0, 7);
+        overviewCard.addView(overviewTotals, overviewTotalsParams);
+        LinearLayout areaColumn = new LinearLayout(this);
+        areaColumn.setOrientation(LinearLayout.VERTICAL);
+        areaColumn.addView(text("Общая площадь", 10.5f, MUTED, Typeface.NORMAL));
+        projectTotalArea = text("—", 19, TEXT, Typeface.BOLD);
+        projectTotalArea.setTag("native_project_total_area");
+        areaColumn.addView(projectTotalArea, marginParams(0, 3));
+        overviewTotals.addView(areaColumn, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout perimeterColumn = new LinearLayout(this);
+        perimeterColumn.setOrientation(LinearLayout.VERTICAL);
+        perimeterColumn.addView(text("Общий периметр", 10.5f, MUTED, Typeface.NORMAL));
+        projectTotalPerimeter = text("—", 19, TEXT, Typeface.BOLD);
+        projectTotalPerimeter.setTag("native_project_total_perimeter");
+        perimeterColumn.addView(projectTotalPerimeter, marginParams(0, 3));
+        overviewTotals.addView(perimeterColumn, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        projectSummaryLines = text("", 12, TEXT, Typeface.NORMAL);
+        projectSummaryLines.setTag("native_project_room_metrics");
+        projectSummaryLines.setLineSpacing(dp(4), 1f);
+        overviewCard.addView(projectSummaryLines, marginParams(0, 9));
+        projectSummaryStatus = text("", 10.5f, MUTED, Typeface.NORMAL);
+        projectSummaryStatus.setTag("native_project_summary_status");
+        overviewCard.addView(projectSummaryStatus, marginParams(0, 7));
+        renderProjectOverview();
 
         drawingCard = card();
         drawingCard.setTag("native_drawing_card");
@@ -1088,6 +1126,34 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         add.setOnClickListener(v->showRoomPicker());
         LinearLayout.LayoutParams addParams=new LinearLayout.LayoutParams(dp(48),dp(48));
         roomRow.addView(add,addParams);
+        renderProjectOverview();
+    }
+
+    private void renderProjectOverview() {
+        if (project == null || projectTotalArea == null || projectSummaryLines == null) return;
+        NativeProjectOverview.Summary summary = NativeProjectOverview.fromProject(project);
+        int total = summary.rooms.size();
+        projectTotalArea.setText(summary.areasMeasured == 0 ? "—"
+                : String.format(Locale.getDefault(), "%.2f м²", summary.totalAreaM2));
+        projectTotalPerimeter.setText(summary.perimetersMeasured == 0 ? "—"
+                : String.format(Locale.getDefault(), "%.2f м", summary.totalPerimeterM));
+        StringBuilder roomLines = new StringBuilder();
+        for (int i = 0; i < total; i++) {
+            NativeProjectOverview.RoomMetrics room = summary.rooms.get(i);
+            if (i > 0) roomLines.append('\n');
+            roomLines.append(roomButtonLabel(room.name, i)).append("  ·  ");
+            roomLines.append(room.areaMeasured
+                    ? String.format(Locale.getDefault(), "%.2f м²", room.areaM2) : "— м²");
+            roomLines.append("  ·  ");
+            roomLines.append(room.perimeterMeasured
+                    ? String.format(Locale.getDefault(), "%.2f м", room.perimeterM) : "— м");
+        }
+        projectSummaryLines.setText(roomLines.toString());
+        projectSummaryStatus.setText(summary.isComplete()
+                ? "Все " + total + " помещений измерены. Итог по всему объекту."
+                : "Замерено: площадь " + summary.areasMeasured + "/" + total
+                + ", периметр " + summary.perimetersMeasured + "/" + total
+                + ". Итоги только по готовым значениям.");
     }
 
     private void updateRoomSelectionStyles(){
@@ -2682,6 +2748,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void updateStats(){
+        renderProjectOverview();
         NativeProjectStore.RoomData room=activeRoom();
         List<NativeProjectStore.EdgeData> edges=NativeGeometry.orderedEdges(room);
 
