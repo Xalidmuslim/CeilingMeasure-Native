@@ -2,6 +2,8 @@ package ru.xalidmuslim.ceilingmeasure;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Build;
+import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -141,10 +143,21 @@ final class NativeTransformerMotion {
                 .withEndAction(done).start();
     }
 
+    /** One system-managed, very light tick for an accepted bottom-nav tap.
+     *  Never bypasses the device's haptics/accessibility preferences. */
+    static void navigationTapHaptic(@NonNull View item) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            item.performHapticFeedback(HapticFeedbackConstants.SEGMENT_FREQUENT_TICK);
+        } else {
+            item.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+        }
+    }
+
     static void bindNavigation(@NonNull View item, @NonNull View glyph,
             int direction, @NonNull Runnable action) {
         item.setOnClickListener(v -> {
             if (!v.isEnabled()) return;
+            navigationTapHaptic(v);
             if (!enabled(v)) {
                 action.run();
                 return;
