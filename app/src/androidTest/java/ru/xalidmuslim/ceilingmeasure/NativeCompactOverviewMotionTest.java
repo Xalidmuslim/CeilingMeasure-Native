@@ -92,6 +92,30 @@ public final class NativeCompactOverviewMotionTest {
         }
     }
 
+    @Test public void moreButtonOpensSheetWithRealWindowMotion() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.ACTION_NEW_ORDER);
+        try (ActivityScenario<NativeWorkspaceActivity> scenario = ActivityScenario.launch(intent)) {
+            scenario.onActivity(activity -> {
+                NativeDrawToolsDialog more = new NativeDrawToolsDialog(activity,
+                        activity.getActiveRoomForTest(), action -> {});
+                more.show();
+                try {
+                    assertNotNull(more.getWindow());
+                    assertEquals("More dialog must actually use slide/fade Window style",
+                            R.style.CeilingDrawToolsWindowMotion,
+                            more.getWindow().getAttributes().windowAnimations);
+                    assertNotNull(more.getWindow().getDecorView()
+                            .findViewWithTag("native_draw_tools_close"));
+                } finally {
+                    more.dismiss();
+                }
+            });
+        }
+    }
+
     @Test public void moreBottomSheetHasVisibleSlideAndFadeMotion() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         android.content.res.TypedArray style = context.obtainStyledAttributes(
