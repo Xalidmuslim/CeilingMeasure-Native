@@ -485,8 +485,8 @@ final class NativePremiumHomeUi {
         screen.addView(dock, dockLp);
         liquidIndicator = new View(activity);
         liquidIndicator.setTag("native_home_liquid_indicator");
-        liquidIndicator.setVisibility(NativeTransformerMode.enabled(activity)
-                ? View.VISIBLE : View.GONE);
+        // Selection is visible in both modes; ordinary mode uses a pure slide.
+        liquidIndicator.setVisibility(View.VISIBLE);
         liquidIndicator.setBackground(round(Color.rgb(220, 235, 249), 16));
         dock.addView(liquidIndicator, new FrameLayout.LayoutParams(
                 dp(48), dp(43), Gravity.TOP | Gravity.LEFT));
@@ -558,12 +558,9 @@ final class NativePremiumHomeUi {
                 TransformerMotionProfile.directionForIndex(position,
                         NativeHomeExpressiveProfile.DOCK_SLOTS),
                 () -> {
-                    if (NativeHomeExpressiveMotion.enabled(slot)) {
-                        NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, position);
-                        callback.run();
-                    } else {
-                        callback.run();
-                    }
+                    NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, position);
+                    // No artificial delay before opening the selected section.
+                    callback.run();
                 });
     }
 
@@ -712,14 +709,20 @@ final class NativePremiumHomeUi {
         return true;
     }
 
+    /** Recenter after closing an overlay; Home stays resumed behind Dialogs. */
+    void returnIndicatorHome() {
+        if (liquidIndicator != null && liquidIndicator.getVisibility() == View.VISIBLE) {
+            NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 0);
+        }
+    }
+
     void updateMotionMode() {
         if (liquidIndicator == null) return;
         boolean expressive = NativeTransformerMode.enabled(activity);
-        liquidIndicator.setVisibility(expressive ? View.VISIBLE : View.GONE);
-        if (expressive) {
-            liquidIndicator.post(() ->
-                    NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 0));
-        } else {
+        liquidIndicator.setVisibility(View.VISIBLE);
+        liquidIndicator.post(() ->
+                NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 0));
+        if (!expressive) {
             resetTransientUi();
             dock.animate().cancel();
             dock.setTranslationY(0f);

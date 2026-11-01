@@ -3,6 +3,9 @@ package ru.xalidmuslim.ceilingmeasure;
 /** Pure timing and interaction contract for the native Java Home screen. */
 final class NativeHomeExpressiveProfile {
     static final int MICRO_MS = 235;
+    // Indicator reaches its tab before the destination obscures Home.
+    static final int INDICATOR_TRAVEL_MS = 145;
+    static final int INDICATOR_SETTLE_MS = 85;
     static final int MORPH_MS = 460;
     static final int STAGGER_STEP_MS = 45;
     static final int SHARED_AXIS_MS = 270;
