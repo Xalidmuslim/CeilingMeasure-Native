@@ -3,6 +3,18 @@ package ru.xalidmuslim.ceilingmeasure;
 /** Pure timing and interaction contract for the native Java Home screen. */
 final class NativeHomeExpressiveProfile {
     static final int MICRO_MS = 235;
+
+    // New Measurement is a unique, slightly slower tactile illustration.
+    // It must not modify the timing of navigation elsewhere in the app.
+    static final int CTA_ART_PRESS_MS = 255;
+    static final int CTA_ART_RETURN_MS = 320;
+    static final int CTA_ART_CLICK_MS = 220;
+    static final int CTA_NAV_HANDOFF_MS = 220;
+    static final float CTA_ART_PRESS_SCALE = 1.11f;
+    static final float CTA_ART_CLICK_SCALE = 1.14f;
+    static final int CTA_ART_PRESS_X_DP = 14;
+    static final int CTA_ART_CLICK_X_DP = 19;
+    static final int CTA_ART_Y_DP = 5;
     // Indicator reaches its tab before the destination obscures Home.
     static final int RECENT_STAGGER_MS = 65;
     static final int RECENT_ENTER_MS = 235;

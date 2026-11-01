@@ -49,6 +49,7 @@ final class NativeHomeExpressiveMotion {
     static void bindCard(@NonNull View card, @Nullable View icon, @Nullable View chevron,
             @NonNull Runnable action, boolean mainCta, boolean scanner,
             @Nullable Runnable onPrimaryPress) {
+        final boolean[] navigating = {false};
         card.setOnTouchListener((v, event) -> {
             // The blue New Measurement illustration is a button microinteraction,
             // NOT a transformer page transition. Keep it in Ordinary mode.
@@ -56,14 +57,18 @@ final class NativeHomeExpressiveMotion {
                     || (!mainCta && !enabled(v))) return false;
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
-                    spring(v, mainCta ? .975f : .975f,
-                            SpringForce.DAMPING_RATIO_NO_BOUNCY, mainCta);
-                    if (mainCta && icon != null) {
+                    spring(v, .975f, SpringForce.DAMPING_RATIO_NO_BOUNCY, mainCta);
+                    if (mainCta && icon != null && !navigating[0]) {
                         icon.animate().cancel();
-                        icon.animate().translationX(-dp(icon, 6))
-                                .translationY(-dp(icon, 3)).rotation(-3f)
-                                .scaleX(1.07f).scaleY(1.07f)
-                                .setDuration(120L)
+                        icon.animate()
+                                .translationX(-dp(icon,
+                                        NativeHomeExpressiveProfile.CTA_ART_PRESS_X_DP))
+                                .translationY(-dp(icon,
+                                        NativeHomeExpressiveProfile.CTA_ART_Y_DP))
+                                .rotation(-2.5f)
+                                .scaleX(NativeHomeExpressiveProfile.CTA_ART_PRESS_SCALE)
+                                .scaleY(NativeHomeExpressiveProfile.CTA_ART_PRESS_SCALE)
+                                .setDuration(NativeHomeExpressiveProfile.CTA_ART_PRESS_MS)
                                 .setInterpolator(NativeMotion.easing()).start();
                         if (onPrimaryPress != null) onPrimaryPress.run();
                     }
@@ -71,11 +76,13 @@ final class NativeHomeExpressiveMotion {
                 case MotionEvent.ACTION_CANCEL:
                 case MotionEvent.ACTION_UP:
                     spring(v, 1f, .59f, mainCta);
-                    if (mainCta && icon != null) {
+                    if (mainCta && icon != null && !navigating[0]) {
+                        // A canceled gesture returns gently. A real click
+                        // replaces this return with the slightly longer glide.
                         icon.animate().cancel();
                         icon.animate().translationX(0f).translationY(0f)
                                 .rotation(0f).scaleX(1f).scaleY(1f)
-                                .setDuration(190L)
+                                .setDuration(NativeHomeExpressiveProfile.CTA_ART_RETURN_MS)
                                 .setInterpolator(NativeMotion.easing()).start();
                     }
                     break;
@@ -90,7 +97,47 @@ final class NativeHomeExpressiveMotion {
                 action.run();
                 return;
             }
-            if (mainCta) v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+            if (mainCta) {
+                if (navigating[0]) return; // Ignore double taps during handoff.
+                navigating[0] = true;
+                v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+                if (icon != null) {
+                    // This one illustration gets a visible, measured glide.
+                    // Keep the rest of the application navigation immediate.
+                    icon.animate().cancel();
+                    icon.animate()
+                            .translationX(-dp(icon,
+                                    NativeHomeExpressiveProfile.CTA_ART_CLICK_X_DP))
+                            .translationY(-dp(icon,
+                                    NativeHomeExpressiveProfile.CTA_ART_Y_DP))
+                            .rotation(-3f)
+                            .scaleX(NativeHomeExpressiveProfile.CTA_ART_CLICK_SCALE)
+                            .scaleY(NativeHomeExpressiveProfile.CTA_ART_CLICK_SCALE)
+                            .setDuration(NativeHomeExpressiveProfile.CTA_ART_CLICK_MS)
+                            .setInterpolator(NativeMotion.easing()).start();
+                }
+                if (chevron != null) {
+                    chevron.animate().cancel();
+                    chevron.animate().translationX(dp(chevron, 4))
+                            .setDuration(120L)
+                            .setInterpolator(NativeMotion.easing())
+                            .withEndAction(() -> chevron.animate().translationX(0f)
+                                    .setDuration(90L)
+                                    .setInterpolator(NativeMotion.easing()).start())
+                            .start();
+                }
+                // The artwork must remain visible briefly before Activity
+                // navigation covers Home. No heavyweight shared-element morph.
+                v.postDelayed(() -> {
+                    if (!v.isAttachedToWindow()) {
+                        navigating[0] = false;
+                        return;
+                    }
+                    action.run();
+                    navigating[0] = false;
+                }, NativeHomeExpressiveProfile.CTA_NAV_HANDOFF_MS);
+                return;
+            }
             if (icon != null) {
                 icon.animate().cancel();
                 icon.animate().translationY(scanner ? -dp(icon, 5) : 0)

@@ -59,6 +59,7 @@ final class NativePremiumHomeUi {
     private View liquidIndicator;
     private FrameLayout speedDial;
     private TextView plusButton;
+    private View primaryArtwork;
     private LinearLayout compactHeader;
     private boolean compactShowing;
     private boolean speedDialOpen;
@@ -158,6 +159,29 @@ final class NativePremiumHomeUi {
 
     ScrollView scroll() { return scroll; }
     FrameLayout dock() { return dock; }
+
+    /** Return from Workspace without leaving the blue illustration zoomed in. */
+    void restorePrimaryArtwork() {
+        if (primaryArtwork == null) return;
+        View art = primaryArtwork;
+        if (Math.abs(art.getTranslationX()) < .01f
+                && Math.abs(art.getTranslationY()) < .01f
+                && Math.abs(art.getScaleX() - 1f) < .001f
+                && Math.abs(art.getScaleY() - 1f) < .001f) return;
+        art.animate().cancel();
+        if (!NativeMotion.animationsEnabled()) {
+            art.setTranslationX(0f);
+            art.setTranslationY(0f);
+            art.setRotation(0f);
+            art.setScaleX(1f);
+            art.setScaleY(1f);
+        } else {
+            art.animate().translationX(0f).translationY(0f)
+                    .rotation(0f).scaleX(1f).scaleY(1f)
+                    .setDuration(NativeHomeExpressiveProfile.CTA_ART_RETURN_MS)
+                    .setInterpolator(NativeMotion.easing()).start();
+        }
+    }
 
     /** A Home return is a presentation event, even for unchanged saved data. */
     void replayRecentOnHome() {
@@ -399,6 +423,7 @@ final class NativePremiumHomeUi {
 
         View art = new CeilingContour(activity);
         art.setTag("native_home_ceiling_art");
+        primaryArtwork = art;
         FrameLayout.LayoutParams artLp = new FrameLayout.LayoutParams(
                 dp(146), ViewGroup.LayoutParams.MATCH_PARENT,
                 Gravity.END | Gravity.CENTER_VERTICAL);

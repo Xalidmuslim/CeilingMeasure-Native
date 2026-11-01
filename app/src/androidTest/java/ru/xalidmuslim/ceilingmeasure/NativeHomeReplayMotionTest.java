@@ -64,6 +64,41 @@ public final class NativeHomeReplayMotionTest {
         }
     }
 
+    @Test public void slowerBlueCardActionIsOnceOnlyAndNeverStallsOtherButtons() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        boolean previous = NativeTransformerMode.enabled(context);
+        NativeTransformerMode.setEnabled(context, false);
+        java.util.concurrent.atomic.AtomicInteger calls =
+                new java.util.concurrent.atomic.AtomicInteger();
+        try (ActivityScenario<NativeHomeActivity> scenario =
+                     ActivityScenario.launch(NativeHomeActivity.class)) {
+            scenario.onActivity(activity -> {
+                android.widget.FrameLayout root =
+                        activity.findViewById(android.R.id.content);
+                android.widget.FrameLayout mockCta = new android.widget.FrameLayout(activity);
+                View art = new View(activity);
+                mockCta.addView(art, new android.widget.FrameLayout.LayoutParams(110, 70));
+                root.addView(mockCta, new android.widget.FrameLayout.LayoutParams(220, 120));
+                NativeHomeExpressiveMotion.bindCard(mockCta, art, null,
+                        calls::incrementAndGet, true, false, null);
+                mockCta.performClick();
+                mockCta.performClick();
+                if (NativeMotion.animationsEnabled()) {
+                    assertEquals("First tap allows the artwork to move", 0, calls.get());
+                } else {
+                    assertEquals("Reduced motion navigates immediately", 2, calls.get());
+                }
+            });
+            SystemClock.sleep(NativeHomeExpressiveProfile.CTA_NAV_HANDOFF_MS + 160L);
+            scenario.onActivity(activity -> {
+                assertEquals("Delayed action fires only once for rapid double taps",
+                        NativeMotion.animationsEnabled() ? 1 : 2, calls.get());
+            });
+        } finally {
+            NativeTransformerMode.setEnabled(context, previous);
+        }
+    }
+
     @Test public void unchangedSavedCardsCanRepeatStaggerWithoutReinflation() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         boolean before = NativeTransformerMode.enabled(context);
