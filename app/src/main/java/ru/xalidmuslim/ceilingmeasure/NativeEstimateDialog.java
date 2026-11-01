@@ -102,10 +102,9 @@ final class NativeEstimateDialog extends Dialog {
             return;
         }
         closing = true;
-        NativeFullScreenDialogShell.animateExit(this, () -> {
-            NativeEstimateDialog.super.dismiss();
-            finishAfterClose();
-        });
+        NativeFullScreenDialogShell.dismissWithWindowExit(this,
+                () -> NativeEstimateDialog.super.dismiss(),
+                this::finishAfterClose);
     }
 
     private void finishAfterClose() {
