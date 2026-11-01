@@ -72,7 +72,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: CeilingMeasure-v264-aligned-smooth-exit
+          name: CeilingMeasure-v264-smooth-fullscreen-more
           path: release
       - name: Verify APK
         run: |
