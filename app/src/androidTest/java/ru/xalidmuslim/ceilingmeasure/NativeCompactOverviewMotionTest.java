@@ -35,10 +35,11 @@ public final class NativeCompactOverviewMotionTest {
                 assertNotNull(perimeter);
                 assertNotNull(roomLines);
                 float density = activity.getResources().getDisplayMetrics().scaledDensity;
+                float userScale = NativeUiPrefs.load(activity).scale;
                 assertTrue("Combined area must not use headline sized type",
-                        area.getTextSize() / density <= 16.5f);
+                        area.getTextSize() / density <= 16.5f * userScale);
                 assertTrue("Combined perimeter must not use headline sized type",
-                        perimeter.getTextSize() / density <= 16.5f);
+                        perimeter.getTextSize() / density <= 16.5f * userScale);
                 assertTrue("Per-room measurements remain immediately visible",
                         roomLines.getText().toString().contains("Комната 1"));
             });
