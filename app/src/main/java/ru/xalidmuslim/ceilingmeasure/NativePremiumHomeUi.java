@@ -427,7 +427,7 @@ final class NativePremiumHomeUi {
         primary.addView(chevron, arrow);
         NativeHomeExpressiveMotion.bindCard(primary, art, chevron, () -> {
             ((CeilingContour) art).scanOnce();
-            primary.postDelayed(() -> activity.openPrimaryCta(primary), 155L);
+            activity.openPrimaryCta(primary);
         }, true, false);
     }
 
@@ -560,7 +560,7 @@ final class NativePremiumHomeUi {
                 () -> {
                     if (NativeHomeExpressiveMotion.enabled(slot)) {
                         NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, position);
-                        slot.postDelayed(callback, 140L);
+                        callback.run();
                     } else {
                         callback.run();
                     }
@@ -648,7 +648,7 @@ final class NativePremiumHomeUi {
             item.setFocusable(true);
             item.setOnClickListener(v -> {
                 closeSpeedDial();
-                v.postDelayed(actions[index], 135L);
+                actions[index].run();
             });
             FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                     dp(160), dp(45), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
