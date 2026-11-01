@@ -712,6 +712,13 @@ final class NativePremiumHomeUi {
         return true;
     }
 
+    /** Recenter after closing an overlay; Home stays resumed behind Dialogs. */
+    void returnIndicatorHome() {
+        if (liquidIndicator != null && liquidIndicator.getVisibility() == View.VISIBLE) {
+            NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 0);
+        }
+    }
+
     void updateMotionMode() {
         if (liquidIndicator == null) return;
         boolean expressive = NativeTransformerMode.enabled(activity);
