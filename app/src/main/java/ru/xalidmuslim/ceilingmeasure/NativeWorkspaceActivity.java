@@ -97,7 +97,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private TextView drawingReliability;
     private TextView projectTotalArea;
     private TextView projectTotalPerimeter;
-    private TextView projectSummaryLines;
+    private LinearLayout projectRoomRows;
     private TextView projectSummaryStatus;
     private Button wallMode;
     private Button pointMode;
@@ -482,39 +482,45 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         applySectionState(roomsBody,roomsChevron,roomsCollapsed);
         renderRooms();
 
-        // Always-visible room overview; users need not open a client estimate.
+        // One table: names, measured area and perimeter remain in aligned
+        // vertical columns even when names have different lengths.
         LinearLayout overviewCard = card();
         overviewCard.setTag("native_project_overview");
         overviewCard.setPadding(dp(10), dp(8), dp(10), dp(8));
         root.addView(overviewCard, marginParams(0, 4));
         overviewCard.addView(text("Общий замер всех комнат", 13.5f, TEXT, Typeface.BOLD));
-        LinearLayout overviewTotals = new LinearLayout(this);
-        overviewTotals.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams overviewTotalsParams = marginParams(0, 4);
-        overviewCard.addView(overviewTotals, overviewTotalsParams);
-        LinearLayout areaColumn = new LinearLayout(this);
-        areaColumn.setOrientation(LinearLayout.VERTICAL);
-        areaColumn.addView(text("Общая площадь", 10.5f, MUTED, Typeface.NORMAL));
-        projectTotalArea = text("—", 16, TEXT, Typeface.BOLD);
+        LinearLayout metricHeader = new LinearLayout(this);
+        metricHeader.setOrientation(LinearLayout.HORIZONTAL);
+        metricHeader.setGravity(Gravity.CENTER_VERTICAL);
+        metricHeader.addView(overviewCell("Комната", 10f, MUTED, false, 1.2f, false));
+        metricHeader.addView(overviewCell("Площадь", 10f, MUTED, false, 1f, true));
+        metricHeader.addView(overviewCell("Периметр", 10f, MUTED, false, 1f, true));
+        overviewCard.addView(metricHeader, marginParams(0, 6));
+
+        projectRoomRows = new LinearLayout(this);
+        projectRoomRows.setTag("native_project_room_metrics");
+        projectRoomRows.setOrientation(LinearLayout.VERTICAL);
+        overviewCard.addView(projectRoomRows, marginParams(0, 3));
+
+        View totalDivider = new View(this);
+        totalDivider.setBackgroundColor(LINE);
+        overviewCard.addView(totalDivider, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(1)));
+        LinearLayout totalRow = new LinearLayout(this);
+        totalRow.setTag("native_project_total_row");
+        totalRow.setOrientation(LinearLayout.HORIZONTAL);
+        totalRow.setGravity(Gravity.CENTER_VERTICAL);
+        totalRow.addView(overviewCell("Итого", 12f, TEXT, true, 1.2f, false));
+        projectTotalArea = overviewCell("—", 14f, TEXT, true, 1f, true);
         projectTotalArea.setTag("native_project_total_area");
-        areaColumn.addView(projectTotalArea, marginParams(0, 1));
-        overviewTotals.addView(areaColumn, new LinearLayout.LayoutParams(0,
-                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        LinearLayout perimeterColumn = new LinearLayout(this);
-        perimeterColumn.setOrientation(LinearLayout.VERTICAL);
-        perimeterColumn.addView(text("Общий периметр", 10.5f, MUTED, Typeface.NORMAL));
-        projectTotalPerimeter = text("—", 16, TEXT, Typeface.BOLD);
+        totalRow.addView(projectTotalArea);
+        projectTotalPerimeter = overviewCell("—", 14f, TEXT, true, 1f, true);
         projectTotalPerimeter.setTag("native_project_total_perimeter");
-        perimeterColumn.addView(projectTotalPerimeter, marginParams(0, 1));
-        overviewTotals.addView(perimeterColumn, new LinearLayout.LayoutParams(0,
-                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        projectSummaryLines = text("", 11.5f, TEXT, Typeface.NORMAL);
-        projectSummaryLines.setTag("native_project_room_metrics");
-        projectSummaryLines.setLineSpacing(dp(2), 1f);
-        overviewCard.addView(projectSummaryLines, marginParams(0, 6));
+        totalRow.addView(projectTotalPerimeter);
+        overviewCard.addView(totalRow, marginParams(0, 5));
         projectSummaryStatus = text("", 10f, MUTED, Typeface.NORMAL);
         projectSummaryStatus.setTag("native_project_summary_status");
-        overviewCard.addView(projectSummaryStatus, marginParams(0, 5));
+        overviewCard.addView(projectSummaryStatus, marginParams(0, 3));
         renderProjectOverview();
 
         drawingCard = card();
@@ -1130,31 +1136,64 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         renderProjectOverview();
     }
 
+    private TextView overviewCell(String label, float sizeSp, int color,
+            boolean bold, float weight, boolean numeric) {
+        TextView cell = text(label, sizeSp, color,
+                bold ? Typeface.BOLD : Typeface.NORMAL);
+        cell.setGravity((numeric ? Gravity.END : Gravity.START) | Gravity.CENTER_VERTICAL);
+        cell.setSingleLine(true);
+        cell.setMinWidth(0);
+        cell.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        if (numeric) cell.setFontFeatureSettings("tnum");
+        cell.setLayoutParams(new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, weight));
+        return cell;
+    }
+
     private void renderProjectOverview() {
-        if (project == null || projectTotalArea == null || projectSummaryLines == null) return;
+        if (project == null || projectTotalArea == null || projectRoomRows == null) return;
         NativeProjectOverview.Summary summary = NativeProjectOverview.fromProject(project);
         int total = summary.rooms.size();
+        // Build the static grid only if room count changed. Drawing edits then
+        // update only the values, avoiding layout churn on every measurement.
+        while (projectRoomRows.getChildCount() > total) {
+            projectRoomRows.removeViewAt(projectRoomRows.getChildCount() - 1);
+        }
+        while (projectRoomRows.getChildCount() < total) {
+            int index = projectRoomRows.getChildCount();
+            LinearLayout row = new LinearLayout(this);
+            row.setTag("native_project_room_row_" + index);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setMinimumHeight(dp(25));
+            TextView name = overviewCell("", 11.5f, TEXT, false, 1.2f, false);
+            name.setTag("native_project_room_name_" + index);
+            row.addView(name);
+            TextView area = overviewCell("", 11.5f, TEXT, false, 1f, true);
+            area.setTag("native_project_room_area_" + index);
+            row.addView(area);
+            TextView perimeter = overviewCell("", 11.5f, TEXT, false, 1f, true);
+            perimeter.setTag("native_project_room_perimeter_" + index);
+            row.addView(perimeter);
+            projectRoomRows.addView(row);
+        }
+        for (int i = 0; i < total; i++) {
+            NativeProjectOverview.RoomMetrics room = summary.rooms.get(i);
+            LinearLayout row = (LinearLayout) projectRoomRows.getChildAt(i);
+            ((TextView) row.getChildAt(0)).setText(roomButtonLabel(room.name, i));
+            ((TextView) row.getChildAt(1)).setText(room.areaMeasured
+                    ? String.format(Locale.getDefault(), "%.2f м²", room.areaM2) : "—");
+            ((TextView) row.getChildAt(2)).setText(room.perimeterMeasured
+                    ? String.format(Locale.getDefault(), "%.2f м", room.perimeterM) : "—");
+        }
         projectTotalArea.setText(summary.areasMeasured == 0 ? "—"
                 : String.format(Locale.getDefault(), "%.2f м²", summary.totalAreaM2));
         projectTotalPerimeter.setText(summary.perimetersMeasured == 0 ? "—"
                 : String.format(Locale.getDefault(), "%.2f м", summary.totalPerimeterM));
-        StringBuilder roomLines = new StringBuilder();
-        for (int i = 0; i < total; i++) {
-            NativeProjectOverview.RoomMetrics room = summary.rooms.get(i);
-            if (i > 0) roomLines.append('\n');
-            roomLines.append(roomButtonLabel(room.name, i)).append("  ·  ");
-            roomLines.append(room.areaMeasured
-                    ? String.format(Locale.getDefault(), "%.2f м²", room.areaM2) : "— м²");
-            roomLines.append("  ·  ");
-            roomLines.append(room.perimeterMeasured
-                    ? String.format(Locale.getDefault(), "%.2f м", room.perimeterM) : "— м");
-        }
-        projectSummaryLines.setText(roomLines.toString());
         projectSummaryStatus.setText(summary.isComplete()
-                ? "Все " + total + " помещений измерены. Итог по всему объекту."
-                : "Замерено: площадь " + summary.areasMeasured + "/" + total
-                + ", периметр " + summary.perimetersMeasured + "/" + total
-                + ". Итоги только по готовым значениям.");
+                ? "Все " + total + " помещений измерены."
+                : "Измерено: площадь " + summary.areasMeasured + "/" + total
+                + ", периметр " + summary.perimetersMeasured + "/" + total + ".");
     }
 
     private void updateRoomSelectionStyles(){

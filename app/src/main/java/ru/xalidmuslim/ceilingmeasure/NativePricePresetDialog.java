@@ -53,6 +53,8 @@ final class NativePricePresetDialog extends Dialog {
     private ArrayList<String> priceOrder=new ArrayList<>();
     private Runnable onHomeRequested;
     private boolean immediateOpen;
+    private boolean closing;
+    private Runnable afterClose;
 
     NativePricePresetDialog(
             @NonNull Context context,
@@ -88,7 +90,9 @@ final class NativePricePresetDialog extends Dialog {
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
             // Fade-only dialog transition. Never slide or scale the window.
-            window.setWindowAnimations(immediateOpen ? 0 : R.style.CeilingFadeWindowAnimation);
+            window.setWindowAnimations(immediateOpen
+                    ? R.style.CeilingNoWindowAnimation
+                    : R.style.CeilingFullscreenEnterOnly);
             NativeFullScreenDialogShell.configure(this);
             WindowManager.LayoutParams lp=new WindowManager.LayoutParams();
             lp.copyFrom(window.getAttributes());
@@ -97,6 +101,31 @@ final class NativePricePresetDialog extends Dialog {
             lp.gravity=Gravity.CENTER;
             window.setAttributes(lp);
         }
+    }
+
+    @Override public void dismiss() {
+        dismissThen(null);
+    }
+
+    private void dismissThen(Runnable after) {
+        if (after != null) afterClose = after;
+        if (closing) return;
+        if (!isShowing()) {
+            NativePricePresetDialog.super.dismiss();
+            finishAfterClose();
+            return;
+        }
+        closing = true;
+        NativeFullScreenDialogShell.animateExit(this, () -> {
+            NativePricePresetDialog.super.dismiss();
+            finishAfterClose();
+        });
+    }
+
+    private void finishAfterClose() {
+        Runnable callback = afterClose;
+        afterClose = null;
+        if (callback != null) callback.run();
     }
 
     private void render(){
@@ -259,8 +288,9 @@ final class NativePricePresetDialog extends Dialog {
         setContentView(NativeFullScreenDialogShell.create(this,scroll,
                 new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_home,
                         "Домой","native_price_nav_home",()->{
-                    dismiss();
-                    if(onHomeRequested!=null)onHomeRequested.run();
+                    dismissThen(() -> {
+                        if (onHomeRequested != null) onHomeRequested.run();
+                    });
                 }),
                 new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_undo,
                         "Смета","native_price_nav_estimate",this::dismiss),
@@ -463,8 +493,9 @@ final class NativePricePresetDialog extends Dialog {
                 persist(current);
             }
         }
-        listener.onApplied();
-        dismiss();
+        // Rebuild the parent's estimate only after this full-screen window has
+        // completed its exit, avoiding a costly re-layout during the fade.
+        dismissThen(listener::onApplied);
     }
 
     private void persist(NativeProjectStore.ProjectData p){

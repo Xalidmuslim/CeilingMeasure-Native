@@ -50,6 +50,8 @@ final class NativeEstimateDialog extends Dialog {
     private final NativeUiPrefs uiPrefs;
     private LinearLayout content;
     private ScrollView estimateScroll;
+    private boolean closing;
+    private Runnable afterClose;
 
     NativeEstimateDialog(
             @NonNull Context context,
@@ -76,7 +78,7 @@ final class NativeEstimateDialog extends Dialog {
         if(window!=null){
             window.setBackgroundDrawableResource(android.R.color.transparent);
             // Fade-only dialog transition. Never slide or scale the window.
-            window.setWindowAnimations(R.style.CeilingFadeWindowAnimation);
+            window.setWindowAnimations(R.style.CeilingFullscreenEnterOnly);
             NativeFullScreenDialogShell.configure(this);
             WindowManager.LayoutParams lp=new WindowManager.LayoutParams();
             lp.copyFrom(window.getAttributes());
@@ -85,6 +87,31 @@ final class NativeEstimateDialog extends Dialog {
             lp.gravity=Gravity.CENTER;
             window.setAttributes(lp);
         }
+    }
+
+    @Override public void dismiss() {
+        dismissThen(null);
+    }
+
+    private void dismissThen(Runnable after) {
+        if (after != null) afterClose = after;
+        if (closing) return;
+        if (!isShowing()) {
+            NativeEstimateDialog.super.dismiss();
+            finishAfterClose();
+            return;
+        }
+        closing = true;
+        NativeFullScreenDialogShell.animateExit(this, () -> {
+            NativeEstimateDialog.super.dismiss();
+            finishAfterClose();
+        });
+    }
+
+    private void finishAfterClose() {
+        Runnable callback = afterClose;
+        afterClose = null;
+        if (callback != null) callback.run();
     }
 
     private void render(){
@@ -242,8 +269,7 @@ final class NativeEstimateDialog extends Dialog {
         setContentView(NativeFullScreenDialogShell.create(this,scroll,
                 new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_home,
                         "Домой","native_estimate_nav_home",()->{
-                    dismiss();
-                    listener.onHomeRequested();
+                    dismissThen(listener::onHomeRequested);
                 }),
                 new NativeFullScreenDialogShell.Action(R.drawable.ic_shell_undo,
                         "Чертёж","native_estimate_nav_drawing",this::dismiss),
@@ -947,10 +973,7 @@ final class NativeEstimateDialog extends Dialog {
                     listener.onChanged();
                     render();
                 });
-        prices.setOnHomeRequested(()->{
-            dismiss();
-            listener.onHomeRequested();
-        });
+        prices.setOnHomeRequested(() -> dismissThen(listener::onHomeRequested));
         prices.show();
     }
 
