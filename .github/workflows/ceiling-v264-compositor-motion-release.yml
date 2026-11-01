@@ -2,7 +2,7 @@ name: CeilingMeasure v264 Compositor Motion for Estimates and More
 
 on:
   push:
-    branches: [feature/v264-aligned-room-metrics-smooth-dialog-exit]
+    branches: [feature/v264-compositor-dialog-motion]
   workflow_dispatch:
 
 permissions:
