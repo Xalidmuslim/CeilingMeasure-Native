@@ -116,6 +116,16 @@ final class NativeHomeExpressiveMotion {
                             .setDuration(NativeHomeExpressiveProfile.CTA_ART_CLICK_MS)
                             .setInterpolator(NativeMotion.easing()).start();
                 }
+                if (chevron != null) {
+                    chevron.animate().cancel();
+                    chevron.animate().translationX(dp(chevron, 4))
+                            .setDuration(120L)
+                            .setInterpolator(NativeMotion.easing())
+                            .withEndAction(() -> chevron.animate().translationX(0f)
+                                    .setDuration(90L)
+                                    .setInterpolator(NativeMotion.easing()).start())
+                            .start();
+                }
                 // The artwork must remain visible briefly before Activity
                 // navigation covers Home. No heavyweight shared-element morph.
                 v.postDelayed(() -> {
