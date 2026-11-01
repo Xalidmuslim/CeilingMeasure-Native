@@ -5,7 +5,8 @@ final class TransformerMotionProfile {
     static final long ENTRY_MS = 310L;
     static final long NAV_OUT_MS = 88L;
     static final long NAV_RETURN_MS = 235L;
-    static final long CLICK_COMMIT_MS = 95L;
+    // Prevent duplicate rapid taps; this never delays routing.
+    static final long NAV_TAP_LOCK_MS = 120L;
     static final float START_SCALE = .986f;
     static final float ENTRY_X_DP = 14f;
     static final float ENTRY_Y_DP = 7f;
