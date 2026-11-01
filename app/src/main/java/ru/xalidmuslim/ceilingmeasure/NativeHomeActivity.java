@@ -87,7 +87,12 @@ public final class NativeHomeActivity extends ComponentActivity {
         openingWorkspace = false;
         uiPrefs = NativeUiPrefs.load(this);
         if (shellRoot != null) NativeTypography.applyTree(shellRoot, uiPrefs);
-        if (premiumUi != null) premiumUi.updateMotionMode();
+        if (premiumUi != null) {
+            premiumUi.updateMotionMode();
+            // Returning to Home must replay the recent project entrance even
+            // when its data snapshot is identical to the last visit.
+            premiumUi.replayRecentOnHome();
+        }
         refreshHomeMeta();
         if (NativeLicenseClient.enabled() && !licenseClient.recoveryCode().isEmpty()) {
             licenseClient.refresh((success, message) -> refreshLicenseOnly());
