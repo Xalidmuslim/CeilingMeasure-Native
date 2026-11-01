@@ -13,21 +13,7 @@ final class TransformerMotionProfile {
     static final float NAV_X_DP = 7f;
     static final float NAV_Y_DP = 4f;
 
-    static final long SCATTER_MS = 440L;
-    static final long SCATTER_STEP_MS = 82L;
-    static final float SCATTER_X_DP = 42f;
-    static final float SCATTER_Y_DP = 23f;
-    static final float SCATTER_ROTATION_Y = 8f;
-
-    /** Sequence: center, left edge, right edge, then alternating inward. */
-    static int scatterRank(int index, int count) {
-        if (count < 1 || index < 0 || index >= count) return 0;
-        int middle = count / 2;
-        if (index == middle) return 0;
-        return index < middle ? index * 2 + 1 : (count - 1 - index) * 2 + 2;
-    }
-
-    private TransformerMotionProfile() {}
+    static final long SECTION_REVEAL_MS = 440L;
 
     /** Left items travel left, right items right, a single center item stays centered. */
     static int directionForIndex(int position, int total) {
