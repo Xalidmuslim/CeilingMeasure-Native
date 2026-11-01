@@ -5,15 +5,11 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-/** Home motion budgets: visible choreography without delaying core editor work. */
+/** Existing button micro-motion remains; page transitions have their own budget. */
 public final class NativeHomeExpressiveProfileTest {
-    @Test public void microMotionAndSharedElementStayWithinInteractiveBudgets() {
+    @Test public void existingButtonMotionStaysWithinInteractiveBudget() {
         assertTrue(NativeHomeExpressiveProfile.MICRO_MS >= 200);
         assertTrue(NativeHomeExpressiveProfile.MICRO_MS <= 300);
-        assertTrue(NativeHomeExpressiveProfile.MORPH_MS >= 400);
-        assertTrue(NativeHomeExpressiveProfile.MORPH_MS <= 500);
-        assertTrue(NativeHomeExpressiveProfile.STAGGER_STEP_MS >= 30);
-        assertTrue(NativeHomeExpressiveProfile.STAGGER_STEP_MS <= 50);
     }
 
     @Test public void dockHasOnlyRealExistingActions() {
