@@ -23,13 +23,16 @@
         <item name="android:windowShowAnimation">@null</item>
         <item name="android:windowHideAnimation">@null</item>
     </style>
-    <!-- Only the entrance uses a Window animation. Estimate/price exits fade
-         their already-laid-out decor once, then dismiss without a second
-         full-window fade. -->
+    <!-- One clearly visible entry fade. Estimate/price exits use the shared
+         decor animation and do not trigger another system-window fade. -->
     <style name="CeilingFullscreenEnterOnly">
-        <item name="android:windowEnterAnimation">@anim/native_fade_in</item>
+        <item name="android:windowEnterAnimation">@anim/native_visible_dialog_in</item>
         <item name="android:windowExitAnimation">@null</item>
         <item name="android:windowHideAnimation">@null</item>
+    </style>
+    <style name="CeilingActionMenuFadeWindowAnimation">
+        <item name="android:windowEnterAnimation">@anim/native_visible_dialog_in</item>
+        <item name="android:windowExitAnimation">@anim/native_visible_dialog_out</item>
     </style>
     <style name="CeilingFadeWindowAnimation">
         <item name="android:windowEnterAnimation">@anim/native_fade_in</item>

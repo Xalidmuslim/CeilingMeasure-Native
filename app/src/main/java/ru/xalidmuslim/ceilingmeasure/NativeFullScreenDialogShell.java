@@ -30,6 +30,8 @@ import androidx.core.view.WindowInsetsControllerCompat;
  * own real bottom navigation and independently style its system bars.
  */
 final class NativeFullScreenDialogShell {
+    static final long EXIT_DURATION_MS = 215L;
+
     private NativeFullScreenDialogShell() {}
 
     static final class Action {
@@ -187,7 +189,7 @@ final class NativeFullScreenDialogShell {
         }
         decor.animate().cancel();
         decor.animate().alpha(0f)
-                .setDuration(155L)
+                .setDuration(EXIT_DURATION_MS)
                 .setInterpolator(NativeMotion.easing())
                 .withEndAction(finish)
                 .start();
