@@ -106,7 +106,6 @@ final class NativeHomeExpressiveMotion {
 
     /** Fast matte dock selection without delaying the destination callback. */
     static void moveIndicator(@NonNull View indicator, int index) {
-        if (!enabled(indicator)) return;
         ViewGroup parent = (ViewGroup) indicator.getParent();
         if (parent == null) return;
         if (parent.getWidth() <= 0) {
@@ -130,6 +129,19 @@ final class NativeHomeExpressiveMotion {
                 / NativeHomeExpressiveProfile.DOCK_SLOTS;
         float x = center - indicatorWidth / 2f;
         indicator.animate().cancel();
+        if (!NativeMotion.animationsEnabled()) {
+            indicator.setTranslationX(x);
+            indicator.setScaleX(1f);
+            indicator.setScaleY(1f);
+            return;
+        }
+        // Ordinary mode keeps the same blue selection, but uses a clean slide.
+        if (!NativeTransformerMode.enabled(indicator.getContext())) {
+            indicator.animate().translationX(x).scaleX(1f).scaleY(1f)
+                    .setDuration(NativeHomeExpressiveProfile.INDICATOR_TRAVEL_MS)
+                    .setInterpolator(NativeMotion.easing()).start();
+            return;
+        }
         indicator.animate().translationX(x).scaleX(1.08f).scaleY(.96f)
                 .setDuration(NativeHomeExpressiveProfile.INDICATOR_TRAVEL_MS)
                 .setInterpolator(NativeMotion.easing())
