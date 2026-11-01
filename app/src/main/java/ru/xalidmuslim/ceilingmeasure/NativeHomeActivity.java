@@ -261,7 +261,10 @@ public final class NativeHomeActivity extends ComponentActivity {
         // No hidden editor exists behind this dialog.
         homeMaterialsDialog = dialog;
         dialog.setOnDismissListener(window -> {
-            if (homeMaterialsDialog == dialog) homeMaterialsDialog = null;
+            if (homeMaterialsDialog == dialog) {
+                homeMaterialsDialog = null;
+                if (premiumUi != null) premiumUi.returnIndicatorHome();
+            }
         });
         dialog.show();
     }
@@ -287,7 +290,10 @@ public final class NativeHomeActivity extends ComponentActivity {
         });
         // Home owns this dialog; no Activity/window transition is needed.
         settingsDialog.setStableHomeTransition(true);
-        settingsDialog.setOnDismissListener(dialog -> settingsDialog = null);
+        settingsDialog.setOnDismissListener(dialog -> {
+            settingsDialog = null;
+            if (premiumUi != null) premiumUi.returnIndicatorHome();
+        });
         settingsDialog.show();
     }
 
