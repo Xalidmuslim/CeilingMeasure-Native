@@ -27,7 +27,7 @@ public final class NativeProjectOverviewUiTest {
                 assertNotNull(root.findViewWithTag("native_project_overview"));
                 TextView area = root.findViewWithTag("native_project_total_area");
                 TextView perimeter = root.findViewWithTag("native_project_total_perimeter");
-                TextView rows = root.findViewWithTag("native_project_room_metrics");
+                android.widget.LinearLayout rows = root.findViewWithTag("native_project_room_metrics");
                 TextView status = root.findViewWithTag("native_project_summary_status");
                 assertNotNull(area);
                 assertNotNull(perimeter);
@@ -35,7 +35,13 @@ public final class NativeProjectOverviewUiTest {
                 assertNotNull(status);
                 assertEquals("—", area.getText().toString());
                 assertEquals("—", perimeter.getText().toString());
-                assertTrue(rows.getText().toString().contains("Комната 1"));
+                assertEquals(1, rows.getChildCount());
+                android.widget.LinearLayout row =
+                        (android.widget.LinearLayout) rows.getChildAt(0);
+                assertEquals(3, row.getChildCount());
+                assertEquals("Комната 1", ((TextView) row.getChildAt(0)).getText().toString());
+                assertEquals("—", ((TextView) row.getChildAt(1)).getText().toString());
+                assertEquals("—", ((TextView) row.getChildAt(2)).getText().toString());
                 assertTrue(status.getText().toString().contains("1"));
             });
         }
