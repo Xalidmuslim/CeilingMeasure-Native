@@ -520,6 +520,7 @@ final class NativePremiumHomeUi {
         plus.setContentDescription("Новый замер");
         plusButton = plus;
         plus.setOnClickListener(v -> {
+            NativeTransformerMotion.navigationTapHaptic(v);
             if (!NativeHomeExpressiveMotion.enabled(v)) {
                 openNew.run();
             } else {
