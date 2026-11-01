@@ -85,7 +85,9 @@ final class NativeHomeExpressiveMotion {
                                 .setDuration(145).setInterpolator(OVERSHOOT).start())
                         .start();
             }
-            card.postDelayed(action, mainCta ? 95L : 105L);
+            // Execute the destination in the same click event. Press/icon spring
+            // is visual feedback, not a pre-navigation loading animation.
+            action.run();
         });
     }
 
