@@ -26,7 +26,7 @@ public final class TransformerMotionProfileTest {
         assertEquals(0, TransformerMotionProfile.directionForIndex(0, 1));
         assertTrue(TransformerMotionProfile.START_SCALE >= .97f);
         assertTrue(TransformerMotionProfile.ENTRY_X_DP <= 20f);
-        assertTrue(TransformerMotionProfile.CLICK_COMMIT_MS <= 120L);
-        assertTrue(TransformerMotionProfile.ENTRY_MS > TransformerMotionProfile.CLICK_COMMIT_MS);
+        assertTrue(TransformerMotionProfile.NAV_TAP_LOCK_MS <= 150L);
+        assertTrue(TransformerMotionProfile.ENTRY_MS > TransformerMotionProfile.NAV_TAP_LOCK_MS);
     }
 }
