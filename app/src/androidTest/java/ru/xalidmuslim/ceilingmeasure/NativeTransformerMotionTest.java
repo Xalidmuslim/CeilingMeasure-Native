@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.os.Build;
+import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -48,4 +50,32 @@ public final class NativeTransformerMotionTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(
                 () -> assertTrue(navigation[0].isEnabled()));
     }
+    @Test public void acceptedBottomNavigationTapEmitsOneSoftTick() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            class TrackingNav extends LinearLayout {
+                int count;
+                int feedback;
+                TrackingNav(Context c) { super(c); }
+                @Override public boolean performHapticFeedback(int kind) {
+                    count++;
+                    feedback = kind;
+                    return true;
+                }
+            }
+            TrackingNav item = new TrackingNav(context);
+            ImageView glyph = new ImageView(context);
+            item.addView(glyph);
+            NativeTransformerMotion.bindNavigation(item, glyph, 1, () -> {});
+            item.performClick();
+            assertEquals("Exactly one tactile tick per accepted press", 1, item.count);
+            assertEquals(Build.VERSION.SDK_INT >= 34
+                    ? HapticFeedbackConstants.SEGMENT_FREQUENT_TICK
+                    : HapticFeedbackConstants.CLOCK_TICK, item.feedback);
+            item.setEnabled(false);
+            item.performClick();
+            assertEquals("Disabled navigation must not vibrate", 1, item.count);
+        });
+    }
+
 }
