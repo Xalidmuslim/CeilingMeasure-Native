@@ -257,7 +257,8 @@ public final class NativeHomeActivity extends ComponentActivity {
                     // The catalog saves default prices and real orders itself.
                     // Home owns no editor fields and must not schedule a save.
                 });
-        dialog.setImmediateOpen(true);
+        // Direct Home-owned catalog: a single ordinary window fade is safe.
+        // No hidden editor exists behind this dialog.
         homeMaterialsDialog = dialog;
         dialog.setOnDismissListener(window -> {
             if (homeMaterialsDialog == dialog) homeMaterialsDialog = null;
