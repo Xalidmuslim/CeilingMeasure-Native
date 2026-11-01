@@ -116,10 +116,9 @@ final class NativePricePresetDialog extends Dialog {
             return;
         }
         closing = true;
-        NativeFullScreenDialogShell.animateExit(this, () -> {
-            NativePricePresetDialog.super.dismiss();
-            finishAfterClose();
-        });
+        NativeFullScreenDialogShell.dismissWithWindowExit(this,
+                () -> NativePricePresetDialog.super.dismiss(),
+                this::finishAfterClose);
     }
 
     private void finishAfterClose() {
