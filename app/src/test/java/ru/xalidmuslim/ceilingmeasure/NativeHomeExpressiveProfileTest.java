@@ -20,6 +20,16 @@ public final class NativeHomeExpressiveProfileTest {
                 + NativeHomeExpressiveProfile.INDICATOR_SETTLE_MS < 300);
     }
 
+    @Test public void recentMeasurementsCanReplayWithinFastMotionBudget() {
+        assertTrue(NativeHomeExpressiveProfile.RECENT_STAGGER_MS >= 45);
+        assertTrue(NativeHomeExpressiveProfile.RECENT_STAGGER_MS <= 85);
+        assertTrue(NativeHomeExpressiveProfile.RECENT_ENTER_MS >= 185);
+        assertTrue(NativeHomeExpressiveProfile.RECENT_ENTER_MS <= 280);
+        assertTrue("Three recent projects finish in under half a second",
+                2 * NativeHomeExpressiveProfile.RECENT_STAGGER_MS
+                        + NativeHomeExpressiveProfile.RECENT_ENTER_MS < 500);
+    }
+
     @Test public void dockHasOnlyRealExistingActions() {
         assertEquals(3, NativeHomeExpressiveProfile.QUICK_ACTIONS_COUNT);
         assertEquals(5, NativeHomeExpressiveProfile.DOCK_SLOTS);
