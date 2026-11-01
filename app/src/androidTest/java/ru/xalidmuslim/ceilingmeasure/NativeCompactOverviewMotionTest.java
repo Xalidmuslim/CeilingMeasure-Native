@@ -1,5 +1,6 @@
 package ru.xalidmuslim.ceilingmeasure;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -41,6 +42,24 @@ public final class NativeCompactOverviewMotionTest {
                 assertTrue("Per-room measurements remain immediately visible",
                         roomLines.getText().toString().contains("Комната 1"));
             });
+        }
+    }
+
+    @Test public void blueDockSelectionRemainsVisibleInOrdinaryMode() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        boolean previous = NativeTransformerMode.enabled(context);
+        NativeTransformerMode.setEnabled(context, false);
+        try (ActivityScenario<NativeHomeActivity> scenario =
+                     ActivityScenario.launch(NativeHomeActivity.class)) {
+            scenario.onActivity(activity -> {
+                android.view.View indicator = activity.findViewById(android.R.id.content)
+                        .findViewWithTag("native_home_liquid_indicator");
+                assertNotNull(indicator);
+                assertEquals("Ordinary mode retains the simple sliding selection",
+                        android.view.View.VISIBLE, indicator.getVisibility());
+            });
+        } finally {
+            NativeTransformerMode.setEnabled(context, previous);
         }
     }
 
