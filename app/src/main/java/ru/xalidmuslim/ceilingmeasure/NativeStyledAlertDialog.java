@@ -195,12 +195,16 @@ final class NativeStyledAlertDialog extends Dialog {
         }
 
         setContentView(shell);
-        NativeMotion.enterCompact(shell);
+        // Item menus (including «Ещё») use a single window fade.
+        // Do not also animate the rows or dialog contents independently.
+        if (config.items == null) NativeMotion.enterCompact(shell);
         Window window = getWindow();
         if (window != null) {
             window.setBackgroundDrawableResource(android.R.color.transparent);
             // Fade-only dialog transition. Never slide or scale the window.
-            window.setWindowAnimations(R.style.CeilingFadeWindowAnimation);
+            window.setWindowAnimations(config.items != null
+                    ? R.style.CeilingActionMenuFadeWindowAnimation
+                    : R.style.CeilingFadeWindowAnimation);
             WindowManager.LayoutParams attrs = new WindowManager.LayoutParams();
             attrs.copyFrom(window.getAttributes());
             attrs.width = Math.min(context.getResources().getDisplayMetrics().widthPixels - dp(28),
