@@ -89,6 +89,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         if (shellRoot != null) NativeTypography.applyTree(shellRoot, uiPrefs);
         if (premiumUi != null) {
             premiumUi.updateMotionMode();
+            premiumUi.restorePrimaryArtwork();
             // Returning to Home must replay the recent project entrance even
             // when its data snapshot is identical to the last visit.
             premiumUi.replayRecentOnHome();
