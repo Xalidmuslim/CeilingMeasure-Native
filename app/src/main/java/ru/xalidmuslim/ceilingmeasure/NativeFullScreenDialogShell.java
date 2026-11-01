@@ -169,28 +169,25 @@ final class NativeFullScreenDialogShell {
     }
 
     /**
-     * One compositor-friendly opacity transition on the already laid-out
-     * window decor. Unlike Android's full-screen exit animation, it does not
-     * start a second window transaction while the expensive estimate view is
-     * being detached. The caller performs its actual Dialog.dismiss() at end.
+     * Dismiss the Dialog immediately so Android's window animation can fade
+     * the ENTIRE window surface. DecorView alpha did not expose the Activity
+     * behind an otherwise opaque full-screen Dialog.
+     *
+     * A subsequent navigation/rebuild is dispatched after the native exit
+     * completes. Ordinary close has no post-exit callback and no extra wait.
      */
-    static void animateExit(@NonNull Dialog dialog, @NonNull Runnable finish) {
-        Window window = dialog.getWindow();
-        if (!dialog.isShowing() || window == null || !NativeMotion.animationsEnabled()) {
-            finish.run();
-            return;
+    static void dismissWithWindowExit(@NonNull Dialog dialog,
+            @NonNull Runnable removeWindow, @NonNull Runnable afterDismiss) {
+        boolean waitForExit = dialog.isShowing()
+                && dialog.getWindow() != null
+                && NativeMotion.animationsEnabled();
+        removeWindow.run();
+        if (waitForExit) {
+            new android.os.Handler(android.os.Looper.getMainLooper())
+                    .postDelayed(afterDismiss, 190L);
+        } else {
+            afterDismiss.run();
         }
-        View decor = window.getDecorView();
-        if (!decor.isAttachedToWindow()) {
-            finish.run();
-            return;
-        }
-        decor.animate().cancel();
-        decor.animate().alpha(0f)
-                .setDuration(155L)
-                .setInterpolator(NativeMotion.easing())
-                .withEndAction(finish)
-                .start();
     }
 
     private static int px(float density,int dp){

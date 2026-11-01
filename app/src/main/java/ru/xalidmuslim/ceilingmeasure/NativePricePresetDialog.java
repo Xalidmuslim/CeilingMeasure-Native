@@ -92,7 +92,7 @@ final class NativePricePresetDialog extends Dialog {
             // Fade-only dialog transition. Never slide or scale the window.
             window.setWindowAnimations(immediateOpen
                     ? R.style.CeilingNoWindowAnimation
-                    : R.style.CeilingFullscreenEnterOnly);
+                    : R.style.CeilingFullscreenWindowMotion);
             NativeFullScreenDialogShell.configure(this);
             WindowManager.LayoutParams lp=new WindowManager.LayoutParams();
             lp.copyFrom(window.getAttributes());
@@ -116,10 +116,9 @@ final class NativePricePresetDialog extends Dialog {
             return;
         }
         closing = true;
-        NativeFullScreenDialogShell.animateExit(this, () -> {
-            NativePricePresetDialog.super.dismiss();
-            finishAfterClose();
-        });
+        NativeFullScreenDialogShell.dismissWithWindowExit(this,
+                () -> NativePricePresetDialog.super.dismiss(),
+                this::finishAfterClose);
     }
 
     private void finishAfterClose() {

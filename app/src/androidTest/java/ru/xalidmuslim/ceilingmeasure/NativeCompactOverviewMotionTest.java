@@ -77,16 +77,54 @@ public final class NativeCompactOverviewMotionTest {
         }
     }
 
-    @Test public void fullscreenDialogsUseOnlyWindowEnterAnimation() {
+    @Test public void fullscreenWindowsHaveCompositorManagedEntranceAndExit() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         android.content.res.TypedArray style = context.obtainStyledAttributes(
-                R.style.CeilingFullscreenEnterOnly, new int[]{
+                R.style.CeilingFullscreenWindowMotion, new int[]{
                         android.R.attr.windowEnterAnimation,
                         android.R.attr.windowExitAnimation});
         try {
-            assertTrue("Entry must be animated", style.getResourceId(0, 0) != 0);
-            assertEquals("Exit must be handled by one smooth decor animation",
-                    0, style.getResourceId(1, 0));
+            assertEquals(R.anim.native_fullscreen_enter, style.getResourceId(0, 0));
+            assertEquals("Full window must fade out, not just its opaque decor",
+                    R.anim.native_fullscreen_exit, style.getResourceId(1, 0));
+        } finally {
+            style.recycle();
+        }
+    }
+
+    @Test public void moreButtonOpensSheetWithRealWindowMotion() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Intent intent = new Intent(context, NativeWorkspaceActivity.class);
+        intent.putExtra(NativeWorkspaceActivity.EXTRA_LAUNCH_ACTION,
+                NativeWorkspaceActivity.ACTION_NEW_ORDER);
+        try (ActivityScenario<NativeWorkspaceActivity> scenario = ActivityScenario.launch(intent)) {
+            scenario.onActivity(activity -> {
+                NativeDrawToolsDialog more = new NativeDrawToolsDialog(activity,
+                        activity.getActiveRoomForTest(), action -> {});
+                more.show();
+                try {
+                    assertNotNull(more.getWindow());
+                    assertEquals("More dialog must actually use slide/fade Window style",
+                            R.style.CeilingDrawToolsWindowMotion,
+                            more.getWindow().getAttributes().windowAnimations);
+                    assertNotNull(more.getWindow().getDecorView()
+                            .findViewWithTag("native_draw_tools_close"));
+                } finally {
+                    more.dismiss();
+                }
+            });
+        }
+    }
+
+    @Test public void moreBottomSheetHasVisibleSlideAndFadeMotion() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        android.content.res.TypedArray style = context.obtainStyledAttributes(
+                R.style.CeilingDrawToolsWindowMotion, new int[]{
+                        android.R.attr.windowEnterAnimation,
+                        android.R.attr.windowExitAnimation});
+        try {
+            assertEquals(R.anim.native_more_enter, style.getResourceId(0, 0));
+            assertEquals(R.anim.native_more_exit, style.getResourceId(1, 0));
         } finally {
             style.recycle();
         }
