@@ -162,12 +162,9 @@ final class NativeFullScreenDialogShell {
             return insets;
         });
         ViewCompat.requestApplyInsets(root);
-        // Keep the opaque dialog background stationary; animate content and dock.
-        NativeTransformerMotion.reveal(scroll, 1);
-        if (scroll.getChildCount() > 0 && scroll.getChildAt(0) instanceof ViewGroup) {
-            NativeTransformerMotion.staggerVisible((ViewGroup) scroll.getChildAt(0), 6);
-        }
-        NativeTransformerMotion.staggerDock(nav);
+        // The window's short ordinary fade is the only entry animation.
+        // Never scatter, fold or delay rows in estimates/material catalogues.
+        // Re-rendering a price table must not restart a screen-wide animation.
         return root;
     }
 
