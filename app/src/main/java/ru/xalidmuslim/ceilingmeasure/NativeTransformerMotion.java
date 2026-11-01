@@ -162,7 +162,11 @@ final class NativeTransformerMotion {
                 action.run();
                 return;
             }
+            // Lock repeated taps briefly, but dispatch the destination NOW.
+            // The icon's motion is purely visual and must never block navigation.
             v.setEnabled(false);
+            MAIN.postDelayed(() -> v.setEnabled(true),
+                    TransformerMotionProfile.NAV_TAP_LOCK_MS);
             animateGlyph(glyph, direction);
             if (item != glyph) {
                 item.animate().cancel();
@@ -174,10 +178,7 @@ final class NativeTransformerMotion {
                                 .setInterpolator(RETURN_CURVE).start())
                         .start();
             }
-            MAIN.postDelayed(() -> {
-                v.setEnabled(true);
-                action.run();
-            }, TransformerMotionProfile.CLICK_COMMIT_MS);
+            action.run();
         });
     }
 
