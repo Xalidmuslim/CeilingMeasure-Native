@@ -45,7 +45,7 @@ final class NativeTransformerMotion {
             }
             surface.animate().alpha(1f).scaleX(1f).scaleY(1f)
                     .translationX(0f).translationY(0f)
-                    .setDuration(TransformerMotionProfile.SCATTER_MS)
+                    .setDuration(TransformerMotionProfile.SECTION_REVEAL_MS)
                     .setInterpolator(NativeMotion.easing()).start();
         });
     }
