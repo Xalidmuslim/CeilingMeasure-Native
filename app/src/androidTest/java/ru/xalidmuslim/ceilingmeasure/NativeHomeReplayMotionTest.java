@@ -80,7 +80,7 @@ public final class NativeHomeReplayMotionTest {
                 mockCta.addView(art, new android.widget.FrameLayout.LayoutParams(110, 70));
                 root.addView(mockCta, new android.widget.FrameLayout.LayoutParams(220, 120));
                 NativeHomeExpressiveMotion.bindCard(mockCta, art, null,
-                        calls::incrementAndGet, true, false, null);
+                        calls::incrementAndGet, true, false, null, null);
                 mockCta.performClick();
                 mockCta.performClick();
                 if (NativeMotion.animationsEnabled()) {

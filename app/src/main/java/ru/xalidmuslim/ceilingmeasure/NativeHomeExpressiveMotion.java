@@ -48,7 +48,7 @@ final class NativeHomeExpressiveMotion {
     /** A press is physical. Existing OnClick semantics remain, no touch consumption. */
     static void bindCard(@NonNull View card, @Nullable View icon, @Nullable View chevron,
             @NonNull Runnable action, boolean mainCta, boolean scanner,
-            @Nullable Runnable onPrimaryPress) {
+            @Nullable Runnable onPrimaryPress, @Nullable Runnable onPrimaryCancel) {
         final boolean[] navigating = {false};
         card.setOnTouchListener((v, event) -> {
             // The blue New Measurement illustration is a button microinteraction,
@@ -74,17 +74,20 @@ final class NativeHomeExpressiveMotion {
                     }
                     break;
                 case MotionEvent.ACTION_CANCEL:
-                case MotionEvent.ACTION_UP:
                     spring(v, 1f, .59f, mainCta);
                     if (mainCta && icon != null && !navigating[0]) {
-                        // A canceled gesture returns gently. A real click
-                        // replaces this return with the slightly longer glide.
                         icon.animate().cancel();
                         icon.animate().translationX(0f).translationY(0f)
                                 .rotation(0f).scaleX(1f).scaleY(1f)
                                 .setDuration(NativeHomeExpressiveProfile.CTA_ART_RETURN_MS)
                                 .setInterpolator(NativeMotion.easing()).start();
+                        if (onPrimaryCancel != null) onPrimaryCancel.run();
                     }
+                    break;
+                case MotionEvent.ACTION_UP:
+                    // Don't reset artwork on UP: Android dispatches click
+                    // immediately afterwards. Reset would cause a visible jerk.
+                    spring(v, 1f, .59f, mainCta);
                     break;
                 default:
                     break;
@@ -100,6 +103,9 @@ final class NativeHomeExpressiveMotion {
             if (mainCta) {
                 if (navigating[0]) return; // Ignore double taps during handoff.
                 navigating[0] = true;
+                // Accessibility performClick has no ACTION_DOWN; start
+                // assembly here too, but not twice on a regular touch.
+                if (onPrimaryPress != null) onPrimaryPress.run();
                 v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
                 if (icon != null) {
                     // This one illustration gets a visible, measured glide.

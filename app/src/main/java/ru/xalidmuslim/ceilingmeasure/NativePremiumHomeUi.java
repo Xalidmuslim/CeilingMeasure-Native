@@ -164,6 +164,9 @@ final class NativePremiumHomeUi {
     void restorePrimaryArtwork() {
         if (primaryArtwork == null) return;
         View art = primaryArtwork;
+        if (art instanceof CeilingContour) {
+            ((CeilingContour) art).resetInstallation();
+        }
         if (Math.abs(art.getTranslationX()) < .01f
                 && Math.abs(art.getTranslationY()) < .01f
                 && Math.abs(art.getScaleX() - 1f) < .001f
@@ -454,7 +457,8 @@ final class NativePremiumHomeUi {
         primary.addView(chevron, arrow);
         NativeHomeExpressiveMotion.bindCard(primary, art, chevron,
                 () -> activity.openPrimaryCta(primary), true, false,
-                () -> ((CeilingContour) art).scanOnce());
+                () -> ((CeilingContour) art).scanOnce(),
+                () -> ((CeilingContour) art).resetInstallation());
     }
 
     private void addRow(LinearLayout list, int image, String title, String detail,
@@ -498,7 +502,7 @@ final class NativePremiumHomeUi {
         arrowLp.leftMargin = dp(5);
         row.addView(arrow, arrowLp);
         NativeHomeExpressiveMotion.bindCard(row, icon, arrow, open, false,
-                "native_home_drawing".equals(tag), null);
+                "native_home_drawing".equals(tag), null, null);
     }
 
     private void addDock(FrameLayout screen) {
@@ -884,6 +888,8 @@ final class NativePremiumHomeUi {
         private final PathMeasure contourMeasure = new PathMeasure(perimeter, false);
         private final Path scannedLine = new Path();
         private float scanProgress;
+        private float installationProgress;
+        private boolean installing;
         private ValueAnimator scanAnimator;
 
         CeilingContour(NativeHomeActivity activity) {
@@ -899,16 +905,31 @@ final class NativePremiumHomeUi {
         }
 
         void scanOnce() {
-            if (!NativeMotion.animationsEnabled()) return;
+            if (!NativeMotion.animationsEnabled() || installing) return;
+            installing = true;
+            installationProgress = 0f;
             if (scanAnimator != null) scanAnimator.cancel();
+            // One animator: no layout passes, bitmaps, additional windows, or
+            // separate animators for four lights on the main UI thread.
             scanAnimator = ValueAnimator.ofFloat(0f, 1f);
-            scanAnimator.setDuration(485L);
-            scanAnimator.setInterpolator(NativeMotion.easing());
+            scanAnimator.setDuration(CeilingInstallationProfile.DURATION_MS);
+            scanAnimator.setInterpolator(new android.view.animation.LinearInterpolator());
             scanAnimator.addUpdateListener(a -> {
-                scanProgress = (Float) a.getAnimatedValue();
-                invalidate();
+                installationProgress = (Float) a.getAnimatedValue();
+                postInvalidateOnAnimation();
             });
             scanAnimator.start();
+        }
+
+        void resetInstallation() {
+            if (scanAnimator != null) {
+                scanAnimator.cancel();
+                scanAnimator = null;
+            }
+            installing = false;
+            installationProgress = 0f;
+            scanProgress = 0f;
+            invalidate();
         }
 
         private static Path polygon(
@@ -929,6 +950,11 @@ final class NativePremiumHomeUi {
             if (getWidth() <= 0 || getHeight() <= 0) return;
             canvas.save();
             canvas.scale(getWidth() / 146f, getHeight() / 100f);
+            if (installing) {
+                drawInstallation(canvas, installationProgress);
+                canvas.restore();
+                return;
+            }
 
             // The membrane is a continuous, nearly matte plane.
             ink.setStyle(Paint.Style.FILL);
@@ -978,6 +1004,89 @@ final class NativePremiumHomeUi {
             canvas.drawLine(70f, 2f, 73f, 10f, ink);
 
             canvas.restore();
+        }
+
+        /**
+         * Stages: perimeter baguette -> membrane stretched from the middle
+         * into all four corner points -> fold lines flatten -> downlights
+         * illuminate sequentially. All Paths/Paint are cached on this View.
+         */
+        private void drawInstallation(Canvas canvas, float progress) {
+            final float frame = CeilingInstallationProfile.profile(progress);
+            final float sheet = CeilingInstallationProfile.membrane(progress);
+            final float wrinkles = CeilingInstallationProfile.wrinkles(progress);
+            final float done = CeilingInstallationProfile.finish(progress);
+            ink.setStrokeJoin(Paint.Join.ROUND);
+            ink.setStrokeCap(Paint.Cap.ROUND);
+
+            // The finished ceiling settles toward the viewer just a fraction.
+            canvas.save();
+            canvas.scale(1f + .018f * done, 1f + .018f * done, 64f, 46f);
+
+            scannedLine.reset();
+            if (frame > 0f && frame < 1f) {
+                contourMeasure.getSegment(0f,
+                        contourMeasure.getLength() * frame, scannedLine, true);
+            }
+            stroke(1.35f, Color.argb(225, 241, 251, 255));
+            if (frame >= 1f) canvas.drawPath(perimeter, ink);
+            else if (frame > 0f) canvas.drawPath(scannedLine, ink);
+            if (frame > .75f) {
+                stroke(.72f, Color.argb((int)(134f * ((frame - .75f) / .25f)),
+                        238, 251, 255));
+                canvas.drawPath(shadowGap, ink);
+            }
+
+            if (sheet > 0f) {
+                // A tensioned quadrilateral, not a rectangular overlay: the
+                // perspective is identical to the existing approved artwork.
+                canvas.save();
+                canvas.scale(.34f + .66f * sheet, .32f + .68f * sheet, 65f, 46f);
+                ink.setStyle(Paint.Style.FILL);
+                ink.setColor(Color.argb((int)(36f * sheet), 236, 250, 255));
+                canvas.drawPath(membrane, ink);
+                stroke(1.0f, Color.argb((int)(175f * sheet), 235, 251, 255));
+                canvas.drawPath(membrane, ink);
+                canvas.restore();
+                // Two thin fabric folds disappear as the sheet reaches the
+                // corners; no blur, no simulated shadows or bitmap decoding.
+                float fold = Math.min(sheet * 2f, 1f) * wrinkles;
+                if (fold > 0f) {
+                    stroke(.70f, Color.argb((int)(110f * fold), 241, 251, 255));
+                    canvas.drawLine(45f, 46f, 77f, 42f, ink);
+                    canvas.drawLine(52f, 59f, 68f, 35f, ink);
+                }
+            }
+
+            float fixtures = CeilingInstallationProfile.phase(progress, .52f, .84f);
+            if (fixtures > 0f) {
+                stroke(.9f, Color.argb((int)(167f * fixtures), 239, 252, 255));
+                canvas.drawPath(ledChannel, ink);
+                stroke(1.15f, Color.argb((int)(157f * fixtures), 246, 253, 255));
+                canvas.drawPath(magneticTrack, ink);
+            }
+            downlightMount(canvas, 37f, 52f, 3.8f, 2.1f,
+                    CeilingInstallationProfile.light(progress, 0));
+            downlightMount(canvas, 65f, 57f, 4.0f, 2.25f,
+                    CeilingInstallationProfile.light(progress, 1));
+            downlightMount(canvas, 91f, 43f, 3.8f, 1.9f,
+                    CeilingInstallationProfile.light(progress, 2));
+            downlightMount(canvas, 97f, 37f, 2.8f, 1.4f,
+                    CeilingInstallationProfile.light(progress, 3));
+            canvas.restore();
+        }
+
+        private void downlightMount(Canvas canvas, float cx, float cy,
+                float rx, float ry, float light) {
+            if (light <= 0f) return;
+            ink.setStyle(Paint.Style.FILL);
+            ink.setColor(Color.argb((int)(85f * light), 245, 254, 255));
+            canvas.drawOval(cx-rx*1.3f, cy-ry*1.5f,
+                    cx+rx*1.3f, cy+ry*1.5f, ink);
+            stroke(.82f, Color.argb((int)(220f * light), 250, 254, 255));
+            canvas.drawOval(cx-rx, cy-ry, cx+rx, cy+ry, ink);
+            stroke(.45f, Color.argb((int)(110f * light), 248, 253, 255));
+            canvas.drawOval(cx-rx*.60f, cy-ry*.60f, cx+rx*.60f, cy+ry*.60f, ink);
         }
 
         private void stroke(float width, int color) {
