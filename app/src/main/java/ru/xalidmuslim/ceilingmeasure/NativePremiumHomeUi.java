@@ -941,7 +941,10 @@ final class NativePremiumHomeUi {
             idleLoopRequested = true;
             if (!installing) {
                 removeCallbacks(idleRestart);
-                post(idleRestart);
+                // Already in the attached Home layout: start the vector scene
+                // immediately, not one extra UI-loop turn after onResume.
+                if (isAttachedToWindow() && isShown()) idleRestart.run();
+                else post(idleRestart);
             }
         }
 
