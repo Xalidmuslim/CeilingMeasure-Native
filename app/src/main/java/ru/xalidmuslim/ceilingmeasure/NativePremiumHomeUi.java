@@ -457,7 +457,8 @@ final class NativePremiumHomeUi {
         primary.addView(chevron, arrow);
         NativeHomeExpressiveMotion.bindCard(primary, art, chevron,
                 () -> activity.openPrimaryCta(primary), true, false,
-                () -> ((CeilingContour) art).scanOnce());
+                () -> ((CeilingContour) art).scanOnce(),
+                () -> ((CeilingContour) art).resetInstallation());
     }
 
     private void addRow(LinearLayout list, int image, String title, String detail,
@@ -501,7 +502,7 @@ final class NativePremiumHomeUi {
         arrowLp.leftMargin = dp(5);
         row.addView(arrow, arrowLp);
         NativeHomeExpressiveMotion.bindCard(row, icon, arrow, open, false,
-                "native_home_drawing".equals(tag), null);
+                "native_home_drawing".equals(tag), null, null);
     }
 
     private void addDock(FrameLayout screen) {
