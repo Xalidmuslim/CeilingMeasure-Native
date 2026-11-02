@@ -1,0 +1,109 @@
+name: CeilingMeasure v268 Symmetric Sections and Safe Room Swipes
+
+on:
+  push:
+    branches: [feature/v268-section-motion-safe-room-swipe]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ceiling-v268-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-build-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: JVM regression, lint and optimized APK
+        run: |
+          set -euo pipefail
+          gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleReleasePreview
+          test -s app/build/outputs/apk/releasePreview/app-releasePreview.apk
+          sha256sum app/build/outputs/apk/releasePreview/app-releasePreview.apk
+      - name: Upload v268 direct APK build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-v268-section-swipe
+          path: app/build/outputs/apk/releasePreview/app-releasePreview.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 project grid and dialog navigation regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: false
+          emulator-boot-timeout: 600
+          script: |
+            set -eu
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeProjectOverviewUiTest,ru.xalidmuslim.ceilingmeasure.NativeCompactOverviewMotionTest,ru.xalidmuslim.ceilingmeasure.NativeEstimateFullScreenNavigationTest,ru.xalidmuslim.ceilingmeasure.NativeFastNavigationAndOrdinaryDialogsTest,ru.xalidmuslim.ceilingmeasure.NativePriceDragUiTest,ru.xalidmuslim.ceilingmeasure.NativeHomeReplayMotionTest,ru.xalidmuslim.ceilingmeasure.NativeHomeInstallationUiTest,ru.xalidmuslim.ceilingmeasure.NativeWorkspaceSectionsSwipeTest,ru.xalidmuslim.ceilingmeasure.NativeHomeExpressiveUiTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/v268-tests.log
+            grep -Eq '^OK \([0-9]+ tests?\)' /tmp/v268-tests.log
+            adb install -r app/build/outputs/apk/releasePreview/app-releasePreview.apk
+            adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.smooth268/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity
+            adb logcat -d -s AndroidRuntime:E > /tmp/v268-crashes.log
+            ! grep -q 'FATAL EXCEPTION' /tmp/v268-crashes.log
+
+  publish-v268:
+    name: Public direct APK in GitHub Releases
+    needs: test-build-preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: CeilingMeasure-v268-section-swipe
+          path: release
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          test -s release/app-releasePreview.apk
+          mv release/app-releasePreview.apk release/Zamer-v268.apk
+          sha256sum release/Zamer-v268.apk
+      - name: Publish v268 preview APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: zamer-v268-preview
+          target_commitish: ${{ github.sha }}
+          name: "Замер потолков v268 — плавные секции и свайпы между комнатами"
+          prerelease: true
+          draft: false
+          fail_on_unmatched_files: true
+          files: release/Zamer-v268.apk
+          body: |
+            Тестовая Android APK (native Java, R8), ставится отдельно как .smooth268.
+            Обзор всех комнат: выровненные колонки Комната | Площадь | Периметр,
+            компактный итог по всему объекту и сохранение точных расчётов.
+            В заказе, комнатах и общей сводке плавное расширение и сворачивание
+            с одинаковой анимацией высоты и прозрачности (245 мс).
+            Три блока управляются касанием заголовка с шевроном.
+            Свайп налево/направо переключает комнаты в закрытом чертеже
+            только при начале движения на свободном месте, без перехвата
+            рисования стен, перетаскивания точек и редактирования цифр.
+            Для незавершённого чертежа свайп работает по его заголовку.
+            Все расчёты, данные и предыдущая анимация монтажа сохранены.
+            Последние замеры: последовательный вход при каждом возвращении на главную
+            без перезагрузки неизменных данных.
+            Исправления смет и кнопки «Ещё» из v264 сохранены.
+            Успешное тестирование на Android 15 Emulator подтверждается workflow.
+            Реальное устройство и частота кадров на нём пока не измерялись.
