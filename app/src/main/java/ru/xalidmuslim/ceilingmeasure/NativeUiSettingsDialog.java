@@ -43,6 +43,8 @@ final class NativeUiSettingsDialog extends Dialog {
     private TextView sizeValue;
     private Button transformerChoice;
     private Button ordinaryChoice;
+    private Button contextualNavigationChoice;
+    private Button fixedNavigationChoice;
     private boolean closing;
     private final Handler scaleHandler=new Handler(Looper.getMainLooper());
     private Runnable pendingScaleApply;
@@ -226,6 +228,7 @@ final class NativeUiSettingsDialog extends Dialog {
         addSizeGroup();
         addWeightGroup();
         addMotionGroup();
+        addBottomNavigationGroup();
         addPreview();
         addActions();
 
@@ -428,6 +431,45 @@ final class NativeUiSettingsDialog extends Dialog {
         choices.addView(ordinaryChoice, right);
     }
 
+    /** Bottom layout choice does not change animation mode or saved drawings. */
+    private void addBottomNavigationGroup() {
+        LinearLayout group = group("Нижняя навигация",
+                "По разделам — привычные кнопки для каждого экрана. "
+                + "Постоянная — одинаковые кнопки во всех разделах. "
+                + "Анимации остаются прежними в обоих режимах.");
+        LinearLayout choices = threeColumnRow();
+        group.addView(choices, topMargin(dp(6)));
+
+        boolean fixed = NativeBottomNavMode.isFixed(activity);
+        contextualNavigationChoice = choiceButton("По разделам", !fixed);
+        contextualNavigationChoice.setTag("native_ui_nav_contextual");
+        contextualNavigationChoice.setContentDescription("Контекстные кнопки навигации");
+        contextualNavigationChoice.setOnClickListener(v -> setBottomNavMode(false));
+
+        fixedNavigationChoice = choiceButton("Постоянная", fixed);
+        fixedNavigationChoice.setTag("native_ui_nav_fixed");
+        fixedNavigationChoice.setContentDescription("Одинаковые кнопки во всех разделах");
+        fixedNavigationChoice.setOnClickListener(v -> setBottomNavMode(true));
+
+        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, dp(48), 1f);
+        left.rightMargin = dp(4);
+        LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(0, dp(48), 1f);
+        right.leftMargin = dp(4);
+        choices.addView(contextualNavigationChoice, left);
+        choices.addView(fixedNavigationChoice, right);
+    }
+
+    private void setBottomNavMode(boolean fixed) {
+        NativeBottomNavMode.setFixed(activity, fixed);
+        updateMotionButton(contextualNavigationChoice, !fixed);
+        updateMotionButton(fixedNavigationChoice, fixed);
+        listener.onPrefsChanged(prefs);
+    }
+
+    boolean isFixedNavigationForTest() {
+        return NativeBottomNavMode.isFixed(activity);
+    }
+
     private void setMotionMode(boolean enabled) {
         NativeTransformerMode.setEnabled(activity, enabled);
         listener.onPrefsChanged(prefs);
@@ -482,6 +524,7 @@ final class NativeUiSettingsDialog extends Dialog {
         reset.setTag("native_ui_reset");
         reset.setOnClickListener(v -> {
             NativeTransformerMode.setEnabled(activity, true);
+            NativeBottomNavMode.setFixed(activity, false);
             changePrefs(NativeUiPrefs.defaults(), true);
         });
 
