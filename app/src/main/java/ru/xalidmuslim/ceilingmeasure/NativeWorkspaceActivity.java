@@ -3457,6 +3457,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     @Nullable
+    NativeUiSettingsDialog getSettingsDialogForTest() {
+        return settingsDialog;
+    }
+
+    @Nullable
     NativeUiSettingsDialog getSettingsDialogForTest(){
         return settingsDialog;
     }
