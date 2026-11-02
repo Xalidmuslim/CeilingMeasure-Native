@@ -6,10 +6,10 @@ final class NativeHomeExpressiveProfile {
 
     // New Measurement is a unique, slightly slower tactile illustration.
     // It must not modify the timing of navigation elsewhere in the app.
-    static final int CTA_ART_PRESS_MS = 340;
-    static final int CTA_ART_RETURN_MS = 380;
-    static final int CTA_ART_CLICK_MS = 800;
-    static final int CTA_NAV_HANDOFF_MS = 800;
+    static final int CTA_ART_PRESS_MS = 230;
+    static final int CTA_ART_RETURN_MS = 300;
+    static final int CTA_ART_CLICK_MS = 320;
+    static final int CTA_NAV_HANDOFF_MS = 320;
     static final float CTA_ART_PRESS_SCALE = 1.11f;
     static final float CTA_ART_CLICK_SCALE = 1.14f;
     static final int CTA_ART_PRESS_X_DP = 14;

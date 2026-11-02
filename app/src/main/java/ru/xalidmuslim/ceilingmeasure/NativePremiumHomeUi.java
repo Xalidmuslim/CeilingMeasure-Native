@@ -554,7 +554,12 @@ final class NativePremiumHomeUi {
         plusButton = plus;
         plus.setOnClickListener(v -> {
             NativeTransformerMotion.navigationTapHaptic(v);
-            if (!NativeHomeExpressiveMotion.enabled(v)) {
+            if (NativeBottomNavMode.isFixed(activity)) {
+                // Same existing tap motion and indicator as the other four slots.
+                NativeTransformerMotion.selection(plus, 0);
+                NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 2);
+                openNew.run();
+            } else if (!NativeHomeExpressiveMotion.enabled(v)) {
                 openNew.run();
             } else {
                 toggleSpeedDial();
@@ -884,7 +889,6 @@ final class NativePremiumHomeUi {
         private final Path shadowGap = polygon(
                 15f, 39f, 77f, 20f, 111f, 35f, 50f, 73f);
         private final Path ledChannel = new Path();
-        private final Path magneticTrack = new Path();
         private final PathMeasure contourMeasure = new PathMeasure(perimeter, false);
         private final Path scannedLine = new Path();
         private float scanProgress;
@@ -900,8 +904,6 @@ final class NativePremiumHomeUi {
             ledChannel.lineTo(50f, 74f);
             ledChannel.lineTo(110f, 38f);
 
-            magneticTrack.moveTo(42f, 43f);
-            magneticTrack.lineTo(83f, 29f);
         }
 
         void scanOnce() {
@@ -984,13 +986,6 @@ final class NativePremiumHomeUi {
             stroke(.72f, Color.argb(136, 237, 249, 255));
             canvas.drawPath(shadowGap, ink);
 
-            // A narrow recessed magnetic track, flush with the membrane;
-            // unlike a hanging fixture it has no vertical supports.
-            stroke(1.28f, Color.argb(170, 246, 253, 255));
-            canvas.drawPath(magneticTrack, ink);
-            stroke(.5f, Color.argb(105, 240, 251, 255));
-            canvas.drawLine(44f, 46f, 85f, 32f, ink);
-
             // Four compact downlight rims, foreshortened by the perspective.
             downlight(canvas, 37f, 52f, 3.8f, 2.1f);
             downlight(canvas, 65f, 57f, 4.0f, 2.25f);
@@ -1062,8 +1057,6 @@ final class NativePremiumHomeUi {
             if (fixtures > 0f) {
                 stroke(.9f, Color.argb((int)(167f * fixtures), 239, 252, 255));
                 canvas.drawPath(ledChannel, ink);
-                stroke(1.15f, Color.argb((int)(157f * fixtures), 246, 253, 255));
-                canvas.drawPath(magneticTrack, ink);
             }
             downlightMount(canvas, 37f, 52f, 3.8f, 2.1f,
                     CeilingInstallationProfile.light(progress, 0));

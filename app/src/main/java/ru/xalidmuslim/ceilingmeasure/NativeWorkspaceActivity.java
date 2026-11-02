@@ -143,6 +143,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private byte[] pendingClientPdf;
     private String pendingClientPdfName;
     private View historyNavView;
+    private LinearLayout fixedEditorTools;
+    private FrameLayout savedPageRoot;
+    private ScrollView savedPageScroll;
+    private View savedBottomNavView;
+    private View savedAllFilter;
+    private boolean appliedFixedNavigation;
     private View workspacePage;
     private NativeUiSettingsDialog settingsDialog;
     private boolean wallSequenceMode;
@@ -178,6 +184,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         }
         store = new NativeProjectStore(this);
         uiPrefs = NativeUiPrefs.load(this);
+        appliedFixedNavigation = NativeBottomNavMode.isFixed(this);
 
         String action = getIntent().getStringExtra(EXTRA_LAUNCH_ACTION);
         if (ACTION_NEW_ORDER.equals(action)) project = store.newProject();
@@ -256,6 +263,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     @Override
     protected void onResume() {
         super.onResume();
+        refreshBottomNavigation();
         if(!showingSavedMeasurements && workspacePage!=null){
             workspacePage.post(this::ensureHistoryNavigationVisible);
         }
@@ -633,6 +641,29 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         modeBar.addView(diagonalMode, compactModeParams());
         modeBar.addView(labelMode, compactModeParams());
 
+        // In fixed-nav mode the original editor actions remain one tap away,
+        // but move to a contextual tool strip above the drawing, not the dock.
+        fixedEditorTools = new LinearLayout(this);
+        fixedEditorTools.setTag("native_fixed_editor_tools");
+        fixedEditorTools.setOrientation(LinearLayout.HORIZONTAL);
+        fixedEditorTools.setGravity(Gravity.CENTER);
+        fixedEditorTools.addView(historyButton(R.drawable.ic_shell_undo,
+                "Отменить", "native_fixed_tool_undo", v -> undoRoom()),
+                historyButtonParams(0));
+        fixedEditorTools.addView(historyButton(R.drawable.ic_shell_redo,
+                "Повторить", "native_fixed_tool_redo", v -> redoRoom()),
+                historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+        fixedEditorTools.addView(historyButton(R.drawable.ic_shell_more,
+                "Ещё", "native_fixed_tool_more", v -> openDrawTools()),
+                historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+        fixedEditorTools.setVisibility(NativeBottomNavMode.isFixed(this)
+                ? View.VISIBLE : View.GONE);
+        LinearLayout.LayoutParams toolsParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        toolsParams.topMargin = dp(5);
+        drawingCard.addView(fixedEditorTools, toolsParams);
+
         drawingCanvasWrap = new FrameLayout(this);
         drawingCanvasWrap.setTag("native_canvas_wrap");
         int screenWidthDp = Math.round(
@@ -946,20 +977,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 "Заказ",
                 true,
                 "native_top_new_order");
-        fresh.setOnClickListener(v->new NativeStyledAlertDialog.Builder(this)
-                .setTitle("Новый заказ?")
-                .setMessage("Текущий замер сохранён автоматически.")
-                .setNegativeButton("Отмена",null)
-                .setPositiveButton("Создать",(d,w)->{
-                    if(nameInput!=null)project.name=nameInput.getText().toString().trim();
-                    if(phoneInput!=null)project.phone=phoneInput.getText().toString().trim();
-                    if(addressInput!=null)project.address=addressInput.getText().toString().trim();
-                    if(notesInput!=null)activeRoom().notes=notesInput.getText().toString();
-                    NativeProjectStore.ProjectData previous=project;
-                    saveProjectAsync(previous);
-                    project=store.newProject();
-                    showEditor(false);
-                }).show());
+        fresh.setOnClickListener(v -> promptNewOrder());
         LinearLayout.LayoutParams freshLp=new LinearLayout.LayoutParams(dp(68),dp(44));
         freshLp.leftMargin=dp(3);
         actions.addView(fresh,freshLp);
@@ -1440,6 +1458,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private View createSavedHistoryNav(View.OnClickListener allClick){
+        if (NativeBottomNavMode.isFixed(this)) return createHistoryNav();
         LinearLayout nav=(LinearLayout)createHistoryNav();
         nav.removeAllViews();
         View home=historyButton(R.drawable.ic_shell_home,
@@ -1482,6 +1501,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 dp(NativeVisualTokens.HISTORY_RADIUS_DP),
                 dp(1)));
 
+        if (NativeBottomNavMode.isFixed(this)) {
+            addFixedNavigation(nav);
+            return nav;
+        }
         View home=historyButton(R.drawable.ic_shell_home,"Домой","native_nav_home",v->goHome());
         View undo=historyButton(R.drawable.ic_shell_undo,"Отменить","native_nav_undo",v->undoRoom());
         View redo=historyButton(R.drawable.ic_shell_redo,"Повторить","native_nav_redo",v->redoRoom());
@@ -1492,6 +1515,77 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         nav.addView(redo,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
         nav.addView(more,historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
         return nav;
+    }
+
+    /** Same five destinations as Home; original icon and tap animation helper. */
+    private void addFixedNavigation(LinearLayout nav) {
+        nav.addView(historyButton(R.drawable.ic_shell_home,
+                "Главная", "native_nav_fixed_home", v -> goHome()),
+                historyButtonParams(0));
+        nav.addView(historyButton(R.drawable.ic_shell_saved,
+                "Замеры", "native_nav_fixed_saved", v -> {
+                    if (showingSavedMeasurements) return;
+                    syncProjectFieldsDeferred();
+                    savedOpenedFromEditor = true;
+                    showSavedMeasurements();
+                }), historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+        nav.addView(historyButton(R.drawable.ic_shell_add,
+                "Новый", "native_nav_fixed_new", v -> promptNewOrder()),
+                historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+        nav.addView(historyButton(R.drawable.ic_shell_layers,
+                "Материалы", "native_nav_fixed_materials",
+                v -> openMaterialsCatalog()),
+                historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+        nav.addView(historyButton(R.drawable.ic_shell_sliders,
+                "Настройки", "native_nav_fixed_settings",
+                v -> showNativeSettings()),
+                historyButtonParams(NativeVisualTokens.HISTORY_GAP_DP));
+    }
+
+    private void promptNewOrder() {
+        new NativeStyledAlertDialog.Builder(this)
+                .setTitle("Новый заказ?")
+                .setMessage("Текущий замер сохранён автоматически.")
+                .setNegativeButton("Отмена", null)
+                .setPositiveButton("Создать", (dialog, which) -> {
+                    if (nameInput != null) project.name = nameInput.getText().toString().trim();
+                    if (phoneInput != null) project.phone = phoneInput.getText().toString().trim();
+                    if (addressInput != null) project.address = addressInput.getText().toString().trim();
+                    if (notesInput != null) activeRoom().notes = notesInput.getText().toString();
+                    NativeProjectStore.ProjectData previous = project;
+                    saveProjectAsync(previous);
+                    project = store.newProject();
+                    savedOpenedFromEditor = false;
+                    editorOpenedFromSavedMeasurements = false;
+                    showEditor(false);
+                }).show();
+    }
+
+    /** Update only the dock; never re-create a drawing or change its geometry. */
+    private void refreshBottomNavigation() {
+        boolean fixed = NativeBottomNavMode.isFixed(this);
+        if (appliedFixedNavigation == fixed) return;
+        appliedFixedNavigation = fixed;
+        if (fixedEditorTools != null) {
+            fixedEditorTools.setVisibility(fixed ? View.VISIBLE : View.GONE);
+        }
+        if (workspacePage instanceof ViewGroup && historyNavView != null) {
+            ViewGroup editor = (ViewGroup) workspacePage;
+            editor.removeView(historyNavView);
+            historyNavView = createHistoryNav();
+            editor.addView(historyNavView, historyNavParams());
+            NativeShellInsets.bindWorkspace(workspacePage, editorScroll,
+                    historyNavView, dp(NativeVisualTokens.HISTORY_BOTTOM_DP));
+            if (!showingSavedMeasurements) ensureHistoryNavigationVisible();
+        }
+        if (showingSavedMeasurements && savedPageRoot != null
+                && savedBottomNavView != null && savedAllFilter != null) {
+            savedPageRoot.removeView(savedBottomNavView);
+            savedBottomNavView = createSavedHistoryNav(v -> savedAllFilter.performClick());
+            savedPageRoot.addView(savedBottomNavView, historyNavParams());
+            NativeShellInsets.bindWorkspace(savedPageRoot, savedPageScroll,
+                    savedBottomNavView, dp(NativeVisualTokens.HISTORY_BOTTOM_DP));
+        }
     }
 
     private View historyButton(
@@ -3144,6 +3238,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         // same app shell. Preserve a fixed bottom navigation instead of
         // replacing the editor with an un-navigable ScrollView.
         FrameLayout savedPage=new FrameLayout(this);
+        savedPageRoot=savedPage;
+        savedPageScroll=scroll;
+        savedAllFilter=all;
         savedPage.setTag("native_saved_page");
         savedPage.setBackground(NativeVisualTokens.workspaceBackground());
         savedPage.setClipChildren(false);
@@ -3153,6 +3250,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
         View savedNav=createSavedHistoryNav(v->all.performClick());
+        savedBottomNavView=savedNav;
 
         content.setPadding(dp(8),dp(7),dp(8),
                 dp(NativeVisualTokens.SCROLL_NAV_RESERVE_DP));
@@ -3348,6 +3446,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             uiPrefs=next;
             View decor=getWindow().getDecorView();
             NativeTypography.applyTree(decor,uiPrefs);
+            refreshBottomNavigation();
         });
         settingsDialog.setOnDismissListener(dialog->settingsDialog=null);
         settingsDialog.show();

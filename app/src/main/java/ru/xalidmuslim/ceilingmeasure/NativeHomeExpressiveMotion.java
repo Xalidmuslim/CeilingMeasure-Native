@@ -50,6 +50,7 @@ final class NativeHomeExpressiveMotion {
             @NonNull Runnable action, boolean mainCta, boolean scanner,
             @Nullable Runnable onPrimaryPress, @Nullable Runnable onPrimaryCancel) {
         final boolean[] navigating = {false};
+        final boolean[] installationStartedOnDown = {false};
         card.setOnTouchListener((v, event) -> {
             // The blue New Measurement illustration is a button microinteraction,
             // NOT a transformer page transition. Keep it in Ordinary mode.
@@ -70,10 +71,12 @@ final class NativeHomeExpressiveMotion {
                                 .scaleY(NativeHomeExpressiveProfile.CTA_ART_PRESS_SCALE)
                                 .setDuration(NativeHomeExpressiveProfile.CTA_ART_PRESS_MS)
                                 .setInterpolator(NativeMotion.easing()).start();
+                        installationStartedOnDown[0] = true;
                         if (onPrimaryPress != null) onPrimaryPress.run();
                     }
                     break;
                 case MotionEvent.ACTION_CANCEL:
+                    installationStartedOnDown[0] = false;
                     spring(v, 1f, .59f, mainCta);
                     if (mainCta && icon != null && !navigating[0]) {
                         icon.animate().cancel();
@@ -105,7 +108,10 @@ final class NativeHomeExpressiveMotion {
                 navigating[0] = true;
                 // Accessibility performClick has no ACTION_DOWN; start
                 // assembly here too, but not twice on a regular touch.
-                if (onPrimaryPress != null) onPrimaryPress.run();
+                if (!installationStartedOnDown[0] && onPrimaryPress != null) {
+                    onPrimaryPress.run();
+                }
+                installationStartedOnDown[0] = false;
                 v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
                 if (icon != null) {
                     // This one illustration gets a visible, measured glide.
@@ -132,8 +138,8 @@ final class NativeHomeExpressiveMotion {
                                     .setInterpolator(NativeMotion.easing()).start())
                             .start();
                 }
-                // The artwork must remain visible briefly before Activity
-                // navigation covers Home. No heavyweight shared-element morph.
+                // Show the accelerated assembly as the tap begins, then open
+                // the Activity promptly instead of imposing an 800ms pause.
                 v.postDelayed(() -> {
                     if (!v.isAttachedToWindow()) {
                         navigating[0] = false;
