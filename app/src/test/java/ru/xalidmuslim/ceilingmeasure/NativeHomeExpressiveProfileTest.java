@@ -25,9 +25,11 @@ public final class NativeHomeExpressiveProfileTest {
         assertTrue("Enlargement should be subtle but noticeable",
                 NativeHomeExpressiveProfile.CTA_ART_CLICK_SCALE >= 1.10f
                         && NativeHomeExpressiveProfile.CTA_ART_CLICK_SCALE <= 1.16f);
-        assertTrue("One deliberate illustration is allowed a short lead-in only",
-                NativeHomeExpressiveProfile.CTA_NAV_HANDOFF_MS >= 180
-                        && NativeHomeExpressiveProfile.CTA_NAV_HANDOFF_MS <= 240);
+        assertTrue("Actual assembly should complete before navigation",
+                NativeHomeExpressiveProfile.CTA_NAV_HANDOFF_MS
+                        >= CeilingInstallationProfile.DURATION_MS);
+        assertTrue("Single CTA must remain under one second",
+                NativeHomeExpressiveProfile.CTA_NAV_HANDOFF_MS <= 900);
         assertEquals(NativeHomeExpressiveProfile.CTA_ART_CLICK_MS,
                 NativeHomeExpressiveProfile.CTA_NAV_HANDOFF_MS);
     }
