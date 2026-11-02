@@ -2,7 +2,7 @@ package ru.xalidmuslim.ceilingmeasure;
 
 /** Piecewise, allocation-free timeline for the native ceiling assembly artwork. */
 final class CeilingInstallationProfile {
-    static final int DURATION_MS = 330;
+    static final int DURATION_MS = 320;
 
     private CeilingInstallationProfile() {}
 
