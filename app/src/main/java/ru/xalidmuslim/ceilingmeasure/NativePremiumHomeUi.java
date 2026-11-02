@@ -4,6 +4,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PathMeasure;
@@ -63,6 +64,7 @@ final class NativePremiumHomeUi {
     private LinearLayout compactHeader;
     private boolean compactShowing;
     private boolean speedDialOpen;
+    private boolean homeForeground;
 
     NativePremiumHomeUi(
             NativeHomeActivity activity,
@@ -184,6 +186,29 @@ final class NativePremiumHomeUi {
                     .setDuration(NativeHomeExpressiveProfile.CTA_ART_RETURN_MS)
                     .setInterpolator(NativeMotion.easing()).start();
         }
+    }
+
+    /** Run only while the Home card is on screen and this Activity is foreground. */
+    void setHomeForeground(boolean foreground) {
+        homeForeground = foreground;
+        if (foreground && primaryArtwork != null) {
+            // onResume can precede the first layout/attachment on cold launch.
+            primaryArtwork.post(this::updateIdleCeilingVisibility);
+        } else {
+            updateIdleCeilingVisibility();
+        }
+    }
+
+    private void updateIdleCeilingVisibility() {
+        if (!(primaryArtwork instanceof CeilingContour)) return;
+        CeilingContour art = (CeilingContour) primaryArtwork;
+        Rect visible = new Rect();
+        boolean onScreen = homeForeground && NativeMotion.animationsEnabled()
+                && art.isAttachedToWindow() && art.isShown()
+                && art.getGlobalVisibleRect(visible)
+                && visible.width() >= dp(40) && visible.height() >= dp(24);
+        if (onScreen) art.startIdleLoop();
+        else art.stopIdleLoop();
     }
 
     /** A Home return is a presentation event, even for unchanged saved data. */
@@ -774,6 +799,7 @@ final class NativePremiumHomeUi {
     }
 
     private void onHomeScroll(FrameLayout screen, int y, int previousY) {
+        updateIdleCeilingVisibility();
         int available = scroll.getChildAt(0).getHeight() - scroll.getHeight();
         boolean motion = NativeHomeExpressiveMotion.enabled(scroll);
         if (!motion) {
@@ -894,44 +920,108 @@ final class NativePremiumHomeUi {
         private float scanProgress;
         private float installationProgress;
         private boolean installing;
+        private boolean idleLoopRequested;
         private ValueAnimator scanAnimator;
+        private final Runnable idleRestart = () -> {
+            if (!idleLoopRequested || !isAttachedToWindow() || !isShown()
+                    || !NativeMotion.animationsEnabled()) return;
+            playInstallation(CeilingInstallationProfile.IDLE_DURATION_MS, false);
+        };
 
         CeilingContour(NativeHomeActivity activity) {
             super(activity);
-            // Draw only within the left part of the illustration; leave the
-            // primary-card chevron unobstructed to the right.
             ledChannel.moveTo(18f, 43f);
             ledChannel.lineTo(50f, 74f);
             ledChannel.lineTo(110f, 38f);
-
         }
 
+        /** Idle visual runs on a single animator and rests after each assembly. */
+        void startIdleLoop() {
+            if (idleLoopRequested || !NativeMotion.animationsEnabled()) return;
+            idleLoopRequested = true;
+            if (!installing) {
+                removeCallbacks(idleRestart);
+                // Already in the attached Home layout: start the vector scene
+                // immediately, not one extra UI-loop turn after onResume.
+                if (isAttachedToWindow() && isShown()) idleRestart.run();
+                else post(idleRestart);
+            }
+        }
+
+        /** No animation frame or queued restart may outlive Home visibility. */
+        void stopIdleLoop() {
+            if (!idleLoopRequested && scanAnimator == null && !installing) return;
+            idleLoopRequested = false;
+            removeCallbacks(idleRestart);
+            cancelCurrentAnimator();
+            installing = false;
+            installationProgress = 0f;
+            invalidate();
+        }
+
+        /** Tap takes priority over the slow idle loop and preserves the 320ms CTA. */
         void scanOnce() {
-            if (!NativeMotion.animationsEnabled() || installing) return;
+            if (!NativeMotion.animationsEnabled()) return;
+            playInstallation(CeilingInstallationProfile.DURATION_MS, true);
+        }
+
+        private void playInstallation(long durationMs, boolean interactive) {
+            removeCallbacks(idleRestart);
+            cancelCurrentAnimator();
             installing = true;
             installationProgress = 0f;
-            if (scanAnimator != null) scanAnimator.cancel();
-            // One animator: no layout passes, bitmaps, additional windows, or
-            // separate animators for four lights on the main UI thread.
-            scanAnimator = ValueAnimator.ofFloat(0f, 1f);
-            scanAnimator.setDuration(CeilingInstallationProfile.DURATION_MS);
-            scanAnimator.setInterpolator(new android.view.animation.LinearInterpolator());
-            scanAnimator.addUpdateListener(a -> {
+            invalidate();
+            ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
+            scanAnimator = animator;
+            animator.setDuration(durationMs);
+            animator.setInterpolator(new android.view.animation.LinearInterpolator());
+            animator.addUpdateListener(a -> {
+                if (scanAnimator != a) return;
                 installationProgress = (Float) a.getAnimatedValue();
                 postInvalidateOnAnimation();
             });
-            scanAnimator.start();
+            animator.addListener(new android.animation.AnimatorListenerAdapter() {
+                @Override public void onAnimationEnd(android.animation.Animator animation) {
+                    if (scanAnimator != animation) return;
+                    scanAnimator = null;
+                    installationProgress = 1f; // Keep finished membrane visible.
+                    invalidate();
+                    if (!interactive && idleLoopRequested) {
+                        postDelayed(idleRestart, CeilingInstallationProfile.IDLE_HOLD_MS);
+                    }
+                }
+            });
+            animator.start();
         }
 
+        private void cancelCurrentAnimator() {
+            ValueAnimator animator = scanAnimator;
+            scanAnimator = null;
+            if (animator == null) return;
+            // A canceled idle cycle must never schedule a second hidden loop.
+            animator.removeAllListeners();
+            animator.removeAllUpdateListeners();
+            animator.cancel();
+        }
+
+        /** Used by the existing touch-cancel and Home-return paths. */
         void resetInstallation() {
-            if (scanAnimator != null) {
-                scanAnimator.cancel();
-                scanAnimator = null;
-            }
+            removeCallbacks(idleRestart);
+            cancelCurrentAnimator();
             installing = false;
             installationProgress = 0f;
             scanProgress = 0f;
             invalidate();
+            // A canceled press returns to automatic playback only if Home
+            // remains foreground and the illustration is still visible.
+            if (idleLoopRequested) {
+                postDelayed(idleRestart, CeilingInstallationProfile.RESTART_AFTER_CANCEL_MS);
+            }
+        }
+
+        @Override protected void onDetachedFromWindow() {
+            stopIdleLoop();
+            super.onDetachedFromWindow();
         }
 
         private static Path polygon(

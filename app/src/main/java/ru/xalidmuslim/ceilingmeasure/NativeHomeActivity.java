@@ -90,6 +90,7 @@ public final class NativeHomeActivity extends ComponentActivity {
         if (premiumUi != null) {
             premiumUi.updateMotionMode();
             premiumUi.restorePrimaryArtwork();
+            premiumUi.setHomeForeground(true);
             // Returning to Home must replay the recent project entrance even
             // when its data snapshot is identical to the last visit.
             premiumUi.replayRecentOnHome();
@@ -266,10 +267,14 @@ public final class NativeHomeActivity extends ComponentActivity {
         // Direct Home-owned catalog: a single ordinary window fade is safe.
         // No hidden editor exists behind this dialog.
         homeMaterialsDialog = dialog;
+        if (premiumUi != null) premiumUi.setHomeForeground(false);
         dialog.setOnDismissListener(window -> {
             if (homeMaterialsDialog == dialog) {
                 homeMaterialsDialog = null;
-                if (premiumUi != null) premiumUi.returnIndicatorHome();
+                if (premiumUi != null) {
+                    premiumUi.returnIndicatorHome();
+                    premiumUi.setHomeForeground(true);
+                }
             }
         });
         dialog.show();
@@ -296,9 +301,13 @@ public final class NativeHomeActivity extends ComponentActivity {
         });
         // Home owns this dialog; no Activity/window transition is needed.
         settingsDialog.setStableHomeTransition(true);
+        if (premiumUi != null) premiumUi.setHomeForeground(false);
         settingsDialog.setOnDismissListener(dialog -> {
             settingsDialog = null;
-            if (premiumUi != null) premiumUi.returnIndicatorHome();
+            if (premiumUi != null) {
+                premiumUi.returnIndicatorHome();
+                premiumUi.setHomeForeground(true);
+            }
         });
         settingsDialog.show();
     }
@@ -325,7 +334,10 @@ public final class NativeHomeActivity extends ComponentActivity {
         // A stale queued decode must not redraw the launcher while another
         // screen owns the window. onResume requests the latest saved snapshot.
         pendingHomeLoad++;
-        if (premiumUi != null) premiumUi.resetTransientUi();
+        if (premiumUi != null) {
+            premiumUi.setHomeForeground(false);
+            premiumUi.resetTransientUi();
+        }
         super.onStop();
     }
 

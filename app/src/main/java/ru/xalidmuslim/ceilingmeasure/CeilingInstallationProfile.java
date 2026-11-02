@@ -2,7 +2,10 @@ package ru.xalidmuslim.ceilingmeasure;
 
 /** Piecewise, allocation-free timeline for the native ceiling assembly artwork. */
 final class CeilingInstallationProfile {
-    static final int DURATION_MS = 320;
+    static final int DURATION_MS = 320; // Tap handoff is unchanged.
+    static final int IDLE_DURATION_MS = 6000; // Slow, full assembly on visible Home.
+    static final int IDLE_HOLD_MS = 1150;
+    static final int RESTART_AFTER_CANCEL_MS = 140;
 
     private CeilingInstallationProfile() {}
 
