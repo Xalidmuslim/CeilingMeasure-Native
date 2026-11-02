@@ -44,6 +44,8 @@ final class CeilingDrawingView extends View {
         // Explicit choice for long-pressed numeric labels; older listeners stay compatible.
         default void onLabelActionRequested(@NonNull String id, boolean diagonal) {}
         void onContourClosed();
+        /** Committed safe horizontal gesture on blank drawing space. */
+        default void onRoomSwipe(int direction) {}
     }
 
     private static final int BLUE = NativeVisualTokens.ACCENT;
@@ -137,6 +139,8 @@ final class CeilingDrawingView extends View {
 
     private float downScreenX;
     private float downScreenY;
+    private boolean roomSwipeEligible;
+    private boolean roomSwipeCaptured;
     private boolean moved;
     private boolean longPressFired;
     private Runnable longPressRunnable;
@@ -284,6 +288,8 @@ final class CeilingDrawingView extends View {
         cancelPendingLongPress();
         cancelWallInputFocusAnimation();
         cancelTransientGestures();
+        roomSwipeEligible = false;
+        roomSwipeCaptured = false;
         moveArmedLabel = null;
         selectedLabel = null;
 
@@ -1227,6 +1233,8 @@ final class CeilingDrawingView extends View {
         // Web v184 parity: two fingers always own the drawing gesture and
         // simultaneously pan + zoom around the world point under their centroid.
         if (action == MotionEvent.ACTION_POINTER_DOWN && event.getPointerCount() == 2) {
+            roomSwipeEligible = false;
+            roomSwipeCaptured = false;
             cancelPendingLongPress();
             cancelSingleGestureForMultiTouch();
             beginPinch(event);
@@ -1262,6 +1270,18 @@ final class CeilingDrawingView extends View {
                         !closedContour && drawingStarted);
                 downScreenX = event.getX();
                 downScreenY = event.getY();
+                // Only a closed drawing and a genuinely empty start position
+                // can change rooms. Open walls, point drags, diagonal/label
+                // handles, long-press editors and pinch zoom retain priority.
+                float hitScale = Math.max(MIN_VIEW_SCALE, scale);
+                roomSwipeEligible = closedContour && !wallSequenceActive
+                        && selectedLabel == null && moveArmedLabel == null
+                        && preferredWallAt(worldX, worldY) == null
+                        && nearestEdge(worldX, worldY, dp(29) / hitScale) == null
+                        && nearestPoint(worldX, worldY, dp(31) / hitScale) == null
+                        && nearestDiagonal(worldX, worldY, dp(25) / hitScale) == null
+                        && nearestLabel(worldX, worldY, dp(29) / hitScale) == null;
+                roomSwipeCaptured = false;
                 moved = false;
                 longPressFired = false;
                 activeGuide = null;
@@ -1351,6 +1371,19 @@ final class CeilingDrawingView extends View {
 
                 float dxScreen = event.getX() - downScreenX;
                 float dyScreen = event.getY() - downScreenY;
+                if (roomSwipeEligible && (roomSwipeCaptured
+                        || NativeRoomSwipePolicy.horizontal(dxScreen, dyScreen,
+                            getResources().getDisplayMetrics().density,
+                            NativeRoomSwipePolicy.ARM_DISTANCE_DP))) {
+                    if (!roomSwipeCaptured) {
+                        roomSwipeCaptured = true;
+                        cancelPendingLongPress();
+                        cancelSingleGestureForMultiTouch();
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                    }
+                    moved = true;
+                    return true;
+                }
                 float distance = (float) Math.hypot(dxScreen, dyScreen);
                 float moveCancelThreshold = mode == Mode.LABEL ? dp(20) : dp(9);
                 if (distance > moveCancelThreshold) {
@@ -1410,6 +1443,22 @@ final class CeilingDrawingView extends View {
             case MotionEvent.ACTION_UP:
                 getParent().requestDisallowInterceptTouchEvent(false);
                 cancelPendingLongPress();
+                if (roomSwipeCaptured) {
+                    float dx = event.getX() - downScreenX;
+                    float dy = event.getY() - downScreenY;
+                    boolean switchRoom = roomSwipeEligible
+                            && NativeRoomSwipePolicy.horizontal(dx, dy,
+                                getResources().getDisplayMetrics().density,
+                                NativeRoomSwipePolicy.MIN_DISTANCE_DP);
+                    roomSwipeEligible = false;
+                    roomSwipeCaptured = false;
+                    cancelTransientGestures();
+                    if (switchRoom && listener != null) {
+                        listener.onRoomSwipe(NativeRoomSwipePolicy.direction(dx));
+                    }
+                    return true;
+                }
+                roomSwipeEligible = false;
 
                 if (multiTouch) {
                     multiTouch = false;
@@ -1460,6 +1509,8 @@ final class CeilingDrawingView extends View {
                 return true;
 
             case MotionEvent.ACTION_CANCEL:
+                roomSwipeEligible = false;
+                roomSwipeCaptured = false;
                 getParent().requestDisallowInterceptTouchEvent(false);
                 cancelPendingLongPress();
                 multiTouch = false;
