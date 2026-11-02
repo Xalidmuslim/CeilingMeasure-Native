@@ -63,11 +63,13 @@ final class NativeSectionMotion {
             body.setTranslationY(0f);
             return;
         }
+        float startAlpha = body.getVisibility() == View.VISIBLE
+                ? Math.max(.15f, body.getAlpha()) : .28f;
         body.setVisibility(View.VISIBLE);
         ViewGroup.LayoutParams lp = body.getLayoutParams();
         lp.height = from;
         body.setLayoutParams(lp);
-        float startAlpha = Math.max(.15f, body.getAlpha());
+        body.setAlpha(startAlpha);
         ValueAnimator height = ValueAnimator.ofInt(from, to);
         RUNNING.put(body, height);
         height.setDuration(DURATION_MS);
