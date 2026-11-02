@@ -41,6 +41,10 @@ public final class NativeHomeIdleInstallationUiTest {
                             boolField(artwork.get(), "installing"));
                     assertTrue("Animation must advance frames",
                             floatField(artwork.get(), "installationProgress") > 0f);
+                    ValueAnimator slow = (ValueAnimator) objectField(artwork.get(), "scanAnimator");
+                    assertNotNull("First cycle must still be animating", slow);
+                    assertEquals("Initial Home assembly should use the slow 6-second profile",
+                            CeilingInstallationProfile.IDLE_DURATION_MS, slow.getDuration());
                 }
             });
 
