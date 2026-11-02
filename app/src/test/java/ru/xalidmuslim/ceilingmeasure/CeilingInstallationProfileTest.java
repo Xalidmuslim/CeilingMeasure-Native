@@ -15,13 +15,14 @@ public final class CeilingInstallationProfileTest {
         assertTrue(CeilingInstallationProfile.wrinkles(.72f) < .01f);
     }
 
-    @Test public void idlePacingIsReadablySlowerThanTapAndHasRest() {
+    @Test public void idlePacingDrawsForFiveToSevenSecondsAndTapStaysFast() {
+        assertTrue(CeilingInstallationProfile.IDLE_DURATION_MS >= 5000);
+        assertTrue(CeilingInstallationProfile.IDLE_DURATION_MS <= 7000);
         assertTrue(CeilingInstallationProfile.IDLE_DURATION_MS
-                >= CeilingInstallationProfile.DURATION_MS * 4);
+                >= CeilingInstallationProfile.DURATION_MS * 10);
+        assertTrue(CeilingInstallationProfile.DURATION_MS <= 400);
         assertTrue(CeilingInstallationProfile.IDLE_HOLD_MS >= 900);
         assertTrue(CeilingInstallationProfile.RESTART_AFTER_CANCEL_MS >= 0);
-        assertTrue(CeilingInstallationProfile.IDLE_DURATION_MS
-                + CeilingInstallationProfile.IDLE_HOLD_MS <= 5000);
     }
 
     @Test public void fourLampsIlluminateOneAfterTheOther() {
