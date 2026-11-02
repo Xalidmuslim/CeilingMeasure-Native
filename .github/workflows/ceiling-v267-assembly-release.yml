@@ -56,7 +56,7 @@ jobs:
             set -eu
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeProjectOverviewUiTest,ru.xalidmuslim.ceilingmeasure.NativeCompactOverviewMotionTest,ru.xalidmuslim.ceilingmeasure.NativeEstimateFullScreenNavigationTest,ru.xalidmuslim.ceilingmeasure.NativeFastNavigationAndOrdinaryDialogsTest,ru.xalidmuslim.ceilingmeasure.NativePriceDragUiTest,ru.xalidmuslim.ceilingmeasure.NativeHomeReplayMotionTest,ru.xalidmuslim.ceilingmeasure.NativeHomeExpressiveUiTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/v267-tests.log
+            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeProjectOverviewUiTest,ru.xalidmuslim.ceilingmeasure.NativeCompactOverviewMotionTest,ru.xalidmuslim.ceilingmeasure.NativeEstimateFullScreenNavigationTest,ru.xalidmuslim.ceilingmeasure.NativeFastNavigationAndOrdinaryDialogsTest,ru.xalidmuslim.ceilingmeasure.NativePriceDragUiTest,ru.xalidmuslim.ceilingmeasure.NativeHomeReplayMotionTest,ru.xalidmuslim.ceilingmeasure.NativeHomeInstallationUiTest,ru.xalidmuslim.ceilingmeasure.NativeHomeExpressiveUiTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/v267-tests.log
             grep -Eq '^OK \([0-9]+ tests?\)' /tmp/v267-tests.log
             adb install -r app/build/outputs/apk/releasePreview/app-releasePreview.apk
             adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.smooth267/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity
