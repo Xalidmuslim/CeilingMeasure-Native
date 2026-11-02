@@ -554,8 +554,12 @@ final class NativePremiumHomeUi {
         plusButton = plus;
         plus.setOnClickListener(v -> {
             NativeTransformerMotion.navigationTapHaptic(v);
-            if (NativeBottomNavMode.isFixed(activity)
-                    || !NativeHomeExpressiveMotion.enabled(v)) {
+            if (NativeBottomNavMode.isFixed(activity)) {
+                // Same existing tap motion and indicator as the other four slots.
+                NativeTransformerMotion.selection(plus, 0);
+                NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 2);
+                openNew.run();
+            } else if (!NativeHomeExpressiveMotion.enabled(v)) {
                 openNew.run();
             } else {
                 toggleSpeedDial();
