@@ -99,6 +99,9 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     private TextView projectTotalPerimeter;
     private LinearLayout projectRoomRows;
     private TextView projectSummaryStatus;
+    private LinearLayout overviewBody;
+    private TextView overviewChevron;
+    private boolean overviewCollapsed;
     private Button wallMode;
     private Button pointMode;
     private Button diagonalMode;
@@ -295,6 +298,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         savedOpenedFromEditor = false;
         orderCollapsed = jumpToDrawing;
         roomsCollapsed = false;
+        overviewCollapsed = false;
         undoRooms.clear();
         redoRooms.clear();
 
@@ -488,23 +492,50 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         overviewCard.setTag("native_project_overview");
         overviewCard.setPadding(dp(10), dp(8), dp(10), dp(8));
         root.addView(overviewCard, marginParams(0, 4));
-        overviewCard.addView(text("Общий замер всех комнат", 13.5f, TEXT, Typeface.BOLD));
+        LinearLayout overviewHead = new LinearLayout(this);
+        overviewHead.setTag("native_project_overview_header");
+        overviewHead.setOrientation(LinearLayout.HORIZONTAL);
+        overviewHead.setGravity(Gravity.CENTER_VERTICAL);
+        overviewHead.setClickable(true);
+        overviewHead.setFocusable(true);
+        overviewHead.setContentDescription("Скрыть или показать общий замер всех комнат");
+        overviewHead.setMinimumHeight(dp(36));
+        overviewHead.addView(text("Общий замер всех комнат", 13.5f,
+                TEXT, Typeface.BOLD), new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        overviewChevron = text("⌃", 13f, TEXT, Typeface.BOLD);
+        overviewChevron.setTag("native_project_overview_toggle");
+        overviewChevron.setGravity(Gravity.CENTER);
+        overviewChevron.setContentDescription("Свернуть общий замер");
+        overviewHead.addView(overviewChevron, new LinearLayout.LayoutParams(dp(40), dp(36)));
+        overviewCard.addView(overviewHead);
+        overviewBody = new LinearLayout(this);
+        overviewBody.setTag("native_project_overview_body");
+        overviewBody.setOrientation(LinearLayout.VERTICAL);
+        overviewCard.addView(overviewBody, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        overviewHead.setOnClickListener(v -> {
+            overviewCollapsed = !overviewCollapsed;
+            NativeSectionMotion.setExpanded(overviewBody, overviewChevron, overviewCollapsed);
+            overviewChevron.setContentDescription(
+                    overviewCollapsed ? "Развернуть общий замер" : "Свернуть общий замер");
+        });
         LinearLayout metricHeader = new LinearLayout(this);
         metricHeader.setOrientation(LinearLayout.HORIZONTAL);
         metricHeader.setGravity(Gravity.CENTER_VERTICAL);
         metricHeader.addView(overviewCell("Комната", 10f, MUTED, false, 1.2f, false));
         metricHeader.addView(overviewCell("Площадь", 10f, MUTED, false, 1f, true));
         metricHeader.addView(overviewCell("Периметр", 10f, MUTED, false, 1f, true));
-        overviewCard.addView(metricHeader, marginParams(0, 6));
+        overviewBody.addView(metricHeader, marginParams(0, 6));
 
         projectRoomRows = new LinearLayout(this);
         projectRoomRows.setTag("native_project_room_metrics");
         projectRoomRows.setOrientation(LinearLayout.VERTICAL);
-        overviewCard.addView(projectRoomRows, marginParams(0, 3));
+        overviewBody.addView(projectRoomRows, marginParams(0, 3));
 
         View totalDivider = new View(this);
         totalDivider.setBackgroundColor(LINE);
-        overviewCard.addView(totalDivider, new LinearLayout.LayoutParams(
+        overviewBody.addView(totalDivider, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(1)));
         LinearLayout totalRow = new LinearLayout(this);
         totalRow.setTag("native_project_total_row");
@@ -517,10 +548,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         projectTotalPerimeter = overviewCell("—", 14f, TEXT, true, 1f, true);
         projectTotalPerimeter.setTag("native_project_total_perimeter");
         totalRow.addView(projectTotalPerimeter);
-        overviewCard.addView(totalRow, marginParams(0, 5));
+        overviewBody.addView(totalRow, marginParams(0, 5));
         projectSummaryStatus = text("", 10f, MUTED, Typeface.NORMAL);
         projectSummaryStatus.setTag("native_project_summary_status");
-        overviewCard.addView(projectSummaryStatus, marginParams(0, 3));
+        overviewBody.addView(projectSummaryStatus, marginParams(0, 3));
         renderProjectOverview();
 
         drawingCard = card();
@@ -532,7 +563,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         drawingHead.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout leftHead = new LinearLayout(this);
         leftHead.setOrientation(LinearLayout.VERTICAL);
-        TextView eyebrow = text("Чертёж",10.5f,MUTED,Typeface.BOLD);
+        TextView eyebrow = text("Чертёж · комнаты ↔",10.5f,MUTED,Typeface.BOLD);
         drawingRoomTitle = text(activeRoom().name,17,TEXT,Typeface.BOLD);
         drawingRoomTitle.setSingleLine(true);
         drawingRoomTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -540,6 +571,35 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         leftHead.setPadding(dp(3),dp(3),dp(8),dp(4));
         leftHead.addView(eyebrow);
         leftHead.addView(drawingRoomTitle);
+        // The title strip is the guaranteed safe swipe surface even for an
+        // unfinished/open contour. Canvas swipes are only allowed on blank
+        // space in completed drawings to protect wall/point editing.
+        leftHead.setTag("native_drawing_room_swipe_target");
+        leftHead.setContentDescription("Свайп влево или вправо: сменить комнату");
+        leftHead.setClickable(true);
+        final float[] swipeStart = new float[2];
+        leftHead.setOnTouchListener((v, event) -> {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    swipeStart[0] = event.getX();
+                    swipeStart[1] = event.getY();
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    float dx = event.getX() - swipeStart[0];
+                    float dy = event.getY() - swipeStart[1];
+                    if (NativeRoomSwipePolicy.horizontal(dx, dy,
+                            getResources().getDisplayMetrics().density,
+                            NativeRoomSwipePolicy.MIN_DISTANCE_DP)) {
+                        onRoomSwipe(NativeRoomSwipePolicy.direction(dx));
+                    }
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                case MotionEvent.ACTION_MOVE:
+                    return true;
+                default:
+                    return false;
+            }
+        });
         drawingHead.addView(leftHead, new LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -1040,32 +1100,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             View body,
             TextView chevron,
             boolean collapsed) {
-        if(card==null||body==null)return;
-        body.animate().cancel();
-        if (!NativeMotion.animationsEnabled()) {
-            body.setAlpha(1f);
-            body.setTranslationY(0f);
-            body.setScaleY(1f);
-            body.setVisibility(collapsed ? View.GONE : View.VISIBLE);
-        } else if (collapsed) {
-            // Collapse the visible section first; no per-frame height remeasure.
-            body.animate().alpha(.06f).translationY(-dp(7)).scaleY(.987f)
-                    .setDuration(145L)
-                    .setInterpolator(NativeMotion.easing())
-                    .withEndAction(() -> {
-                        body.setVisibility(View.GONE);
-                        body.setAlpha(1f);
-                        body.setTranslationY(0f);
-                        body.setScaleY(1f);
-                    }).start();
-        } else {
-            body.setVisibility(View.VISIBLE);
-            NativeTransformerMotion.reveal(body, 1);
-        }
-        if(chevron!=null){
-            chevron.setText(collapsed?"⌄":"⌃");
-            NativeTransformerMotion.selection(chevron,collapsed?-1:1);
-        }
+        if (card == null || body == null) return;
+        NativeSectionMotion.setExpanded(body, chevron, collapsed);
     }
 
     private void applySectionState(
@@ -1108,18 +1144,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     9,11,1,TypedValue.COMPLEX_UNIT_SP);
             if(i==project.activeRoom)styleSelected(b);
             else styleRoomInactive(b);
-            b.setOnClickListener(v->{
-                int travel=Integer.compare(index,project.activeRoom);
-                project.activeRoom=index;
-                NativeTransformerMotion.selection(b,travel);
-                updateRoomSelectionStyles();
-                undoRooms.clear();
-                redoRooms.clear();
-                if(drawingView!=null)drawingView.setRoom(activeRoom());
-                if(drawingRoomTitle!=null)drawingRoomTitle.setText(activeRoom().name);
-                updateStats();
-                updateDrawingChrome();
-            });
+            b.setOnClickListener(v -> selectRoom(index));
             NativeFastLongPress.attach(b,()->showRoomActions(index));
             LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,dp(48));
@@ -1194,6 +1219,45 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ? "Все " + total + " помещений измерены."
                 : "Измерено: площадь " + summary.areasMeasured + "/" + total
                 + ", периметр " + summary.perimetersMeasured + "/" + total + ".");
+    }
+
+    /** One selection path for tabs and safe horizontal drawing swipes. */
+    private void selectRoom(int index) {
+        if (project == null || index < 0 || index >= project.rooms.size()
+                || index == project.activeRoom) return;
+        int travel = Integer.compare(index, project.activeRoom);
+        project.activeRoom = index;
+        updateRoomSelectionStyles();
+        undoRooms.clear();
+        redoRooms.clear();
+        if (drawingView != null) drawingView.setRoom(activeRoom());
+        if (drawingRoomTitle != null) drawingRoomTitle.setText(activeRoom().name);
+        updateStats();
+        updateDrawingChrome();
+    }
+
+    @Override public void onRoomSwipe(int direction) {
+        if (project == null) return;
+        int next = NativeRoomSwipePolicy.target(project.activeRoom,
+                project.rooms.size(), direction);
+        if (next == project.activeRoom) return;
+        selectRoom(next);
+        // Only after the drawing gesture has finished. Compositor translation
+        // does not alter room coordinates, zoom or stored vertex geometry.
+        if (drawingView != null && NativeMotion.animationsEnabled()) {
+            drawingView.animate().cancel();
+            drawingView.setTranslationX(-direction * dp(18));
+            drawingView.setAlpha(.92f);
+            drawingView.animate().translationX(0f).alpha(1f)
+                    .setDuration(210L).setInterpolator(NativeMotion.easing()).start();
+            if (drawingRoomTitle != null) {
+                drawingRoomTitle.animate().cancel();
+                drawingRoomTitle.setTranslationX(-direction * dp(9));
+                drawingRoomTitle.animate().translationX(0f)
+                        .setDuration(210L)
+                        .setInterpolator(NativeMotion.easing()).start();
+            }
+        }
     }
 
     private void updateRoomSelectionStyles(){
