@@ -563,7 +563,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         drawingHead.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout leftHead = new LinearLayout(this);
         leftHead.setOrientation(LinearLayout.VERTICAL);
-        TextView eyebrow = text("Чертёж",10.5f,MUTED,Typeface.BOLD);
+        TextView eyebrow = text("Чертёж · комнаты ↔",10.5f,MUTED,Typeface.BOLD);
         drawingRoomTitle = text(activeRoom().name,17,TEXT,Typeface.BOLD);
         drawingRoomTitle.setSingleLine(true);
         drawingRoomTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -571,6 +571,35 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         leftHead.setPadding(dp(3),dp(3),dp(8),dp(4));
         leftHead.addView(eyebrow);
         leftHead.addView(drawingRoomTitle);
+        // The title strip is the guaranteed safe swipe surface even for an
+        // unfinished/open contour. Canvas swipes are only allowed on blank
+        // space in completed drawings to protect wall/point editing.
+        leftHead.setTag("native_drawing_room_swipe_target");
+        leftHead.setContentDescription("Свайп влево или вправо: сменить комнату");
+        leftHead.setClickable(true);
+        final float[] swipeStart = new float[2];
+        leftHead.setOnTouchListener((v, event) -> {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    swipeStart[0] = event.getX();
+                    swipeStart[1] = event.getY();
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    float dx = event.getX() - swipeStart[0];
+                    float dy = event.getY() - swipeStart[1];
+                    if (NativeRoomSwipePolicy.horizontal(dx, dy,
+                            getResources().getDisplayMetrics().density,
+                            NativeRoomSwipePolicy.MIN_DISTANCE_DP)) {
+                        onRoomSwipe(NativeRoomSwipePolicy.direction(dx));
+                    }
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                case MotionEvent.ACTION_MOVE:
+                    return true;
+                default:
+                    return false;
+            }
+        });
         drawingHead.addView(leftHead, new LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
