@@ -14,3 +14,8 @@ The tested Android performance baseline is **commit `0af9cd4dec1e45576507793123d
 - Do not change the `Prophetic-Medicine-Native` reference repository.
 
 **Rollback:** use `golden/ceiling-medicine-smooth-v247-2026-10-23`. Always develop changes on an isolated branch.
+
+
+## Commercial delivery gate
+
+For any change intended for sale, payment, licensing, or delivery to a customer, follow `docs/COMMERCIAL_RELEASE_READINESS.md`. Run the new Commercial Quality Gate workflow and keep its full Android instrumentation suite mandatory. The preview preflight and an installable test APK do **not** certify a production release. Never ship a debug-key-signed `.smoothNNN` preview as paid production. Production readiness requires verified signing identity, live entitlement checks, representative real-device testing, and proven upgrade/backup recovery. Do not bypass failing CI, silently skip tests, or reset customer data to obtain a green build.

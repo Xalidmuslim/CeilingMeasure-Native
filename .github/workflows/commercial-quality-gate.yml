@@ -1,0 +1,81 @@
+name: Commercial Quality Gate — CeilingMeasure
+
+# Isolated gate: no production publication or signature changes.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: commercial-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  commercial-quality:
+    name: Preview checks and full Android regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Test commercial preflight logic
+        run: python3 -m unittest discover -s scripts -p test_commercial_readiness_check.py -v
+
+      - name: Test CADS release gate policy
+        run: python3 -m unittest discover -s scripts -p test_cads_release_policy.py -v
+
+      - name: Validate native preview safety invariants
+        run: python3 scripts/commercial_readiness_check.py --mode preview
+
+      - name: Unit regression, lint, and isolated preview builds
+        run: |
+          set -euo pipefail
+          gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleReleasePreview
+
+      - name: Verify generated isolated preview archive
+        run: |
+          set -euo pipefail
+          python3 scripts/commercial_readiness_check.py --mode preview --apk app/build/outputs/apk/releasePreview/app-releasePreview.apk
+          sha256sum app/build/outputs/apk/releasePreview/app-releasePreview.apk
+
+      - name: Preserve QA APK, never label as a commercial release
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-QUALITY-PREVIEW-NOT-FOR-SALE
+          path: app/build/outputs/apk/releasePreview/app-releasePreview.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Full native Android regression suite (not just selected passing tests)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: bash scripts/run_android_smoke.sh
+
+      - name: Retain full regression evidence on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-commercial-test-evidence
+          path: /tmp/instrumentation.txt
+          if-no-files-found: warn
+          retention-days: 14
