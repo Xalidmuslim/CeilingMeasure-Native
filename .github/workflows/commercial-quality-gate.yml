@@ -30,6 +30,9 @@ jobs:
       - name: Test commercial preflight logic
         run: python3 -m unittest discover -s scripts -p test_commercial_readiness_check.py -v
 
+      - name: Test CADS release gate policy
+        run: python3 -m unittest discover -s scripts -p test_cads_release_policy.py -v
+
       - name: Validate native preview safety invariants
         run: python3 scripts/commercial_readiness_check.py --mode preview
 
