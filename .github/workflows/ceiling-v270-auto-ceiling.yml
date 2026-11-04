@@ -3,6 +3,8 @@ name: CeilingMeasure v270 Automatic Idle Ceiling Installation
 on:
   push:
     branches: [feature/v270-auto-ceiling-installation]
+  pull_request:
+    branches: [feature/v270-auto-ceiling-installation]
   workflow_dispatch:
 
 permissions:
@@ -43,7 +45,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Android 15 project grid and dialog navigation regression
+      - name: Full Android 15 instrumentation regression (release-blocking)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -53,17 +55,30 @@ jobs:
           disable-animations: false
           emulator-boot-timeout: 600
           script: |
-            set -eu
+            set -euo pipefail
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell am instrument -w -r -e class ru.xalidmuslim.ceilingmeasure.NativeProjectOverviewUiTest,ru.xalidmuslim.ceilingmeasure.NativeCompactOverviewMotionTest,ru.xalidmuslim.ceilingmeasure.NativeEstimateFullScreenNavigationTest,ru.xalidmuslim.ceilingmeasure.NativeFastNavigationAndOrdinaryDialogsTest,ru.xalidmuslim.ceilingmeasure.NativePriceDragUiTest,ru.xalidmuslim.ceilingmeasure.NativeHomeReplayMotionTest,ru.xalidmuslim.ceilingmeasure.NativeHomeInstallationUiTest,ru.xalidmuslim.ceilingmeasure.NativeHomeIdleInstallationUiTest,ru.xalidmuslim.ceilingmeasure.NativeWorkspaceSectionsSwipeTest,ru.xalidmuslim.ceilingmeasure.NativeFixedNavigationUiTest,ru.xalidmuslim.ceilingmeasure.NativeHomeExpressiveUiTest ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/v270-tests.log
+            # All installed tests must pass, not just the selected feature tests.
+            adb shell am instrument -w -r ru.xalidmuslim.ceilingmeasure.preview.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/v270-tests.log
             grep -Eq '^OK \([0-9]+ tests?\)' /tmp/v270-tests.log
             adb install -r app/build/outputs/apk/releasePreview/app-releasePreview.apk
             adb shell am start -W -n ru.xalidmuslim.ceilingmeasure.smooth270/ru.xalidmuslim.ceilingmeasure.NativeHomeActivity
             adb logcat -d -s AndroidRuntime:E > /tmp/v270-crashes.log
             ! grep -q 'FATAL EXCEPTION' /tmp/v270-crashes.log
 
+      - name: Retain full test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CeilingMeasure-v270-instrumentation-evidence
+          path: |
+            /tmp/v270-tests.log
+            /tmp/v270-crashes.log
+          if-no-files-found: warn
+          retention-days: 14
+
   publish-v270:
+    if: github.event_name != 'pull_request'
     name: Public direct APK in GitHub Releases
     needs: test-build-preview
     runs-on: ubuntu-latest
