@@ -84,6 +84,25 @@ public final class NativeProjectTrashTest {
         assertEquals("В резервной копии",second.loadSaved().get(0).name);
     }
 
+    @Test public void existingPurchaseOrderMovesOnlyDowelOnce() {
+        NativeProjectStore store=new NativeProjectStore(new MemorySharedPreferences());
+        java.util.List<String> old=java.util.Arrays.asList(
+                "std:canvas", "std:baguette", "std:insert", "std:light",
+                "custom:wood", "std:cornice", "std:dowel", "std:pipe");
+        store.saveDefaultPriceOrder(false,old);
+        NativeProjectStore.PricePresetSnapshot updated=store.loadPricePresetSnapshot(false);
+        assertEquals("std:dowel",updated.order.get(2));
+        assertEquals("std:insert",updated.order.get(3));
+        assertTrue(updated.order.contains("custom:wood"));
+
+        // A later user drag must remain authoritative after this one-time migration.
+        java.util.List<String> personal=java.util.Arrays.asList(
+                "std:canvas", "std:dowel", "std:baguette", "std:insert");
+        store.saveDefaultPriceOrder(false,personal);
+        assertEquals(personal,new NativeProjectStore(
+                new MemorySharedPreferences()).loadDefaultPriceOrder(false).subList(0,0));
+    }
+
     @Test public void baguettePrecedesDowelInDefaultPurchaseList() {
         String[] prices=NativeDataContract.INTERNAL_PRICE_KEYS;
         int baguette=-1,dowel=-1;
