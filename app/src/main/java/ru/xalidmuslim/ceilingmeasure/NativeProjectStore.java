@@ -309,8 +309,10 @@ final class NativeProjectStore {
     }
 
     private boolean saveCurrentInternal(@NonNull ProjectData project, boolean durable) {
-        project.updatedAt = System.currentTimeMillis();
         JSONObject db = loadDb();
+        // A delayed save submitted before deletion must not bring back a trashed order.
+        if (isInTrash(db, project.id)) return false;
+        project.updatedAt = System.currentTimeMillis();
         try {
             JSONArray orders = db.optJSONArray("orders");
             if (orders == null) orders = new JSONArray();
@@ -404,8 +406,31 @@ final class NativeProjectStore {
     }
 
     // Read prices, hidden items, custom entries and order in one database pass.
-    PricePresetSnapshot loadPricePresetSnapshot(boolean client) {
+    synchronized PricePresetSnapshot loadPricePresetSnapshot(boolean client) {
         JSONObject db=loadDb();
+        if (!client && !db.optBoolean("dowelAfterBaguetteV271",false)) {
+            // One-time adjustment of legacy saved order. Move only the dowel;
+            // subsequent manual drag-and-drop order is left unchanged.
+            try {
+                JSONArray existing=db.optJSONArray("defaultPurchasePriceOrder");
+                if (existing!=null) {
+                    ArrayList<String> keys=new ArrayList<>();
+                    for (int i=0;i<existing.length();i++) {
+                        String key=existing.optString(i,"");
+                        if (!key.isEmpty()) keys.add(key);
+                    }
+                    if (keys.contains("std:baguette") && keys.contains("std:dowel")) {
+                        keys.remove("std:dowel");
+                        keys.add(keys.indexOf("std:baguette")+1,"std:dowel");
+                        db.put("defaultPurchasePriceOrder",new JSONArray(keys));
+                    }
+                }
+                db.put("dowelAfterBaguetteV271",true);
+                persistDb(db);
+            } catch (Exception ignored) {
+                // Keep the previous order intact on serialization failure.
+            }
+        }
         PricePresetSnapshot result=new PricePresetSnapshot();
         for(String key:client?CLIENT_PRICE_KEYS:INTERNAL_PRICE_KEYS)
             result.prices.put(key,0f);
@@ -533,22 +558,108 @@ final class NativeProjectStore {
         saveCurrent(project);
     }
 
-    void deleteSaved(@NonNull String id) {
+    static final class DeletedProject {
+        final ProjectData project;
+        final long deletedAt;
+
+        DeletedProject(ProjectData project, long deletedAt) {
+            this.project = project;
+            this.deletedAt = deletedAt;
+        }
+    }
+
+    /** Keep the exact complete order JSON in the canonical DB and its backup. */
+    synchronized boolean deleteSaved(@NonNull String id) {
         JSONObject db = loadDb();
         JSONArray orders = db.optJSONArray("orders");
-        if (orders == null) return;
-        JSONArray next = new JSONArray();
+        if (orders == null || isInTrash(db, id)) return false;
+        JSONArray remaining = new JSONArray();
+        JSONObject removed = null;
         for (int i = 0; i < orders.length(); i++) {
             JSONObject order = orders.optJSONObject(i);
-            if (order == null || !id.equals(order.optString("id", ""))) {
-                next.put(orders.opt(i));
+            if (order != null && id.equals(order.optString("id", ""))) {
+                removed = order;
+            } else {
+                remaining.put(orders.opt(i));
             }
         }
+        if (removed == null || !hasSavedAt(removed.opt("savedAt"))) return false;
         try {
-            db.put("orders", next);
-            persistDb(db);
+            JSONArray deleted = db.optJSONArray("deletedOrders");
+            if (deleted == null) deleted = new JSONArray();
+            JSONObject entry = new JSONObject();
+            entry.put("order", new JSONObject(removed.toString()));
+            entry.put("deletedAt", System.currentTimeMillis());
+            deleted.put(entry);
+            db.put("deletedOrders", deleted);
+            db.put("orders", remaining);
+            // A single durable write moves the record atomically into the trash.
+            return persistDb(db, true);
         } catch (Exception ignored) {
+            return false;
         }
+    }
+
+    synchronized List<DeletedProject> loadDeleted() {
+        ArrayList<DeletedProject> result = new ArrayList<>();
+        JSONArray deleted = loadDb().optJSONArray("deletedOrders");
+        if (deleted == null) return result;
+        for (int i = deleted.length() - 1; i >= 0; i--) {
+            JSONObject entry = deleted.optJSONObject(i);
+            JSONObject order = entry == null ? null : entry.optJSONObject("order");
+            if (order == null) continue;
+            result.add(new DeletedProject(projectFromWebOrder(order),
+                    entry.optLong("deletedAt", 0L)));
+        }
+        return result;
+    }
+
+    synchronized boolean restoreDeleted(@NonNull String id) {
+        JSONObject db = loadDb();
+        JSONArray deleted = db.optJSONArray("deletedOrders");
+        if (deleted == null) return false;
+        JSONArray orders = db.optJSONArray("orders");
+        if (orders == null) orders = new JSONArray();
+        for (int i = 0; i < orders.length(); i++) {
+            JSONObject existing = orders.optJSONObject(i);
+            if (existing != null && id.equals(existing.optString("id", ""))) {
+                return false; // Never overwrite another existing project.
+            }
+        }
+        JSONArray remainingTrash = new JSONArray();
+        JSONObject recovered = null;
+        for (int i = 0; i < deleted.length(); i++) {
+            JSONObject item = deleted.optJSONObject(i);
+            JSONObject order = item == null ? null : item.optJSONObject("order");
+            if (recovered == null && order != null
+                    && id.equals(order.optString("id", ""))) {
+                recovered = order;
+            } else {
+                remainingTrash.put(deleted.opt(i));
+            }
+        }
+        if (recovered == null) return false;
+        try {
+            JSONArray restored = new JSONArray();
+            restored.put(new JSONObject(recovered.toString()));
+            for (int i = 0; i < orders.length(); i++) restored.put(orders.opt(i));
+            db.put("orders", restored);
+            db.put("deletedOrders", remainingTrash);
+            return persistDb(db, true);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isInTrash(JSONObject db, String id) {
+        JSONArray deleted = db.optJSONArray("deletedOrders");
+        if (deleted == null) return false;
+        for (int i = 0; i < deleted.length(); i++) {
+            JSONObject entry = deleted.optJSONObject(i);
+            JSONObject order = entry == null ? null : entry.optJSONObject("order");
+            if (order != null && id.equals(order.optString("id", ""))) return true;
+        }
+        return false;
     }
 
     String exportBackup() {

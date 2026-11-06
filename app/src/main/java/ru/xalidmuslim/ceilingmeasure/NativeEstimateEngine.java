@@ -23,11 +23,11 @@ final class NativeEstimateEngine {
     static final Meta[] INTERNAL_META = new Meta[]{
             new Meta("canvas","Полотно","м²"),
             new Meta("baguette","Багет","м"),
+            new Meta("dowel","Дюбель","шт"),
             new Meta("insert","Вставка","м"),
             new Meta("light","Светильники","шт"),
             new Meta("corner","Углы","шт"),
             new Meta("cornice","Карниз","м"),
-            new Meta("dowel","Дюбель","шт"),
             new Meta("lightline","Световые линии","м"),
             new Meta("pipe","Трубы","шт")
     };
@@ -162,11 +162,11 @@ final class NativeEstimateEngine {
 
         addInternal(lines, room, hidden, "canvas", m.areaM2, "Полотно", "м²", false);
         addInternal(lines, room, hidden, "baguette", m.perimeterM, "Багет", "м", false);
+        addInternal(lines, room, hidden, "dowel", dowelQty, "Дюбель", "шт", true);
         addInternal(lines, room, hidden, "insert", m.perimeterM, "Вставка", "м", true);
         addInternal(lines, room, hidden, "light", value(room.extraQty,"light"), "Светильники", "шт", true);
         addInternal(lines, room, hidden, "corner", value(room.extraQty,"corner"), "Углы", "шт", true);
         addInternal(lines, room, hidden, "cornice", value(room.extraQty,"cornice"), "Карниз", "м", true);
-        addInternal(lines, room, hidden, "dowel", dowelQty, "Дюбель", "шт", true);
         addInternal(lines, room, hidden, "lightline", value(room.extraQty,"lightline"), "Световые линии", "м", true);
         addInternal(lines, room, hidden, "pipe", value(room.extraQty,"pipe"), "Трубы", "шт", true);
         for (NativeProjectStore.MaterialData item : room.customItems) {

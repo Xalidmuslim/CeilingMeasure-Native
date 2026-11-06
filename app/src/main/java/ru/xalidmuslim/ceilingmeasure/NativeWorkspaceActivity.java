@@ -210,7 +210,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             showSavedMeasurements();
         } else {
             editorOpenedFromSavedMeasurements = false;
-            showEditor(ACTION_DRAWING.equals(action));
+            showEditor(ACTION_DRAWING.equals(action) || ACTION_NEW_ORDER.equals(action));
             if (ACTION_SETTINGS.equals(action)) {
                 getWindow().getDecorView().post(this::showNativeSettings);
             } else if (ACTION_MATERIALS.equals(action)) {
@@ -3188,8 +3188,11 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         recent.setTag("native_saved_recent");
         Button all=button("Все",false);
         all.setTag("native_saved_all");
+        Button trash=button("Корзина",false);
+        trash.setTag("native_saved_trash");
         filters.addView(recent,weightParams());
         filters.addView(all,weightParams());
+        filters.addView(trash,weightParams());
 
         LinearLayout backup=new LinearLayout(this);
         backup.setOrientation(LinearLayout.HORIZONTAL);
@@ -3227,31 +3230,47 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         content.addView(list,marginParams(0,5));
 
         final boolean[] recentMode={true};
+        final boolean[] trashMode={false};
         final List<NativeProjectStore.ProjectData> savedSnapshot =
                 new java.util.ArrayList<>(store.loadSaved());
         // Sort once per screen opening, not for each IME keypress.
         savedSnapshot.sort((a,b)->Long.compare(
                 b.savedAt>0?b.savedAt:b.updatedAt,
                 a.savedAt>0?a.savedAt:a.updatedAt));
-        Runnable render=()->renderSavedList(
-                list,
-                search.getText().toString(),
-                recentMode[0],
-                savedSnapshot);
+        Runnable render=()->{
+            if (trashMode[0]) {
+                renderTrashList(list,search.getText().toString());
+            } else {
+                renderSavedList(list,search.getText().toString(),
+                        recentMode[0],savedSnapshot);
+            }
+        };
         final Runnable[] queuedSearch={null};
 
         recent.setOnClickListener(v->{
             NativeTransformerMotion.selection(recent,-1);
             recentMode[0]=true;
+            trashMode[0]=false;
             styleMode(recent,true);
             styleMode(all,false);
+            styleMode(trash,false);
             render.run();
         });
         all.setOnClickListener(v->{
             NativeTransformerMotion.selection(all,1);
             recentMode[0]=false;
+            trashMode[0]=false;
             styleMode(recent,false);
             styleMode(all,true);
+            styleMode(trash,false);
+            render.run();
+        });
+        trash.setOnClickListener(v->{
+            NativeTransformerMotion.selection(trash,1);
+            trashMode[0]=true;
+            styleMode(recent,false);
+            styleMode(all,false);
+            styleMode(trash,true);
             render.run();
         });
 
@@ -3319,7 +3338,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if(visible.isEmpty()){
             TextView empty=text(
                     q.isEmpty()
-                            ?"Сохранённых замеров пока нет.\nЗаверши замер кнопкой «Завершить замер»."
+                            ?"Сохранённых замеров пока нет.\nНачни новый замер."
                             :"Ничего не найдено.",
                     13,
                     MUTED,
@@ -3379,19 +3398,77 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         }
     }
 
+    private void renderTrashList(LinearLayout list, String query) {
+        list.removeAllViews();
+        String q=query==null?"":query.trim().toLowerCase(Locale.ROOT);
+        SimpleDateFormat df=new SimpleDateFormat("dd.MM.yyyy HH:mm",Locale.getDefault());
+        int visible=0;
+        for (NativeProjectStore.DeletedProject deleted : store.loadDeleted()) {
+            NativeProjectStore.ProjectData p=deleted.project;
+            StringBuilder hay=new StringBuilder()
+                    .append(p.name).append(' ')
+                    .append(p.phone).append(' ')
+                    .append(p.address);
+            for (NativeProjectStore.RoomData room:p.rooms) {
+                hay.append(' ').append(room.name);
+            }
+            if (!q.isEmpty() && !hay.toString().toLowerCase(Locale.ROOT).contains(q)) {
+                continue;
+            }
+            visible++;
+            LinearLayout row=card();
+            row.setTag("native_trash_item_"+p.id);
+            row.addView(text(
+                    p.name==null||p.name.trim().isEmpty()?"Без имени":p.name.trim(),
+                    14,TEXT,Typeface.BOLD));
+            row.addView(text("Комнат: "+p.rooms.size()
+                    +" · Удалён: "+df.format(new Date(deleted.deletedAt)),
+                    11,MUTED,Typeface.NORMAL),marginParams(0,3));
+            Button recover=button("Восстановить",false);
+            recover.setTag("native_trash_restore_"+p.id);
+            recover.setOnClickListener(v->{
+                if (store.restoreDeleted(p.id)) {
+                    Toast.makeText(this,"Замер восстановлен",Toast.LENGTH_SHORT).show();
+                    showSavedMeasurements();
+                } else {
+                    Toast.makeText(this,"Не удалось восстановить замер",
+                            Toast.LENGTH_LONG).show();
+                }
+            });
+            row.addView(recover,marginParams(0,6));
+            list.addView(row,marginParams(0,4));
+        }
+        if (visible==0) {
+            TextView empty=text(q.isEmpty()?"Корзина пуста":"Ничего не найдено.",
+                    13,MUTED,Typeface.NORMAL);
+            empty.setGravity(Gravity.CENTER);
+            empty.setPadding(dp(10),dp(28),dp(10),dp(28));
+            list.addView(empty);
+        }
+    }
+
     private void showSavedAction(NativeProjectStore.ProjectData saved){
         new NativeStyledAlertDialog.Builder(this)
                 .setTitle("Замер")
                 .setMessage(saved.name==null||saved.name.isEmpty()?"Заказчик":saved.name)
                 .setNegativeButton("Закрыть",null)
                 .setPositiveButton("Удалить",(d,w)->new NativeStyledAlertDialog.Builder(this)
-                        .setTitle("Удалить замер?")
-                        .setMessage("Будут удалены этот заказ, его комнаты и чертежи.")
+                        .setTitle("Переместить в корзину?")
+                        .setMessage("Заказ, комнаты и чертежи можно восстановить из корзины.")
                         .setNegativeButton("Отмена",null)
-                        .setPositiveButton("Удалить",(dd,ww)->{
-                            store.deleteSaved(saved.id);
+                        .setPositiveButton("В корзину",(dd,ww)->{
+                            if (!store.deleteSaved(saved.id)) {
+                                Toast.makeText(this,"Не удалось переместить замер",
+                                        Toast.LENGTH_LONG).show();
+                                return;
+                            }
                             if(project!=null&&saved.id.equals(project.id)){
-                                project=store.newProject();
+                                // Discard the detached editor that still displays
+                                // the now-trashed drawing. Never reopen stale views.
+                                workspacePage=null;
+                                savedOpenedFromEditor=false;
+                                editorOpenedFromSavedMeasurements=false;
+                                project=store.loadCurrent();
                             }
                             showSavedMeasurements();
                         }).show())

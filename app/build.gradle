@@ -18,8 +18,8 @@ android {
         applicationId 'ru.xalidmuslim.ceilingmeasure'
         minSdk 29
         targetSdk 35
-        versionCode 270
-        versionName '1.0.270-auto-ceiling-loop-r8'
+        versionCode 271
+        versionName '1.0.271-direct-plus-trash-r8'
 
         buildConfigField 'String', 'LICENSE_SERVER_URL', JsonOutput.toJson(licenseUrl)
         buildConfigField 'String', 'LICENSE_PUBLIC_KEY_B64', JsonOutput.toJson(licenseKey)
@@ -51,10 +51,10 @@ android {
             // Install next to BOTH production and the previous v242 debug preview.
             // The standard Android debug keystore signs only this test build.
             signingConfig signingConfigs.debug
-            // v270 has a dedicated install ID: GitHub runners generate separate
+            // v271 has a dedicated install ID: GitHub runners generate separate
             // ephemeral debug signing keys, so replacing an older .optimized APK
             // could otherwise require uninstalling it and deleting test data.
-            applicationIdSuffix '.smooth270'
+            applicationIdSuffix '.smooth271'
             versionNameSuffix '-preview'
             matchingFallbacks = ['release']
         }
