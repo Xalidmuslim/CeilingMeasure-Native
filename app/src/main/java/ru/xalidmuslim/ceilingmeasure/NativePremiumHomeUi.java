@@ -153,7 +153,6 @@ final class NativePremiumHomeUi {
         addLoadingSkeleton();
         addDock(screen);
         addCompactHeader(screen);
-        addSpeedDial(screen);
         scroll.setOnScrollChangeListener((View v, int x, int y, int oldX, int oldY) ->
                 onHomeScroll(screen, y, oldY));
         return screen;
@@ -579,19 +578,12 @@ final class NativePremiumHomeUi {
         plusButton = plus;
         plus.setOnClickListener(v -> {
             NativeTransformerMotion.navigationTapHaptic(v);
-            if (NativeBottomNavMode.isFixed(activity)) {
-                // Same existing tap motion and indicator as the other four slots.
-                NativeTransformerMotion.selection(plus, 0);
-                NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 2);
-                openNew.run();
-            } else if (!NativeHomeExpressiveMotion.enabled(v)) {
-                openNew.run();
-            } else {
-                toggleSpeedDial();
-            }
+            NativeTransformerMotion.selection(plus, 0);
+            NativeHomeExpressiveMotion.moveIndicator(liquidIndicator, 2);
+            // The central + always creates and opens a measurement directly.
+            openNew.run();
         });
         plusSlot.addView(plus, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        plusSlot.addView(text("Новый", 9.5f, MUTED, false), matchTop(1));
 
         addNav(slots, R.drawable.ic_shell_layers, "Материалы", false, openMaterials, 3);
         addNav(slots, R.drawable.ic_shell_sliders, "Настройки", false, openSettings, 4);
