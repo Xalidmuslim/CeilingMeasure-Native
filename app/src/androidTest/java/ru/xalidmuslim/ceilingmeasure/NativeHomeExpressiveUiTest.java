@@ -2,44 +2,52 @@ package ru.xalidmuslim.ceilingmeasure;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
-import android.content.Context;
+import android.app.Activity;
+import android.app.Instrumentation;
 import android.view.View;
+import android.view.ViewGroup;
+
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Real accessibility-visible Home controls and radial navigation. */
+/** Central plus is a direct measurement action; no legacy selection overlay. */
 @RunWith(AndroidJUnit4.class)
 public final class NativeHomeExpressiveUiTest {
-    @Test public void plusDisplaysOnlyRealRoutesAndCanClose() {
-        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        boolean previous = NativeTransformerMode.enabled(context);
-        NativeTransformerMode.setEnabled(context, true);
+    @Test public void plusOpensMeasurementDirectlyWithoutLabelOrSectionPicker() {
+        boolean previous = NativeTransformerMode.enabled(
+                InstrumentationRegistry.getInstrumentation().getTargetContext());
+        NativeTransformerMode.setEnabled(
+                InstrumentationRegistry.getInstrumentation().getTargetContext(),true);
+        Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();
+        Instrumentation.ActivityMonitor monitor=instrumentation.addMonitor(
+                NativeWorkspaceActivity.class.getName(),null,false);
         try {
-            try (ActivityScenario<NativeHomeActivity> scenario =
-                         ActivityScenario.launch(NativeHomeActivity.class)) {
-                scenario.onActivity(activity -> {
-                    View root = activity.findViewById(android.R.id.content);
-                    assertNotNull(root.findViewWithTag("native_home_new"));
-                    assertNotNull(root.findViewWithTag("native_home_liquid_indicator"));
-                    assertNotNull(root.findViewWithTag("native_home_collapsing_app_bar"));
-                    View plus = root.findViewWithTag("native_home_nav_new");
+            try(ActivityScenario<NativeHomeActivity> scenario=
+                        ActivityScenario.launch(NativeHomeActivity.class)) {
+                scenario.onActivity(activity->{
+                    View root=activity.findViewById(android.R.id.content);
+                    View plus=root.findViewWithTag("native_home_nav_new");
                     assertNotNull(plus);
-                    View menu = root.findViewWithTag("native_home_speed_dial");
-                    assertNotNull(menu);
-                    plus.performClick();
-                    assertEquals(View.VISIBLE, menu.getVisibility());
-                    assertNotNull(menu.findViewWithTag("native_home_speed_action_0"));
-                    assertNotNull(menu.findViewWithTag("native_home_speed_action_1"));
-                    assertNotNull(menu.findViewWithTag("native_home_speed_action_2"));
+                    assertNull("Plus must not offer three route choices",
+                            root.findViewWithTag("native_home_speed_dial"));
+                    assertEquals("No 'Новый' caption below the plus",1,
+                            ((ViewGroup)plus.getParent()).getChildCount());
                     plus.performClick();
                 });
+                Activity opened=instrumentation.waitForMonitorWithTimeout(monitor,8000);
+                assertNotNull("Plus must navigate straight into the editor",opened);
+                assertEquals(NativeWorkspaceActivity.class,opened.getClass());
             }
         } finally {
-            NativeTransformerMode.setEnabled(context, previous);
+            instrumentation.removeMonitor(monitor);
+            NativeTransformerMode.setEnabled(
+                    InstrumentationRegistry.getInstrumentation().getTargetContext(),previous);
         }
     }
 }
