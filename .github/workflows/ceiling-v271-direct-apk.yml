@@ -36,14 +36,25 @@ jobs:
           cp app/build/outputs/apk/releasePreview/app-releasePreview.apk Zamer-v271.apk
           unzip -t Zamer-v271.apk | tail -n 2
           sha256sum Zamer-v271.apk
+      - name: Upload APK for direct in-chat attachment
+        uses: actions/upload-artifact@v4
+        with:
+          name: zamer-v271-apk
+          path: Zamer-v271.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Publish raw APK as prerelease asset (not Actions ZIP)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh release create zamer-v271-preview Zamer-v271.apk \
-            --repo "${{ github.repository }}" \
-            --target "${{ github.sha }}" \
-            --title "Замер потолков v271 — прямой APK (тестовая версия)" \
-            --notes "Тестовая установка с отдельным пакетом .smooth271: плюс открывает чертёж, корзина для замеров, дюбель под багетом и автосохранение. Данные других установок остаются отдельными и автоматически сюда не переносятся. Не для коммерческого распространения без полного QA." \
-            --prerelease
+          if gh release view zamer-v271-preview --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload zamer-v271-preview Zamer-v271.apk --repo "${{ github.repository }}" --clobber
+          else
+            gh release create zamer-v271-preview Zamer-v271.apk \
+              --repo "${{ github.repository }}" \
+              --target "${{ github.sha }}" \
+              --title "Замер потолков v271 — прямой APK (тестовая версия)" \
+              --notes "Тестовая установка с отдельным пакетом .smooth271: плюс открывает чертёж, корзина для замеров, дюбель под багетом и автосохранение. Данные других установок остаются отдельными и автоматически сюда не переносятся. Не для коммерческого распространения без полного QA." \
+              --prerelease
+          fi
