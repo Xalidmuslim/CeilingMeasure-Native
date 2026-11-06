@@ -282,7 +282,13 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     @Override
     protected void onPause() {
-        flushDeferredSave();
+        // Android may stop the editor without an explicit Back tap.
+        // Preserve the last unfinished room and any focused text fields.
+        if (workspacePage != null && !showingSavedMeasurements) {
+            saveEditorSnapshotBeforeLeaving();
+        } else {
+            flushDeferredSave();
+        }
         super.onPause();
     }
 
@@ -788,9 +794,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         Button save=button("✓ Завершить замер",true);
         save.setTag("native_save_measurement");
         save.setOnClickListener(v->{
-            syncProjectFields();
-            store.saveSnapshot(project);
-            Toast.makeText(this,"Замер завершён",Toast.LENGTH_SHORT).show();
+            syncEditorFieldsToProject();
+            if (store.saveSnapshot(project)) {
+                Toast.makeText(this,"Замер завершён",Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this,"Не удалось сохранить замер",Toast.LENGTH_LONG).show();
+            }
         });
         saveRow.addView(save,new LinearLayout.LayoutParams(dp(170),dp(52)));
         drawingCard.addView(saveRow);
@@ -1244,7 +1253,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if (project == null || index < 0 || index >= project.rooms.size()
                 || index == project.activeRoom) return;
         int travel = Integer.compare(index, project.activeRoom);
+        syncVisibleRoomNotes();
         project.activeRoom = index;
+        refreshVisibleRoomNotes();
+        scheduleSaveCurrent();
         updateRoomSelectionStyles();
         undoRooms.clear();
         redoRooms.clear();
@@ -1331,8 +1343,10 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 ?"Помещение "+(project.rooms.size()+1)
                 :type+" "+(same+1);
         NativeProjectStore.RoomData room=store.createRoom(roomName);
+        syncVisibleRoomNotes();
         project.rooms.add(room);
         project.activeRoom=project.rooms.size()-1;
+        refreshVisibleRoomNotes();
         scheduleSaveCurrent();
         undoRooms.clear();
         redoRooms.clear();
@@ -1344,6 +1358,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
 
     private void duplicateRoom(int index){
         if(index<0||index>=project.rooms.size())return;
+        syncVisibleRoomNotes();
         NativeProjectStore.RoomData source=project.rooms.get(index);
         NativeProjectStore.RoomData copy=
                 NativeProjectStore.roomFromSnapshot(
@@ -1352,6 +1367,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         copy.name=source.name+" копия";
         project.rooms.add(index+1,copy);
         project.activeRoom=index+1;
+        refreshVisibleRoomNotes();
         scheduleSaveCurrent();
         undoRooms.clear();
         redoRooms.clear();
@@ -1390,10 +1406,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                 .setMessage(roomName+" и её чертёж будут удалены.")
                 .setNegativeButton("Отмена",null)
                 .setPositiveButton("Удалить",(dialog,which)->{
+                    syncVisibleRoomNotes();
                     project.rooms.remove(index);
                     if(project.activeRoom>index)project.activeRoom--;
                     if(project.activeRoom>=project.rooms.size())project.activeRoom=project.rooms.size()-1;
                     project.activeRoom=Math.max(0,project.activeRoom);
+                    refreshVisibleRoomNotes();
                     scheduleSaveCurrent();
                     renderRooms();
                     if(drawingView!=null)drawingView.setRoom(activeRoom());
@@ -1552,8 +1570,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                     if (phoneInput != null) project.phone = phoneInput.getText().toString().trim();
                     if (addressInput != null) project.address = addressInput.getText().toString().trim();
                     if (notesInput != null) activeRoom().notes = notesInput.getText().toString();
-                    NativeProjectStore.ProjectData previous = project;
-                    saveProjectAsync(previous);
+                    if (!saveEditorSnapshotBeforeLeaving()) return;
                     project = store.newProject();
                     savedOpenedFromEditor = false;
                     editorOpenedFromSavedMeasurements = false;
@@ -1966,20 +1983,45 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
         if (store != null && target != null) store.saveCurrent(target);
     }
 
-    private void syncProjectFieldsDeferred() {
-        if(nameInput!=null)project.name=nameInput.getText().toString().trim();
-        if(phoneInput!=null)project.phone=phoneInput.getText().toString().trim();
-        if(addressInput!=null)project.address=addressInput.getText().toString().trim();
+    private void syncVisibleRoomNotes() {
+        if (project != null && notesInput != null && !showingSavedMeasurements) {
+            activeRoom().notes = notesInput.getText().toString();
+        }
+    }
+
+    private void refreshVisibleRoomNotes() {
+        if (notesInput != null) notesInput.setText(activeRoom().notes);
+    }
+
+    private void syncEditorFieldsToProject() {
+        if (project == null) return;
+        if (nameInput != null) project.name = nameInput.getText().toString().trim();
+        if (phoneInput != null) project.phone = phoneInput.getText().toString().trim();
+        if (addressInput != null) project.address = addressInput.getText().toString().trim();
+        syncVisibleRoomNotes();
         updateOrderSummary();
+    }
+
+    private void syncProjectFieldsDeferred() {
+        syncEditorFieldsToProject();
         scheduleSaveCurrent();
     }
 
-    private void syncProjectFields(){
-        if(nameInput!=null)project.name=nameInput.getText().toString().trim();
-        if(phoneInput!=null)project.phone=phoneInput.getText().toString().trim();
-        if(addressInput!=null)project.address=addressInput.getText().toString().trim();
-        updateOrderSummary();
+    private void syncProjectFields() {
+        syncEditorFieldsToProject();
         store.saveCurrent(project);
+    }
+
+    /** Persist the full editable state before leaving the editor, not 180 ms later. */
+    private boolean saveEditorSnapshotBeforeLeaving() {
+        if (store == null || project == null || workspacePage == null
+                || showingSavedMeasurements) return true;
+        syncEditorFieldsToProject();
+        uiHandler.removeCallbacks(deferredSave);
+        pendingSaveProject = null;
+        if (store.saveSnapshot(project)) return true;
+        Toast.makeText(this, "Не удалось сохранить замер", Toast.LENGTH_LONG).show();
+        return false;
     }
 
     private NativeProjectStore.RoomData activeRoom(){
@@ -3073,15 +3115,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void goHome() {
-        if (project != null) {
-            if (nameInput != null) {
-                if(nameInput!=null)project.name=nameInput.getText().toString().trim();
-                if(phoneInput!=null)project.phone=phoneInput.getText().toString().trim();
-                if(addressInput!=null)project.address=addressInput.getText().toString().trim();
-                if(notesInput!=null)activeRoom().notes=notesInput.getText().toString();
-            }
-            scheduleSaveCurrent();
-        }
+        if (!saveEditorSnapshotBeforeLeaving()) return;
         Intent intent = new Intent(this, NativeHomeActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(intent);
@@ -3110,6 +3144,8 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
     }
 
     private void showSavedMeasurements(){
+        // The list queries savedAt immediately; a debounced save would be invisible.
+        if (!saveEditorSnapshotBeforeLeaving()) return;
         showingSavedMeasurements = true;
         ScrollView scroll=new ScrollView(this);
         scroll.setTag("native_saved_scroll");
