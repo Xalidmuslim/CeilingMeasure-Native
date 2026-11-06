@@ -3463,7 +3463,12 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
                                 return;
                             }
                             if(project!=null&&saved.id.equals(project.id)){
-                                project=store.newProject();
+                                // Discard the detached editor that still displays
+                                // the now-trashed drawing. Never reopen stale views.
+                                workspacePage=null;
+                                savedOpenedFromEditor=false;
+                                editorOpenedFromSavedMeasurements=false;
+                                project=store.loadCurrent();
                             }
                             showSavedMeasurements();
                         }).show())
