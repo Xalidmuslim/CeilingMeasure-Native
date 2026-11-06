@@ -406,8 +406,31 @@ final class NativeProjectStore {
     }
 
     // Read prices, hidden items, custom entries and order in one database pass.
-    PricePresetSnapshot loadPricePresetSnapshot(boolean client) {
+    synchronized PricePresetSnapshot loadPricePresetSnapshot(boolean client) {
         JSONObject db=loadDb();
+        if (!client && !db.optBoolean("dowelAfterBaguetteV271",false)) {
+            // One-time adjustment of legacy saved order. Move only the dowel;
+            // subsequent manual drag-and-drop order is left unchanged.
+            try {
+                JSONArray existing=db.optJSONArray("defaultPurchasePriceOrder");
+                if (existing!=null) {
+                    ArrayList<String> keys=new ArrayList<>();
+                    for (int i=0;i<existing.length();i++) {
+                        String key=existing.optString(i,"");
+                        if (!key.isEmpty()) keys.add(key);
+                    }
+                    if (keys.contains("std:baguette") && keys.contains("std:dowel")) {
+                        keys.remove("std:dowel");
+                        keys.add(keys.indexOf("std:baguette")+1,"std:dowel");
+                        db.put("defaultPurchasePriceOrder",new JSONArray(keys));
+                    }
+                }
+                db.put("dowelAfterBaguetteV271",true);
+                persistDb(db);
+            } catch (Exception ignored) {
+                // Keep the previous order intact on serialization failure.
+            }
+        }
         PricePresetSnapshot result=new PricePresetSnapshot();
         for(String key:client?CLIENT_PRICE_KEYS:INTERNAL_PRICE_KEYS)
             result.prices.put(key,0f);
