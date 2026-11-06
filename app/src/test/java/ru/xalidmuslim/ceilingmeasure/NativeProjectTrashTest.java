@@ -85,7 +85,8 @@ public final class NativeProjectTrashTest {
     }
 
     @Test public void existingPurchaseOrderMovesOnlyDowelOnce() {
-        NativeProjectStore store=new NativeProjectStore(new MemorySharedPreferences());
+        MemorySharedPreferences prefs=new MemorySharedPreferences();
+        NativeProjectStore store=new NativeProjectStore(prefs);
         java.util.List<String> old=java.util.Arrays.asList(
                 "std:canvas", "std:baguette", "std:insert", "std:light",
                 "custom:wood", "std:cornice", "std:dowel", "std:pipe");
@@ -99,8 +100,8 @@ public final class NativeProjectTrashTest {
         java.util.List<String> personal=java.util.Arrays.asList(
                 "std:canvas", "std:dowel", "std:baguette", "std:insert");
         store.saveDefaultPriceOrder(false,personal);
-        assertEquals(personal,new NativeProjectStore(
-                new MemorySharedPreferences()).loadDefaultPriceOrder(false).subList(0,0));
+        assertEquals(personal,new NativeProjectStore(prefs).loadDefaultPriceOrder(false));
+        assertEquals(personal,new NativeProjectStore(prefs).loadPricePresetSnapshot(false).order);
     }
 
     @Test public void baguettePrecedesDowelInDefaultPurchaseList() {
