@@ -249,7 +249,7 @@ final class NativeProjectStore {
         ensureCanonicalStore();
     }
 
-    ProjectData newProject() {
+    synchronized ProjectData newProject() {
         JSONObject db = loadDb();
         ProjectData project = new ProjectData();
         project.rooms.add(createRoomFromDb("Комната 1", db));
@@ -302,7 +302,13 @@ final class NativeProjectStore {
         return result;
     }
 
-    void saveCurrent(@NonNull ProjectData project) {
+    // The debounced background writer and navigation-time saves share one lock.
+    // A pending older JSON write must not overwrite a completed drawing snapshot.
+    synchronized void saveCurrent(@NonNull ProjectData project) {
+        saveCurrentInternal(project, false);
+    }
+
+    private boolean saveCurrentInternal(@NonNull ProjectData project, boolean durable) {
         project.updatedAt = System.currentTimeMillis();
         JSONObject db = loadDb();
         try {
@@ -323,9 +329,11 @@ final class NativeProjectStore {
             }
             if (!replaced) next.put(encoded);
             db.put("orders", next);
-            persistDb(db);
+            if (!persistDb(db, durable)) return false;
             project.raw = copyJson(encoded);
+            return true;
         } catch (Exception ignored) {
+            return false;
         }
     }
 
@@ -509,14 +517,16 @@ final class NativeProjectStore {
         return NativeDataContract.normalizeMaterialUnit(unit);
     }
 
-    void saveSnapshot(@NonNull ProjectData project) {
+    /** Make all rooms and unfinished geometry visible in Saved before navigation. */
+    synchronized boolean saveSnapshot(@NonNull ProjectData project) {
         long now = System.currentTimeMillis();
         project.savedAt = now;
         if (!project.rooms.isEmpty()) {
             int index = Math.max(0, Math.min(project.activeRoom, project.rooms.size() - 1));
             project.rooms.get(index).savedAt = now;
         }
-        saveCurrent(project);
+        // Navigation must finish the disk write, not merely enqueue an apply().
+        return saveCurrentInternal(project, true);
     }
 
     void updateSavedProject(@NonNull ProjectData project) {
@@ -713,15 +723,23 @@ final class NativeProjectStore {
     }
 
     private void persistDb(JSONObject input) {
+        persistDb(input, false);
+    }
+
+    private boolean persistDb(JSONObject input, boolean durable) {
         try {
             JSONObject canonical = NativeDataContract.canonicalizeDatabase(
                     input,
                     NativeDataContract.LegacyUnitMode.NONE,
                     NativeDataContract.RANDOM_IDS);
-            prefs.edit().putString(KEY_DB, canonical.toString()).apply();
+            SharedPreferences.Editor editor = prefs.edit().putString(KEY_DB, canonical.toString());
+            if (durable) return editor.commit();
+            editor.apply();
+            return true;
         } catch (Exception e) {
-            JSONObject empty = NativeDataContract.newEmptyDatabase();
-            prefs.edit().putString(KEY_DB, empty.toString()).apply();
+            // A failed serialization must never replace existing customer data
+            // with an empty database.
+            return false;
         }
     }
 
