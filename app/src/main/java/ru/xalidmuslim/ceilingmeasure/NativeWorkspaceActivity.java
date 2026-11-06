@@ -210,7 +210,7 @@ public final class NativeWorkspaceActivity extends ComponentActivity implements 
             showSavedMeasurements();
         } else {
             editorOpenedFromSavedMeasurements = false;
-            showEditor(ACTION_DRAWING.equals(action));
+            showEditor(ACTION_DRAWING.equals(action) || ACTION_NEW_ORDER.equals(action));
             if (ACTION_SETTINGS.equals(action)) {
                 getWindow().getDecorView().post(this::showNativeSettings);
             } else if (ACTION_MATERIALS.equals(action)) {
