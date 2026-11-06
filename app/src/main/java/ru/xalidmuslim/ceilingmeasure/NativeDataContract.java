@@ -26,8 +26,8 @@ final class NativeDataContract {
     static final String UI_PREFS_STORAGE_KEY = "ceilingMeasureUiPrefsV1";
 
     static final String[] INTERNAL_PRICE_KEYS = new String[]{
-            "canvas", "baguette", "insert", "light", "corner",
-            "cornice", "dowel", "lightline", "pipe"
+            "canvas", "baguette", "dowel", "insert", "light", "corner",
+            "cornice", "lightline", "pipe"
     };
     static final String[] INTERNAL_REMOVABLE_KEYS = new String[]{
             "insert", "light", "corner", "cornice", "dowel", "lightline", "pipe"
